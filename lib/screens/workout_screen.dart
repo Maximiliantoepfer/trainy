@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:trainy/models/exercise.dart';
 import 'package:trainy/models/exercise_in_workout.dart';
 import 'package:trainy/providers/theme_provider.dart';
+import 'package:trainy/screens/edit_exercise_in_workout_screen.dart';
 import 'package:trainy/services/exercise_database.dart';
 import 'package:trainy/services/workout_database.dart';
 import '../models/workout.dart';
@@ -265,9 +266,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                             )
                             : null,
                     onLongPress: () => _toggleSelection(exercise.id),
-                    onTap: () {
+                    onTap: () async {
                       if (_isSelectionMode) {
                         _toggleSelection(exercise.id);
+                      } else {
+                        final updated = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => EditExerciseInWorkoutScreen(
+                                  exercise: exercise,
+                                ),
+                          ),
+                        );
+                        if (updated != null && updated is ExerciseInWorkout) {
+                          setState(() {
+                            workout.exercises[index] = updated;
+                          });
+                          await _saveWorkout();
+                        }
                       }
                     },
                   );

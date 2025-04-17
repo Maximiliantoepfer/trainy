@@ -1,6 +1,7 @@
 // lib/models/exercise_in_workout.dart
 
 import 'package:flutter/material.dart';
+import 'dart:convert';
 
 class ExerciseInWorkout {
   final int id;
@@ -35,8 +36,8 @@ class ExerciseInWorkout {
       'name': name,
       'description': description,
       'trackedFields': trackedFields.join(','),
-      'defaultValues': defaultValues.toString(),
-      'units': units.toString(),
+      'defaultValues': jsonEncode(defaultValues),
+      'units': jsonEncode(units),
       'icon': icon.codePoint,
       'position': position,
     };
@@ -50,21 +51,20 @@ class ExerciseInWorkout {
       name: map['name'],
       description: map['description'] ?? '',
       trackedFields: (map['trackedFields'] as String).split(','),
-      defaultValues: _parseMap(map['defaultValues']),
-      units: _parseMap(map['units']),
+      defaultValues: _safeDecodeMap(map['defaultValues']),
+      units: _safeDecodeMap(map['units']),
       icon: IconData(map['icon'], fontFamily: 'MaterialIcons'),
       position: map['position'],
     );
   }
 
-  static Map<String, String> _parseMap(String input) {
-    input = input.replaceAll(RegExp(r'^{|}\$'), '');
-    if (input.trim().isEmpty) return {};
-    return Map.fromEntries(
-      input.split(', ').map((e) {
-        final parts = e.split(': ');
-        return MapEntry(parts[0], parts[1]);
-      }),
-    );
+  static Map<String, String> _safeDecodeMap(String? input) {
+    try {
+      final decoded = jsonDecode(input ?? '{}');
+      if (decoded is Map) {
+        return Map<String, String>.from(decoded);
+      }
+    } catch (_) {}
+    return {};
   }
 }
