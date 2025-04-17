@@ -137,9 +137,9 @@ class _EditExerciseInWorkoutScreenState
                   exerciseId: widget.exercise.exerciseId,
                   name: widget.exercise.name,
                   description: widget.exercise.description,
-                  trackedFields: trackedFields,
-                  defaultValues: Map<String, String>.from(defaultValues),
-                  units: Map<String, String>.from(units),
+                  trackedFields: List.from(trackedFields),
+                  defaultValues: Map.from(defaultValues),
+                  units: Map.from(units),
                   icon: widget.exercise.icon,
                   position: widget.exercise.position,
                 );
