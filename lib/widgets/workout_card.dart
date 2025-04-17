@@ -6,7 +6,7 @@ import '../screens/workout_screen.dart';
 class WorkoutCard extends StatelessWidget {
   final Workout workout;
 
-  WorkoutCard({required this.workout});
+  WorkoutCard({required this.workout, required Future<Null> Function() onTap});
 
   @override
   Widget build(BuildContext context) {

@@ -1,20 +1,17 @@
-import 'exercise.dart';
+// lib/models/workout.dart
+
+import 'package:trainy/models/exercise_in_workout.dart';
 
 class Workout {
-  final int id;
-  final String name;
-  final String description;
-  final List<Exercise> exercises;
+  int id;
+  String name;
+  String description;
+  List<ExerciseInWorkout> exercises;
 
   Workout({
     required this.id,
     required this.name,
-    required this.exercises,
     this.description = '',
+    this.exercises = const [],
   });
-
-  @override
-  String toString() {
-    return 'Workout{id: $id, name: $name, exercises: $exercises}';
-  }
 }
