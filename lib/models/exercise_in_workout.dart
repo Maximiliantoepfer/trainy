@@ -67,4 +67,31 @@ class ExerciseInWorkout {
     } catch (_) {}
     return {};
   }
+
+  // ✅ copyWith hinzugefügt
+  ExerciseInWorkout copyWith({
+    int? id,
+    int? workoutId,
+    int? exerciseId,
+    String? name,
+    String? description,
+    List<String>? trackedFields,
+    Map<String, String>? defaultValues,
+    Map<String, String>? units,
+    IconData? icon,
+    int? position,
+  }) {
+    return ExerciseInWorkout(
+      id: id ?? this.id,
+      workoutId: workoutId ?? this.workoutId,
+      exerciseId: exerciseId ?? this.exerciseId,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      trackedFields: trackedFields ?? List.from(this.trackedFields),
+      defaultValues: defaultValues ?? Map.from(this.defaultValues),
+      units: units ?? Map.from(this.units),
+      icon: icon ?? this.icon,
+      position: position ?? this.position,
+    );
+  }
 }

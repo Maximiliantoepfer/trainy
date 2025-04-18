@@ -212,6 +212,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
+  void _reindexExercises() {
+    for (var i = 0; i < widget.workout.exercises.length; i++) {
+      widget.workout.exercises[i] = widget.workout.exercises[i].copyWith(
+        position: i,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final workout = widget.workout;
@@ -240,6 +248,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ? [
                   IconButton(
                     icon: const Icon(Icons.delete),
+                    tooltip: "Ausgewählte löschen",
                     onPressed: () async {
                       setState(() {
                         workout.exercises.removeWhere(
@@ -247,6 +256,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         );
                         _selectedExerciseIds.clear();
                         _isSelectionMode = false;
+                        _reindexExercises(); // ✅ Positionen nach dem Löschen aktualisieren
                       });
                       await _updateWorkout();
                     },
@@ -286,12 +296,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     ? const Center(child: Text('Keine Übungen hinzugefügt.'))
                     : ReorderableListView.builder(
                       itemCount: workout.exercises.length,
-                      buildDefaultDragHandles: true,
+                      buildDefaultDragHandles:
+                          false, // <-- damit wir eigenen Handle nutzen
                       onReorder: (oldIndex, newIndex) async {
                         setState(() {
                           if (newIndex > oldIndex) newIndex--;
                           final item = workout.exercises.removeAt(oldIndex);
                           workout.exercises.insert(newIndex, item);
+                          _reindexExercises(); // ✅ Positionen neu setzen
                         });
                         await _updateWorkout();
                       },
@@ -321,79 +333,105 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                   isSelected ? accentColor : Colors.transparent,
                             ),
                           ),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () async {
-                              if (_isSelectionMode) {
-                                _toggleSelection(exercise.id);
-                              } else if (_isWorkoutRunning) {
-                                await _showTrackExerciseDialog(exercise);
-                              } else {
-                                final updated = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) =>
-                                            EditExerciseInWorkoutScreen(
-                                              exercise: exercise,
-                                            ),
-                                  ),
-                                );
-                                if (updated != null &&
-                                    updated is ExerciseInWorkout) {
-                                  setState(() {
-                                    workout.exercises[index] = updated;
-                                  });
-                                  await _updateWorkout();
-                                }
-                              }
-                            },
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isCompleted
-                                      ? Icons.check_circle
-                                      : exercise.icon,
-                                  color:
-                                      isCompleted ? Colors.green : accentColor,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () async {
+                                    if (_isSelectionMode) {
+                                      _toggleSelection(exercise.id);
+                                    } else if (_isWorkoutRunning) {
+                                      await _showTrackExerciseDialog(exercise);
+                                    } else {
+                                      final updated = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) =>
+                                                  EditExerciseInWorkoutScreen(
+                                                    exercise: exercise,
+                                                  ),
+                                        ),
+                                      );
+                                      if (updated != null &&
+                                          updated is ExerciseInWorkout) {
+                                        setState(() {
+                                          workout.exercises[index] = updated;
+                                        });
+                                        await _updateWorkout();
+                                      }
+                                    }
+                                  },
+                                  onLongPress: () {
+                                    // ✅ Starte Auswahlmodus + markiere Element
+                                    setState(() {
+                                      _isSelectionMode = true;
+                                      _selectedExerciseIds.add(exercise.id);
+                                    });
+                                  },
+
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        exercise.name,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          decoration:
-                                              isCompleted
-                                                  ? TextDecoration.lineThrough
-                                                  : null,
+                                      Icon(
+                                        isCompleted
+                                            ? Icons.check_circle
+                                            : exercise.icon,
+                                        color:
+                                            isCompleted
+                                                ? Colors.green
+                                                : accentColor,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              exercise.name,
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.titleMedium?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                decoration:
+                                                    isCompleted
+                                                        ? TextDecoration
+                                                            .lineThrough
+                                                        : null,
+                                              ),
+                                            ),
+                                            if (exercise.description.isNotEmpty)
+                                              Text(
+                                                exercise.description,
+                                                style:
+                                                    Theme.of(
+                                                      context,
+                                                    ).textTheme.bodySmall,
+                                              ),
+                                          ],
                                         ),
                                       ),
-                                      if (exercise.description.isNotEmpty)
-                                        Text(
-                                          exercise.description,
-                                          style:
-                                              Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall,
+                                      if (_isSelectionMode)
+                                        Checkbox(
+                                          value: isSelected,
+                                          onChanged:
+                                              (_) =>
+                                                  _toggleSelection(exercise.id),
                                         ),
                                     ],
                                   ),
                                 ),
-                                if (_isSelectionMode)
-                                  Checkbox(
-                                    value: isSelected,
-                                    onChanged:
-                                        (_) => _toggleSelection(exercise.id),
-                                  ),
-                              ],
-                            ),
+                              ),
+                              // 🟢 Drag Handle
+                              ReorderableDragStartListener(
+                                index: index,
+                                child: const Padding(
+                                  padding: EdgeInsets.only(left: 8.0),
+                                  child: Icon(Icons.drag_handle),
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },
