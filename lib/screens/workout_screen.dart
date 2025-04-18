@@ -78,10 +78,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     }
     await _updateWorkout();
 
-    // Fix: JSON-serialisierbare Map erzeugen
-    final cleanResults = _exerciseResults.map(
-      (key, value) => MapEntry(key.toString(), value),
-    );
+    // 🧠 Strukturierte Daten pro Übung vorbereiten
+    final trackedExercises =
+        widget.workout.exercises
+            .where((e) => _exerciseResults.containsKey(e.id))
+            .map(
+              (e) => {
+                'id': e.exerciseId,
+                'name': e.name,
+                'fields': _exerciseResults[e.id],
+              },
+            )
+            .toList();
 
     final entry = WorkoutEntry(
       id: DateTime.now().millisecondsSinceEpoch,
@@ -89,9 +97,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       date: DateTime.now(),
       results: {
         'durationInMinutes': duration.inMinutes,
-        'exercises': widget.workout.exercises.map((e) => e.name).toList(),
-        'completedExerciseIds': _completedExerciseIds.toList(),
-        'values': cleanResults,
+        'exercises': trackedExercises,
       },
     );
 

@@ -42,4 +42,18 @@ class WorkoutEntryDatabase {
     final entries = await getEntriesForWorkout(workoutId);
     return entries.isEmpty ? null : entries.first.date;
   }
+
+  Future<List<WorkoutEntry>> getAllEntries() async {
+    final db = await _db;
+    final result = await db.query('workout_entries', orderBy: 'date ASC');
+
+    return result.map((row) {
+      return WorkoutEntry(
+        id: row['id'] as int,
+        workoutId: row['workoutId'] as int,
+        date: DateTime.parse(row['date'] as String),
+        results: jsonDecode(row['results'] as String),
+      );
+    }).toList();
+  }
 }

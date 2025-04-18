@@ -3,11 +3,14 @@ import 'package:provider/provider.dart';
 import 'package:trainy/screens/exercise_screen.dart';
 import 'package:trainy/screens/home_screen.dart';
 import 'package:trainy/screens/settings_screen.dart';
+import 'package:trainy/screens/progress_screen.dart';
 import '../providers/theme_provider.dart';
 
 final GlobalKey<NavigatorState> _exerciseNavigatorKey =
     GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _homeNavigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<NavigatorState> _progressNavigatorKey =
+    GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _settingsNavigatorKey =
     GlobalKey<NavigatorState>();
 
@@ -34,6 +37,7 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     final accentColor = Provider.of<ThemeProvider>(context).getAccentColor();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final List<Widget> screens = [
       Navigator(
@@ -47,6 +51,11 @@ class _MainNavigationState extends State<MainNavigation> {
             (settings) => _onGenerateRoute(settings, const HomeScreen()),
       ),
       Navigator(
+        key: _progressNavigatorKey,
+        onGenerateRoute:
+            (settings) => _onGenerateRoute(settings, const ProgressScreen()),
+      ),
+      Navigator(
         key: _settingsNavigatorKey,
         onGenerateRoute:
             (settings) => _onGenerateRoute(settings, SettingsScreen()),
@@ -58,6 +67,7 @@ class _MainNavigationState extends State<MainNavigation> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         selectedItemColor: accentColor,
+        unselectedItemColor: isDark ? Colors.white70 : Colors.black54,
         onTap: (index) {
           if (index == _selectedIndex) {
             switch (index) {
@@ -72,6 +82,11 @@ class _MainNavigationState extends State<MainNavigation> {
                 );
                 break;
               case 2:
+                _progressNavigatorKey.currentState?.popUntil(
+                  (route) => route.isFirst,
+                );
+                break;
+              case 3:
                 _settingsNavigatorKey.currentState?.popUntil(
                   (route) => route.isFirst,
                 );
@@ -89,6 +104,10 @@ class _MainNavigationState extends State<MainNavigation> {
             label: 'Exercises',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.show_chart),
+            label: 'Progress',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Settings',
