@@ -1,3 +1,6 @@
+// Verbesserte Version basierend auf der ursprünglichen Datei mit integriertem modernem Design
+// (Fehlerbereinigung inklusive!)
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:trainy/models/exercise.dart';
@@ -13,7 +16,6 @@ import '../utils/utils.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final Workout workout;
-
   const WorkoutScreen({super.key, required this.workout});
 
   @override
@@ -26,7 +28,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   bool _isSelectionMode = false;
   bool _isWorkoutRunning = false;
   DateTime? _startTime;
-
   final Set<int> _selectedExerciseIds = {};
 
   @override
@@ -49,9 +50,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _updateWorkoutName(String newName) async {
-    setState(() {
-      widget.workout.name = newName;
-    });
+    setState(() => widget.workout.name = newName);
     await Provider.of<WorkoutProvider>(
       context,
       listen: false,
@@ -67,14 +66,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Future<void> _finishWorkout() async {
     if (_startTime == null) return;
-
-    final endTime = DateTime.now();
-    final duration = endTime.difference(_startTime!);
+    final duration = DateTime.now().difference(_startTime!);
 
     final entry = WorkoutEntry(
       id: DateTime.now().millisecondsSinceEpoch,
       workoutId: widget.workout.id,
-      date: endTime,
+      date: DateTime.now(),
       results: {
         'durationInMinutes': duration.inMinutes,
         'exercises': widget.workout.exercises.map((e) => e.name).toList(),
@@ -83,9 +80,37 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     await WorkoutEntryDatabase.instance.insertEntry(entry);
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Workout abgeschlossen! 👍')));
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder:
+          (context) => Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "Workout abgeschlossen!",
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Gut gemacht 💪",
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+    );
 
     setState(() {
       _isWorkoutRunning = false;
@@ -95,15 +120,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   void _toggleSelection(int id) {
     setState(() {
-      if (_selectedExerciseIds.contains(id)) {
-        _selectedExerciseIds.remove(id);
-        if (_selectedExerciseIds.isEmpty) {
-          _isSelectionMode = false;
-        }
-      } else {
-        _selectedExerciseIds.add(id);
-        _isSelectionMode = true;
-      }
+      _selectedExerciseIds.contains(id)
+          ? _selectedExerciseIds.remove(id)
+          : _selectedExerciseIds.add(id);
+      _isSelectionMode = _selectedExerciseIds.isNotEmpty;
     });
   }
 
@@ -161,6 +181,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     itemBuilder: (context, index) {
                       final template = filteredTemplates[index];
                       final isSelected = selectedIds.contains(template.id);
+
                       return CheckboxListTile(
                         value: isSelected,
                         title: Text(
@@ -181,37 +202,34 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         secondary: Icon(template.icon),
                         onChanged: (selected) {
                           setState(() {
-                            setDialogState(() {
-                              if (selected == true && !isSelected) {
-                                final newId =
-                                    DateTime.now().millisecondsSinceEpoch;
-                                final position =
-                                    widget.workout.exercises.length;
-                                widget.workout.exercises.add(
-                                  ExerciseInWorkout(
-                                    id: newId,
-                                    workoutId: widget.workout.id,
-                                    exerciseId: template.id,
-                                    name: template.name,
-                                    description: template.description,
-                                    trackedFields: List.from(
-                                      template.trackedFields,
-                                    ),
-                                    defaultValues: Map.from(
-                                      template.defaultValues,
-                                    ),
-                                    units: Map.from(template.units),
-                                    icon: template.icon,
-                                    position: position,
+                            if (selected == true && !isSelected) {
+                              final newId =
+                                  DateTime.now().millisecondsSinceEpoch;
+                              widget.workout.exercises.add(
+                                ExerciseInWorkout(
+                                  id: newId,
+                                  workoutId: widget.workout.id,
+                                  exerciseId: template.id,
+                                  name: template.name,
+                                  description: template.description,
+                                  trackedFields: List.from(
+                                    template.trackedFields,
                                   ),
-                                );
-                              } else if (selected == false && isSelected) {
-                                widget.workout.exercises.removeWhere(
-                                  (e) => e.exerciseId == template.id,
-                                );
-                              }
-                            });
+                                  defaultValues: Map.from(
+                                    template.defaultValues,
+                                  ),
+                                  units: Map.from(template.units),
+                                  icon: template.icon,
+                                  position: widget.workout.exercises.length,
+                                ),
+                              );
+                            } else if (selected == false && isSelected) {
+                              widget.workout.exercises.removeWhere(
+                                (e) => e.exerciseId == template.id,
+                              );
+                            }
                           });
+                          setDialogState(() {});
                         },
                       );
                     },
@@ -279,20 +297,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           if (_isWorkoutRunning)
             Container(
               width: double.infinity,
-              color: Colors.green.withOpacity(0.1),
+              decoration: BoxDecoration(
+                color: accentColor,
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+              ),
               padding: const EdgeInsets.all(16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.timer, color: Colors.green.shade800),
+                      Icon(Icons.timer, color: Colors.white),
                       const SizedBox(width: 8),
                       Text(
                         'Workout läuft seit ${_startTime?.hour.toString().padLeft(2, '0')}:${_startTime?.minute.toString().padLeft(2, '0')}',
                         style: TextStyle(
-                          color: Colors.green.shade800,
-                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -302,8 +325,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     icon: Icon(Icons.stop),
                     label: Text("Abschließen"),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.red,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -332,45 +355,85 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         final isSelected = _selectedExerciseIds.contains(
                           exercise.id,
                         );
-                        return ListTile(
+                        return Container(
                           key: ValueKey(exercise.id),
-                          leading: ReorderableDragStartListener(
-                            index: index,
-                            child: Icon(exercise.icon, color: textColor),
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
                           ),
-                          title: Text(exercise.name),
-                          subtitle: Text(exercise.description),
-                          trailing:
-                              _isSelectionMode
-                                  ? Checkbox(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceVariant.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color:
+                                  isSelected ? accentColor : Colors.transparent,
+                            ),
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () async {
+                              if (_isSelectionMode) {
+                                _toggleSelection(exercise.id);
+                              } else {
+                                final updated = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) =>
+                                            EditExerciseInWorkoutScreen(
+                                              exercise: exercise,
+                                            ),
+                                  ),
+                                );
+                                if (updated != null &&
+                                    updated is ExerciseInWorkout) {
+                                  setState(() {
+                                    workout.exercises[index] = updated;
+                                  });
+                                  await _updateWorkout();
+                                }
+                              }
+                            },
+                            child: Row(
+                              children: [
+                                Icon(exercise.icon, color: accentColor),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        exercise.name,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (exercise.description.isNotEmpty)
+                                        Text(
+                                          exercise.description,
+                                          style:
+                                              Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                if (_isSelectionMode)
+                                  Checkbox(
                                     value: isSelected,
                                     onChanged:
                                         (_) => _toggleSelection(exercise.id),
-                                  )
-                                  : null,
-                          onLongPress: () => _toggleSelection(exercise.id),
-                          onTap: () async {
-                            if (_isSelectionMode) {
-                              _toggleSelection(exercise.id);
-                            } else {
-                              final updated = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => EditExerciseInWorkoutScreen(
-                                        exercise: exercise,
-                                      ),
-                                ),
-                              );
-                              if (updated != null &&
-                                  updated is ExerciseInWorkout) {
-                                setState(() {
-                                  workout.exercises[index] = updated;
-                                });
-                                await _updateWorkout();
-                              }
-                            }
-                          },
+                                  ),
+                              ],
+                            ),
+                          ),
                         );
                       },
                     ),
