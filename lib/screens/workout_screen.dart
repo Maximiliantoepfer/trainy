@@ -1,5 +1,4 @@
-// Verbesserte Version basierend auf der ursprünglichen Datei mit integriertem modernem Design
-// (Fehlerbereinigung inklusive!)
+// workout_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -29,6 +28,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   bool _isWorkoutRunning = false;
   DateTime? _startTime;
   final Set<int> _selectedExerciseIds = {};
+  final Set<int> _completedExerciseIds = {};
+  final Map<int, Map<String, String>> _exerciseResults = {};
 
   @override
   void initState() {
@@ -61,12 +62,26 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     setState(() {
       _isWorkoutRunning = true;
       _startTime = DateTime.now();
+      _completedExerciseIds.clear();
+      _exerciseResults.clear();
     });
   }
 
   Future<void> _finishWorkout() async {
     if (_startTime == null) return;
     final duration = DateTime.now().difference(_startTime!);
+
+    for (final e in widget.workout.exercises) {
+      if (_exerciseResults.containsKey(e.id)) {
+        e.defaultValues.addAll(_exerciseResults[e.id]!);
+      }
+    }
+    await _updateWorkout();
+
+    // Fix: JSON-serialisierbare Map erzeugen
+    final cleanResults = _exerciseResults.map(
+      (key, value) => MapEntry(key.toString(), value),
+    );
 
     final entry = WorkoutEntry(
       id: DateTime.now().millisecondsSinceEpoch,
@@ -75,6 +90,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       results: {
         'durationInMinutes': duration.inMinutes,
         'exercises': widget.workout.exercises.map((e) => e.name).toList(),
+        'completedExerciseIds': _completedExerciseIds.toList(),
+        'values': cleanResults,
       },
     );
 
@@ -83,7 +100,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).cardColor,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder:
@@ -127,125 +144,70 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     });
   }
 
-  Future<void> _showExerciseSelectionDialog() async {
-    final allTemplates = await ExerciseDatabase.instance.getAllExercises();
-    final selectedIds =
-        widget.workout.exercises.map((e) => e.exerciseId).toSet();
-    final searchController = TextEditingController();
-    List<Exercise> filteredTemplates = List.from(allTemplates);
+  Future<void> _showTrackExerciseDialog(ExerciseInWorkout exercise) async {
+    final values = Map<String, String>.from(
+      _exerciseResults[exercise.id] ?? exercise.defaultValues,
+    );
 
-    await showDialog(
+    final controllerMap = {
+      for (final field in exercise.trackedFields)
+        field: TextEditingController(text: values[field] ?? ''),
+    };
+
+    await showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder:
-          (context) => StatefulBuilder(
-            builder: (context, setDialogState) {
-              void _applySearch(String query) {
-                setDialogState(() {
-                  filteredTemplates =
-                      allTemplates
-                          .where(
-                            (e) =>
-                                e.name.toLowerCase().contains(
-                                  query.toLowerCase(),
-                                ) ||
-                                e.description.toLowerCase().contains(
-                                  query.toLowerCase(),
-                                ),
-                          )
-                          .toList();
-                });
-              }
-
-              return AlertDialog(
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Übungen hinzufügen'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: searchController,
+          (context) => Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 24,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  exercise.name,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+                ...exercise.trackedFields.map(
+                  (field) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: TextField(
+                      controller: controllerMap[field],
+                      keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        prefixIcon: Icon(Icons.search),
-                        hintText: 'Suchen...',
-                        border: InputBorder.none,
+                        labelText: '$field (${exercise.units[field] ?? ""})',
+                        border: const OutlineInputBorder(),
                       ),
-                      onChanged: _applySearch,
                     ),
-                  ],
-                ),
-                content: SizedBox(
-                  width: double.maxFinite,
-                  height: 400,
-                  child: ListView.builder(
-                    itemCount: filteredTemplates.length,
-                    itemBuilder: (context, index) {
-                      final template = filteredTemplates[index];
-                      final isSelected = selectedIds.contains(template.id);
-
-                      return CheckboxListTile(
-                        value: isSelected,
-                        title: Text(
-                          template.name,
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (template.description.isNotEmpty)
-                              Text(template.description),
-                            if (template.trackedFields.isNotEmpty)
-                              Text(
-                                "Felder: ${template.trackedFields.join(', ')}",
-                              ),
-                          ],
-                        ),
-                        secondary: Icon(template.icon),
-                        onChanged: (selected) {
-                          setState(() {
-                            if (selected == true && !isSelected) {
-                              final newId =
-                                  DateTime.now().millisecondsSinceEpoch;
-                              widget.workout.exercises.add(
-                                ExerciseInWorkout(
-                                  id: newId,
-                                  workoutId: widget.workout.id,
-                                  exerciseId: template.id,
-                                  name: template.name,
-                                  description: template.description,
-                                  trackedFields: List.from(
-                                    template.trackedFields,
-                                  ),
-                                  defaultValues: Map.from(
-                                    template.defaultValues,
-                                  ),
-                                  units: Map.from(template.units),
-                                  icon: template.icon,
-                                  position: widget.workout.exercises.length,
-                                ),
-                              );
-                            } else if (selected == false && isSelected) {
-                              widget.workout.exercises.removeWhere(
-                                (e) => e.exerciseId == template.id,
-                              );
-                            }
-                          });
-                          setDialogState(() {});
-                        },
-                      );
-                    },
                   ),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () async {
-                      await _updateWorkout();
-                      Navigator.pop(context);
-                    },
-                    child: Text('Fertig'),
-                  ),
-                ],
-              );
-            },
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.check),
+                  label: const Text("Speichern"),
+                  onPressed: () {
+                    setState(() {
+                      final result = {
+                        for (final entry in controllerMap.entries)
+                          entry.key: entry.value.text.trim(),
+                      };
+                      _exerciseResults[exercise.id] = result;
+                      exercise.defaultValues.addAll(result);
+                      _completedExerciseIds.add(exercise.id);
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+              ],
+            ),
           ),
     );
   }
@@ -277,7 +239,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             _isSelectionMode
                 ? [
                   IconButton(
-                    icon: Icon(Icons.delete),
+                    icon: const Icon(Icons.delete),
                     onPressed: () async {
                       setState(() {
                         workout.exercises.removeWhere(
@@ -294,51 +256,34 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ),
       body: Column(
         children: [
-          if (_isWorkoutRunning)
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: accentColor,
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(16),
+          if (_isWorkoutRunning && _startTime != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Dauer: ${DateTime.now().difference(_startTime!).inMinutes.toString().padLeft(2, '0')}:${(DateTime.now().difference(_startTime!).inSeconds % 60).toString().padLeft(2, '0')}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.timer, color: Colors.white),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Workout läuft seit ${_startTime?.hour.toString().padLeft(2, '0')}:${_startTime?.minute.toString().padLeft(2, '0')}',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: _finishWorkout,
-                    icon: Icon(Icons.stop),
-                    label: Text("Abschließen"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.red,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ],
+            ),
+          if (_isWorkoutRunning)
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: LinearProgressIndicator(
+                value:
+                    workout.exercises.isEmpty
+                        ? 0
+                        : _completedExerciseIds.length /
+                            workout.exercises.length,
+                backgroundColor: Colors.grey[300],
+                color: accentColor,
               ),
             ),
           Expanded(
             child:
                 workout.exercises.isEmpty
-                    ? Center(child: Text('Keine Übungen hinzugefügt.'))
+                    ? const Center(child: Text('Keine Übungen hinzugefügt.'))
                     : ReorderableListView.builder(
                       itemCount: workout.exercises.length,
                       buildDefaultDragHandles: true,
@@ -355,6 +300,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         final isSelected = _selectedExerciseIds.contains(
                           exercise.id,
                         );
+                        final isCompleted = _completedExerciseIds.contains(
+                          exercise.id,
+                        );
+
                         return Container(
                           key: ValueKey(exercise.id),
                           margin: const EdgeInsets.symmetric(
@@ -377,6 +326,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                             onTap: () async {
                               if (_isSelectionMode) {
                                 _toggleSelection(exercise.id);
+                              } else if (_isWorkoutRunning) {
+                                await _showTrackExerciseDialog(exercise);
                               } else {
                                 final updated = await Navigator.push(
                                   context,
@@ -399,7 +350,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                             },
                             child: Row(
                               children: [
-                                Icon(exercise.icon, color: accentColor),
+                                Icon(
+                                  isCompleted
+                                      ? Icons.check_circle
+                                      : exercise.icon,
+                                  color:
+                                      isCompleted ? Colors.green : accentColor,
+                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
@@ -412,6 +369,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                           context,
                                         ).textTheme.titleMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
+                                          decoration:
+                                              isCompleted
+                                                  ? TextDecoration.lineThrough
+                                                  : null,
                                         ),
                                       ),
                                       if (exercise.description.isNotEmpty)
@@ -442,31 +403,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ),
       floatingActionButton:
           !_isSelectionMode
-              ? FloatingActionButton(
-                onPressed: _isWorkoutRunning ? null : _startWorkout,
-                backgroundColor: _isWorkoutRunning ? Colors.grey : accentColor,
-                child: Icon(_isWorkoutRunning ? Icons.timer : Icons.play_arrow),
-              )
-              : null,
-      bottomNavigationBar:
-          !_isWorkoutRunning
-              ? SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: ElevatedButton.icon(
-                    onPressed: _showExerciseSelectionDialog,
-                    icon: Icon(Icons.add),
-                    label: Text("Übung hinzufügen"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: accentColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
+              ? FloatingActionButton.extended(
+                onPressed: _isWorkoutRunning ? _finishWorkout : _startWorkout,
+                label: Text(_isWorkoutRunning ? "Beenden" : "Starten"),
+                icon: Icon(_isWorkoutRunning ? Icons.stop : Icons.play_arrow),
+                backgroundColor: _isWorkoutRunning ? Colors.red : accentColor,
               )
               : null,
     );
