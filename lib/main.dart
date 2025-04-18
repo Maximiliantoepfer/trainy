@@ -32,6 +32,9 @@ class MyApp extends StatelessWidget {
             colorScheme: themeProvider.getTheme().colorScheme.copyWith(
               primary: themeProvider.getAccentColor(),
             ),
+            splashFactory: NoSplash.splashFactory,
+            highlightColor: Colors.transparent,
+            splashColor: Colors.transparent,
           ),
           home: MainNavigation(),
         );
