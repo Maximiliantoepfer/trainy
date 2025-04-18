@@ -1,10 +1,8 @@
-// lib/screens/exercise_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/exercise.dart';
+import '../providers/exercise_provider.dart';
 import '../providers/theme_provider.dart';
-import '../services/exercise_database.dart';
 
 class ExerciseScreen extends StatefulWidget {
   const ExerciseScreen({super.key});
@@ -14,8 +12,6 @@ class ExerciseScreen extends StatefulWidget {
 }
 
 class _ExerciseScreenState extends State<ExerciseScreen> {
-  final List<Exercise> _exercises = [];
-  final List<Exercise> _filteredExercises = [];
   final Set<int> _selectedExerciseIds = {};
   bool _isSelectionMode = false;
   String _searchQuery = '';
@@ -23,36 +19,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   @override
   void initState() {
     super.initState();
-    _loadExercises();
-  }
-
-  Future<void> _loadExercises() async {
-    final data = await ExerciseDatabase.instance.getAllExercises();
-    _exercises.clear();
-    _exercises.addAll(data);
-    _applySearchFilter();
-  }
-
-  void _applySearchFilter() {
-    _filteredExercises.clear();
-    _filteredExercises.addAll(
-      _exercises.where(
-        (e) =>
-            e.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            e.description.toLowerCase().contains(_searchQuery.toLowerCase()),
-      ),
+    Future.microtask(
+      () =>
+          Provider.of<ExerciseProvider>(context, listen: false).loadExercises(),
     );
-    setState(() {});
-  }
-
-  Future<void> _deleteSelectedExercises() async {
-    await ExerciseDatabase.instance.deleteExercises(
-      _selectedExerciseIds.toList(),
-    );
-    _exercises.removeWhere((e) => _selectedExerciseIds.contains(e.id));
-    _selectedExerciseIds.clear();
-    _isSelectionMode = false;
-    _applySearchFilter();
   }
 
   void _openExerciseDialog({Exercise? exercise}) {
@@ -138,9 +108,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                 )
                                 .toList(),
                         onChanged: (val) {
-                          if (val != null) {
-                            defaultUnits[label] = val;
-                          }
+                          if (val != null) defaultUnits[label] = val;
                         },
                       ),
                     ),
@@ -245,7 +213,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                           ElevatedButton(
                             onPressed: () async {
                               if (nameController.text.isEmpty) return;
-                              final edited = Exercise(
+                              final newExercise = Exercise(
                                 id:
                                     exercise?.id ??
                                     DateTime.now().millisecondsSinceEpoch,
@@ -256,16 +224,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                 units: Map.from(defaultUnits),
                                 icon: selectedIcon,
                               );
-                              if (isEditing) {
-                                await ExerciseDatabase.instance.updateExercise(
-                                  edited,
-                                );
-                              } else {
-                                await ExerciseDatabase.instance.insertExercise(
-                                  edited,
-                                );
-                              }
-                              await _loadExercises();
+                              await Provider.of<ExerciseProvider>(
+                                context,
+                                listen: false,
+                              ).addOrUpdateExercise(newExercise);
                               Navigator.pop(context);
                             },
                             child: Text(isEditing ? 'Speichern' : 'Erstellen'),
@@ -287,101 +249,125 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   Widget build(BuildContext context) {
     final accentColor = Provider.of<ThemeProvider>(context).getAccentColor();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_isSelectionMode ? 'Übungen auswählen' : 'Übungen'),
-        actions:
-            _isSelectionMode
-                ? [
-                  IconButton(
-                    icon: Icon(Icons.delete),
-                    onPressed: _deleteSelectedExercises,
-                  ),
-                ]
-                : null,
-        bottom:
-            !_isSelectionMode
-                ? PreferredSize(
-                  preferredSize: Size.fromHeight(56.0),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 8.0,
-                    ),
-                    child: TextField(
-                      decoration: InputDecoration(
-                        prefixIcon: Icon(Icons.search),
-                        hintText: 'Suchen...',
-                        border: InputBorder.none,
-                        filled: true,
-                        fillColor: Theme.of(context).cardColor,
-                      ),
-                      onChanged: (value) {
-                        _searchQuery = value;
-                        _applySearchFilter();
-                      },
-                    ),
-                  ),
-                )
-                : null,
-      ),
-      body:
-          _filteredExercises.isEmpty
-              ? Center(child: Text('Keine passenden Übungen gefunden.'))
-              : ListView.builder(
-                itemCount: _filteredExercises.length,
-                itemBuilder: (context, index) {
-                  final ex = _filteredExercises[index];
-                  final isSelected = _selectedExerciseIds.contains(ex.id);
-                  return ListTile(
-                    leading: Icon(ex.icon ?? Icons.fitness_center),
-                    title: Text(ex.name),
-                    subtitle: Text(ex.description),
-                    trailing:
-                        _isSelectionMode
-                            ? Checkbox(
-                              value: isSelected,
-                              onChanged: (selected) {
-                                setState(() {
-                                  if (selected == true) {
-                                    _selectedExerciseIds.add(ex.id);
-                                  } else {
-                                    _selectedExerciseIds.remove(ex.id);
-                                  }
-                                });
-                              },
-                            )
-                            : null,
-                    onTap: () {
-                      if (_isSelectionMode) {
-                        setState(() {
-                          if (isSelected) {
-                            _selectedExerciseIds.remove(ex.id);
-                          } else {
-                            _selectedExerciseIds.add(ex.id);
-                          }
-                        });
-                      } else {
-                        _openExerciseDialog(exercise: ex);
-                      }
-                    },
-                    onLongPress: () {
-                      setState(() {
-                        _isSelectionMode = true;
-                        _selectedExerciseIds.add(ex.id);
-                      });
-                    },
+    return Consumer<ExerciseProvider>(
+      builder: (context, exerciseProvider, child) {
+        final exercises =
+            exerciseProvider.exercises.where((e) {
+              return e.name.toLowerCase().contains(
+                    _searchQuery.toLowerCase(),
+                  ) ||
+                  e.description.toLowerCase().contains(
+                    _searchQuery.toLowerCase(),
                   );
-                },
-              ),
-      floatingActionButton:
-          !_isSelectionMode
-              ? FloatingActionButton(
-                onPressed: () => _openExerciseDialog(),
-                backgroundColor: accentColor,
-                child: Icon(Icons.add),
-              )
-              : null,
+            }).toList();
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(_isSelectionMode ? 'Übungen auswählen' : 'Übungen'),
+            actions:
+                _isSelectionMode
+                    ? [
+                      IconButton(
+                        icon: Icon(Icons.delete),
+                        onPressed: () async {
+                          await Provider.of<ExerciseProvider>(
+                            context,
+                            listen: false,
+                          ).deleteExercises(_selectedExerciseIds.toList());
+                          setState(() {
+                            _isSelectionMode = false;
+                            _selectedExerciseIds.clear();
+                          });
+                        },
+                      ),
+                    ]
+                    : null,
+            bottom:
+                !_isSelectionMode
+                    ? PreferredSize(
+                      preferredSize: Size.fromHeight(56.0),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 8.0,
+                        ),
+                        child: TextField(
+                          decoration: InputDecoration(
+                            prefixIcon: Icon(Icons.search),
+                            hintText: 'Suchen...',
+                            border: InputBorder.none,
+                            filled: true,
+                            fillColor: Theme.of(context).cardColor,
+                          ),
+                          onChanged: (value) {
+                            setState(() => _searchQuery = value);
+                          },
+                        ),
+                      ),
+                    )
+                    : null,
+          ),
+          body:
+              exerciseProvider.isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : exercises.isEmpty
+                  ? Center(child: Text('Keine passenden Übungen gefunden.'))
+                  : ListView.builder(
+                    itemCount: exercises.length,
+                    itemBuilder: (context, index) {
+                      final ex = exercises[index];
+                      final isSelected = _selectedExerciseIds.contains(ex.id);
+                      return ListTile(
+                        leading: Icon(ex.icon),
+                        title: Text(ex.name),
+                        subtitle: Text(ex.description),
+                        trailing:
+                            _isSelectionMode
+                                ? Checkbox(
+                                  value: isSelected,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      if (val == true) {
+                                        _selectedExerciseIds.add(ex.id);
+                                      } else {
+                                        _selectedExerciseIds.remove(ex.id);
+                                      }
+                                    });
+                                  },
+                                )
+                                : null,
+                        onTap: () {
+                          if (_isSelectionMode) {
+                            setState(() {
+                              if (isSelected) {
+                                _selectedExerciseIds.remove(ex.id);
+                              } else {
+                                _selectedExerciseIds.add(ex.id);
+                              }
+                            });
+                          } else {
+                            _openExerciseDialog(exercise: ex);
+                          }
+                        },
+                        onLongPress: () {
+                          setState(() {
+                            _isSelectionMode = true;
+                            _selectedExerciseIds.add(ex.id);
+                          });
+                        },
+                      );
+                    },
+                  ),
+          floatingActionButton:
+              !_isSelectionMode
+                  ? FloatingActionButton(
+                    onPressed: () => _openExerciseDialog(),
+                    backgroundColor: accentColor,
+                    child: Icon(Icons.add),
+                  )
+                  : null,
+        );
+      },
     );
   }
 }

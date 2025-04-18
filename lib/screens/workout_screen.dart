@@ -1,14 +1,12 @@
-// lib/screens/workout_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:trainy/models/exercise.dart';
 import 'package:trainy/models/exercise_in_workout.dart';
+import 'package:trainy/models/workout.dart';
 import 'package:trainy/providers/theme_provider.dart';
+import 'package:trainy/providers/workout_provider.dart';
 import 'package:trainy/screens/edit_exercise_in_workout_screen.dart';
 import 'package:trainy/services/exercise_database.dart';
-import 'package:trainy/services/workout_database.dart';
-import '../models/workout.dart';
 import '../utils/utils.dart';
 
 class WorkoutScreen extends StatefulWidget {
@@ -38,18 +36,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     super.dispose();
   }
 
-  Future<void> _saveWorkout() async {
-    await WorkoutDatabase.instance.insertWorkout(widget.workout);
+  Future<void> _updateWorkout() async {
+    await Provider.of<WorkoutProvider>(
+      context,
+      listen: false,
+    ).updateWorkout(widget.workout);
   }
 
   Future<void> _updateWorkoutName(String newName) async {
     setState(() {
       widget.workout.name = newName;
     });
-    await WorkoutDatabase.instance.updateWorkoutName(
-      widget.workout.id,
-      newName,
-    );
+    await Provider.of<WorkoutProvider>(
+      context,
+      listen: false,
+    ).updateWorkoutName(widget.workout.id, newName);
   }
 
   void _showExerciseSelectionDialog() async {
@@ -164,7 +165,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               actions: [
                 TextButton(
                   onPressed: () async {
-                    await _saveWorkout();
+                    await _updateWorkout();
                     Navigator.pop(context);
                   },
                   child: Text('Fertig'),
@@ -194,6 +195,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   Widget build(BuildContext context) {
     final workout = widget.workout;
+    final accentColor = Provider.of<ThemeProvider>(context).getAccentColor();
+
     return Scaffold(
       appBar: AppBar(
         title:
@@ -227,7 +230,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         _selectedExerciseIds.clear();
                         _isSelectionMode = false;
                       });
-                      await _saveWorkout();
+                      await _updateWorkout();
                     },
                   ),
                 ]
@@ -245,7 +248,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     final item = workout.exercises.removeAt(oldIndex);
                     workout.exercises.insert(newIndex, item);
                   });
-                  await _saveWorkout();
+                  await _updateWorkout();
                 },
                 itemBuilder: (context, index) {
                   final exercise = workout.exercises[index];
@@ -283,7 +286,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           setState(() {
                             workout.exercises[index] = updated;
                           });
-                          await _saveWorkout();
+                          await _updateWorkout();
                         }
                       }
                     },
@@ -295,8 +298,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ? FloatingActionButton(
                 onPressed: _showExerciseSelectionDialog,
                 child: Icon(Icons.add),
-                backgroundColor:
-                    Provider.of<ThemeProvider>(context).getAccentColor(),
+                backgroundColor: accentColor,
               )
               : null,
     );
