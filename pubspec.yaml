@@ -41,6 +41,7 @@ dependencies:
   fl_chart: ^0.71.0
   intl: ^0.20.2
   collection: ^1.17.1
+  flutter_speed_dial: ^5.0.0
 
 dev_dependencies:
   flutter_test:

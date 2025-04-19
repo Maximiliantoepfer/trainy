@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:trainy/widgets/weekly_activity_chart.dart';
 import '../providers/progress_provider.dart';
+import '../widgets/filtered_exercise_progress_chart.dart';
+import '../widgets/trainings_calendar.dart';
 
 enum TimeRange { last7Days, last30Days, last90Days, last365Days }
 
@@ -102,132 +105,16 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 padding: const EdgeInsets.all(16.0),
                 child: ListView(
                   children: [
-                    Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 3,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Aktivität diese Woche',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children:
-                                  days.map((date) {
-                                    final weekday = DateFormat.E(
-                                      'de',
-                                    ).format(date).substring(0, 2);
-                                    final isTrained = trainedDays.contains(
-                                      formatter.format(date),
-                                    );
-                                    return CircleAvatar(
-                                      backgroundColor:
-                                          isTrained
-                                              ? Colors.green
-                                              : Colors.grey[800],
-                                      radius: 20,
-                                      child:
-                                          isTrained
-                                              ? const Icon(
-                                                Icons.check,
-                                                color: Colors.white,
-                                                size: 20,
-                                              )
-                                              : Text(
-                                                weekday,
-                                                style: const TextStyle(
-                                                  color: Colors.grey,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                    );
-                                  }).toList(),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: SliderTheme(
-                                    data: SliderThemeData(
-                                      trackHeight: 2,
-                                      thumbShape: const RoundSliderThumbShape(
-                                        enabledThumbRadius: 10,
-                                      ),
-                                    ),
-                                    child: Slider(
-                                      value: provider.weeklyGoal.toDouble(),
-                                      min: 1,
-                                      max: 7,
-                                      divisions: 6,
-                                      activeColor:
-                                          Theme.of(context).colorScheme.primary,
-                                      inactiveColor: Colors.grey,
-                                      onChanged: (value) {
-                                        provider.setWeeklyGoal(value.round());
-                                      },
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color:
-                                          trainingsDieseWoche >=
-                                                  provider.weeklyGoal
-                                              ? Colors.green
-                                              : Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurface
-                                                  .withOpacity(0.3),
-                                      width: 2,
-                                    ),
-                                    color: Colors.transparent,
-                                    //borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    trainingsDieseWoche >= provider.weeklyGoal
-                                        ? '🎯'
-                                        : '🚫',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            LinearProgressIndicator(
-                              value: (trainingsDieseWoche / provider.weeklyGoal)
-                                  .clamp(0.0, 1.0),
-                              backgroundColor: Colors.grey[800],
-                              color: Theme.of(context).colorScheme.primary,
-                              minHeight: 6,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ],
-                        ),
-                      ),
+                    WeeklyActivityChart(
+                      trainedDays: trainedDays,
+                      monday: monday,
+                      weeklyGoal: provider.weeklyGoal,
+                      trainingsDieseWoche: trainingsDieseWoche,
+                      onGoalChanged: (newGoal) {
+                        provider.setWeeklyGoal(newGoal);
+                      },
                     ),
+
                     const SizedBox(height: 24),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
@@ -356,6 +243,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
                         ),
                       ),
                     ),
+
+                    // WeightProgressChart(entries: provider.entries),
+                    FilteredExerciseProgressChart(entries: provider.entries),
+
+                    const SizedBox(height: 24),
+                    TrainingCalendar(entries: provider.entries),
                   ],
                 ),
               ),

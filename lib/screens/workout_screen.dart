@@ -79,7 +79,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     }
     await _updateWorkout();
 
-    // 🧠 Strukturierte Daten pro Übung vorbereiten
     final trackedExercises =
         widget.workout.exercises
             .where((e) => _exerciseResults.containsKey(e.id))
@@ -139,6 +138,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     setState(() {
       _isWorkoutRunning = false;
       _startTime = null;
+      _completedExerciseIds.clear();
+      _exerciseResults.clear();
     });
     Provider.of<ProgressProvider>(context, listen: false).refreshEntries();
   }
@@ -449,11 +450,211 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ),
       floatingActionButton:
           !_isSelectionMode
-              ? FloatingActionButton.extended(
-                onPressed: _isWorkoutRunning ? _finishWorkout : _startWorkout,
-                label: Text(_isWorkoutRunning ? "Beenden" : "Starten"),
-                icon: Icon(_isWorkoutRunning ? Icons.stop : Icons.play_arrow),
-                backgroundColor: _isWorkoutRunning ? Colors.red : accentColor,
+              ? Stack(
+                children: [
+                  Positioned(
+                    bottom: 80,
+                    right: 16,
+                    child: FloatingActionButton(
+                      heroTag: "addExercise",
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(Icons.add),
+                      onPressed: () async {
+                        final allExercises =
+                            await ExerciseDatabase.instance.getAllExercises();
+                        final alreadyAddedIds =
+                            widget.workout.exercises
+                                .map((e) => e.exerciseId)
+                                .toSet();
+                        final available =
+                            allExercises
+                                .where((e) => !alreadyAddedIds.contains(e.id))
+                                .toList();
+
+                        if (available.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                "Keine weiteren Übungen verfügbar.",
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        final selected = await showModalBottomSheet<Exercise?>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.surface,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(24),
+                            ),
+                          ),
+                          builder: (context) {
+                            final TextEditingController searchController =
+                                TextEditingController();
+                            List<Exercise> filtered = List.from(available);
+
+                            return StatefulBuilder(
+                              builder: (context, setModalState) {
+                                void _filter(String query) {
+                                  setModalState(() {
+                                    filtered =
+                                        available
+                                            .where(
+                                              (e) =>
+                                                  e.name.toLowerCase().contains(
+                                                    query.toLowerCase(),
+                                                  ) ||
+                                                  e.description
+                                                      .toLowerCase()
+                                                      .contains(
+                                                        query.toLowerCase(),
+                                                      ),
+                                            )
+                                            .toList();
+                                  });
+                                }
+
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    top: 24,
+                                    left: 16,
+                                    right: 16,
+                                    bottom:
+                                        MediaQuery.of(
+                                          context,
+                                        ).viewInsets.bottom +
+                                        16,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text(
+                                        "Übung hinzufügen",
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextField(
+                                        controller: searchController,
+                                        onChanged: _filter,
+                                        decoration: InputDecoration(
+                                          hintText: "Suchen...",
+                                          prefixIcon: const Icon(Icons.search),
+                                          filled: true,
+                                          isDense: true,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                vertical: 10,
+                                              ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Flexible(
+                                        child:
+                                            filtered.isEmpty
+                                                ? const Center(
+                                                  child: Text(
+                                                    "Keine passenden Übungen gefunden.",
+                                                  ),
+                                                )
+                                                : ListView.separated(
+                                                  shrinkWrap: true,
+                                                  itemCount: filtered.length,
+                                                  separatorBuilder:
+                                                      (_, __) => const Divider(
+                                                        height: 1,
+                                                      ),
+                                                  itemBuilder: (
+                                                    context,
+                                                    index,
+                                                  ) {
+                                                    final exercise =
+                                                        filtered[index];
+                                                    return ListTile(
+                                                      leading: Icon(
+                                                        exercise.icon,
+                                                        color:
+                                                            Theme.of(context)
+                                                                .colorScheme
+                                                                .primary,
+                                                      ),
+                                                      title: Text(
+                                                        exercise.name,
+                                                      ),
+                                                      subtitle: Text(
+                                                        exercise.description,
+                                                      ),
+                                                      onTap:
+                                                          () => Navigator.pop(
+                                                            context,
+                                                            exercise,
+                                                          ),
+                                                    );
+                                                  },
+                                                ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+
+                        if (selected != null) {
+                          final newExercise = ExerciseInWorkout(
+                            id: DateTime.now().millisecondsSinceEpoch,
+                            workoutId: widget.workout.id,
+                            exerciseId: selected.id,
+                            name: selected.name,
+                            description: selected.description,
+                            trackedFields: selected.trackedFields,
+                            defaultValues: selected.defaultValues,
+                            units: selected.units,
+                            icon: selected.icon,
+                            position: widget.workout.exercises.length,
+                          );
+                          setState(
+                            () => widget.workout.exercises.add(newExercise),
+                          );
+                          await _updateWorkout();
+                        }
+                      },
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 16,
+                    right: 16,
+                    child: FloatingActionButton.extended(
+                      heroTag: "startStopWorkout",
+                      backgroundColor:
+                          _isWorkoutRunning
+                              ? Colors.red
+                              : Theme.of(context).colorScheme.primary,
+                      icon: Icon(
+                        _isWorkoutRunning ? Icons.stop : Icons.play_arrow,
+                      ),
+                      label: Text(_isWorkoutRunning ? "Beenden" : "Starten"),
+                      onPressed:
+                          _isWorkoutRunning ? _finishWorkout : _startWorkout,
+                    ),
+                  ),
+                ],
               )
               : null,
     );

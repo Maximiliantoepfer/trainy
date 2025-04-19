@@ -159,7 +159,13 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                       .map(
                                         (icon) => DropdownMenuItem(
                                           value: icon,
-                                          child: Icon(icon),
+                                          child: Icon(
+                                            icon,
+                                            color:
+                                                Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
+                                          ),
                                         ),
                                       )
                                       .toList(),
@@ -318,7 +324,16 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       final ex = exercises[index];
                       final isSelected = _selectedExerciseIds.contains(ex.id);
                       return ListTile(
-                        leading: Icon(ex.icon),
+                        leading: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: accentColor.withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(ex.icon, color: accentColor, size: 28),
+                        ),
+
                         title: Text(ex.name),
                         subtitle: Text(ex.description),
                         trailing:
