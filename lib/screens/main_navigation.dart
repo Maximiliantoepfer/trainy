@@ -53,7 +53,7 @@ class _MainNavigationState extends State<MainNavigation> {
       Navigator(
         key: _progressNavigatorKey,
         onGenerateRoute:
-            (settings) => _onGenerateRoute(settings, const ProgressScreen()),
+            (settings) => _onGenerateRoute(settings, ProgressScreen()),
       ),
       Navigator(
         key: _settingsNavigatorKey,

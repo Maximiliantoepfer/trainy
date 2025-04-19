@@ -1,3 +1,5 @@
+// ignore_for_file: use_key_in_widget_constructors
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -7,8 +9,6 @@ import '../providers/progress_provider.dart';
 enum TimeRange { last7Days, last30Days, last90Days, last365Days }
 
 class ProgressScreen extends StatefulWidget {
-  const ProgressScreen({super.key});
-
   @override
   State<ProgressScreen> createState() => _ProgressScreenState();
 }
@@ -30,6 +30,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
     }
   }
 
+  double getAverageDuration(List<double> durations) {
+    if (durations.isEmpty) return 0;
+    return durations.reduce((a, b) => a + b) / durations.length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<ProgressProvider>(context);
@@ -46,7 +51,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
             .map((e) => formatter.format(e.date))
             .toSet();
 
-    int trainingsDieseWoche = trainedDays.length;
+    final trainingsDieseWoche = trainedDays.length;
     final entriesInRange =
         provider.entries.where((e) => e.date.isAfter(_rangeStart)).toList();
 
@@ -83,6 +88,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
         sortedKeys
             .map((e) => DateFormat('E', 'de').format(DateTime.parse(e)))
             .toList();
+
+    final averageDuration = getAverageDuration(durationMap.values.toList());
 
     return Scaffold(
       appBar: AppBar(title: const Text('Fortschritt')),
@@ -166,7 +173,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                       min: 1,
                                       max: 7,
                                       divisions: 6,
-                                      label: '${provider.weeklyGoal}x',
+                                      activeColor:
+                                          Theme.of(context).colorScheme.primary,
+                                      inactiveColor: Colors.grey,
                                       onChanged: (value) {
                                         provider.setWeeklyGoal(value.round());
                                       },
@@ -179,17 +188,25 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                     vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    color:
-                                        trainingsDieseWoche >=
-                                                provider.weeklyGoal
-                                            ? Colors.green
-                                            : Colors.red,
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color:
+                                          trainingsDieseWoche >=
+                                                  provider.weeklyGoal
+                                              ? Colors.green
+                                              : Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withOpacity(0.3),
+                                      width: 2,
+                                    ),
+                                    color: Colors.transparent,
+                                    //borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
                                     trainingsDieseWoche >= provider.weeklyGoal
-                                        ? 'Ziel erreicht 🎉'
-                                        : 'Noch nicht erreicht',
+                                        ? '🎯'
+                                        : '🚫',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -198,51 +215,53 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 12),
+                            LinearProgressIndicator(
+                              value: (trainingsDieseWoche / provider.weeklyGoal)
+                                  .clamp(0.0, 1.0),
+                              backgroundColor: Colors.grey[800],
+                              color: Theme.of(context).colorScheme.primary,
+                              minHeight: 6,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 24),
-                    DropdownButtonFormField<TimeRange>(
-                      value: _selectedRange,
-                      decoration: InputDecoration(
-                        labelText: 'Zeitraum',
-                        prefixIcon: const Icon(Icons.date_range),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[900],
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: ToggleButtons(
+                        borderRadius: BorderRadius.circular(12),
+                        isSelected:
+                            TimeRange.values
+                                .map((e) => e == _selectedRange)
+                                .toList(),
+                        onPressed: (index) {
+                          setState(() {
+                            _selectedRange = TimeRange.values[index];
+                          });
+                        },
+                        children: const [
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('7 T'),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('30 T'),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('3 M'),
+                          ),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('1 J'),
+                          ),
+                        ],
                       ),
-                      onChanged: (newValue) {
-                        setState(() {
-                          _selectedRange = newValue!;
-                        });
-                      },
-                      items: const [
-                        DropdownMenuItem(
-                          value: TimeRange.last7Days,
-                          child: Text('Letzte 7 Tage'),
-                        ),
-                        DropdownMenuItem(
-                          value: TimeRange.last30Days,
-                          child: Text('Letzte 30 Tage'),
-                        ),
-                        DropdownMenuItem(
-                          value: TimeRange.last90Days,
-                          child: Text('Letzte 3 Monate'),
-                        ),
-                        DropdownMenuItem(
-                          value: TimeRange.last365Days,
-                          child: Text('Letztes Jahr'),
-                        ),
-                      ],
                     ),
-                    const SizedBox(height: 16),
                     Card(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -253,12 +272,25 @@ class _ProgressScreenState extends State<ProgressScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Workout-Dauer',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Workout-Dauer',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'Ø ${averageDuration.toStringAsFixed(1)} min',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 16),
                             AspectRatio(
@@ -315,7 +347,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                       sideTitles: SideTitles(showTitles: false),
                                     ),
                                   ),
-                                  gridData: FlGridData(show: true),
+                                  gridData: FlGridData(show: false),
                                   borderData: FlBorderData(show: true),
                                 ),
                               ),
