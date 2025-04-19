@@ -2,17 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:trainy/screens/exercise_screen.dart';
 import 'package:trainy/screens/home_screen.dart';
-import 'package:trainy/screens/settings_screen.dart';
 import 'package:trainy/screens/progress_screen.dart';
+import 'package:trainy/screens/settings_screen.dart';
 import '../providers/theme_provider.dart';
-
-final GlobalKey<NavigatorState> _exerciseNavigatorKey =
-    GlobalKey<NavigatorState>();
-final GlobalKey<NavigatorState> _homeNavigatorKey = GlobalKey<NavigatorState>();
-final GlobalKey<NavigatorState> _progressNavigatorKey =
-    GlobalKey<NavigatorState>();
-final GlobalKey<NavigatorState> _settingsNavigatorKey =
-    GlobalKey<NavigatorState>();
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -22,16 +14,28 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
-  int _selectedIndex = 1;
+  final PageController _pageController = PageController();
+  int _selectedIndex = 0; // Start mit HomeScreen
 
-  Route<dynamic> _onGenerateRoute(
-    RouteSettings settings,
-    Widget initialScreen,
-  ) {
-    return MaterialPageRoute(
-      builder: (context) => initialScreen,
-      settings: settings,
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const ExerciseScreen(),
+    ProgressScreen(),
+    SettingsScreen(),
+  ];
+
+  void _onTabTapped(int index) {
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
     );
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -39,77 +43,30 @@ class _MainNavigationState extends State<MainNavigation> {
     final accentColor = Provider.of<ThemeProvider>(context).getAccentColor();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final List<Widget> screens = [
-      Navigator(
-        key: _exerciseNavigatorKey,
-        onGenerateRoute:
-            (settings) => _onGenerateRoute(settings, const ExerciseScreen()),
-      ),
-      Navigator(
-        key: _homeNavigatorKey,
-        onGenerateRoute:
-            (settings) => _onGenerateRoute(settings, const HomeScreen()),
-      ),
-      Navigator(
-        key: _progressNavigatorKey,
-        onGenerateRoute:
-            (settings) => _onGenerateRoute(settings, ProgressScreen()),
-      ),
-      Navigator(
-        key: _settingsNavigatorKey,
-        onGenerateRoute:
-            (settings) => _onGenerateRoute(settings, SettingsScreen()),
-      ),
-    ];
-
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: screens),
+      body: PageView(
+        controller: _pageController,
+        physics: const BouncingScrollPhysics(),
+        onPageChanged: (index) => setState(() => _selectedIndex = index),
+        children: _screens,
+      ),
       bottomNavigationBar: BottomNavigationBar(
-        iconSize: 28,
         currentIndex: _selectedIndex,
+        iconSize: 28,
         type: BottomNavigationBarType.fixed,
         showSelectedLabels: false,
         showUnselectedLabels: false,
         selectedItemColor: accentColor,
         unselectedItemColor: isDark ? Colors.white70 : Colors.black54,
-        onTap: (index) {
-          if (index == _selectedIndex) {
-            switch (index) {
-              case 0:
-                _exerciseNavigatorKey.currentState?.popUntil(
-                  (route) => route.isFirst,
-                );
-                break;
-              case 1:
-                _homeNavigatorKey.currentState?.popUntil(
-                  (route) => route.isFirst,
-                );
-                break;
-              case 2:
-                _progressNavigatorKey.currentState?.popUntil(
-                  (route) => route.isFirst,
-                );
-                break;
-              case 3:
-                _settingsNavigatorKey.currentState?.popUntil(
-                  (route) => route.isFirst,
-                );
-                break;
-            }
-          } else {
-            setState(() {
-              _selectedIndex = index;
-            });
-          }
-        },
+        onTap: _onTabTapped,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.fitness_center_outlined),
-            label: 'Exercises',
-          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.fitness_center_outlined),
+            label: 'Exercises',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.show_chart_outlined),
