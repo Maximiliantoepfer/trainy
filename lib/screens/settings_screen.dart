@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import 'package:provider/provider.dart';
+import '../providers/progress_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
   // Konstante MaterialColor Objekte für DropdownButton
@@ -19,6 +21,28 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(title: Text('Einstellungen')),
       body: ListView(
         children: [
+          // Wöchentliches Ziel
+          Consumer<ProgressProvider>(
+            builder: (context, progress, child) {
+              return ListTile(
+                title: const Text('Wöchentliches Trainingsziel'),
+                subtitle: Text('${progress.weeklyGoal}x pro Woche'),
+                trailing: DropdownButton<int>(
+                  value: progress.weeklyGoal,
+                  onChanged: (value) {
+                    if (value != null) {
+                      progress.setWeeklyGoal(value);
+                    }
+                  },
+                  items:
+                      List.generate(7, (i) => i + 1).map((v) {
+                        return DropdownMenuItem(value: v, child: Text('$v x'));
+                      }).toList(),
+                ),
+              );
+            },
+          ),
+
           // Dark Mode Switch
           ListTile(
             title: Text('Dark Mode'),

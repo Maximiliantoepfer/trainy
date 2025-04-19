@@ -14,7 +14,7 @@ class AppDatabase {
 
     _database = await openDatabase(
       path,
-      version: 2, // 👈 von 1 auf 2 erhöhen!
+      version: 3, // 👈 von 1 auf 2 erhöhen!
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -30,6 +30,14 @@ class AppDatabase {
           workoutId INTEGER,
           date TEXT,
           results TEXT
+        );
+      ''');
+    }
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE user_settings (
+          id INTEGER PRIMARY KEY DEFAULT 0,
+          weekly_goal INTEGER
         );
       ''');
     }
@@ -77,6 +85,13 @@ class AppDatabase {
         workoutId INTEGER,
         date TEXT,
         results TEXT
+      );
+    ''');
+
+    await db.execute('''
+      CREATE TABLE user_settings (
+        id INTEGER PRIMARY KEY DEFAULT 0,
+        weekly_goal INTEGER
       );
     ''');
   }

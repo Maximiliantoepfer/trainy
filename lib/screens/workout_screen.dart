@@ -6,6 +6,7 @@ import 'package:trainy/models/exercise.dart';
 import 'package:trainy/models/exercise_in_workout.dart';
 import 'package:trainy/models/workout.dart';
 import 'package:trainy/models/workout_entry.dart';
+import 'package:trainy/providers/progress_provider.dart';
 import 'package:trainy/providers/theme_provider.dart';
 import 'package:trainy/providers/workout_provider.dart';
 import 'package:trainy/screens/edit_exercise_in_workout_screen.dart';
@@ -139,6 +140,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       _isWorkoutRunning = false;
       _startTime = null;
     });
+    Provider.of<ProgressProvider>(context, listen: false).refreshEntries();
   }
 
   void _toggleSelection(int id) {

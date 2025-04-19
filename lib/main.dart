@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'providers/theme_provider.dart';
 import 'providers/workout_provider.dart';
 import 'providers/exercise_provider.dart';
+import 'providers/progress_provider.dart';
 import 'screens/main_navigation.dart';
 
 Future<void> main() async {
@@ -11,6 +12,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ProgressProvider()..loadData()),
         ChangeNotifierProvider(create: (_) => ExerciseProvider()),
         ChangeNotifierProvider(create: (_) => WorkoutProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
