@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'providers/theme_provider.dart';
 import 'providers/workout_provider.dart';
 import 'providers/exercise_provider.dart';
 import 'screens/main_navigation.dart';
 
-void main() {
+Future<void> main() async {
+  await initializeDateFormatting('de', null);
   runApp(
     MultiProvider(
       providers: [
