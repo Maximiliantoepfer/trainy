@@ -15,8 +15,8 @@ class WorkoutCard extends StatelessWidget {
     final bgColor = Theme.of(context).cardColor;
 
     final int exerciseCount = workout.exercises.length;
-    final String lastUsedPlaceholder = "–"; // später: tatsächliches Datum
-    final double progressPlaceholder = 0.6; // später: aus Historie berechnen
+    final String lastUsedPlaceholder = "–"; // TODO: Historie einbauen
+    final double? progress = 0.6; // null = keine Daten
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -29,9 +29,9 @@ class WorkoutCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 6,
-                offset: Offset(0, 2),
+                color: Colors.black.withOpacity(0.07),
+                blurRadius: 8,
+                offset: Offset(0, 3),
               ),
             ],
           ),
@@ -39,20 +39,20 @@ class WorkoutCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              /// HEADER (Icon + Titel + Chevron)
               Row(
                 children: [
                   CircleAvatar(
                     radius: 22,
                     backgroundColor: primary.withOpacity(0.1),
-                    child: Icon(Icons.fitness_center, color: primary),
+                    child: Text('🏋️', style: TextStyle(fontSize: 20)),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       workout.name,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
                         color: textColor,
                       ),
                     ),
@@ -61,9 +61,8 @@ class WorkoutCard extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
-              /// DESCRIPTION
               if (workout.description.isNotEmpty)
                 Text(
                   workout.description,
@@ -74,33 +73,32 @@ class WorkoutCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
-              /// METADATA: Übungen, Letztes Training
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _metaInfo(Icons.list, '$exerciseCount Übungen', context),
                   _metaInfo(
-                    Icons.history,
+                    Icons.schedule,
                     'Zuletzt: $lastUsedPlaceholder',
                     context,
                   ),
                 ],
               ),
 
-              const SizedBox(height: 12),
-
-              /// Fortschrittbalken (Platzhalter)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: progressPlaceholder,
-                  backgroundColor: primary.withOpacity(0.1),
-                  valueColor: AlwaysStoppedAnimation<Color>(primary),
-                  minHeight: 6,
+              if (progress != null) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: primary.withOpacity(0.1),
+                    valueColor: AlwaysStoppedAnimation<Color>(primary),
+                    minHeight: 6,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

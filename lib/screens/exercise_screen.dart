@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:trainy/widgets/app_title.dart';
 import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/theme_provider.dart';
@@ -269,7 +270,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(_isSelectionMode ? 'Übungen auswählen' : 'Übungen'),
+            title: AppTitle(
+              _isSelectionMode ? 'Übungen auswählen' : 'Übungen',
+              emoji: '💪',
+            ),
+
             actions:
                 _isSelectionMode
                     ? [

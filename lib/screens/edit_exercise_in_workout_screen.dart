@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:trainy/models/exercise_in_workout.dart';
+import 'package:trainy/widgets/app_title.dart';
 
 class EditExerciseInWorkoutScreen extends StatefulWidget {
   final ExerciseInWorkout exercise;
@@ -107,7 +108,9 @@ class _EditExerciseInWorkoutScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.exercise.name)),
+      appBar: AppBar(
+        title: AppTitle(widget.exercise.name, icon: Icons.fitness_center),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ListView(

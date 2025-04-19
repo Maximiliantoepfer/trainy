@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:trainy/models/workout.dart';
 import 'package:trainy/providers/workout_provider.dart';
 import 'package:trainy/screens/workout_screen.dart';
+import 'package:trainy/widgets/app_title.dart';
 import 'package:trainy/widgets/workout_card.dart';
 import 'package:trainy/widgets/weekly_activity_chart.dart';
 import 'package:trainy/providers/progress_provider.dart';
@@ -91,117 +92,144 @@ class _HomeScreenState extends State<HomeScreen> {
         final trainingsDieseWoche = trainedDays.length;
 
         return Scaffold(
-          appBar: AppBar(
-            title:
-                _selectionMode
-                    ? Text('${_selectedWorkoutIds.length} ausgewählt')
-                    : const Text('Workouts'),
-            actions:
-                _selectionMode
-                    ? [
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () async {
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder:
-                                (ctx) => AlertDialog(
-                                  title: const Text('Ausgewählte löschen?'),
-                                  content: const Text(
-                                    'Möchtest du die ausgewählten Workouts wirklich löschen?',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed:
-                                          () => Navigator.of(ctx).pop(false),
-                                      child: const Text('Abbrechen'),
-                                    ),
-                                    TextButton(
-                                      onPressed:
-                                          () => Navigator.of(ctx).pop(true),
-                                      child: const Text('Löschen'),
-                                    ),
-                                  ],
-                                ),
-                          );
-                          if (confirmed == true) {
-                            await _deleteSelected(context);
-                          }
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed:
-                            () => setState(() => _selectedWorkoutIds.clear()),
-                      ),
-                    ]
-                    : [],
-          ),
+          // Keine klassische AppBar mehr!
           body:
               workoutProvider.isLoading || progressProvider.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : workouts.isEmpty
                   ? const Center(child: Text('Keine Workouts gefunden.'))
-                  : ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      WeeklyActivityChart(
-                        trainedDays: trainedDays,
-                        monday: monday,
-                        weeklyGoal: progressProvider.weeklyGoal,
-                        trainingsDieseWoche: trainingsDieseWoche,
-                        onGoalChanged: (newGoal) {
-                          progressProvider.setWeeklyGoal(newGoal);
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      ...workouts.map((workout) {
-                        final isSelected = _selectedWorkoutIds.contains(
-                          workout.id,
-                        );
-                        return GestureDetector(
-                          onLongPress: () => _toggleSelection(workout),
-                          child: Opacity(
-                            opacity: isSelected ? 0.6 : 1.0,
-                            child: Stack(
-                              children: [
-                                WorkoutCard(
-                                  workout: workout,
-                                  onTap: () async {
-                                    if (_selectionMode) {
-                                      _toggleSelection(workout);
-                                    } else {
-                                      await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder:
-                                              (context) => WorkoutScreen(
-                                                workout: workout,
+                  : SafeArea(
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        /// Falls Auswahl aktiv ist, zeige statische Auswahl-Leiste
+                        if (_selectionMode)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${_selectedWorkoutIds.length} ausgewählt',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.delete),
+                                    onPressed: () async {
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder:
+                                            (ctx) => AlertDialog(
+                                              title: const Text(
+                                                'Ausgewählte löschen?',
                                               ),
-                                        ),
+                                              content: const Text(
+                                                'Möchtest du die ausgewählten Workouts wirklich löschen?',
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed:
+                                                      () => Navigator.of(
+                                                        ctx,
+                                                      ).pop(false),
+                                                  child: const Text(
+                                                    'Abbrechen',
+                                                  ),
+                                                ),
+                                                TextButton(
+                                                  onPressed:
+                                                      () => Navigator.of(
+                                                        ctx,
+                                                      ).pop(true),
+                                                  child: const Text('Löschen'),
+                                                ),
+                                              ],
+                                            ),
                                       );
-                                      await workoutProvider.loadWorkouts();
-                                    }
-                                  },
-                                ),
-                                if (isSelected)
-                                  Positioned(
-                                    top: 8,
-                                    right: 8,
-                                    child: Icon(
-                                      Icons.check_circle,
-                                      color:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.secondary,
-                                    ),
+                                      if (confirmed == true) {
+                                        await _deleteSelected(context);
+                                      }
+                                    },
                                   ),
-                              ],
-                            ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close),
+                                    onPressed:
+                                        () => setState(
+                                          () => _selectedWorkoutIds.clear(),
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        );
-                      }),
-                    ],
+
+                        /// Dynamischer freundlicher Header
+                        if (!_selectionMode)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: AppTitle("Training", emoji: '🎯'),
+                          ),
+
+                        WeeklyActivityChart(
+                          trainedDays: trainedDays,
+                          monday: monday,
+                          weeklyGoal: progressProvider.weeklyGoal,
+                          trainingsDieseWoche: trainingsDieseWoche,
+                          onGoalChanged: (newGoal) {
+                            progressProvider.setWeeklyGoal(newGoal);
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        ...workouts.map((workout) {
+                          final isSelected = _selectedWorkoutIds.contains(
+                            workout.id,
+                          );
+                          return GestureDetector(
+                            onLongPress: () => _toggleSelection(workout),
+                            child: Opacity(
+                              opacity: isSelected ? 0.6 : 1.0,
+                              child: Stack(
+                                children: [
+                                  WorkoutCard(
+                                    workout: workout,
+                                    onTap: () async {
+                                      if (_selectionMode) {
+                                        _toggleSelection(workout);
+                                      } else {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder:
+                                                (context) => WorkoutScreen(
+                                                  workout: workout,
+                                                ),
+                                          ),
+                                        );
+                                        await workoutProvider.loadWorkouts();
+                                      }
+                                    },
+                                  ),
+                                  if (isSelected)
+                                    Positioned(
+                                      top: 8,
+                                      right: 8,
+                                      child: Icon(
+                                        Icons.check_circle,
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.secondary,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
                   ),
           floatingActionButton:
               _selectionMode

@@ -20,6 +20,7 @@ class WeeklyActivityChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final days = List.generate(7, (i) => monday.add(Duration(days: i)));
     final formatter = DateFormat('yyyy-MM-dd');
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -30,10 +31,12 @@ class WeeklyActivityChart extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Aktivität diese Woche',
+              'Fortschritt',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             const SizedBox(height: 12),
+
+            /// Klassische Circle-Anzeige mit Haken
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children:
@@ -65,13 +68,16 @@ class WeeklyActivityChart extends StatelessWidget {
                     );
                   }).toList(),
             ),
+
             const SizedBox(height: 16),
+
+            /// Wochenziel-Schieberegler + Status
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: SliderTheme(
-                    data: SliderThemeData(
+                    data: SliderTheme.of(context).copyWith(
                       trackHeight: 2,
                       thumbShape: const RoundSliderThumbShape(
                         enabledThumbRadius: 10,
@@ -82,7 +88,7 @@ class WeeklyActivityChart extends StatelessWidget {
                       min: 1,
                       max: 7,
                       divisions: 6,
-                      activeColor: Theme.of(context).colorScheme.primary,
+                      activeColor: primary,
                       inactiveColor: Colors.grey,
                       onChanged: (value) => onGoalChanged(value.round()),
                     ),
@@ -106,7 +112,9 @@ class WeeklyActivityChart extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    trainingsDieseWoche >= weeklyGoal ? '🎯' : '🚫',
+                    trainingsDieseWoche >= weeklyGoal
+                        ? '🎯 Ziel erreicht'
+                        : 'Noch ${weeklyGoal - trainingsDieseWoche}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -115,11 +123,14 @@ class WeeklyActivityChart extends StatelessWidget {
                 ),
               ],
             ),
+
             const SizedBox(height: 12),
+
+            /// Fortschrittsbalken
             LinearProgressIndicator(
               value: (trainingsDieseWoche / weeklyGoal).clamp(0.0, 1.0),
               backgroundColor: Colors.grey[800],
-              color: Theme.of(context).colorScheme.primary,
+              color: primary,
               minHeight: 6,
               borderRadius: BorderRadius.circular(6),
             ),

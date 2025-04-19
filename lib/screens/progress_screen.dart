@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:trainy/widgets/app_title.dart';
 import 'package:trainy/widgets/weekly_activity_chart.dart';
 import '../providers/progress_provider.dart';
 import '../widgets/filtered_exercise_progress_chart.dart';
@@ -95,7 +96,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final averageDuration = getAverageDuration(durationMap.values.toList());
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Fortschritt')),
+      appBar: AppBar(title: AppTitle("Fortschritt", emoji: '🚀')),
       body:
           provider.isLoading
               ? const Center(child: CircularProgressIndicator())

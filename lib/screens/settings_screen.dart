@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
+import 'package:trainy/widgets/app_title.dart';
 import '../providers/theme_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/progress_provider.dart';
@@ -18,7 +19,7 @@ class SettingsScreen extends StatelessWidget {
     final accentColor = themeProvider.getAccentColor();
 
     return Scaffold(
-      appBar: AppBar(title: Text('Einstellungen')),
+      appBar: AppBar(title: AppTitle('Einstellungen', emoji: '⚙️')),
       body: ListView(
         children: [
           // Wöchentliches Ziel
