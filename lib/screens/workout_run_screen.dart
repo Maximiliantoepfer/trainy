@@ -21,18 +21,11 @@ class WorkoutRunScreen extends StatefulWidget {
 }
 
 class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
-  late Stopwatch _stopwatch;
+  final Stopwatch _stopwatch = Stopwatch();
   Timer? _ticker;
 
-  // pro Übung: completed + erfasste Sets
-  final Map<int, bool> _completed = {};
+  /// exerciseId → Liste von Sets (Map: reps/weight/sets/duration als String-Werte)
   final Map<int, List<Map<String, String>>> _setsByExercise = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _stopwatch = Stopwatch();
-  }
 
   @override
   void dispose() {
@@ -42,15 +35,24 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
 
   void _start() {
     _stopwatch.start();
+    _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
+    setState(() {});
   }
 
-  void _stop() {
+  Future<void> _finish(BuildContext context) async {
     _stopwatch.stop();
     _ticker?.cancel();
-    setState(() {});
+
+    await context.read<ProgressProvider>().saveWorkoutEntries(
+      workoutId: widget.workout.id,
+      durationSeconds: _stopwatch.elapsed.inSeconds,
+      setsByExercise: _setsByExercise,
+    );
+
+    if (mounted) Navigator.of(context).pop();
   }
 
   String _timeText() {
@@ -58,36 +60,34 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     final mm = (s ~/ 60).toString().padLeft(2, '0');
     final ss = (s % 60).toString().padLeft(2, '0');
     return '$mm:$ss';
-    // (Optional: h:mm:ss, hier reicht mm:ss für Workouts)
   }
 
   Future<void> _addSet(BuildContext context, Exercise e) async {
-    final repsCtrl = TextEditingController();
-    final weightCtrl = TextEditingController();
-    final durationCtrl = TextEditingController();
-    final setsCtrl = TextEditingController(text: '1');
+    // Prefill aus lastValues → defaultValues
+    final last = e.lastValues;
+    final defs = e.defaultValues;
 
-    await showModalBottomSheet(
+    final repsCtrl = TextEditingController(
+      text: last['reps'] ?? defs['reps'] ?? '',
+    );
+    final weightCtrl = TextEditingController(
+      text: last['weight'] ?? defs['weight'] ?? '',
+    );
+    final setsCtrl = TextEditingController(
+      text: last['sets'] ?? defs['sets'] ?? '',
+    );
+    final durCtrl = TextEditingController(
+      text: last['duration'] ?? defs['duration'] ?? '',
+    );
+
+    await showDialog(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        final viewInsets = MediaQuery.of(ctx).viewInsets;
-        return Padding(
-          padding: EdgeInsets.only(bottom: viewInsets.bottom),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(e.name),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'Satz für ${e.name}',
-                  style: Theme.of(ctx).textTheme.headlineLarge,
-                ),
-                const SizedBox(height: 16),
                 if (e.trackSets)
                   TextField(
                     controller: setsCtrl,
@@ -116,7 +116,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                         decimal: true,
                       ),
                       decoration: const InputDecoration(
-                        labelText: 'Gewicht (kg, optional)',
+                        labelText: 'Gewicht (kg)',
                       ),
                     ),
                   ),
@@ -124,72 +124,56 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: TextField(
-                      controller: durationCtrl,
+                      controller: durCtrl,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         labelText: 'Dauer (Sekunden)',
                       ),
                     ),
                   ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.tonal(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text('Abbrechen'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () {
-                          final entry = <String, String>{};
-                          if (e.trackSets) entry['sets'] = setsCtrl.text.trim();
-                          if (e.trackReps) entry['reps'] = repsCtrl.text.trim();
-                          if (e.trackWeight)
-                            entry['weight'] = weightCtrl.text.trim();
-                          if (e.trackDuration)
-                            entry['duration'] = durationCtrl.text.trim();
-
-                          final list =
-                              _setsByExercise[e.id] ?? <Map<String, String>>[];
-                          list.add(entry);
-                          _setsByExercise[e.id] = list;
-                          _completed[e.id] = true;
-
-                          Navigator.of(ctx).pop();
-                          setState(() {});
-                        },
-                        child: const Text('Speichern'),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Abbrechen'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final entry = <String, String>{};
+                  if (e.trackSets && setsCtrl.text.trim().isNotEmpty) {
+                    entry['sets'] = setsCtrl.text.trim();
+                  }
+                  if (e.trackReps && repsCtrl.text.trim().isNotEmpty) {
+                    entry['reps'] = repsCtrl.text.trim();
+                  }
+                  if (e.trackWeight && weightCtrl.text.trim().isNotEmpty) {
+                    entry['weight'] = weightCtrl.text.trim();
+                  }
+                  if (e.trackDuration && durCtrl.text.trim().isNotEmpty) {
+                    entry['duration'] = durCtrl.text.trim();
+                  }
+
+                  if (entry.isNotEmpty) {
+                    _setsByExercise.putIfAbsent(e.id, () => []);
+                    _setsByExercise[e.id]!.add(entry);
+                    setState(() {}); // Done-Icon/Progress aktualisieren
+                  }
+                  Navigator.pop(ctx);
+                },
+                child: const Text('Speichern'),
+              ),
+            ],
           ),
-        );
-      },
     );
-  }
-
-  Future<void> _finish(BuildContext context) async {
-    _stop();
-
-    final provider = context.read<ProgressProvider>();
-    await provider.saveWorkoutEntries(
-      workoutId: widget.workout.id,
-      durationSeconds: _stopwatch.elapsed.inSeconds,
-      setsByExercise: _setsByExercise,
-    );
-
-    if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    final total = widget.exercises.length;
+    final doneCount = _setsByExercise.values.where((v) => v.isNotEmpty).length;
+    final progress = total == 0 ? 0.0 : doneCount / total;
 
     return Scaffold(
       appBar: AppBar(
@@ -208,60 +192,43 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
             ),
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(4),
+          child: LinearProgressIndicator(value: progress, minHeight: 4),
+        ),
       ),
       body: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
         itemCount: widget.exercises.length,
         itemBuilder: (_, i) {
           final e = widget.exercises[i];
-          final done = _completed[e.id] ?? false;
-          final sets = _setsByExercise[e.id] ?? const [];
-
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(20),
-              border: done ? Border.all(color: accent, width: 1.4) : null,
-            ),
+          final hasSets = (_setsByExercise[e.id] ?? const []).isNotEmpty;
+          return Card(
             child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
-              leading: Icon(
-                done ? Icons.check_circle : Icons.radio_button_unchecked,
-                color:
-                    done
-                        ? Colors.greenAccent
-                        : Theme.of(context).colorScheme.outline,
-              ),
               title: Text(
                 e.name,
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              subtitle:
-                  sets.isEmpty
-                      ? Text(
-                        [
-                          if (e.trackSets) 'Sätze',
-                          if (e.trackReps) 'Wdh.',
-                          if (e.trackWeight) 'Gewicht',
-                          if (e.trackDuration) 'Dauer',
-                        ].join(' · '),
-                      )
-                      : Text('${sets.length} Satz/Sätze erfasst'),
-              trailing: FilledButton.tonalIcon(
-                onPressed: () => _addSet(context, e),
-                icon: const Icon(Icons.add),
-                label: const Text('Satz'),
+              subtitle: Text(
+                [
+                  if (e.trackSets) 'Sätze',
+                  if (e.trackReps) 'Wdh.',
+                  if (e.trackWeight) 'Gewicht',
+                  if (e.trackDuration) 'Dauer',
+                ].join(' · '),
               ),
-              onTap:
-                  () => setState(
-                    () => _completed[e.id] = !(_completed[e.id] ?? false),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (hasSets)
+                    const Icon(Icons.check_circle, color: Colors.green),
+                  IconButton(
+                    tooltip: 'Satz hinzufügen',
+                    onPressed: () => _addSet(context, e),
+                    icon: Icon(Icons.add, color: accent),
                   ),
+                ],
+              ),
             ),
           );
         },

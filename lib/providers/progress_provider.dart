@@ -1,32 +1,27 @@
-// progress_provider.dart
-
 import 'package:flutter/material.dart';
 
 import '../models/workout_entry.dart';
 import '../services/workout_entry_database.dart';
 import '../services/settings_database.dart';
 
-/// Verwaltet Fortschritt/Statistiken für den Progress-Screen.
-/// Bietet `loadData()` und `entries`, damit progress_screen.dart sauber bauen kann.
+/// Provider für den Progress-Screen (Laden/Speichern von Sessions).
 class ProgressProvider extends ChangeNotifier {
   final List<WorkoutEntry> _entries = [];
   int _weeklyGoal = 2;
   bool _isLoading = false;
   bool _isSaving = false;
 
-  // ----- Getter (vom Screen erwartet) -----
   List<WorkoutEntry> get entries => List.unmodifiable(_entries);
   int get weeklyGoal => _weeklyGoal;
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
 
-  /// Initiales Laden von Wochenziel + Einträgen.
   Future<void> loadData() async {
     _isLoading = true;
     notifyListeners();
     try {
       _weeklyGoal = await SettingsDatabase.instance.getWeeklyGoal();
-      final list = await WorkoutEntryDatabase.instance.getAllEntries();
+      final list = await WorkoutEntryDatabase.instance.getAggregatedEntries();
       _entries
         ..clear()
         ..addAll(list);
@@ -36,27 +31,25 @@ class ProgressProvider extends ChangeNotifier {
     }
   }
 
-  /// Nur Einträge aktualisieren (z. B. nach Speichern).
   Future<void> refreshEntries() async {
-    final list = await WorkoutEntryDatabase.instance.getAllEntries();
+    final list = await WorkoutEntryDatabase.instance.getAggregatedEntries();
     _entries
       ..clear()
       ..addAll(list);
     notifyListeners();
   }
 
-  /// Wochenziel setzen und speichern.
   Future<void> setWeeklyGoal(int value) async {
     _weeklyGoal = value;
     await SettingsDatabase.instance.setWeeklyGoal(value);
     notifyListeners();
   }
 
-  /// Workout-Session speichern (vom Workout-Run aufrufbar).
-  /// Aggregiert die Sätze pro Übung in ein kompaktes Resultat.
+  /// Speichert eine Workout-Session (aufgerufen vom `WorkoutRunScreen`).
+  /// `setsByExercise`: exerciseId → Liste von Sets (Felder reps/weight/sets/duration als Strings).
   Future<void> saveWorkoutEntries({
     required int workoutId,
-    required int durationSeconds, // optional nutzbar, falls DB-Feld vorhanden
+    required int durationSeconds,
     required Map<int, List<Map<String, String>>> setsByExercise,
     DateTime? when,
   }) async {
@@ -65,6 +58,7 @@ class ProgressProvider extends ChangeNotifier {
     try {
       final date = when ?? DateTime.now();
 
+      // Aggregation: letzte Werte & Summen (simple Heuristik)
       final Map<int, Map<String, dynamic>> results = {};
       for (final entry in setsByExercise.entries) {
         final int exerciseId = entry.key;
@@ -73,36 +67,42 @@ class ProgressProvider extends ChangeNotifier {
         int totalDuration = 0;
         int? lastReps;
         double? lastWeight;
+        int totalSets = 0;
 
         for (final s in sets) {
           final repsStr = s['reps']?.trim();
           final weightStr = s['weight']?.trim();
+          final setsStr = s['sets']?.trim();
           final durStr = s['duration']?.trim();
 
-          if (repsStr != null && repsStr.isNotEmpty) {
-            final r = int.tryParse(repsStr);
-            if (r != null) lastReps = r;
+          if (repsStr?.isNotEmpty == true) {
+            final v = int.tryParse(repsStr!);
+            if (v != null) lastReps = v;
           }
-          if (weightStr != null && weightStr.isNotEmpty) {
-            final w = double.tryParse(weightStr.replaceAll(',', '.'));
-            if (w != null) lastWeight = w;
+          if (weightStr?.isNotEmpty == true) {
+            final v = double.tryParse(weightStr!);
+            if (v != null) lastWeight = v;
           }
-          if (durStr != null && durStr.isNotEmpty) {
-            final d = int.tryParse(durStr);
-            if (d != null) totalDuration += d;
+          if (setsStr?.isNotEmpty == true) {
+            final v = int.tryParse(setsStr!);
+            if (v != null) totalSets = v;
+          }
+          if (durStr?.isNotEmpty == true) {
+            final v = int.tryParse(durStr!);
+            if (v != null) totalDuration += v;
           }
         }
 
-        final map = <String, dynamic>{'sets': sets.length};
-        if (totalDuration > 0) map['duration'] = totalDuration;
-        if (lastReps != null) map['reps'] = lastReps;
-        if (lastWeight != null) map['weight'] = lastWeight;
-
-        results[exerciseId] = map;
+        results[exerciseId] = {
+          if (totalSets > 0) 'sets': totalSets,
+          if (lastReps != null) 'reps': lastReps,
+          if (lastWeight != null) 'weight': lastWeight,
+          if (totalDuration > 0) 'duration': totalDuration,
+        };
       }
 
       final entry = WorkoutEntry(
-        id: DateTime.now().microsecondsSinceEpoch,
+        id: DateTime.now().millisecondsSinceEpoch,
         workoutId: workoutId,
         date: date,
         results: results,
@@ -114,10 +114,5 @@ class ProgressProvider extends ChangeNotifier {
       _isSaving = false;
       notifyListeners();
     }
-  }
-
-  /// Legacy-Kompatibilität: manche Alt-Stellen rufen das.
-  Future<void> addWorkout({Duration? duration}) async {
-    await refreshEntries();
   }
 }

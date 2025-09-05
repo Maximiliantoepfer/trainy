@@ -15,6 +15,7 @@ class WorkoutDatabase {
       'name': workout.name,
       'description': workout.description,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+
     if (workout.exerciseIds.isNotEmpty) {
       await setWorkoutExercises(workout.id, workout.exerciseIds);
     }
@@ -22,20 +23,23 @@ class WorkoutDatabase {
 
   Future<void> setWorkoutExercises(int workoutId, List<int> exerciseIds) async {
     final db = await _db;
-    await db.delete(
+    final batch = db.batch();
+
+    batch.delete(
       'exercises_in_workouts',
       where: 'workoutId = ?',
       whereArgs: [workoutId],
     );
 
-    for (var i = 0; i < exerciseIds.length; i++) {
-      await db.insert('exercises_in_workouts', {
+    for (int i = 0; i < exerciseIds.length; i++) {
+      batch.insert('exercises_in_workouts', {
         'id': DateTime.now().microsecondsSinceEpoch + i,
         'workoutId': workoutId,
         'exerciseId': exerciseIds[i],
         'sort': i,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
+    await batch.commit(noResult: true);
   }
 
   Future<List<Workout>> getAllWorkouts() async {
@@ -49,7 +53,7 @@ class WorkoutDatabase {
         'exercises_in_workouts',
         where: 'workoutId = ?',
         whereArgs: [workoutId],
-        orderBy: '"sort" ASC',
+        orderBy: 'sort ASC',
       );
       final ids = mapping.map((m) => (m['exerciseId'] as num).toInt()).toList();
       result.add(

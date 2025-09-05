@@ -34,14 +34,11 @@ class WorkoutProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Workout> createWorkout({
-    String name = 'Neues Workout',
-    String description = '',
-  }) async {
+  Future<Workout> createWorkout({required String name}) async {
     final w = Workout(
       id: DateTime.now().millisecondsSinceEpoch,
       name: name,
-      description: description,
+      description: '',
       exerciseIds: const [],
     );
     await addOrUpdateWorkout(w);
