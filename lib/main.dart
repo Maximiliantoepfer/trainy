@@ -22,8 +22,12 @@ class TrainyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => ExerciseProvider()),
-        ChangeNotifierProvider(create: (_) => WorkoutProvider()),
+        ChangeNotifierProvider(
+          create: (_) => ExerciseProvider()..loadExercises(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => WorkoutProvider()..loadWorkouts(),
+        ),
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
       ],
       child: const _ThemedApp(),

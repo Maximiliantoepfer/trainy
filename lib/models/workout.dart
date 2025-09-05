@@ -4,8 +4,6 @@ class Workout {
   int id;
   String name;
   String description;
-
-  /// Reihenfolge-relevante Liste der Exercise-IDs
   List<int> exerciseIds;
 
   Workout({

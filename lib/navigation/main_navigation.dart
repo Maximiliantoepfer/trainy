@@ -1,4 +1,3 @@
-// lib/navigation/main_navigation.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -20,25 +19,29 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
-    // Rebuild bei Theme-Wechsel
+    // ThemeProvider beobachten, damit sich die NavBar live mit der Akzentfarbe aktualisiert
     context.watch<ThemeProvider>();
 
-    final pages = const [
-      HomeScreen(),
-      ExerciseScreen(),
-      ProgressScreen(),
-      SettingsScreen(),
+    // WICHTIG: Liste nicht als const, um "non_constant_list_element" zu vermeiden,
+    // falls einer der Screens nicht const-konstruierbar ist.
+    final pages = [
+      const HomeScreen(),
+      const ExerciseScreen(),
+      const ProgressScreen(),
+      const SettingsScreen(),
     ];
 
     return Scaffold(
-      body: IndexedStack(index: _index, children: pages),
+      body: SafeArea(child: pages[_index]),
+      // NavigationBar-Design bleibt unverändert, Styling kommt aus eurem Theme.
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
+            selectedIcon: Icon(Icons.home_rounded),
             label: 'Home',
           ),
           NavigationDestination(
@@ -58,7 +61,6 @@ class _MainNavigationState extends State<MainNavigation> {
           ),
         ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }

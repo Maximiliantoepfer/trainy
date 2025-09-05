@@ -1,106 +1,99 @@
-// lib/services/app_database.dart
-
+import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
 
 class AppDatabase {
-  static final AppDatabase instance = AppDatabase._init();
-  static Database? _database;
+  static final AppDatabase instance = AppDatabase._();
+  AppDatabase._();
 
-  AppDatabase._init();
+  static const _dbName = 'trainy.db';
+  static const _dbVersion = 3; // ↑ Version anheben, falls Schema neu ist
 
-  static const _dbVersion = 4; // v4: exercises.lastValues
+  Database? _database;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'trainy.db');
-
+    final path = p.join(dbPath, _dbName);
     _database = await openDatabase(
       path,
       version: _dbVersion,
-      onCreate: _createDB,
-      onUpgrade: _upgradeDB,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
     return _database!;
   }
 
-  Future _createDB(Database db, int version) async {
+  Future<void> _onCreate(Database db, int version) async {
+    // Exercises
     await db.execute('''
-      CREATE TABLE workouts (
+      CREATE TABLE exercises(
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
-        description TEXT
-      );
-    ''');
-
-    await db.execute('''
-      CREATE TABLE exercises (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        trackedFields TEXT,
-        defaultValues TEXT,
-        lastValues TEXT,
-        units TEXT,
+        description TEXT NOT NULL,
+        trackedFields TEXT NOT NULL,
+        defaultValues TEXT NOT NULL,
+        lastValues TEXT NOT NULL,
+        units TEXT NOT NULL,
         icon INTEGER
-      );
+      )
     ''');
 
-    // Wir behalten den alten Tabellennamen aus Kompatibilitätsgründen
+    // Workouts
     await db.execute('''
-      CREATE TABLE exercises_in_workouts (
+      CREATE TABLE workouts(
         id INTEGER PRIMARY KEY,
-        workoutId INTEGER,
-        exerciseId INTEGER,
-        position INTEGER,
-        customValues TEXT
-      );
+        name TEXT NOT NULL,
+        description TEXT NOT NULL
+      )
     ''');
 
+    // Mapping Workout → Exercises mit sort
     await db.execute('''
-      CREATE TABLE workout_entries (
+      CREATE TABLE exercises_in_workouts(
         id INTEGER PRIMARY KEY,
-        workoutId INTEGER,
-        date TEXT,
-        results TEXT
-      );
+        workoutId INTEGER NOT NULL,
+        exerciseId INTEGER NOT NULL,
+        sort INTEGER NOT NULL,
+        FOREIGN KEY(workoutId) REFERENCES workouts(id) ON DELETE CASCADE
+      )
     ''');
 
+    // Workout Entries (Logger)
     await db.execute('''
-      CREATE TABLE user_settings (
-        id INTEGER PRIMARY KEY DEFAULT 0,
-        weekly_goal INTEGER
-      );
+      CREATE TABLE workout_entries(
+        id INTEGER PRIMARY KEY,
+        workoutId INTEGER NOT NULL,
+        exerciseId INTEGER NOT NULL,
+        timestamp INTEGER NOT NULL,
+        valuesJson TEXT NOT NULL,
+        durationSeconds INTEGER NOT NULL
+      )
     ''');
   }
 
-  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // sehr einfache Migration: fehlende Tabellen anlegen
     if (oldVersion < 2) {
       await db.execute('''
-        CREATE TABLE workout_entries (
+        CREATE TABLE IF NOT EXISTS exercises_in_workouts(
           id INTEGER PRIMARY KEY,
-          workoutId INTEGER,
-          date TEXT,
-          results TEXT
-        );
+          workoutId INTEGER NOT NULL,
+          exerciseId INTEGER NOT NULL,
+          sort INTEGER NOT NULL
+        )
       ''');
     }
     if (oldVersion < 3) {
       await db.execute('''
-        CREATE TABLE user_settings (
-          id INTEGER PRIMARY KEY DEFAULT 0,
-          weekly_goal INTEGER
-        );
+        CREATE TABLE IF NOT EXISTS workout_entries(
+          id INTEGER PRIMARY KEY,
+          workoutId INTEGER NOT NULL,
+          exerciseId INTEGER NOT NULL,
+          timestamp INTEGER NOT NULL,
+          valuesJson TEXT NOT NULL,
+          durationSeconds INTEGER NOT NULL
+        )
       ''');
-    }
-    if (oldVersion < 4) {
-      // v4: neues Feld lastValues auf exercises
-      try {
-        await db.execute('ALTER TABLE exercises ADD COLUMN lastValues TEXT');
-      } catch (_) {
-        // Spalte existiert bereits – ignorieren
-      }
     }
   }
 }

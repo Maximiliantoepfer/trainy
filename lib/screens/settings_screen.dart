@@ -131,8 +131,8 @@ class SettingsScreen extends StatelessWidget {
 }
 
 const _quickSwatches = <Color>[
-  Color.fromARGB(255, 72, 121, 255), // blue
-  Color(0xFF00BFA5), // teal
+  Color.fromARGB(255, 59, 109, 246), // blue
+  Color(0xFF0092BF), // teal
   Color(0xFF00C853), // green
   Color.fromARGB(255, 255, 133, 40), // orange
   Color(0xFFD81B60), // pink

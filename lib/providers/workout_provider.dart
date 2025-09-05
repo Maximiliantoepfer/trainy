@@ -1,5 +1,3 @@
-// lib/providers/workout_provider.dart
-
 import 'package:flutter/material.dart';
 import '../models/workout.dart';
 import '../services/workout_database.dart';
@@ -14,9 +12,12 @@ class WorkoutProvider extends ChangeNotifier {
   Future<void> loadWorkouts() async {
     _isLoading = true;
     notifyListeners();
-    _workouts = await WorkoutDatabase.instance.getAllWorkouts();
-    _isLoading = false;
-    notifyListeners();
+    try {
+      _workouts = await WorkoutDatabase.instance.getAllWorkouts();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> addOrUpdateWorkout(Workout workout) async {
@@ -33,24 +34,38 @@ class WorkoutProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateWorkoutName(int workoutId, String newName) async {
-    await WorkoutDatabase.instance.updateWorkoutName(workoutId, newName);
-    final w = _workouts.firstWhere((w) => w.id == workoutId);
-    w.name = newName;
-    notifyListeners();
+  Future<Workout> createWorkout({
+    String name = 'Neues Workout',
+    String description = '',
+  }) async {
+    final w = Workout(
+      id: DateTime.now().millisecondsSinceEpoch,
+      name: name,
+      description: description,
+      exerciseIds: const [],
+    );
+    await addOrUpdateWorkout(w);
+    return w;
   }
 
-  Future<void> updateWorkoutExercises(
-    int workoutId,
-    List<int> exerciseIds,
-  ) async {
-    await WorkoutDatabase.instance.updateWorkoutExercises(
-      workoutId,
-      exerciseIds,
-    );
-    final w = _workouts.firstWhere((w) => w.id == workoutId);
-    w.exerciseIds = List<int>.from(exerciseIds);
-    notifyListeners();
+  Future<void> updateWorkoutName(int workoutId, String newName) async {
+    await WorkoutDatabase.instance.updateWorkoutName(workoutId, newName);
+    final idx = _workouts.indexWhere((w) => w.id == workoutId);
+    if (idx >= 0) {
+      _workouts[idx] = _workouts[idx].copyWith(name: newName);
+      notifyListeners();
+    }
+  }
+
+  Future<void> setWorkoutExercises(int workoutId, List<int> exerciseIds) async {
+    await WorkoutDatabase.instance.setWorkoutExercises(workoutId, exerciseIds);
+    final idx = _workouts.indexWhere((w) => w.id == workoutId);
+    if (idx >= 0) {
+      _workouts[idx] = _workouts[idx].copyWith(
+        exerciseIds: List<int>.from(exerciseIds),
+      );
+      notifyListeners();
+    }
   }
 
   Future<void> deleteWorkout(int workoutId) async {

@@ -14,141 +14,135 @@ class AppTheme {
 
     final isDark = brightness == Brightness.dark;
 
-    MaterialStateProperty<T> ms<T>(T v) => MaterialStateProperty.all(v);
-    T sel<T>(Set<MaterialState> s, T a, T b) =>
-        s.contains(MaterialState.selected) ? a : b;
-
-    final buttonShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
-    );
-
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: scheme.background,
-      visualDensity: VisualDensity.standard,
-      splashFactory: InkRipple.splashFactory,
+      brightness: brightness,
+      scaffoldBackgroundColor:
+          isDark ? const Color(0xFF0E0F12) : const Color(0xFFF7F8FA),
 
-      // AppBar
+      // Typografie – große, satte Überschriften für Screens
+      textTheme: Typography.material2021(platform: TargetPlatform.android).black
+          .apply(
+            bodyColor: isDark ? scheme.onSurface : const Color(0xFF111418),
+            displayColor: isDark ? scheme.onSurface : const Color(0xFF111418),
+          )
+          .copyWith(
+            headlineLarge: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: isDark ? scheme.onSurface : const Color(0xFF101317),
+            ),
+            headlineMedium: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+              color: isDark ? scheme.onSurface : const Color(0xFF101317),
+            ),
+            titleLarge: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: isDark ? scheme.onSurface : const Color(0xFF101317),
+            ),
+          ),
+
       appBarTheme: AppBarTheme(
-        backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
+        backgroundColor:
+            isDark ? const Color(0xFF111316) : const Color(0xFFF7F8FA),
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
-          color: scheme.onSurface,
-          fontWeight: FontWeight.w700,
-          fontSize: 20,
+          fontSize: 28,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.5,
+          color: isDark ? scheme.onSurface : const Color(0xFF101317),
+        ),
+        toolbarHeight: 72,
+      ),
+
+      // NavigationBar: keine Indikator-Fläche, ausgewähltes Icon groß + primary, andere Icons weiß
+      navigationBarTheme: NavigationBarThemeData(
+        height: 84,
+        backgroundColor:
+            isDark ? const Color(0xFF0E0F12) : const Color(0xFF111316),
+        indicatorColor:
+            Colors.transparent, // <— entfernt die Hintergrundmarkierung
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            size: selected ? 34 : 28,
+            color: selected ? scheme.primary : Colors.white,
+            weight: selected ? 850 : 650,
+          );
+        }),
+        labelTextStyle: const WidgetStatePropertyAll(
+          TextStyle(fontSize: 0, height: 0), // Labels unsichtbar
         ),
       ),
 
-      // Icons
-      iconTheme: IconThemeData(color: scheme.onSurface),
+      cardTheme: CardTheme(
+        color: isDark ? const Color(0xFF14171B) : Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
 
-      // FAB (Start-Button etc.)
+      listTileTheme: ListTileThemeData(
+        iconColor: scheme.onSurfaceVariant,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
-        shape: const CircleBorder(),
-        elevation: 0,
-      ),
-
-      // Buttons
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ButtonStyle(
-          shape: ms(buttonShape),
-          elevation: ms(0.0),
-          padding: ms(const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
-          backgroundColor: ms(scheme.primary),
-          foregroundColor: ms(scheme.onPrimary),
-          overlayColor: ms(scheme.primaryContainer.withOpacity(.12)),
-        ),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: ButtonStyle(
-          shape: ms(buttonShape),
-          elevation: ms(0.0),
-          padding: ms(const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
-          backgroundColor: ms(scheme.primaryContainer),
-          foregroundColor: ms(scheme.onPrimaryContainer),
-        ),
-      ),
-      textButtonTheme: TextButtonThemeData(
-        style: ButtonStyle(
-          shape: ms(buttonShape),
-          foregroundColor: ms(scheme.primary),
-        ),
-      ),
-
-      // Inputs
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.outlineVariant),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: scheme.primary, width: 2),
-        ),
-        filled: true,
-        fillColor: scheme.surface,
-      ),
-
-      // Cards
-      cardTheme: CardTheme(
-        color: scheme.surface,
-        elevation: 0,
+        elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        margin: const EdgeInsets.all(0),
       ),
 
-      // Slider/Switch
-      sliderTheme: SliderThemeData(
-        activeTrackColor: scheme.primary,
-        inactiveTrackColor: scheme.surfaceVariant,
-        thumbColor: scheme.primary,
-        overlayColor: scheme.primary.withOpacity(.1),
-      ),
-      switchTheme: SwitchThemeData(
-        trackColor: MaterialStateProperty.resolveWith((states) {
-          final on = states.contains(MaterialState.selected);
-          return on ? scheme.primary.withOpacity(.5) : scheme.surfaceVariant;
-        }),
-        thumbColor: MaterialStateProperty.resolveWith((states) {
-          final on = states.contains(MaterialState.selected);
-          return on ? scheme.primary : scheme.outline;
-        }),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: isDark ? const Color(0xFF191C21) : const Color(0xFFF2F4F7),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
       ),
 
-      // NavigationBar (M3)
-      navigationBarTheme: NavigationBarThemeData(
-        height: 68,
-        backgroundColor: scheme.surface,
-        indicatorColor: Colors.transparent, // kein „Pill“-Indicator
-        iconTheme: MaterialStateProperty.resolveWith((states) {
-          final color = sel(
-            states,
-            scheme.primary,
-            isDark ? scheme.onSurface : scheme.onSurfaceVariant,
-          );
-          return IconThemeData(color: color);
-        }),
-        labelTextStyle: MaterialStateProperty.resolveWith((states) {
-          final color = sel(
-            states,
-            scheme.primary,
-            isDark ? scheme.onSurface : scheme.onSurfaceVariant,
-          );
-          return TextStyle(fontWeight: FontWeight.w600, color: color);
-        }),
+      chipTheme: ChipThemeData(
+        color: WidgetStatePropertyAll(
+          isDark ? const Color(0xFF191C21) : const Color(0xFFF2F4F7),
+        ),
+        labelStyle: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: isDark ? scheme.onSurface : scheme.onSurfaceVariant,
+        ),
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
     );
   }
 
   static ThemeData light(Color seed) =>
       _base(seed: seed, brightness: Brightness.light);
-
   static ThemeData dark(Color seed) =>
       _base(seed: seed, brightness: Brightness.dark);
 }

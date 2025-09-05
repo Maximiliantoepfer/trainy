@@ -1,5 +1,3 @@
-// lib/services/workout_database.dart
-
 import 'package:sqflite/sqflite.dart';
 import '../models/workout.dart';
 import 'app_database.dart';
@@ -12,43 +10,48 @@ class WorkoutDatabase {
 
   Future<void> upsertWorkout(Workout workout) async {
     final db = await _db;
-    // Upsert workout row
     await db.insert('workouts', {
       'id': workout.id,
       'name': workout.name,
       'description': workout.description,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+    if (workout.exerciseIds.isNotEmpty) {
+      await setWorkoutExercises(workout.id, workout.exerciseIds);
+    }
+  }
 
-    // Replace exercise links
+  Future<void> setWorkoutExercises(int workoutId, List<int> exerciseIds) async {
+    final db = await _db;
     await db.delete(
       'exercises_in_workouts',
       where: 'workoutId = ?',
-      whereArgs: [workout.id],
+      whereArgs: [workoutId],
     );
-    for (int i = 0; i < workout.exerciseIds.length; i++) {
+
+    for (var i = 0; i < exerciseIds.length; i++) {
       await db.insert('exercises_in_workouts', {
         'id': DateTime.now().microsecondsSinceEpoch + i,
-        'workoutId': workout.id,
-        'exerciseId': workout.exerciseIds[i],
-        'position': i,
-        'customValues': null,
-      });
+        'workoutId': workoutId,
+        'exerciseId': exerciseIds[i],
+        'sort': i,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 
   Future<List<Workout>> getAllWorkouts() async {
     final db = await _db;
-    final rows = await db.query('workouts', orderBy: 'name COLLATE NOCASE');
-    final List<Workout> result = [];
+    final rows = await db.query('workouts', orderBy: 'name COLLATE NOCASE ASC');
+    final result = <Workout>[];
+
     for (final row in rows) {
-      final workoutId = row['id'] as int;
-      final exRows = await db.query(
+      final workoutId = (row['id'] as num).toInt();
+      final mapping = await db.query(
         'exercises_in_workouts',
         where: 'workoutId = ?',
         whereArgs: [workoutId],
-        orderBy: 'position ASC, id ASC',
+        orderBy: '"sort" ASC',
       );
-      final ids = exRows.map((r) => r['exerciseId'] as int).toList();
+      final ids = mapping.map((m) => (m['exerciseId'] as num).toInt()).toList();
       result.add(
         Workout(
           id: workoutId,
@@ -69,27 +72,6 @@ class WorkoutDatabase {
       where: 'id = ?',
       whereArgs: [workoutId],
     );
-  }
-
-  Future<void> updateWorkoutExercises(
-    int workoutId,
-    List<int> exerciseIds,
-  ) async {
-    final db = await _db;
-    await db.delete(
-      'exercises_in_workouts',
-      where: 'workoutId = ?',
-      whereArgs: [workoutId],
-    );
-    for (int i = 0; i < exerciseIds.length; i++) {
-      await db.insert('exercises_in_workouts', {
-        'id': DateTime.now().microsecondsSinceEpoch + i,
-        'workoutId': workoutId,
-        'exerciseId': exerciseIds[i],
-        'position': i,
-        'customValues': null,
-      });
-    }
   }
 
   Future<void> deleteWorkout(int id) async {
