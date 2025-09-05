@@ -1,37 +1,64 @@
 // lib/services/workout_database.dart
+
 import 'package:sqflite/sqflite.dart';
 import '../models/workout.dart';
-import '../models/exercise_in_workout.dart';
 import 'app_database.dart';
 
 class WorkoutDatabase {
   static final WorkoutDatabase instance = WorkoutDatabase._init();
   WorkoutDatabase._init();
 
-  Future<Database> get _db async => await AppDatabase.instance.database;
+  Future<Database> get _db async => AppDatabase.instance.database;
 
-  Future<void> insertWorkout(Workout workout) async {
+  Future<void> upsertWorkout(Workout workout) async {
     final db = await _db;
-    // Upsert workout
+    // Upsert workout row
     await db.insert('workouts', {
       'id': workout.id,
       'name': workout.name,
       'description': workout.description,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
 
-    // Replace exercises for this workout to keep ordering consistent
+    // Replace exercise links
     await db.delete(
       'exercises_in_workouts',
       where: 'workoutId = ?',
       whereArgs: [workout.id],
     );
-    for (final ew in workout.exercises) {
-      await db.insert(
+    for (int i = 0; i < workout.exerciseIds.length; i++) {
+      await db.insert('exercises_in_workouts', {
+        'id': DateTime.now().microsecondsSinceEpoch + i,
+        'workoutId': workout.id,
+        'exerciseId': workout.exerciseIds[i],
+        'position': i,
+        'customValues': null,
+      });
+    }
+  }
+
+  Future<List<Workout>> getAllWorkouts() async {
+    final db = await _db;
+    final rows = await db.query('workouts', orderBy: 'name COLLATE NOCASE');
+    final List<Workout> result = [];
+    for (final row in rows) {
+      final workoutId = row['id'] as int;
+      final exRows = await db.query(
         'exercises_in_workouts',
-        ew.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+        where: 'workoutId = ?',
+        whereArgs: [workoutId],
+        orderBy: 'position ASC, id ASC',
+      );
+      final ids = exRows.map((r) => r['exerciseId'] as int).toList();
+      result.add(
+        Workout(
+          id: workoutId,
+          name: (row['name'] ?? '') as String,
+          description: (row['description'] ?? '') as String,
+          exerciseIds: ids,
+        ),
       );
     }
+    return result;
   }
 
   Future<void> updateWorkoutName(int workoutId, String newName) async {
@@ -44,29 +71,25 @@ class WorkoutDatabase {
     );
   }
 
-  Future<List<Workout>> getAllWorkouts() async {
+  Future<void> updateWorkoutExercises(
+    int workoutId,
+    List<int> exerciseIds,
+  ) async {
     final db = await _db;
-    final workoutMaps = await db.query('workouts', orderBy: 'id ASC');
-    final List<Workout> workouts = [];
-    for (final map in workoutMaps) {
-      final rows = await db.query(
-        'exercises_in_workouts',
-        where: 'workoutId = ?',
-        whereArgs: [map['id']],
-        orderBy: 'position ASC',
-      );
-      final exercises =
-          rows.map((row) => ExerciseInWorkout.fromMap(row)).toList();
-      workouts.add(
-        Workout(
-          id: map['id'] as int,
-          name: map['name'] as String,
-          description: (map['description'] as String?) ?? '',
-          exercises: exercises,
-        ),
-      );
+    await db.delete(
+      'exercises_in_workouts',
+      where: 'workoutId = ?',
+      whereArgs: [workoutId],
+    );
+    for (int i = 0; i < exerciseIds.length; i++) {
+      await db.insert('exercises_in_workouts', {
+        'id': DateTime.now().microsecondsSinceEpoch + i,
+        'workoutId': workoutId,
+        'exerciseId': exerciseIds[i],
+        'position': i,
+        'customValues': null,
+      });
     }
-    return workouts;
   }
 
   Future<void> deleteWorkout(int id) async {
@@ -77,10 +100,5 @@ class WorkoutDatabase {
       where: 'workoutId = ?',
       whereArgs: [id],
     );
-  }
-
-  Future close() async {
-    final db = await _db;
-    await db.close();
   }
 }

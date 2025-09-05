@@ -1,126 +1,141 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
-import 'package:trainy/widgets/app_title.dart';
 import '../providers/theme_provider.dart';
-import 'package:provider/provider.dart';
-import '../providers/progress_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
-  // Konstante MaterialColor Objekte für DropdownButton
-  static const MaterialColor myBlue = Colors.blue;
-  static const MaterialColor myRed = Colors.red;
-  static const MaterialColor myGreen = Colors.green;
+  const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Zugriff auf ThemeProvider
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final accentColor = themeProvider.getAccentColor();
+    final theme = context.watch<ThemeProvider>();
+    final scheme = Theme.of(context).colorScheme;
+
+    Future<void> _pickAccent() async {
+      Color temp = theme.accent;
+      await showDialog(
+        context: context,
+        builder:
+            (ctx) => AlertDialog(
+              title: const Text('Akzentfarbe wählen'),
+              content: SingleChildScrollView(
+                child: BlockPicker(
+                  pickerColor: temp,
+                  onColorChanged: (c) => temp = c,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Abbrechen'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    theme.setAccent(temp);
+                  },
+                  child: const Text('Übernehmen'),
+                ),
+              ],
+            ),
+      );
+    }
 
     return Scaffold(
-      appBar: AppBar(title: AppTitle('Einstellungen', emoji: '⚙️')),
+      appBar: AppBar(title: const Text('Einstellungen')),
       body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          // Wöchentliches Ziel
-          Consumer<ProgressProvider>(
-            builder: (context, progress, child) {
-              return ListTile(
-                title: const Text('Wöchentliches Trainingsziel'),
-                subtitle: Text('${progress.weeklyGoal}x pro Woche'),
-                trailing: DropdownButton<int>(
-                  value: progress.weeklyGoal,
-                  onChanged: (value) {
-                    if (value != null) {
-                      progress.setWeeklyGoal(value);
-                    }
-                  },
-                  items:
-                      List.generate(7, (i) => i + 1).map((v) {
-                        return DropdownMenuItem(value: v, child: Text('$v x'));
-                      }).toList(),
-                ),
-              );
-            },
-          ),
-
-          // Dark Mode Switch
-          ListTile(
-            title: Text('Dark Mode'),
-            trailing: Switch(
-              value: themeProvider.isDarkMode,
-              onChanged: (value) {
-                themeProvider.toggleTheme();
-              },
-              activeColor: accentColor,
-            ),
-          ),
-          // DropdownButton für Akzentfarbe
-          ListTile(
-            title: Text('Akzentfarbe'),
-            trailing: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: accentColor,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade300),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Darstellung',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 10),
+                  SegmentedButton<ThemeMode>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                        value: ThemeMode.system,
+                        label: Text('System'),
+                        icon: Icon(Icons.auto_mode),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        label: Text('Hell'),
+                        icon: Icon(Icons.light_mode),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        label: Text('Dunkel'),
+                        icon: Icon(Icons.dark_mode),
+                      ),
+                    ],
+                    selected: {theme.themeMode},
+                    onSelectionChanged: (v) => theme.setThemeMode(v.first),
+                  ),
+                ],
               ),
             ),
-            onTap: () => _openColorPicker(context, themeProvider),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              title: const Text('Akzentfarbe'),
+              subtitle: const Text('Gilt global für UI-Elemente'),
+              leading: CircleAvatar(backgroundColor: theme.accent),
+              trailing: FilledButton.tonalIcon(
+                onPressed: _pickAccent,
+                icon: const Icon(Icons.palette_outlined),
+                label: const Text('Ändern'),
+              ),
+              onTap: _pickAccent,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final c in _quickSwatches)
+                InkWell(
+                  onTap: () => theme.setAccent(c),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: c,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color:
+                            c == theme.accent
+                                ? scheme.primary
+                                : scheme.outlineVariant,
+                        width: c == theme.accent ? 3 : 1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
     );
   }
-
-  void _openColorPicker(BuildContext context, ThemeProvider themeProvider) {
-    Color currentColor = themeProvider.getAccentColor();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Wähle eine Akzentfarbe'),
-          content: SingleChildScrollView(
-            child: ColorPicker(
-              pickerColor: currentColor,
-              onColorChanged: (Color color) {
-                currentColor = color;
-              },
-              enableAlpha: false,
-              labelTypes: const [],
-              pickerAreaHeightPercent: 0.8,
-            ),
-          ),
-          actions: [
-            TextButton(
-              child: Text('Abbrechen'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            ElevatedButton(
-              child: Text('Übernehmen'),
-              onPressed: () {
-                themeProvider.setAccentColor(
-                  MaterialColor(currentColor.value, <int, Color>{
-                    50: currentColor,
-                    100: currentColor,
-                    200: currentColor,
-                    300: currentColor,
-                    400: currentColor,
-                    500: currentColor,
-                    600: currentColor,
-                    700: currentColor,
-                    800: currentColor,
-                    900: currentColor,
-                  }),
-                );
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
 }
+
+const _quickSwatches = <Color>[
+  Color.fromARGB(255, 72, 121, 255), // blue
+  Color(0xFF00BFA5), // teal
+  Color(0xFF00C853), // green
+  Color.fromARGB(255, 255, 133, 40), // orange
+  Color(0xFFD81B60), // pink
+  Color(0xFF9C27B0), // purple
+  Color(0xFFF44336), // red
+];

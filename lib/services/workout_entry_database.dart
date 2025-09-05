@@ -1,3 +1,5 @@
+// lib/services/workout_entry_database.dart
+
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../models/workout_entry.dart';
@@ -7,7 +9,7 @@ class WorkoutEntryDatabase {
   static final WorkoutEntryDatabase instance = WorkoutEntryDatabase._init();
   WorkoutEntryDatabase._init();
 
-  Future<Database> get _db async => await AppDatabase.instance.database;
+  Future<Database> get _db async => AppDatabase.instance.database;
 
   Future<void> insertEntry(WorkoutEntry entry) async {
     final db = await _db;
@@ -15,48 +17,24 @@ class WorkoutEntryDatabase {
       'id': entry.id,
       'workoutId': entry.workoutId,
       'date': entry.date.toIso8601String(),
-      'results': jsonEncode(
-        entry.results.map((k, v) => MapEntry(k.toString(), v)),
-      ),
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
-  Future<List<WorkoutEntry>> getEntriesForWorkout(int workoutId) async {
-    final db = await _db;
-    final result = await db.query(
-      'workout_entries',
-      where: 'workoutId = ?',
-      whereArgs: [workoutId],
-      orderBy: 'date DESC',
-    );
-
-    return result.map((row) {
-      return WorkoutEntry(
-        id: row['id'] as int,
-        workoutId: row['workoutId'] as int,
-        date: DateTime.parse(row['date'] as String),
-        results: (jsonDecode(row['results'] as String) as Map<String, dynamic>)
-            .map((key, value) => MapEntry(int.parse(key), value)),
-      );
-    }).toList();
-  }
-
-  Future<DateTime?> getLastDate(int workoutId) async {
-    final entries = await getEntriesForWorkout(workoutId);
-    return entries.isEmpty ? null : entries.first.date;
+      'results': jsonEncode(entry.results),
+    });
   }
 
   Future<List<WorkoutEntry>> getAllEntries() async {
     final db = await _db;
     final result = await db.query('workout_entries', orderBy: 'date ASC');
-
     return result.map((row) {
+      final decoded =
+          (jsonDecode(row['results'] as String) as Map<String, dynamic>).map(
+            (k, v) =>
+                MapEntry(int.parse(k), (v as Map).cast<String, dynamic>()),
+          );
       return WorkoutEntry(
         id: row['id'] as int,
         workoutId: row['workoutId'] as int,
         date: DateTime.parse(row['date'] as String),
-        results: (jsonDecode(row['results'] as String) as Map<String, dynamic>)
-            .map((key, value) => MapEntry(int.parse(key), value)),
+        results: decoded,
       );
     }).toList();
   }

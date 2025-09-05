@@ -1,4 +1,5 @@
 // lib/providers/exercise_provider.dart
+
 import 'package:flutter/material.dart';
 import '../models/exercise.dart';
 import '../services/exercise_database.dart';
@@ -13,28 +14,39 @@ class ExerciseProvider extends ChangeNotifier {
   Future<void> loadExercises() async {
     _isLoading = true;
     notifyListeners();
-
     _exercises = await ExerciseDatabase.instance.getAllExercises();
-
     _isLoading = false;
     notifyListeners();
   }
 
   Future<void> addOrUpdateExercise(Exercise exercise) async {
-    if (_exercises.any((e) => e.id == exercise.id)) {
-      await ExerciseDatabase.instance.updateExercise(exercise);
-      final index = _exercises.indexWhere((e) => e.id == exercise.id);
-      _exercises[index] = exercise;
+    await ExerciseDatabase.instance.upsertExercise(exercise);
+    final idx = _exercises.indexWhere((e) => e.id == exercise.id);
+    if (idx >= 0) {
+      _exercises[idx] = exercise;
     } else {
-      await ExerciseDatabase.instance.insertExercise(exercise);
       _exercises.add(exercise);
+      _exercises.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
     }
     notifyListeners();
   }
 
-  /// Alias für kompatiblen Code (z. B. WorkoutScreen)
-  Future<void> updateExercise(Exercise exercise) async {
-    await addOrUpdateExercise(exercise);
+  /// Kompatibler Alias für bestehenden Code
+  Future<void> updateExercise(Exercise exercise) async =>
+      addOrUpdateExercise(exercise);
+
+  Future<void> updateLastValues(
+    int exerciseId,
+    Map<String, String> values,
+  ) async {
+    final idx = _exercises.indexWhere((e) => e.id == exerciseId);
+    if (idx < 0) return;
+    final updated = _exercises[idx].copyWith(lastValues: values);
+    await ExerciseDatabase.instance.upsertExercise(updated);
+    _exercises[idx] = updated;
+    notifyListeners();
   }
 
   Future<void> deleteExercises(List<int> ids) async {

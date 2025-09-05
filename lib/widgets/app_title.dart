@@ -1,3 +1,5 @@
+// lib/widgets/app_title.dart
+
 import 'package:flutter/material.dart';
 
 class AppTitle extends StatelessWidget {
@@ -10,13 +12,12 @@ class AppTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.primary;
-
     return Row(
       children: [
         if (emoji != null)
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: Text(emoji!, style: TextStyle(fontSize: 22)),
+            child: Text(emoji!, style: const TextStyle(fontSize: 22)),
           ),
         if (icon != null)
           Padding(

@@ -1,4 +1,5 @@
-// ignore_for_file: use_key_in_widget_constructors
+// lib/screens/progress_screen.dart
+// (keine tiefen Änderungen nötig – nutzt weiterhin workoutId & exerciseId)
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,246 +14,127 @@ import '../widgets/trainings_calendar.dart';
 enum TimeRange { last7Days, last30Days, last90Days, last365Days }
 
 class ProgressScreen extends StatefulWidget {
+  const ProgressScreen({super.key});
   @override
   State<ProgressScreen> createState() => _ProgressScreenState();
 }
 
 class _ProgressScreenState extends State<ProgressScreen> {
-  TimeRange _selectedRange = TimeRange.last7Days;
+  TimeRange range = TimeRange.last30Days;
 
-  DateTime get _rangeStart {
-    final now = DateTime.now();
-    switch (_selectedRange) {
-      case TimeRange.last7Days:
-        return now.subtract(const Duration(days: 6));
-      case TimeRange.last30Days:
-        return now.subtract(const Duration(days: 29));
-      case TimeRange.last90Days:
-        return now.subtract(const Duration(days: 89));
-      case TimeRange.last365Days:
-        return now.subtract(const Duration(days: 364));
-    }
-  }
-
-  double getAverageDuration(List<double> durations) {
-    if (durations.isEmpty) return 0;
-    return durations.reduce((a, b) => a + b) / durations.length;
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => context.read<ProgressProvider>().loadData());
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<ProgressProvider>(context);
+    final provider = context.watch<ProgressProvider>();
+    final entries = provider.entries;
+
     final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    final days = List.generate(7, (i) => monday.add(Duration(days: i)));
-    final formatter = DateFormat('yyyy-MM-dd');
+    final start = () {
+      switch (range) {
+        case TimeRange.last7Days:
+          return now.subtract(const Duration(days: 7));
+        case TimeRange.last30Days:
+          return now.subtract(const Duration(days: 30));
+        case TimeRange.last90Days:
+          return now.subtract(const Duration(days: 90));
+        case TimeRange.last365Days:
+          return now.subtract(const Duration(days: 365));
+      }
+    }();
 
-    final trainedDays =
-        provider.entries
-            .where(
-              (e) => e.date.isAfter(monday.subtract(const Duration(days: 1))),
-            )
-            .map((e) => formatter.format(e.date))
-            .toSet();
+    final filtered = entries.where((e) => e.date.isAfter(start)).toList();
 
-    final trainingsDieseWoche = trainedDays.length;
-    final entriesInRange =
-        provider.entries.where((e) => e.date.isAfter(_rangeStart)).toList();
-
-    final Map<String, double> durationMap = {};
-    for (var entry in entriesInRange) {
-      final key = formatter.format(entry.date);
-      final duration = (entry.results['durationInMinutes'] ?? 0) as int;
-      durationMap.update(
-        key,
-        (old) => old + duration.toDouble(),
-        ifAbsent: () => duration.toDouble(),
-      );
+    // simple per-day bar chart (counts)
+    final grouped = <String, int>{};
+    final fmt = DateFormat('MM/dd');
+    for (final e in filtered) {
+      final k = fmt.format(e.date);
+      grouped[k] = (grouped[k] ?? 0) + 1;
     }
-
-    final sortedKeys = durationMap.keys.toList()..sort();
-    final barGroups = List.generate(sortedKeys.length, (i) {
-      return BarChartGroupData(
-        x: i,
-        barRods: [
-          BarChartRodData(
-            toY: durationMap[sortedKeys[i]]!,
-            width: 14,
-            color: Theme.of(context).colorScheme.primary,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(6),
-              topRight: Radius.circular(6),
-            ),
-          ),
-        ],
-      );
-    });
-
-    final labels =
-        sortedKeys
-            .map((e) => DateFormat('E', 'de').format(DateTime.parse(e)))
-            .toList();
-
-    final averageDuration = getAverageDuration(durationMap.values.toList());
+    final labels = grouped.keys.toList();
+    final barGroups = [
+      for (int i = 0; i < labels.length; i++)
+        BarChartGroupData(
+          x: i,
+          barRods: [BarChartRodData(toY: (grouped[labels[i]] ?? 0).toDouble())],
+        ),
+    ];
 
     return Scaffold(
-      appBar: AppBar(title: AppTitle("Fortschritt", emoji: '🚀')),
-      body:
-          provider.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : provider.entries.isEmpty
-              ? const Center(child: Text('Noch keine Workouts abgeschlossen.'))
-              : Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: ListView(
-                  children: [
-                    WeeklyActivityChart(
-                      trainedDays: trainedDays,
-                      monday: monday,
-                      weeklyGoal: provider.weeklyGoal,
-                      trainingsDieseWoche: trainingsDieseWoche,
-                      onGoalChanged: (newGoal) {
-                        provider.setWeeklyGoal(newGoal);
-                      },
-                    ),
-
-                    const SizedBox(height: 24),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: ToggleButtons(
-                        borderRadius: BorderRadius.circular(12),
-                        isSelected:
-                            TimeRange.values
-                                .map((e) => e == _selectedRange)
-                                .toList(),
-                        onPressed: (index) {
-                          setState(() {
-                            _selectedRange = TimeRange.values[index];
-                          });
+      appBar: AppBar(
+        title: const AppTitle('Progress', icon: Icons.show_chart_outlined),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              const Text('Zeitraum:'),
+              const SizedBox(width: 12),
+              DropdownButton<TimeRange>(
+                value: range,
+                onChanged: (v) => setState(() => range = v ?? range),
+                items:
+                    TimeRange.values
+                        .map(
+                          (r) =>
+                              DropdownMenuItem(value: r, child: Text(r.name)),
+                        )
+                        .toList(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (labels.isNotEmpty)
+            AspectRatio(
+              aspectRatio: 1.6,
+              child: BarChart(
+                BarChartData(
+                  barGroups: barGroups,
+                  titlesData: FlTitlesData(
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        interval: 1,
+                        showTitles: true,
+                        reservedSize: 32,
+                        getTitlesWidget: (value, _) {
+                          final index = value.toInt();
+                          if (index < labels.length) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(labels[index]),
+                            );
+                          }
+                          return const SizedBox.shrink();
                         },
-                        children: const [
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('7 T'),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('30 T'),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('3 M'),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('1 J'),
-                          ),
-                        ],
                       ),
                     ),
-                    Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 4,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Workout-Dauer',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  'Ø ${averageDuration.toStringAsFixed(1)} min',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            AspectRatio(
-                              aspectRatio: 1.6,
-                              child: BarChart(
-                                BarChartData(
-                                  barGroups: barGroups,
-                                  titlesData: FlTitlesData(
-                                    bottomTitles: AxisTitles(
-                                      sideTitles: SideTitles(
-                                        interval: 1,
-                                        showTitles: true,
-                                        reservedSize: 32,
-                                        getTitlesWidget: (value, _) {
-                                          final index = value.toInt();
-                                          if (index < labels.length) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(
-                                                top: 6,
-                                              ),
-                                              child: Text(
-                                                labels[index],
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                          return const Text('');
-                                        },
-                                      ),
-                                    ),
-                                    leftTitles: AxisTitles(
-                                      sideTitles: SideTitles(
-                                        showTitles: true,
-                                        interval: 10,
-                                        reservedSize: 40,
-                                        getTitlesWidget: (value, _) {
-                                          return Text(
-                                            '${value.toInt()} min',
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    topTitles: AxisTitles(
-                                      sideTitles: SideTitles(showTitles: false),
-                                    ),
-                                    rightTitles: AxisTitles(
-                                      sideTitles: SideTitles(showTitles: false),
-                                    ),
-                                  ),
-                                  gridData: FlGridData(show: false),
-                                  borderData: FlBorderData(show: true),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
                     ),
-
-                    // WeightProgressChart(entries: provider.entries),
-                    FilteredExerciseProgressChart(entries: provider.entries),
-
-                    const SizedBox(height: 24),
-                    TrainingCalendar(entries: provider.entries),
-                  ],
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  borderData: FlBorderData(show: true),
+                  gridData: FlGridData(show: false),
                 ),
               ),
+            ),
+          const SizedBox(height: 16),
+          TrainingCalendar(entries: entries),
+          const SizedBox(height: 16),
+          FilteredExerciseProgressChart(entries: entries),
+        ],
+      ),
     );
   }
 }

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-Color getTextColor(BuildContext context) {
-  return Theme.of(context).brightness == Brightness.light
-      ? Colors.black
-      : Colors.white;
-}
+/// Nutze konsistent das ColorScheme statt fixer Farben.
+Color textOnSurface(BuildContext context) =>
+    Theme.of(context).colorScheme.onSurface;

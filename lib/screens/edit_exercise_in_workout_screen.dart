@@ -1,85 +1,67 @@
 // lib/screens/edit_exercise_in_workout_screen.dart
+// Refaktoriere: Bearbeitung der Werte einer *globalen* Exercise für diese Session
+
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../models/exercise_in_workout.dart';
 import '../models/exercise.dart';
-import '../providers/exercise_provider.dart';
 
 class EditExerciseInWorkoutScreen extends StatefulWidget {
-  final ExerciseInWorkout exerciseInWorkout;
+  final Exercise exercise;
+  final Map<String, String> initialValues;
 
   const EditExerciseInWorkoutScreen({
     super.key,
-    required this.exerciseInWorkout,
+    required this.exercise,
+    required this.initialValues,
   });
 
   @override
-  State<EditExerciseInWorkoutScreen> createState() => _EditExerciseInWorkoutScreenState();
+  State<EditExerciseInWorkoutScreen> createState() =>
+      _EditExerciseInWorkoutScreenState();
 }
 
-class _EditExerciseInWorkoutScreenState extends State<EditExerciseInWorkoutScreen> {
-  late Map<String, String> _customValues;
+class _EditExerciseInWorkoutScreenState
+    extends State<EditExerciseInWorkoutScreen> {
+  late Map<String, String> _values;
 
   @override
   void initState() {
     super.initState();
-    _customValues = Map<String, String>.from(widget.exerciseInWorkout.customValues);
-    // Safety: wenn Exercises noch nicht geladen sind, lade sie
-    Future.microtask(() {
-      final ep = Provider.of<ExerciseProvider>(context, listen: false);
-      if (!ep.isLoading && ep.exercises.isEmpty) ep.loadExercises();
-    });
+    _values = Map<String, String>.from(widget.initialValues);
   }
 
   @override
   Widget build(BuildContext context) {
-    final ep = context.watch<ExerciseProvider>();
-    final exercises = ep.exercises;
-    final Exercise? exercise = exercises.isEmpty
-        ? null
-        : exercises.firstWhere(
-          (e) => e.id == widget.exerciseInWorkout.exerciseId,
-      orElse: () => exercises.first,
-    );
-
-    if (exercise == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     return Scaffold(
-      appBar: AppBar(title: Text("${exercise.name} bearbeiten")),
+      appBar: AppBar(title: Text(widget.exercise.name)),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: ListView(
           children: [
-            Text("Vorgabewerte für dieses Workout", style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 16),
-            ...exercise.trackedFields.map((field) {
+            ...widget.exercise.trackedFields.map((field) {
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: TextField(
+                  controller: TextEditingController(text: _values[field] ?? ''),
                   decoration: InputDecoration(
-                    labelText: '$field (${exercise.units[field] ?? ""})',
-                    border: const OutlineInputBorder(),
+                    labelText: field,
+                    suffixText: widget.exercise.units[field],
                   ),
-                  controller: TextEditingController(text: _customValues[field] ?? ''),
-                  onChanged: (v) => _customValues[field] = v,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (v) => _values[field] = v,
                 ),
               );
             }),
-            const Spacer(),
-            FilledButton.icon(
-              icon: const Icon(Icons.save),
-              label: const Text("Speichern"),
-              onPressed: () {
-                final updated = widget.exerciseInWorkout.copyWith(customValues: _customValues);
-                Navigator.pop(context, updated);
-              },
-            ),
           ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: FilledButton.icon(
+            icon: const Icon(Icons.save),
+            label: const Text('Übernehmen'),
+            onPressed: () => Navigator.pop(context, _values),
+          ),
         ),
       ),
     );

@@ -1,3 +1,5 @@
+// lib/providers/workout_provider.dart
+
 import 'package:flutter/material.dart';
 import '../models/workout.dart';
 import '../services/workout_database.dart';
@@ -12,32 +14,42 @@ class WorkoutProvider extends ChangeNotifier {
   Future<void> loadWorkouts() async {
     _isLoading = true;
     notifyListeners();
-
     _workouts = await WorkoutDatabase.instance.getAllWorkouts();
-
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<void> addWorkout(Workout workout) async {
-    await WorkoutDatabase.instance.insertWorkout(workout);
-    _workouts.add(workout);
-    notifyListeners();
-  }
-
-  Future<void> updateWorkout(Workout workout) async {
-    await WorkoutDatabase.instance.insertWorkout(workout);
-    final index = _workouts.indexWhere((w) => w.id == workout.id);
-    if (index != -1) {
-      _workouts[index] = workout;
-      notifyListeners();
+  Future<void> addOrUpdateWorkout(Workout workout) async {
+    await WorkoutDatabase.instance.upsertWorkout(workout);
+    final idx = _workouts.indexWhere((w) => w.id == workout.id);
+    if (idx >= 0) {
+      _workouts[idx] = workout;
+    } else {
+      _workouts.add(workout);
+      _workouts.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
     }
+    notifyListeners();
   }
 
   Future<void> updateWorkoutName(int workoutId, String newName) async {
     await WorkoutDatabase.instance.updateWorkoutName(workoutId, newName);
-    final workout = _workouts.firstWhere((w) => w.id == workoutId);
-    workout.name = newName;
+    final w = _workouts.firstWhere((w) => w.id == workoutId);
+    w.name = newName;
+    notifyListeners();
+  }
+
+  Future<void> updateWorkoutExercises(
+    int workoutId,
+    List<int> exerciseIds,
+  ) async {
+    await WorkoutDatabase.instance.updateWorkoutExercises(
+      workoutId,
+      exerciseIds,
+    );
+    final w = _workouts.firstWhere((w) => w.id == workoutId);
+    w.exerciseIds = List<int>.from(exerciseIds);
     notifyListeners();
   }
 

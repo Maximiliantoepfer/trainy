@@ -1,82 +1,51 @@
-// lib/providers/theme_provider.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../themes/app_theme.dart';
 
-class ThemeProvider with ChangeNotifier {
-  ThemeData _themeData = AppTheme.darkTheme;
-  MaterialColor _accentColor = Colors.blue;
+class ThemeProvider extends ChangeNotifier {
+  static const _kAccentKey = 'accent_argb';
+  static const _kThemeModeKey = 'theme_mode'; // system|light|dark
 
-  static const _darkModeKey = 'darkMode';
-  static const _accentColorKey = 'accentColor';
+  Color _accent = const Color(0xFF2962FF); // default blue
+  ThemeMode _themeMode = ThemeMode.system;
+
+  Color get accent => _accent;
+  ThemeMode get themeMode => _themeMode;
 
   ThemeProvider() {
-    _loadThemePreferences();
+    _load();
   }
 
-  ThemeData getTheme() => _themeData;
-  Color getAccentColor() => _accentColor;
-  bool get isDarkMode => _themeData.brightness == Brightness.dark;
-
-  Future<void> toggleTheme() async {
-    final isCurrentlyDark = _themeData.brightness == Brightness.dark;
-    final nextBase = isCurrentlyDark ? AppTheme.lightTheme : AppTheme.darkTheme;
-
-    _themeData = nextBase.copyWith(
-      colorScheme: nextBase.colorScheme.copyWith(primary: _accentColor),
-      primaryColor: _accentColor,
-    );
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_darkModeKey, !isCurrentlyDark);
-
+  Future<void> setAccent(Color color) async {
+    _accent = color;
     notifyListeners();
-  }
-
-  Future<void> setAccentColor(MaterialColor color) async {
-    _accentColor = color;
-    _themeData = _themeData.copyWith(
-      colorScheme: _themeData.colorScheme.copyWith(primary: color),
-      primaryColor: color,
-    );
-
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_accentColorKey, _materialColorToIndex(color));
-
-    notifyListeners();
+    await prefs.setInt(_kAccentKey, color.value);
   }
 
-  Future<void> _loadThemePreferences() async {
+  Future<void> setThemeMode(ThemeMode mode) async {
+    _themeMode = mode;
+    notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-
-    final isDark = prefs.getBool(_darkModeKey) ?? true;
-    final accentIndex = prefs.getInt(_accentColorKey) ?? 0;
-
-    _accentColor = _indexToMaterialColor(accentIndex);
-
-    final base = isDark ? AppTheme.darkTheme : AppTheme.lightTheme;
-    _themeData = base.copyWith(
-      colorScheme: base.colorScheme.copyWith(primary: _accentColor),
-      primaryColor: _accentColor,
-    );
-
-    notifyListeners();
+    await prefs.setString(_kThemeModeKey, switch (mode) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      _ => 'system',
+    });
   }
 
-  int _materialColorToIndex(MaterialColor color) {
-    if (color == Colors.red) return 1;
-    if (color == Colors.green) return 2;
-    return 0; // blue default
-  }
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final argb = prefs.getInt(_kAccentKey);
+    final modeStr = prefs.getString(_kThemeModeKey);
 
-  MaterialColor _indexToMaterialColor(int index) {
-    switch (index) {
-      case 1:
-        return Colors.red;
-      case 2:
-        return Colors.green;
-      default:
-        return Colors.blue;
+    if (argb != null) _accent = Color(argb);
+    if (modeStr != null) {
+      _themeMode = switch (modeStr) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      };
     }
+    notifyListeners();
   }
 }

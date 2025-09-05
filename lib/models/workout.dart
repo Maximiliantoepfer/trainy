@@ -1,17 +1,31 @@
 // lib/models/workout.dart
 
-import 'exercise_in_workout.dart';
-
 class Workout {
   int id;
   String name;
   String description;
-  List<ExerciseInWorkout> exercises;
+
+  /// Reihenfolge-relevante Liste der Exercise-IDs
+  List<int> exerciseIds;
 
   Workout({
     required this.id,
     required this.name,
     this.description = '',
-    this.exercises = const [],
+    this.exerciseIds = const [],
   });
+
+  Workout copyWith({
+    int? id,
+    String? name,
+    String? description,
+    List<int>? exerciseIds,
+  }) {
+    return Workout(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      exerciseIds: exerciseIds ?? List<int>.from(this.exerciseIds),
+    );
+  }
 }

@@ -1,10 +1,11 @@
+// lib/widgets/trainings_calendar.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/workout_entry.dart';
 
 class TrainingCalendar extends StatelessWidget {
   final List<WorkoutEntry> entries;
-
   const TrainingCalendar({super.key, required this.entries});
 
   @override
@@ -14,47 +15,43 @@ class TrainingCalendar extends StatelessWidget {
     final endOfMonth = DateTime(now.year, now.month + 1, 0);
     final formatter = DateFormat('yyyy-MM-dd');
 
-    final daysInMonth = List.generate(
+    final days = List<DateTime>.generate(
       endOfMonth.day,
-      (index) => startOfMonth.add(Duration(days: index)),
+      (i) => DateTime(now.year, now.month, i + 1),
     );
 
-    final trainedDays = entries.map((e) => formatter.format(e.date)).toSet();
+    final trained = entries.map((e) => formatter.format(e.date)).toSet();
 
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Trainingskalender',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-            ),
+            Text('Kalender', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 7,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children:
-                  daysInMonth.map((day) {
-                    final key = formatter.format(day);
-                    final trained = trainedDays.contains(key);
+                  days.map((d) {
+                    final key = formatter.format(d);
+                    final hit = trained.contains(key);
                     return Container(
-                      margin: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: trained ? Colors.green : Colors.grey[850],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      width: 36,
+                      height: 36,
                       alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color:
+                            hit
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade700),
+                      ),
                       child: Text(
-                        '${day.day}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
+                        '${d.day}',
+                        style: const TextStyle(color: Colors.white),
                       ),
                     );
                   }).toList(),

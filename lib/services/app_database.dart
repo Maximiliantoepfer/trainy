@@ -1,3 +1,5 @@
+// lib/services/app_database.dart
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -7,6 +9,8 @@ class AppDatabase {
 
   AppDatabase._init();
 
+  static const _dbVersion = 4; // v4: exercises.lastValues
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     final dbPath = await getDatabasesPath();
@@ -14,33 +18,11 @@ class AppDatabase {
 
     _database = await openDatabase(
       path,
-      version: 3, // 👈 von 1 auf 2 erhöhen!
+      version: _dbVersion,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
-
     return _database!;
-  }
-
-  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute('''
-        CREATE TABLE workout_entries (
-          id INTEGER PRIMARY KEY,
-          workoutId INTEGER,
-          date TEXT,
-          results TEXT
-        );
-      ''');
-    }
-    if (oldVersion < 3) {
-      await db.execute('''
-        CREATE TABLE user_settings (
-          id INTEGER PRIMARY KEY DEFAULT 0,
-          weekly_goal INTEGER
-        );
-      ''');
-    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -59,20 +41,22 @@ class AppDatabase {
         description TEXT,
         trackedFields TEXT,
         defaultValues TEXT,
+        lastValues TEXT,
         units TEXT,
         icon INTEGER
       );
     ''');
 
+    // Wir behalten den alten Tabellennamen aus Kompatibilitätsgründen
     await db.execute('''
-    CREATE TABLE exercises_in_workouts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      workoutId INTEGER,
-      exerciseId INTEGER,
-      position INTEGER,
-      customValues TEXT
-    );
-  ''');
+      CREATE TABLE exercises_in_workouts (
+        id INTEGER PRIMARY KEY,
+        workoutId INTEGER,
+        exerciseId INTEGER,
+        position INTEGER,
+        customValues TEXT
+      );
+    ''');
 
     await db.execute('''
       CREATE TABLE workout_entries (
@@ -89,5 +73,34 @@ class AppDatabase {
         weekly_goal INTEGER
       );
     ''');
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE workout_entries (
+          id INTEGER PRIMARY KEY,
+          workoutId INTEGER,
+          date TEXT,
+          results TEXT
+        );
+      ''');
+    }
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE user_settings (
+          id INTEGER PRIMARY KEY DEFAULT 0,
+          weekly_goal INTEGER
+        );
+      ''');
+    }
+    if (oldVersion < 4) {
+      // v4: neues Feld lastValues auf exercises
+      try {
+        await db.execute('ALTER TABLE exercises ADD COLUMN lastValues TEXT');
+      } catch (_) {
+        // Spalte existiert bereits – ignorieren
+      }
+    }
   }
 }
