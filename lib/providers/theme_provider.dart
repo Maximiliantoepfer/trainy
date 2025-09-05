@@ -1,3 +1,4 @@
+// lib/providers/theme_provider.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../themes/app_theme.dart';
@@ -17,12 +18,12 @@ class ThemeProvider with ChangeNotifier {
   Color getAccentColor() => _accentColor;
   bool get isDarkMode => _themeData.brightness == Brightness.dark;
 
-  void toggleTheme() async {
-    bool isCurrentlyDark = _themeData.brightness == Brightness.dark;
-    _themeData = isCurrentlyDark ? AppTheme.lightTheme : AppTheme.darkTheme;
+  Future<void> toggleTheme() async {
+    final isCurrentlyDark = _themeData.brightness == Brightness.dark;
+    final nextBase = isCurrentlyDark ? AppTheme.lightTheme : AppTheme.darkTheme;
 
-    _themeData = _themeData.copyWith(
-      colorScheme: _themeData.colorScheme.copyWith(primary: _accentColor),
+    _themeData = nextBase.copyWith(
+      colorScheme: nextBase.colorScheme.copyWith(primary: _accentColor),
       primaryColor: _accentColor,
     );
 
@@ -32,7 +33,7 @@ class ThemeProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void setAccentColor(MaterialColor color) async {
+  Future<void> setAccentColor(MaterialColor color) async {
     _accentColor = color;
     _themeData = _themeData.copyWith(
       colorScheme: _themeData.colorScheme.copyWith(primary: color),
@@ -52,21 +53,20 @@ class ThemeProvider with ChangeNotifier {
     final accentIndex = prefs.getInt(_accentColorKey) ?? 0;
 
     _accentColor = _indexToMaterialColor(accentIndex);
-    _themeData = (isDark ? AppTheme.darkTheme : AppTheme.lightTheme).copyWith(
-      colorScheme: (isDark ? AppTheme.darkTheme : AppTheme.lightTheme)
-          .colorScheme
-          .copyWith(primary: _accentColor),
+
+    final base = isDark ? AppTheme.darkTheme : AppTheme.lightTheme;
+    _themeData = base.copyWith(
+      colorScheme: base.colorScheme.copyWith(primary: _accentColor),
       primaryColor: _accentColor,
     );
 
     notifyListeners();
   }
 
-  /// Hilfsfunktionen zur Konvertierung von Farben zu Integer
   int _materialColorToIndex(MaterialColor color) {
     if (color == Colors.red) return 1;
     if (color == Colors.green) return 2;
-    return 0; // Blau (default)
+    return 0; // blue default
   }
 
   MaterialColor _indexToMaterialColor(int index) {

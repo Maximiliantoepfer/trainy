@@ -1,3 +1,4 @@
+// lib/providers/exercise_provider.dart
 import 'package:flutter/material.dart';
 import '../models/exercise.dart';
 import '../services/exercise_database.dart';
@@ -29,6 +30,11 @@ class ExerciseProvider extends ChangeNotifier {
       _exercises.add(exercise);
     }
     notifyListeners();
+  }
+
+  /// Alias für kompatiblen Code (z. B. WorkoutScreen)
+  Future<void> updateExercise(Exercise exercise) async {
+    await addOrUpdateExercise(exercise);
   }
 
   Future<void> deleteExercises(List<int> ids) async {

@@ -1,4 +1,4 @@
-// Angepasst: Zugriff auf results['exercises'] statt results['values']
+// filtered_exercise_progress_chart.dart (NEU: Überarbeitung für exerciseId)
 
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/workout_entry.dart';
 import '../models/workout.dart';
-import '../models/exercise_in_workout.dart';
+import '../providers/exercise_provider.dart';
 import '../providers/workout_provider.dart';
 
 class FilteredExerciseProgressChart extends StatefulWidget {
@@ -22,13 +22,15 @@ class FilteredExerciseProgressChart extends StatefulWidget {
 class _FilteredExerciseProgressChartState
     extends State<FilteredExerciseProgressChart> {
   int? _selectedWorkoutId;
-  String? _selectedExerciseName;
+  int? _selectedExerciseId;
   String? _selectedMetric;
 
   @override
   Widget build(BuildContext context) {
     final workoutProvider = Provider.of<WorkoutProvider>(context);
+    final exerciseProvider = Provider.of<ExerciseProvider>(context);
     final workouts = workoutProvider.workouts;
+    final exercises = exerciseProvider.exercises;
 
     final availableWorkouts =
         workouts
@@ -47,29 +49,19 @@ class _FilteredExerciseProgressChartState
               Workout(id: 0, name: 'Unbekannt', exercises: [], description: ''),
     );
 
-    final exercises = selectedWorkout.exercises;
-    final exerciseNames = exercises.map((e) => e.name).toSet().toList();
-    exerciseNames.sort();
+    final workoutExerciseIds =
+        selectedWorkout.exercises.map((e) => e.exerciseId).toSet().toList();
+    final filteredExercises =
+        exercises.where((e) => workoutExerciseIds.contains(e.id)).toList();
+    filteredExercises.sort((a, b) => a.name.compareTo(b.name));
 
-    if (_selectedExerciseName == null && exerciseNames.isNotEmpty) {
-      _selectedExerciseName = exerciseNames.first;
+    if (_selectedExerciseId == null && filteredExercises.isNotEmpty) {
+      _selectedExerciseId = filteredExercises.first.id;
     }
 
     final selectedExercise = exercises.firstWhere(
-      (e) => e.name == _selectedExerciseName,
-      orElse:
-          () => ExerciseInWorkout(
-            id: 0,
-            workoutId: selectedWorkout.id,
-            exerciseId: 0,
-            name: '',
-            description: '',
-            trackedFields: [],
-            defaultValues: {},
-            units: {},
-            icon: Icons.help_outline,
-            position: 0,
-          ),
+      (e) => e.id == _selectedExerciseId,
+      orElse: () => exercises.first,
     );
 
     final metrics = selectedExercise.trackedFields;
@@ -82,46 +74,34 @@ class _FilteredExerciseProgressChartState
             .where(
               (e) =>
                   e.workoutId == _selectedWorkoutId &&
-                  e.results['exercises'] != null,
+                  e.results[_selectedExerciseId] != null,
             )
-            .map((e) {
-              final exercises = e.results['exercises'];
-              double value = 0;
+            .toList();
 
-              if (exercises is List) {
-                final match = exercises.firstWhere(
-                  (ex) => ex is Map && ex['name'] == _selectedExerciseName,
-                  orElse: () => null,
-                );
+    final chartData =
+        relevantEntries.map((e) {
+          final fields = e.results[_selectedExerciseId];
+          double value = 0;
+          if (fields is Map) {
+            final fieldVal = fields?[_selectedMetric];
+            if (fieldVal is num) value = fieldVal.toDouble();
+            if (fieldVal is String) value = double.tryParse(fieldVal) ?? 0.0;
+          }
+          return {'date': e.date, 'value': value};
+        }).toList();
 
-                if (match != null && match['fields'] is Map) {
-                  final fields = match['fields'];
-                  if (fields[_selectedMetric] is num) {
-                    value = (fields[_selectedMetric] as num).toDouble();
-                  } else if (fields[_selectedMetric] is String) {
-                    value = double.tryParse(fields[_selectedMetric]) ?? 0.0;
-                  }
-                }
-              }
-
-              print(
-                "📊 Entry: ${e.date} / ${_selectedExerciseName} / ${_selectedMetric} → $value",
-              );
-              return {'date': e.date, 'value': value};
-            })
-            .toList()
-          ..sort(
-            (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime),
-          );
+    chartData.sort(
+      (a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime),
+    );
 
     final spots =
-        relevantEntries.asMap().entries.map((e) {
+        chartData.asMap().entries.map((e) {
           return FlSpot(e.key.toDouble(), e.value['value'] as double);
         }).toList();
 
-    final Map<int, String> labels = {};
-    for (var i = 0; i < relevantEntries.length; i++) {
-      final date = relevantEntries[i]['date'] as DateTime;
+    final labels = <int, String>{};
+    for (int i = 0; i < chartData.length; i++) {
+      final date = chartData[i]['date'] as DateTime;
       labels[i] = DateFormat('dd.MM.').format(date);
     }
 
@@ -134,7 +114,7 @@ class _FilteredExerciseProgressChartState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Trainingsdaten',
+              'Trainingsverlauf',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
@@ -143,32 +123,36 @@ class _FilteredExerciseProgressChartState
               isExpanded: true,
               value: _selectedWorkoutId,
               items:
-                  availableWorkouts.map((w) {
-                    return DropdownMenuItem(value: w.id, child: Text(w.name));
-                  }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedWorkoutId = value;
-                  _selectedExerciseName = null;
-                  _selectedMetric = null;
-                });
-              },
+                  availableWorkouts
+                      .map(
+                        (w) =>
+                            DropdownMenuItem(value: w.id, child: Text(w.name)),
+                      )
+                      .toList(),
+              onChanged:
+                  (val) => setState(() {
+                    _selectedWorkoutId = val;
+                    _selectedExerciseId = null;
+                    _selectedMetric = null;
+                  }),
             ),
             const SizedBox(height: 8),
 
-            DropdownButton<String>(
+            DropdownButton<int>(
               isExpanded: true,
-              value: _selectedExerciseName,
+              value: _selectedExerciseId,
               items:
-                  exerciseNames
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  filteredExercises
+                      .map(
+                        (e) =>
+                            DropdownMenuItem(value: e.id, child: Text(e.name)),
+                      )
                       .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedExerciseName = value;
-                  _selectedMetric = null;
-                });
-              },
+              onChanged:
+                  (val) => setState(() {
+                    _selectedExerciseId = val;
+                    _selectedMetric = null;
+                  }),
             ),
             const SizedBox(height: 8),
 
@@ -179,16 +163,12 @@ class _FilteredExerciseProgressChartState
                   metrics
                       .map((m) => DropdownMenuItem(value: m, child: Text(m)))
                       .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedMetric = value;
-                });
-              },
+              onChanged: (val) => setState(() => _selectedMetric = val),
             ),
             const SizedBox(height: 12),
 
             if (spots.isEmpty)
-              const Text('Keine Daten für diese Auswahl.')
+              const Text('Keine Daten verfügbar.')
             else
               AspectRatio(
                 aspectRatio: 1.6,
@@ -196,42 +176,28 @@ class _FilteredExerciseProgressChartState
                   LineChartData(
                     lineBarsData: [
                       LineChartBarData(
-                        isCurved: true,
                         spots: spots,
-                        color: Theme.of(context).colorScheme.primary,
+                        isCurved: true,
                         barWidth: 3,
-                        belowBarData: BarAreaData(show: false),
                         dotData: FlDotData(show: true),
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ],
                     titlesData: FlTitlesData(
                       bottomTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
-                          reservedSize: 36,
-                          interval: _calculateXInterval(labels.length),
                           getTitlesWidget: (value, _) {
                             final index = value.toInt();
-                            if (labels.containsKey(index)) {
-                              return Text(
-                                labels[index]!,
-                                style: const TextStyle(fontSize: 11),
-                              );
-                            }
-                            return const Text('');
+                            return Text(
+                              labels[index] ?? '',
+                              style: const TextStyle(fontSize: 11),
+                            );
                           },
                         ),
                       ),
                       leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 42,
-                          getTitlesWidget:
-                              (value, _) => Text(
-                                '${value.toInt()}',
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                        ),
+                        sideTitles: SideTitles(showTitles: true),
                       ),
                       topTitles: AxisTitles(
                         sideTitles: SideTitles(showTitles: false),
@@ -240,8 +206,8 @@ class _FilteredExerciseProgressChartState
                         sideTitles: SideTitles(showTitles: false),
                       ),
                     ),
-                    gridData: FlGridData(show: false),
                     borderData: FlBorderData(show: true),
+                    gridData: FlGridData(show: false),
                   ),
                 ),
               ),
@@ -249,12 +215,5 @@ class _FilteredExerciseProgressChartState
         ),
       ),
     );
-  }
-
-  double _calculateXInterval(int length) {
-    if (length <= 5) return 1;
-    if (length <= 10) return 2;
-    if (length <= 20) return 3;
-    return (length / 5).roundToDouble();
   }
 }

@@ -2,7 +2,7 @@ class WorkoutEntry {
   final int id;
   final int workoutId;
   final DateTime date;
-  final Map<String, dynamic> results; // Ergebnisse für jede Übung
+  final Map<int, Map<String, dynamic>> results; // exerciseId → Felder
 
   WorkoutEntry({
     required this.id,

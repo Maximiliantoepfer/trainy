@@ -65,19 +65,14 @@ class AppDatabase {
     ''');
 
     await db.execute('''
-      CREATE TABLE exercises_in_workouts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        workoutId INTEGER,
-        exerciseId INTEGER,
-        name TEXT,
-        description TEXT,
-        trackedFields TEXT,
-        defaultValues TEXT,
-        units TEXT,
-        icon INTEGER,
-        position INTEGER
-      );
-    ''');
+    CREATE TABLE exercises_in_workouts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      workoutId INTEGER,
+      exerciseId INTEGER,
+      position INTEGER,
+      customValues TEXT
+    );
+  ''');
 
     await db.execute('''
       CREATE TABLE workout_entries (

@@ -1,154 +1,83 @@
 // lib/screens/edit_exercise_in_workout_screen.dart
-
 import 'package:flutter/material.dart';
-import 'package:trainy/models/exercise_in_workout.dart';
-import 'package:trainy/widgets/app_title.dart';
+import 'package:provider/provider.dart';
+import '../models/exercise_in_workout.dart';
+import '../models/exercise.dart';
+import '../providers/exercise_provider.dart';
 
 class EditExerciseInWorkoutScreen extends StatefulWidget {
-  final ExerciseInWorkout exercise;
+  final ExerciseInWorkout exerciseInWorkout;
 
-  const EditExerciseInWorkoutScreen({super.key, required this.exercise});
+  const EditExerciseInWorkoutScreen({
+    super.key,
+    required this.exerciseInWorkout,
+  });
 
   @override
-  State<EditExerciseInWorkoutScreen> createState() =>
-      _EditExerciseInWorkoutScreenState();
+  State<EditExerciseInWorkoutScreen> createState() => _EditExerciseInWorkoutScreenState();
 }
 
-class _EditExerciseInWorkoutScreenState
-    extends State<EditExerciseInWorkoutScreen> {
-  late Map<String, String> defaultValues;
-  late Map<String, String> units;
-  late List<String> trackedFields;
-
-  final unitOptions = <String, List<String>>{
-    'Sätze': ['x'],
-    'Wiederholungen': ['x'],
-    'Gewicht': ['kg', 'lbs'],
-    'Dauer': ['sec', 'min'],
-  };
+class _EditExerciseInWorkoutScreenState extends State<EditExerciseInWorkoutScreen> {
+  late Map<String, String> _customValues;
 
   @override
   void initState() {
     super.initState();
-    trackedFields = List.from(widget.exercise.trackedFields);
-    defaultValues = Map.from(widget.exercise.defaultValues);
-    units = Map.from(widget.exercise.units);
-
-    units.updateAll((key, value) {
-      if (!unitOptions.containsKey(key) || !unitOptions[key]!.contains(value)) {
-        return unitOptions[key]?.first ?? '';
-      }
-      return value;
+    _customValues = Map<String, String>.from(widget.exerciseInWorkout.customValues);
+    // Safety: wenn Exercises noch nicht geladen sind, lade sie
+    Future.microtask(() {
+      final ep = Provider.of<ExerciseProvider>(context, listen: false);
+      if (!ep.isLoading && ep.exercises.isEmpty) ep.loadExercises();
     });
-  }
-
-  void toggleField(String field) {
-    setState(() {
-      if (trackedFields.contains(field)) {
-        trackedFields.remove(field);
-        defaultValues.remove(field);
-        units.remove(field);
-      } else {
-        trackedFields.add(field);
-        defaultValues[field] = '';
-        units[field] = unitOptions[field]?.first ?? '';
-      }
-    });
-  }
-
-  Widget buildFieldInput(String field) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 5,
-            child: TextField(
-              decoration: InputDecoration(
-                labelText: 'Letzter Wert',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              keyboardType: TextInputType.number,
-              onChanged: (val) => defaultValues[field] = val,
-              controller: TextEditingController(text: defaultValues[field]),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 4,
-            child: DropdownButtonFormField<String>(
-              decoration: InputDecoration(
-                labelText: 'Einheit',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              value:
-                  unitOptions[field]!.contains(units[field])
-                      ? units[field]
-                      : unitOptions[field]!.first,
-              items:
-                  unitOptions[field]!
-                      .map(
-                        (unit) =>
-                            DropdownMenuItem(value: unit, child: Text(unit)),
-                      )
-                      .toList(),
-              onChanged:
-                  (val) => setState(() {
-                    if (val != null) units[field] = val;
-                  }),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final ep = context.watch<ExerciseProvider>();
+    final exercises = ep.exercises;
+    final Exercise? exercise = exercises.isEmpty
+        ? null
+        : exercises.firstWhere(
+          (e) => e.id == widget.exerciseInWorkout.exerciseId,
+      orElse: () => exercises.first,
+    );
+
+    if (exercise == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        title: AppTitle(widget.exercise.name, icon: Icons.fitness_center),
-      ),
+      appBar: AppBar(title: Text("${exercise.name} bearbeiten")),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Getrackte Felder:',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            ...unitOptions.keys.map(
-              (field) => Column(
-                children: [
-                  CheckboxListTile(
-                    title: Text(field),
-                    value: trackedFields.contains(field),
-                    onChanged: (_) => toggleField(field),
+            Text("Vorgabewerte für dieses Workout", style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 16),
+            ...exercise.trackedFields.map((field) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: TextField(
+                  decoration: InputDecoration(
+                    labelText: '$field (${exercise.units[field] ?? ""})',
+                    border: const OutlineInputBorder(),
                   ),
-                  if (trackedFields.contains(field)) buildFieldInput(field),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
+                  controller: TextEditingController(text: _customValues[field] ?? ''),
+                  onChanged: (v) => _customValues[field] = v,
+                ),
+              );
+            }),
+            const Spacer(),
+            FilledButton.icon(
+              icon: const Icon(Icons.save),
+              label: const Text("Speichern"),
               onPressed: () {
-                final updated = ExerciseInWorkout(
-                  id: widget.exercise.id,
-                  workoutId: widget.exercise.workoutId,
-                  exerciseId: widget.exercise.exerciseId,
-                  name: widget.exercise.name,
-                  description: widget.exercise.description,
-                  trackedFields: List.from(trackedFields),
-                  defaultValues: Map.from(defaultValues),
-                  units: Map.from(units),
-                  icon: widget.exercise.icon,
-                  position: widget.exercise.position,
-                );
+                final updated = widget.exerciseInWorkout.copyWith(customValues: _customValues);
                 Navigator.pop(context, updated);
               },
-              child: Text('Speichern'),
             ),
           ],
         ),

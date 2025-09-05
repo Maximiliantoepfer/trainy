@@ -15,7 +15,9 @@ class WorkoutEntryDatabase {
       'id': entry.id,
       'workoutId': entry.workoutId,
       'date': entry.date.toIso8601String(),
-      'results': jsonEncode(entry.results),
+      'results': jsonEncode(
+        entry.results.map((k, v) => MapEntry(k.toString(), v)),
+      ),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -33,7 +35,8 @@ class WorkoutEntryDatabase {
         id: row['id'] as int,
         workoutId: row['workoutId'] as int,
         date: DateTime.parse(row['date'] as String),
-        results: jsonDecode(row['results'] as String),
+        results: (jsonDecode(row['results'] as String) as Map<String, dynamic>)
+            .map((key, value) => MapEntry(int.parse(key), value)),
       );
     }).toList();
   }
@@ -52,7 +55,8 @@ class WorkoutEntryDatabase {
         id: row['id'] as int,
         workoutId: row['workoutId'] as int,
         date: DateTime.parse(row['date'] as String),
-        results: jsonDecode(row['results'] as String),
+        results: (jsonDecode(row['results'] as String) as Map<String, dynamic>)
+            .map((key, value) => MapEntry(int.parse(key), value)),
       );
     }).toList();
   }

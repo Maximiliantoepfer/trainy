@@ -1,6 +1,6 @@
 // lib/models/workout.dart
 
-import 'package:trainy/models/exercise_in_workout.dart';
+import 'exercise_in_workout.dart';
 
 class Workout {
   int id;

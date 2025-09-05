@@ -1,3 +1,4 @@
+// lib/services/workout_database.dart
 import 'package:sqflite/sqflite.dart';
 import '../models/workout.dart';
 import '../models/exercise_in_workout.dart';
@@ -11,20 +12,25 @@ class WorkoutDatabase {
 
   Future<void> insertWorkout(Workout workout) async {
     final db = await _db;
-
+    // Upsert workout
     await db.insert('workouts', {
       'id': workout.id,
       'name': workout.name,
       'description': workout.description,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
 
+    // Replace exercises for this workout to keep ordering consistent
     await db.delete(
       'exercises_in_workouts',
       where: 'workoutId = ?',
       whereArgs: [workout.id],
     );
-    for (var ew in workout.exercises) {
-      await db.insert('exercises_in_workouts', ew.toMap());
+    for (final ew in workout.exercises) {
+      await db.insert(
+        'exercises_in_workouts',
+        ew.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
   }
 
@@ -40,9 +46,8 @@ class WorkoutDatabase {
 
   Future<List<Workout>> getAllWorkouts() async {
     final db = await _db;
-    final workoutMaps = await db.query('workouts');
-    List<Workout> workouts = [];
-
+    final workoutMaps = await db.query('workouts', orderBy: 'id ASC');
+    final List<Workout> workouts = [];
     for (final map in workoutMaps) {
       final rows = await db.query(
         'exercises_in_workouts',
@@ -50,20 +55,17 @@ class WorkoutDatabase {
         whereArgs: [map['id']],
         orderBy: 'position ASC',
       );
-
       final exercises =
           rows.map((row) => ExerciseInWorkout.fromMap(row)).toList();
-
       workouts.add(
         Workout(
           id: map['id'] as int,
           name: map['name'] as String,
-          description: map['description'] as String? ?? '',
+          description: (map['description'] as String?) ?? '',
           exercises: exercises,
         ),
       );
     }
-
     return workouts;
   }
 
@@ -79,6 +81,6 @@ class WorkoutDatabase {
 
   Future close() async {
     final db = await _db;
-    db.close();
+    await db.close();
   }
 }

@@ -1,3 +1,4 @@
+// lib/providers/progress_provider.dart
 import 'package:flutter/material.dart';
 import '../models/workout_entry.dart';
 import '../services/workout_entry_database.dart';
@@ -15,8 +16,13 @@ class ProgressProvider extends ChangeNotifier {
   Future<void> loadData() async {
     _isLoading = true;
     notifyListeners();
-    _entries = await WorkoutEntryDatabase.instance.getAllEntries();
+
+    // Settings (Weekly Goal) laden
     _weeklyGoal = await SettingsDatabase.instance.getWeeklyGoal();
+
+    // Einträge laden
+    _entries = await WorkoutEntryDatabase.instance.getAllEntries();
+
     _isLoading = false;
     notifyListeners();
   }
@@ -30,5 +36,10 @@ class ProgressProvider extends ChangeNotifier {
   Future<void> refreshEntries() async {
     _entries = await WorkoutEntryDatabase.instance.getAllEntries();
     notifyListeners();
+  }
+
+  /// Kompatibler Hook nach einem gespeicherten Workout.
+  Future<void> addWorkout({Duration? duration}) async {
+    await refreshEntries();
   }
 }

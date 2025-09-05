@@ -55,4 +55,6 @@ class Exercise {
     } catch (_) {}
     return {};
   }
+
+  copyWith({required Map<String, String> defaultValues}) {}
 }
