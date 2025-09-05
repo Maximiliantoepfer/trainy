@@ -67,7 +67,7 @@ class ProgressProvider extends ChangeNotifier {
         int totalDuration = 0;
         int? lastReps;
         double? lastWeight;
-        int totalSets = 0;
+        int? lastSets;
 
         for (final s in sets) {
           final repsStr = s['reps']?.trim();
@@ -85,7 +85,7 @@ class ProgressProvider extends ChangeNotifier {
           }
           if (setsStr?.isNotEmpty == true) {
             final v = int.tryParse(setsStr!);
-            if (v != null) totalSets = v;
+            if (v != null) lastSets = v;
           }
           if (durStr?.isNotEmpty == true) {
             final v = int.tryParse(durStr!);
@@ -93,12 +93,13 @@ class ProgressProvider extends ChangeNotifier {
           }
         }
 
-        results[exerciseId] = {
-          if (totalSets > 0) 'sets': totalSets,
-          if (lastReps != null) 'reps': lastReps,
-          if (lastWeight != null) 'weight': lastWeight,
-          if (totalDuration > 0) 'duration': totalDuration,
-        };
+        final map = <String, dynamic>{};
+        if (lastSets != null) map['sets'] = lastSets!;
+        if (lastReps != null) map['reps'] = lastReps!;
+        if (lastWeight != null) map['weight'] = lastWeight!;
+        if (totalDuration > 0) map['duration'] = totalDuration;
+
+        results[exerciseId] = map;
       }
 
       final entry = WorkoutEntry(
@@ -108,7 +109,10 @@ class ProgressProvider extends ChangeNotifier {
         results: results,
       );
 
-      await WorkoutEntryDatabase.instance.insertEntry(entry);
+      await WorkoutEntryDatabase.instance.insertEntry(
+        entry,
+        sessionDurationSeconds: durationSeconds,
+      );
       await refreshEntries();
     } finally {
       _isSaving = false;

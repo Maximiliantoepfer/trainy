@@ -14,7 +14,11 @@ class WorkoutEntryDatabase {
   Future<Database> get _db async => AppDatabase.instance.database;
 
   /// Insert eine aggregierte Session: Eine Zeile pro Exercise.
-  Future<void> insertEntry(WorkoutEntry entry) async {
+  /// [sessionDurationSeconds] ist die **Gesamtdauer** der Session und wird in jeder Zeile mitgeschrieben.
+  Future<void> insertEntry(
+    WorkoutEntry entry, {
+    required int sessionDurationSeconds,
+  }) async {
     final db = await _db;
     final batch = db.batch();
     int seq = 0;
@@ -22,8 +26,6 @@ class WorkoutEntryDatabase {
     entry.results.forEach((exerciseId, values) {
       final jsonMap = <String, dynamic>{};
       values.forEach((k, v) => jsonMap[k] = v);
-      final duration =
-          (values['duration'] is int) ? values['duration'] as int : 0;
 
       batch.insert('workout_entries', {
         'id': DateTime.now().microsecondsSinceEpoch + (seq++),
@@ -31,7 +33,7 @@ class WorkoutEntryDatabase {
         'exerciseId': exerciseId,
         'timestamp': entry.date.millisecondsSinceEpoch,
         'valuesJson': jsonEncode(jsonMap),
-        'durationSeconds': duration,
+        'durationSeconds': sessionDurationSeconds, // <-- Sessiondauer
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     });
 

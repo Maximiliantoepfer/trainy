@@ -62,7 +62,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        // Helper: Neue Übung erstellen + direkt übernehmen + schließen
         Future<void> createAndAttach() async {
           final name = nameCtrl.text.trim();
           if (name.isEmpty) {
@@ -101,7 +100,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           await _persistOrder(rootContext);
 
           if (rootContext.mounted) {
-            Navigator.pop(ctx); // Sheet schließen
+            Navigator.pop(ctx);
             ScaffoldMessenger.of(rootContext).showSnackBar(
               SnackBar(
                 content: Text('„$name“ wurde erstellt und hinzugefügt'),
@@ -155,7 +154,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           onTap: (_) => modalSetState(() {}),
                         ),
 
-                        // Body (nimmt restliche Höhe ein)
                         Expanded(
                           child: TabBarView(
                             children: [
@@ -189,8 +187,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                       },
                                       title: Text(
                                         e.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium?.copyWith(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
                                         ),
                                       ),
                                       subtitle:
@@ -363,9 +364,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                   );
 
                                                   if (rootContext.mounted) {
-                                                    Navigator.pop(
-                                                      ctx,
-                                                    ); // Sheet schließen
+                                                    Navigator.pop(ctx);
                                                     ScaffoldMessenger.of(
                                                       rootContext,
                                                     ).showSnackBar(
@@ -422,9 +421,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               FilledButton(
                 onPressed: () {
                   newName =
-                      ctrl.text.trim().isEmpty
-                          ? widget.workout.name
-                          : ctrl.text.trim();
+                      ctrl.text.trim().isNotEmpty
+                          ? ctrl.text.trim()
+                          : widget.workout.name;
                   Navigator.pop(ctx);
                 },
                 child: const Text('Speichern'),
@@ -470,12 +469,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           _exerciseIds.isEmpty
               ? _EmptyState(onAdd: _addExercisesBottomSheet)
               : ReorderableListView.builder(
-                padding: const EdgeInsets.fromLTRB(
-                  16,
-                  8,
-                  16,
-                  110,
-                ), // <- FIX: EdgeInsets (nicht EdgeBoxInsets)
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
                 itemCount: _exerciseIds.length,
                 onReorder: _onReorder,
                 buildDefaultDragHandles: false,
@@ -484,8 +478,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         ScaleTransition(scale: animation, child: child),
                 itemBuilder: (_, i) {
                   final id = _exerciseIds[i];
-                  final e =
-                      items[i]; // kann null sein, wenn zwischenzeitlich gelöscht
+                  final e = items[i];
                   return Card(
                     key: ValueKey('exercise_$id'),
                     child: ListTile(
@@ -495,7 +488,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       ),
                       title: Text(
                         e?.name ?? 'Gelöschte Übung ($id)',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleMedium?.copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                       subtitle:
                           e == null
@@ -540,6 +538,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           (_) => WorkoutRunScreen(
                             workout: widget.workout,
                             exercises: list,
+                            autoStart: true, // ▶️ Timer startet direkt
                           ),
                     ),
                   );
