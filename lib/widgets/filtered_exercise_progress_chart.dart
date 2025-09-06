@@ -49,47 +49,59 @@ class _FilteredExerciseProgressChartState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Auswahlzeile
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
+          // --- Zeile 1: Übungsauswahl ---
+          Row(
             children: [
-              // Übungsauswahl (Dropdown)
-              DropdownButton<int>(
-                value: _selectedExerciseId,
-                onChanged: (v) => setState(() => _selectedExerciseId = v),
-                items: [
-                  for (final ex in exercises)
-                    DropdownMenuItem(
-                      value: ex.id,
-                      child: Text(ex.name, overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-              ),
-              // Metrik-Buttons
-              _MetricButton(
-                label: 'Wdh.',
-                active: _metric == 'reps',
-                onTap: () => setState(() => _metric = 'reps'),
-              ),
-              _MetricButton(
-                label: 'Gewicht',
-                active: _metric == 'weight',
-                onTap: () => setState(() => _metric = 'weight'),
-              ),
-              _MetricButton(
-                label: 'Dauer',
-                active: _metric == 'duration',
-                onTap: () => setState(() => _metric = 'duration'),
-              ),
-              _MetricButton(
-                label: 'Sätze',
-                active: _metric == 'sets',
-                onTap: () => setState(() => _metric = 'sets'),
+              Expanded(
+                child: DropdownButton<int>(
+                  value: _selectedExerciseId,
+                  isExpanded: true,
+                  onChanged: (v) => setState(() => _selectedExerciseId = v),
+                  items: [
+                    for (final ex in exercises)
+                      DropdownMenuItem(
+                        value: ex.id,
+                        child: Text(ex.name, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          // --- Zeile 2: Metrik-Auswahl ---
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _MetricButton(
+                  label: 'Wdh.',
+                  active: _metric == 'reps',
+                  onTap: () => setState(() => _metric = 'reps'),
+                ),
+                _MetricButton(
+                  label: 'Gewicht',
+                  active: _metric == 'weight',
+                  onTap: () => setState(() => _metric = 'weight'),
+                ),
+                _MetricButton(
+                  label: 'Dauer',
+                  active: _metric == 'duration',
+                  onTap: () => setState(() => _metric = 'duration'),
+                ),
+                _MetricButton(
+                  label: 'Sätze',
+                  active: _metric == 'sets',
+                  onTap: () => setState(() => _metric = 'sets'),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 12),
+
           // Chart / Fallback
           if (series.isEmpty)
             Padding(
@@ -102,14 +114,11 @@ class _FilteredExerciseProgressChartState
               ),
             )
           else
-            // Breite sicherstellen + zusätzlicher Abstand nach unten
             Padding(
-              padding: const EdgeInsets.only(
-                bottom: 12,
-              ), // Mindestabstandshalter
+              padding: const EdgeInsets.only(bottom: 12),
               child: SizedBox(
                 width: double.infinity,
-                height: 210, // etwas höher für größere Labels
+                height: 210,
                 child: CustomPaint(
                   painter: _LinePainter(
                     series: series,
@@ -183,8 +192,7 @@ class _FilteredExerciseProgressChartState
   }
 }
 
-// (Ausschnitt) – ersetze die Klasse _MetricButton durch folgende Implementierung:
-
+// --- UI: Metrik-Button (unverändert modernes Design) ---
 class _MetricButton extends StatelessWidget {
   final String label;
   final bool active;
@@ -227,6 +235,7 @@ class _MetricButton extends StatelessWidget {
   }
 }
 
+// --- Datenmodelle für den Painter ---
 class _Point {
   final DateTime t;
   final double y;
@@ -276,7 +285,6 @@ class _LinePainter extends CustomPainter {
     // Paddings für Achsen und Labels (links/bottom etwas größer für gut lesbare Labels)
     const left = 56.0, right = 12.0, top = 14.0, bottom = 40.0;
 
-    // Early exit, falls Breite/Höhe zu klein sind
     if (size.width <= left + right + 1 || size.height <= top + bottom + 1) {
       return;
     }
@@ -284,14 +292,12 @@ class _LinePainter extends CustomPainter {
     final w = size.width - left - right;
     final h = size.height - top - bottom;
 
-    // Achsenrahmen
     final axisPaint =
         Paint()
           ..color = gridColor
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.0;
 
-    // Datenbereich bestimmen
     final minX = series.first.t.millisecondsSinceEpoch.toDouble();
     final maxX = series.last.t.millisecondsSinceEpoch.toDouble();
 
@@ -305,12 +311,10 @@ class _LinePainter extends CustomPainter {
       maxY += 1;
     }
 
-    // "schöne" Y-Ticks berechnen
     final ticks = _niceTicks(minY, maxY, 5);
     final yMin = ticks.first;
     final yMax = ticks.last;
 
-    // **größere, fettere** Label-Styles
     final yLabelStyle = TextStyle(
       color: textColor,
       fontSize: 16,
@@ -322,7 +326,6 @@ class _LinePainter extends CustomPainter {
     for (final t in ticks) {
       final y = top + (1 - (t - yMin) / (yMax - yMin)) * h;
 
-      // horizontale Linie
       final gridPaint =
           Paint()
             ..color = gridColor
@@ -330,7 +333,6 @@ class _LinePainter extends CustomPainter {
             ..strokeWidth = 1.0;
       canvas.drawLine(Offset(left, y), Offset(left + w, y), gridPaint);
 
-      // Label
       final tp = TextPainter(
         text: TextSpan(text: _formatNumber(t), style: yLabelStyle),
         textDirection: TextDirection.ltr,
@@ -339,7 +341,6 @@ class _LinePainter extends CustomPainter {
       tp.paint(canvas, Offset(left - tp.width - 6, y - tp.height / 2));
     }
 
-    // X-Achse: Start/Ende-Datum
     final dx = (maxX - minX);
     final safeDx = dx <= 0 ? 1.0 : dx;
 
@@ -362,7 +363,7 @@ class _LinePainter extends CustomPainter {
       maxLines: 1,
     )..layout(maxWidth: w / 2 > 0 ? w / 2 : 0);
 
-    // Achsenlinien
+    // Achsen
     canvas.drawLine(Offset(left, top), Offset(left, top + h), axisPaint); // Y
     canvas.drawLine(
       Offset(left, top + h),
@@ -370,7 +371,7 @@ class _LinePainter extends CustomPainter {
       axisPaint,
     ); // X
 
-    // X-Labels (etwas weiter nach unten für "Luft")
+    // X-Labels
     startTp.paint(canvas, Offset(left, top + h + 6));
     endTp.paint(canvas, Offset(left + w - endTp.width, top + h + 6));
 
@@ -391,8 +392,7 @@ class _LinePainter extends CustomPainter {
     final path = Path();
     for (int i = 0; i < series.length; i++) {
       final s = series[i];
-      final x =
-          left + ((s.t.millisecondsSinceEpoch - minX) / safeDx) * w; // safeDiv
+      final x = left + ((s.t.millisecondsSinceEpoch - minX) / safeDx) * w;
       final y = top + (1 - ((s.y - yMin) / (yMax - yMin))) * h;
       if (i == 0) {
         path.moveTo(x, y);
@@ -413,8 +413,7 @@ class _LinePainter extends CustomPainter {
     // Punkte
     final dot = Paint()..color = lineColor;
     for (final s in series) {
-      final x =
-          left + ((s.t.millisecondsSinceEpoch - minX) / safeDx) * w; // safeDiv
+      final x = left + ((s.t.millisecondsSinceEpoch - minX) / safeDx) * w;
       final y = top + (1 - ((s.y - yMin) / (yMax - yMin))) * h;
       canvas.drawCircle(Offset(x, y), 2.5, dot);
     }
@@ -432,7 +431,6 @@ class _LinePainter extends CustomPainter {
   // --- Helpers ---
 
   List<double> _niceTicks(double min, double max, int targetCount) {
-    // "nice numbers" scaling (1, 2, 5 * 10^n)
     final range = _niceNum(max - min, false);
     final step = _niceNum(range / (targetCount - 1), true);
     final niceMin = (min / step).floor() * step;
@@ -440,7 +438,7 @@ class _LinePainter extends CustomPainter {
 
     final ticks = <double>[];
     for (double v = niceMin; v <= niceMax + 0.5 * step; v += step) {
-      ticks.add(double.parse(v.toStringAsFixed(6))); // stabilisieren
+      ticks.add(double.parse(v.toStringAsFixed(6)));
     }
     if (ticks.length < 2) {
       return [min, max];
@@ -453,23 +451,25 @@ class _LinePainter extends CustomPainter {
     final f = x / MathPow.pow10(expv);
     double nf;
     if (round) {
-      if (f < 1.5)
+      if (f < 1.5) {
         nf = 1;
-      else if (f < 3)
+      } else if (f < 3) {
         nf = 2;
-      else if (f < 7)
+      } else if (f < 7) {
         nf = 5;
-      else
+      } else {
         nf = 10;
+      }
     } else {
-      if (f <= 1)
+      if (f <= 1) {
         nf = 1;
-      else if (f <= 2)
+      } else if (f <= 2) {
         nf = 2;
-      else if (f <= 5)
+      } else if (f <= 5) {
         nf = 5;
-      else
+      } else {
         nf = 10;
+      }
     }
     return nf * MathPow.pow10(expv);
   }
@@ -500,7 +500,6 @@ class MathPow {
   static double ln(double x) => _ln(x);
 
   static double pow10(int e) {
-    // explizit List<double>, sonst wird es List<num> und bricht die Typen
     const List<double> pows = <double>[
       1e-12,
       1e-11,
@@ -530,13 +529,11 @@ class MathPow {
     ];
     final idx = e + 12;
     if (idx >= 0 && idx < pows.length) return pows[idx];
-    // Fallback für sehr große/kleine Exponenten
     return _exp(e * ln10);
   }
 
   // Minimal-Implementierungen mit Approximation – ausreichend für Axis-Ticks
   static double _ln(double x) {
-    // einfache Approx via log identities
     int k = 0;
     while (x > 1.5) {
       x /= 2;
@@ -560,7 +557,6 @@ class MathPow {
   static const double ln2 = 0.6931471805599453;
 
   static double _exp(double x) {
-    // kurzer exp-Taylor
     double sum = 1.0, term = 1.0;
     for (int i = 1; i < 20; i++) {
       term *= x / i;
