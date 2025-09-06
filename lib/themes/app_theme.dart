@@ -1,5 +1,20 @@
 import 'package:flutter/material.dart';
 
+/// Neutrale (akzent-unabhängige) Flächenfarben:
+class _Neutral {
+  static const lightBackground = Color(0xFFFFFFFF); // reines Weiß
+  static const lightSurface = Color(
+    0xFFF6F7F9,
+  ); // sehr helles Grau für Karten/Leisten
+
+  static const darkBackground = Color(
+    0xFF0E0F12,
+  ); // tiefer, neutraler Schwarzton
+  static const darkSurface = Color(
+    0xFF15171C,
+  ); // dunkles Grau für Karten/Leisten
+}
+
 class AppTheme {
   const AppTheme._();
 
@@ -7,142 +22,213 @@ class AppTheme {
     required Color seed,
     required Brightness brightness,
   }) {
-    final scheme = ColorScheme.fromSeed(
+    final isDark = brightness == Brightness.dark;
+
+    // Farbwelt aus Akzent erzeugen ...
+    final schemeSeeded = ColorScheme.fromSeed(
       seedColor: seed,
       brightness: brightness,
     );
 
-    final isDark = brightness == Brightness.dark;
+    // ... aber Flächen explizit FIX setzen (keine Abhängigkeit von Akzent!)
+    final scheme = schemeSeeded.copyWith(
+      background: isDark ? _Neutral.darkBackground : _Neutral.lightBackground,
+      surface: isDark ? _Neutral.darkSurface : _Neutral.lightSurface,
+    );
 
-    return ThemeData(
+    final fixedTextColor = isDark ? Colors.white : Colors.black;
+
+    final base = ThemeData(
       useMaterial3: true,
-      colorScheme: scheme,
       brightness: brightness,
-      scaffoldBackgroundColor:
-          isDark ? const Color(0xFF0E0F12) : const Color(0xFFF7F8FA),
+      colorScheme: scheme,
 
-      // Typografie – große, satte Überschriften für Screens
-      textTheme: Typography.material2021(platform: TargetPlatform.android).black
-          .apply(
-            bodyColor: isDark ? scheme.onSurface : const Color(0xFF111418),
-            displayColor: isDark ? scheme.onSurface : const Color(0xFF111418),
-          )
-          .copyWith(
-            headlineLarge: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: isDark ? scheme.onSurface : const Color(0xFF101317),
-            ),
-            headlineMedium: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.2,
-              color: isDark ? scheme.onSurface : const Color(0xFF101317),
-            ),
-            titleLarge: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: isDark ? scheme.onSurface : const Color(0xFF101317),
-            ),
-          ),
+      // Hintergrund NICHT vom Seed beeinflussen
+      scaffoldBackgroundColor: scheme.background,
 
+      // Ripple/Highlights global deaktivieren (kompatibel, ohne InkWellThemeData)
+      splashFactory: NoSplash.splashFactory,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+    );
+
+    // Größeneffekt & Farben für Nav-Icons
+    IconThemeData _navIconFor(Set<MaterialState> states) {
+      final selected = states.contains(MaterialState.selected);
+      return IconThemeData(
+        color: selected ? scheme.primary : scheme.onSurfaceVariant,
+        size: selected ? 30 : 26, // ausgewählt leicht größer
+      );
+    }
+
+    // Etwas größere & kräftigere Typografie
+    final textTheme = base.textTheme.copyWith(
+      displayLarge: base.textTheme.displayLarge?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w700,
+      ),
+      displayMedium: base.textTheme.displayMedium?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w700,
+      ),
+      displaySmall: base.textTheme.displaySmall?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w700,
+      ),
+
+      headlineLarge: base.textTheme.headlineLarge?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w700,
+      ),
+      headlineMedium: base.textTheme.headlineMedium?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w700,
+      ),
+      headlineSmall: base.textTheme.headlineSmall?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w700,
+      ),
+
+      titleLarge: base.textTheme.titleLarge?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w700,
+        fontSize: 22,
+      ),
+      titleMedium: base.textTheme.titleMedium?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w700,
+        fontSize: 18,
+      ),
+      titleSmall: base.textTheme.titleSmall?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w700,
+        fontSize: 16,
+      ),
+
+      bodyLarge: base.textTheme.bodyLarge?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w600,
+        fontSize: 17,
+        height: 1.35,
+      ),
+      bodyMedium: base.textTheme.bodyMedium?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w600,
+        fontSize: 15.5,
+        height: 1.35,
+      ),
+      bodySmall: base.textTheme.bodySmall?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w600,
+        fontSize: 14,
+        height: 1.35,
+      ),
+
+      labelLarge: base.textTheme.labelLarge?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w800,
+      ),
+      labelMedium: base.textTheme.labelMedium?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w800,
+      ),
+      labelSmall: base.textTheme.labelSmall?.copyWith(
+        color: fixedTextColor,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+
+    return base.copyWith(
+      // Text immer Schwarz/Weiß – unabhängig von Akzent
+      textTheme: textTheme,
+
+      // Icons global größer + in Akzentfarbe
+      iconTheme: IconThemeData(color: scheme.primary, size: 26),
+
+      // AppBar auf neutralen Surface-Ton, Text kontrastreich
       appBarTheme: AppBarTheme(
-        backgroundColor:
-            isDark ? const Color(0xFF111316) : const Color(0xFFF7F8FA),
-        surfaceTintColor: Colors.transparent,
+        backgroundColor: scheme.surface,
+        foregroundColor: fixedTextColor,
         elevation: 0,
-        centerTitle: false,
-        titleTextStyle: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.5,
-          color: isDark ? scheme.onSurface : const Color(0xFF101317),
-        ),
-        toolbarHeight: 72,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        titleTextStyle: textTheme.titleLarge,
       ),
 
-      // NavigationBar: keine Indikator-Fläche, ausgewähltes Icon groß + primary, andere Icons weiß
+      // Material-3 NavigationBar
       navigationBarTheme: NavigationBarThemeData(
-        height: 84,
-        backgroundColor:
-            isDark ? const Color(0xFF0E0F12) : const Color(0xFF111316),
-        indicatorColor:
-            Colors.transparent, // <— entfernt die Hintergrundmarkierung
+        backgroundColor: scheme.surface,
+        elevation: 1,
+        height: 76,
         surfaceTintColor: Colors.transparent,
-        elevation: 8,
-        iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((states) {
-          final selected = states.contains(WidgetState.selected);
-          return IconThemeData(
-            size: selected ? 34 : 28,
-            color: selected ? scheme.primary : Colors.white,
-            weight: selected ? 850 : 650,
-          );
-        }),
-        labelTextStyle: const WidgetStatePropertyAll(
-          TextStyle(fontSize: 0, height: 0), // Labels unsichtbar
+
+        // KEIN Indicator/Highlight
+        indicatorColor: Colors.transparent,
+
+        // State-abhängige Icon-Farbe & -Größe
+        iconTheme: MaterialStateProperty.resolveWith(_navIconFor),
+
+        // Falls Labels doch irgendwo sichtbar werden: groß & kräftig
+        labelTextStyle: MaterialStateProperty.all(
+          textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
       ),
 
-      cardTheme: CardTheme(
-        color: isDark ? const Color(0xFF14171B) : Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      // Fallback/Legacy (BottomNavigationBar)
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: scheme.surface,
+        selectedItemColor: scheme.primary,
+        unselectedItemColor: scheme.onSurfaceVariant,
+        selectedIconTheme: const IconThemeData(size: 30),
+        unselectedIconTheme: const IconThemeData(size: 26),
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        type: BottomNavigationBarType.fixed,
+        elevation: 1,
       ),
 
-      listTileTheme: ListTileThemeData(
-        iconColor: scheme.onSurfaceVariant,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-
+      // Buttons akzentgeführt
       filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        style: ButtonStyle(
+          backgroundColor: MaterialStateProperty.all<Color>(scheme.primary),
+          foregroundColor: MaterialStateProperty.all<Color>(scheme.onPrimary),
+          shape: MaterialStateProperty.all(const StadiumBorder()),
+          padding: MaterialStateProperty.all(
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
-
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: scheme.primary,
-        foregroundColor: scheme.onPrimary,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      ),
-
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: isDark ? const Color(0xFF191C21) : const Color(0xFFF2F4F7),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: MaterialStateProperty.all<Color>(scheme.primary),
+          foregroundColor: MaterialStateProperty.all<Color>(scheme.onPrimary),
+          shape: MaterialStateProperty.all(const StadiumBorder()),
+          padding: MaterialStateProperty.all(
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+          elevation: MaterialStateProperty.all(0),
         ),
       ),
-
-      chipTheme: ChipThemeData(
-        color: WidgetStatePropertyAll(
-          isDark ? const Color(0xFF191C21) : const Color(0xFFF2F4F7),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: ButtonStyle(
+          foregroundColor: MaterialStateProperty.all<Color>(scheme.primary),
+          side: MaterialStateProperty.all(
+            BorderSide(color: scheme.primary, width: 1.2),
+          ),
+          shape: MaterialStateProperty.all(const StadiumBorder()),
+          padding: MaterialStateProperty.all(
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
         ),
-        labelStyle: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: isDark ? scheme.onSurface : scheme.onSurfaceVariant,
-        ),
-        shape: const StadiumBorder(),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
     );
   }
 
   static ThemeData light(Color seed) =>
       _base(seed: seed, brightness: Brightness.light);
+
   static ThemeData dark(Color seed) =>
       _base(seed: seed, brightness: Brightness.dark);
 }
