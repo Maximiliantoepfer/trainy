@@ -1,8 +1,10 @@
+// lib/widgets/trainings_calendar.dart
 import 'package:flutter/material.dart';
 import '../models/workout_entry.dart';
 
 /// Simpler Monatskalender mit Markierungen für Tage, an denen Workouts getrackt wurden.
-/// Keine Abhängigkeiten, stateful Navigation über Monate.
+/// Design-Update: Statt Zahl nun ein kräftiger, gefüllter grüner Haken.
+/// Count bleibt für Semantics/Screenreader erhalten.
 class TrainingsCalendar extends StatefulWidget {
   final List<WorkoutEntry> entries;
   const TrainingsCalendar({super.key, required this.entries});
@@ -26,7 +28,6 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
     final days = _buildMonthDays(_visibleMonthFirstDay);
     final activityMap = _activityByDay(widget.entries);
 
-    // Einheitlicher, großer, gut lesbarer Stil
     final bigLabel = TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w800,
@@ -108,43 +109,44 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
             return AnimatedOpacity(
               duration: const Duration(milliseconds: 150),
               opacity: isCurrentMonth ? 1.0 : 0.4,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 8,
-                      top: 6,
-                      child: Text('${d.day}', style: bigLabel),
+              child: Semantics(
+                label:
+                    cnt > 0
+                        ? '${d.day}.: $cnt Workouts aufgezeichnet'
+                        : '${d.day}.: keine Workouts',
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
                     ),
-                    if (cnt > 0)
-                      // (Ausschnitt) – ersetze den dekorierten Container im Tag-Marker:
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                Theme.of(
-                                  context,
-                                ).colorScheme.surfaceVariant, // neutral
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color:
-                                  Theme.of(context).colorScheme.outlineVariant,
-                            ),
-                          ),
-                          child: Text('$cnt', style: bigLabel),
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 8,
+                        top: 6,
+                        child: Text('${d.day}', style: bigLabel),
+                      ),
+                      // Kräftiger, gefüllter Haken statt Zahl
+                      Positioned.fill(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          child:
+                              cnt > 0
+                                  ? const Center(
+                                    key: ValueKey('done'),
+                                    child: _DoneCheck(),
+                                  )
+                                  : const SizedBox.shrink(
+                                    key: ValueKey('empty'),
+                                  ),
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -182,7 +184,6 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
   String _key(DateTime d) {
     final x = DateUtils.dateOnly(d);
     return '${x.year}-${x.month}-${x.day}';
-    // (einfacher String-Key für Map)
   }
 
   String _monthName(DateTime d) {
@@ -212,5 +213,41 @@ class _WeekdayHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(child: Center(child: Text(label, style: style)));
+  }
+}
+
+/// Kräftiger „Done“-Badge: sattes Grün (vollflächig), weißer Haken, subtile Shadow.
+/// Kein Durchscheinen mehr.
+class _DoneCheck extends StatelessWidget {
+  const _DoneCheck();
+
+  @override
+  Widget build(BuildContext context) {
+    const Color fill = Color(0xFF2E7D32); // sattes Grün (Material Green 800)
+    return AnimatedScale(
+      scale: 1.0,
+      duration: const Duration(milliseconds: 180),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: const BoxDecoration(
+          color: fill, // vollflächig, nicht transparent
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x402E7D32), // 25% Alpha für sanfte Tiefe
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: const Icon(
+          Icons.check_rounded,
+          size: 20,
+          color: Colors.white, // maximaler Kontrast
+        ),
+      ),
+    );
   }
 }
