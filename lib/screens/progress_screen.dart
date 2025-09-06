@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/progress_provider.dart';
 import '../models/workout_entry.dart';
+import 'workout_entry_detail_screen.dart';
 
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -43,10 +44,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
               : entries.isEmpty
               ? const _EmptyState()
               : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                itemCount: entries.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
                 itemBuilder: (_, i) => _EntryCard(entry: entries[i]),
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemCount: entries.length,
               ),
     );
   }
@@ -72,6 +73,7 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               'Starte ein Workout und erfasse Sätze, dann erscheinen sie hier.',
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -92,14 +94,22 @@ class _EntryCard extends StatelessWidget {
         '${date.month.toString().padLeft(2, '0')}.'
         '${date.year}';
 
-    // simple summary: Summe Sätze über alle Übungen
+    // simple summary: Summe Sätze über alle Übungen + Gesamtdauer
     int totalSets = 0;
     int totalDuration = 0;
     entry.results.forEach((_, v) {
       final sets = v['sets'];
       if (sets is int) totalSets += sets;
+      if (sets is String) {
+        final s = int.tryParse(sets);
+        if (s != null) totalSets += s;
+      }
       final dur = v['duration'];
       if (dur is int) totalDuration += dur;
+      if (dur is String) {
+        final d = int.tryParse(dur);
+        if (d != null) totalDuration += d;
+      }
     });
 
     return Card(
@@ -109,13 +119,23 @@ class _EntryCard extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         subtitle: Text(
-          '$dateStr · $totalSets Sätze${totalDuration > 0 ? ' · ${totalDuration}s' : ''}',
+          '$dateStr · $totalSets Sätze${totalDuration > 0 ? ' · ${_formatDuration(totalDuration)}' : ''}',
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
-          // Platz für Detail-Ansicht (optional)
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => WorkoutEntryDetailScreen(entry: entry),
+            ),
+          );
         },
       ),
     );
+  }
+
+  String _formatDuration(int seconds) {
+    final mm = (seconds ~/ 60).toString().padLeft(2, '0');
+    final ss = (seconds % 60).toString().padLeft(2, '0');
+    return '$mm:$ss';
   }
 }
