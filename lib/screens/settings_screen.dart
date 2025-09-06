@@ -1,7 +1,9 @@
+// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/progress_provider.dart'; // ⬅️ NEU
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -10,6 +12,8 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>();
     final scheme = Theme.of(context).colorScheme;
+    final progress = context.watch<ProgressProvider>(); // ⬅️ NEU
+    final weeklyGoal = progress.weeklyGoal.clamp(1, 7); // 1..7
 
     Future<void> _pickAccent() async {
       Color temp = theme.accent;
@@ -46,6 +50,7 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Darstellung
           Card(
             child: Padding(
               padding: const EdgeInsets.all(14),
@@ -84,6 +89,7 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          // Akzentfarbe
           Card(
             child: ListTile(
               title: const Text('Akzentfarbe'),
@@ -123,6 +129,45 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+          const SizedBox(height: 12),
+          // ⬅️ NEU: Ziele
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ziele', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Trainingstage pro Woche',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    // moderne, kompakte Auswahl 1..7 (limitiert auf Wochentage)
+                    segments: const [
+                      ButtonSegment(value: 1, label: Text('1x')),
+                      ButtonSegment(value: 2, label: Text('2x')),
+                      ButtonSegment(value: 3, label: Text('3x')),
+                      ButtonSegment(value: 4, label: Text('4x')),
+                      ButtonSegment(value: 5, label: Text('5x')),
+                      ButtonSegment(value: 6, label: Text('6x')),
+                      ButtonSegment(value: 7, label: Text('7x')),
+                    ],
+                    selected: {weeklyGoal},
+                    onSelectionChanged: (v) {
+                      final goal = v.first.clamp(1, 7);
+                      context.read<ProgressProvider>().setWeeklyGoal(goal);
+                    },
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
 import '../providers/workout_provider.dart';
-import '../providers/progress_provider.dart'; // ⬅️ NEU: für Wochen-Widget
+import '../providers/progress_provider.dart';
 import '../widgets/workout_card.dart';
 import 'workout_screen.dart';
 
@@ -23,10 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     // Beim ersten Öffnen Workouts + Progress laden
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Workouts
       context.read<WorkoutProvider>().loadWorkouts();
-      // ⬅️ NEU: Progress (Einträge für Wochen-Widget)
-      // (falls der Provider nicht im Tree ist, wirft das -> in deinem Setup ist er vorhanden)
       context.read<ProgressProvider>().loadData();
     });
   }
@@ -138,7 +135,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openWorkout(Workout workout) async {
     if (_selectedWorkoutId != null) {
-      // Wenn Auswahl aktiv: erst Auswahl aufheben statt navigieren
       setState(() => _selectedWorkoutId = null);
       return;
     }
@@ -154,9 +150,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final provider = context.watch<WorkoutProvider>();
     final workouts = provider.workouts;
 
-    // ⬅️ NEU: Progress lesen und Trainings-Tage der aktuellen Woche berechnen
     final progress = context.watch<ProgressProvider>();
     final trainedWeekdays = _trainedWeekdaysThisWeek(progress.entries);
+    final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
     final isProgressLoading = progress.isLoading;
 
     return WillPopScope(
@@ -180,6 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () => _createWorkout(context),
+          shape: const CircleBorder(), // ⬅️ explizit rund
           child: const Icon(Icons.add),
         ),
         body:
@@ -187,17 +184,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : Column(
                   children: [
-                    // ⬅️ NEU: Wochen-Widget oberhalb der Liste
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                       child: _WeeklyOverviewCard(
                         trainedWeekdays:
-                            isProgressLoading
-                                ? const {} // solange Progress lädt → neutral anzeigen
-                                : trainedWeekdays,
+                            isProgressLoading ? const {} : trainedWeekdays,
+                        weeklyGoal: weeklyGoal,
                       ),
                     ),
-                    // Liste / EmptyState
                     Expanded(
                       child:
                           workouts.isEmpty
@@ -244,8 +238,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Berechnet die (Mo=1..So=7) Wochentage der **aktuellen** Woche, an denen trainiert wurde
-  /// – unabhängig davon, welches Workout es war.
   Set<int> _trainedWeekdaysThisWeek(List entries) {
     if (entries.isEmpty) return {};
     final now = DateTime.now();
@@ -253,16 +245,15 @@ class _HomeScreenState extends State<HomeScreen> {
       now.year,
       now.month,
       now.day,
-    ).subtract(Duration(days: now.weekday - 1)); // Mo als Wochenstart
+    ).subtract(Duration(days: now.weekday - 1));
     final start = DateTime(monday.year, monday.month, monday.day);
     final endExclusive = start.add(const Duration(days: 7));
 
     final set = <int>{};
-    // entries ist List<WorkoutEntry>, aber um nicht zu import-lastig zu werden, dynamisch:
     for (final e in entries) {
       final DateTime d = e.date;
       if (!d.isBefore(start) && d.isBefore(endExclusive)) {
-        set.add(d.weekday); // 1..7
+        set.add(d.weekday);
       }
     }
     return set;
@@ -297,11 +288,15 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// --- NEU: Modernes Wochen-Widget (Mo–So) ------------------------------------
+/// --- Wochen-Widget (Mo–So) mit Ziel -----------------------------------------
 
 class _WeeklyOverviewCard extends StatelessWidget {
   final Set<int> trainedWeekdays; // 1=Mo .. 7=So
-  const _WeeklyOverviewCard({required this.trainedWeekdays});
+  final int weeklyGoal; // 1..7
+  const _WeeklyOverviewCard({
+    required this.trainedWeekdays,
+    required this.weeklyGoal,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -310,33 +305,37 @@ class _WeeklyOverviewCard extends StatelessWidget {
 
     const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
+    final headerStyle = text.titleLarge?.copyWith(
+      fontWeight: FontWeight.w800,
+      letterSpacing: -0.2,
+    );
+
+    final counterStyle = text.bodyLarge?.copyWith(
+      color: scheme.onSurfaceVariant,
+      fontWeight: FontWeight.w700,
+    );
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Titelzeile
             Row(
               children: [
-                Text('Diese Woche', style: text.titleMedium),
+                Text('Diese Woche', style: headerStyle),
                 const Spacer(),
-                // Kleine Fortschrittsanzeige z. B. "3/7"
                 Text(
-                  '${trainedWeekdays.length}/7',
-                  style: text.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  '${trainedWeekdays.length}/$weeklyGoal',
+                  style: counterStyle,
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            // 7 gleichmäßig verteilte „Pills“ mit Tages-Labels
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: List.generate(7, (i) {
-                final weekday = i + 1; // 1..7
+                final weekday = i + 1;
                 final done = trainedWeekdays.contains(weekday);
                 final label = labels[i];
                 return _DayPill(label: label, done: done);
@@ -358,27 +357,34 @@ class _DayPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    // Neutrale Variante (nicht trainiert): dezente Fläche + Outline + Label darunter
-    // Done-Variante: sattes Grün, weißer Check, Label bleibt neutral unten.
+    // HELLERES Grün für Done (vorher 0xFF2E7D32)
+    const Color doneFill = Color(0xFF4CAF50); // Green 500
+    const Color doneShadow = Color(0x404CAF50); // 25% Alpha
+
+    final dayLabelStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
+      fontSize: 15.5,
+      fontWeight: FontWeight.w800,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      letterSpacing: -0.1,
+    );
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          width: 36,
-          height: 36,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
-            color: done ? const Color(0xFF2E7D32) : scheme.surfaceVariant,
+            color: done ? doneFill : scheme.surfaceVariant,
             shape: BoxShape.circle,
-            border: Border.all(
-              color: done ? const Color(0xFF2E7D32) : scheme.outlineVariant,
-            ),
+            border: Border.all(color: done ? doneFill : scheme.outlineVariant),
             boxShadow:
                 done
                     ? const [
                       BoxShadow(
-                        color: Color(0x402E7D32),
+                        color: doneShadow,
                         blurRadius: 8,
                         offset: Offset(0, 2),
                       ),
@@ -398,22 +404,14 @@ class _DayPill extends StatelessWidget {
                     )
                     : Icon(
                       Icons.fiber_manual_record,
-                      // kleiner „Dot“ als neutraler Placeholder
                       key: const ValueKey('icon_neutral'),
                       size: 10,
                       color: scheme.onSurfaceVariant,
                     ),
           ),
         ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.1,
-          ),
-        ),
+        const SizedBox(height: 8),
+        Text(label, style: dayLabelStyle),
       ],
     );
   }
