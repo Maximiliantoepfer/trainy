@@ -1,8 +1,10 @@
+// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
 import '../providers/workout_provider.dart';
+import '../providers/progress_provider.dart'; // ⬅️ NEU: für Wochen-Widget
 import '../widgets/workout_card.dart';
 import 'workout_screen.dart';
 
@@ -19,9 +21,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Beim ersten Öffnen Workouts laden
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Beim ersten Öffnen Workouts + Progress laden
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Workouts
       context.read<WorkoutProvider>().loadWorkouts();
+      // ⬅️ NEU: Progress (Einträge für Wochen-Widget)
+      // (falls der Provider nicht im Tree ist, wirft das -> in deinem Setup ist er vorhanden)
+      context.read<ProgressProvider>().loadData();
     });
   }
 
@@ -148,6 +154,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final provider = context.watch<WorkoutProvider>();
     final workouts = provider.workouts;
 
+    // ⬅️ NEU: Progress lesen und Trainings-Tage der aktuellen Woche berechnen
+    final progress = context.watch<ProgressProvider>();
+    final trainedWeekdays = _trainedWeekdaysThisWeek(progress.entries);
+    final isProgressLoading = progress.isLoading;
+
     return WillPopScope(
       onWillPop: () async {
         if (_selectedWorkoutId != null) {
@@ -174,37 +185,87 @@ class _HomeScreenState extends State<HomeScreen> {
         body:
             provider.isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : workouts.isEmpty
-                ? const _EmptyState()
-                : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-                  itemCount: workouts.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (ctx, i) {
-                    final w = workouts[i];
-                    final selected = w.id == _selectedWorkoutId;
+                : Column(
+                  children: [
+                    // ⬅️ NEU: Wochen-Widget oberhalb der Liste
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: _WeeklyOverviewCard(
+                        trainedWeekdays:
+                            isProgressLoading
+                                ? const {} // solange Progress lädt → neutral anzeigen
+                                : trainedWeekdays,
+                      ),
+                    ),
+                    // Liste / EmptyState
+                    Expanded(
+                      child:
+                          workouts.isEmpty
+                              ? const _EmptyState()
+                              : ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  12,
+                                  16,
+                                  100,
+                                ),
+                                itemCount: workouts.length,
+                                separatorBuilder:
+                                    (_, __) => const SizedBox(height: 12),
+                                itemBuilder: (ctx, i) {
+                                  final w = workouts[i];
+                                  final selected = w.id == _selectedWorkoutId;
 
-                    return WorkoutCard(
-                      workout: w,
-                      selected: selected,
-                      onTap: () => _openWorkout(w),
-                      onLongPress: () {
-                        setState(
-                          () => _selectedWorkoutId = selected ? null : w.id,
-                        );
-                      },
-                      onPrimaryActionTap: () {
-                        if (selected) {
-                          _confirmAndDelete(w);
-                        } else {
-                          _openWorkout(w);
-                        }
-                      },
-                    );
-                  },
+                                  return WorkoutCard(
+                                    workout: w,
+                                    selected: selected,
+                                    onTap: () => _openWorkout(w),
+                                    onLongPress: () {
+                                      setState(
+                                        () =>
+                                            _selectedWorkoutId =
+                                                selected ? null : w.id,
+                                      );
+                                    },
+                                    onPrimaryActionTap: () {
+                                      if (selected) {
+                                        _confirmAndDelete(w);
+                                      } else {
+                                        _openWorkout(w);
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                    ),
+                  ],
                 ),
       ),
     );
+  }
+
+  /// Berechnet die (Mo=1..So=7) Wochentage der **aktuellen** Woche, an denen trainiert wurde
+  /// – unabhängig davon, welches Workout es war.
+  Set<int> _trainedWeekdaysThisWeek(List entries) {
+    if (entries.isEmpty) return {};
+    final now = DateTime.now();
+    final monday = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1)); // Mo als Wochenstart
+    final start = DateTime(monday.year, monday.month, monday.day);
+    final endExclusive = start.add(const Duration(days: 7));
+
+    final set = <int>{};
+    // entries ist List<WorkoutEntry>, aber um nicht zu import-lastig zu werden, dynamisch:
+    for (final e in entries) {
+      final DateTime d = e.date;
+      if (!d.isBefore(start) && d.isBefore(endExclusive)) {
+        set.add(d.weekday); // 1..7
+      }
+    }
+    return set;
   }
 }
 
@@ -232,6 +293,128 @@ class _EmptyState extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// --- NEU: Modernes Wochen-Widget (Mo–So) ------------------------------------
+
+class _WeeklyOverviewCard extends StatelessWidget {
+  final Set<int> trainedWeekdays; // 1=Mo .. 7=So
+  const _WeeklyOverviewCard({required this.trainedWeekdays});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+
+    const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Titelzeile
+            Row(
+              children: [
+                Text('Diese Woche', style: text.titleMedium),
+                const Spacer(),
+                // Kleine Fortschrittsanzeige z. B. "3/7"
+                Text(
+                  '${trainedWeekdays.length}/7',
+                  style: text.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // 7 gleichmäßig verteilte „Pills“ mit Tages-Labels
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(7, (i) {
+                final weekday = i + 1; // 1..7
+                final done = trainedWeekdays.contains(weekday);
+                final label = labels[i];
+                return _DayPill(label: label, done: done);
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DayPill extends StatelessWidget {
+  final String label;
+  final bool done;
+  const _DayPill({required this.label, required this.done});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    // Neutrale Variante (nicht trainiert): dezente Fläche + Outline + Label darunter
+    // Done-Variante: sattes Grün, weißer Check, Label bleibt neutral unten.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: done ? const Color(0xFF2E7D32) : scheme.surfaceVariant,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: done ? const Color(0xFF2E7D32) : scheme.outlineVariant,
+            ),
+            boxShadow:
+                done
+                    ? const [
+                      BoxShadow(
+                        color: Color(0x402E7D32),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ]
+                    : null,
+          ),
+          alignment: Alignment.center,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            child:
+                done
+                    ? const Icon(
+                      Icons.check_rounded,
+                      key: ValueKey('icon_done'),
+                      color: Colors.white,
+                      size: 20,
+                    )
+                    : Icon(
+                      Icons.fiber_manual_record,
+                      // kleiner „Dot“ als neutraler Placeholder
+                      key: const ValueKey('icon_neutral'),
+                      size: 10,
+                      color: scheme.onSurfaceVariant,
+                    ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.1,
+          ),
+        ),
+      ],
     );
   }
 }
