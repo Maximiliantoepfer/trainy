@@ -77,6 +77,16 @@ class AppTheme {
         ),
       ),
 
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
+        elevation: 6,
+        focusElevation: 8,
+        hoverElevation: 8,
+        highlightElevation: 8,
+        // shape: StadiumBorder(), // optional, wenn du die Pill-Optik forcieren willst
+      ),
+
       // Buttons: kräftige Akzentfarbe, keine Tonal-Variante
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
