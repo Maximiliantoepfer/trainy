@@ -123,6 +123,7 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                       child: Text('${d.day}', style: bigLabel),
                     ),
                     if (cnt > 0)
+                      // (Ausschnitt) – ersetze den dekorierten Container im Tag-Marker:
                       Center(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -133,8 +134,12 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                             color:
                                 Theme.of(
                                   context,
-                                ).colorScheme.secondaryContainer,
+                                ).colorScheme.surfaceVariant, // neutral
                             borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color:
+                                  Theme.of(context).colorScheme.outlineVariant,
+                            ),
                           ),
                           child: Text('$cnt', style: bigLabel),
                         ),

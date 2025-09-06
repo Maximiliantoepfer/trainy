@@ -356,8 +356,9 @@ class _MetricChip extends StatelessWidget {
       ],
     );
 
+    // (Ausschnitt) – in _ValuePill.build() den Material-Container anpassen:
     return Material(
-      color: Theme.of(context).colorScheme.secondaryContainer,
+      color: Theme.of(context).colorScheme.surfaceVariant, // neutral
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),

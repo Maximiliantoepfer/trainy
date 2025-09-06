@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../screens/home_screen.dart';
 import '../screens/exercise_screen.dart';
 import '../screens/progress_screen.dart';
@@ -15,61 +14,55 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _index = 0;
 
+  final _pages = const [
+    HomeScreen(),
+    ExerciseScreen(),
+    ProgressScreen(),
+    SettingsScreen(),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final pages = const [
-      HomeScreen(),
-      ExerciseScreen(),
-      ProgressScreen(),
-      SettingsScreen(),
-    ];
-
-    // Lokales Theme ohne Ripple/Highlights (kompatibel, ohne InkWellThemeData)
-    final theme = Theme.of(context);
-    final navTheme = theme.copyWith(
-      splashFactory: NoSplash.splashFactory,
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      hoverColor: Colors.transparent,
-      focusColor: Colors.transparent,
-      navigationBarTheme: theme.navigationBarTheme.copyWith(
-        // Sicherheitshalber auch hier: KEIN Indicator/Highlight
-        indicatorColor: Colors.transparent,
-      ),
-    );
-
     return Scaffold(
-      body: SafeArea(child: pages[_index]),
+      body: _pages[_index],
+
+      // Wichtig: Labels ausblenden und Ripple/Highlight lokal abschalten
       bottomNavigationBar: Theme(
-        data: navTheme,
+        data: Theme.of(context).copyWith(
+          // verhindert die „Hintergrunderleuchtung“ beim Tippen
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+        ),
         child: NavigationBar(
+          // Nur Icons, keine Labels
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+
+          // Größen/Farben kommen aus dem NavigationBarTheme (app_theme.dart)
           selectedIndex: _index,
           onDestinationSelected: (i) => setState(() => _index = i),
 
-          // Labels aus (nur Icons)
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-
-          // Hintergrund & Icon-Styles kommen aus dem Theme
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home',
+              selectedIcon: Icon(Icons.home_rounded),
+              label: 'Workouts', // wird dank alwaysHide nicht angezeigt
             ),
             NavigationDestination(
               icon: Icon(Icons.fitness_center_outlined),
               selectedIcon: Icon(Icons.fitness_center),
-              label: 'Exercises',
+              label: 'Übungen',
             ),
             NavigationDestination(
-              icon: Icon(Icons.show_chart_outlined),
-              selectedIcon: Icon(Icons.show_chart),
-              label: 'Progress',
+              icon: Icon(Icons.insights_outlined),
+              selectedIcon: Icon(Icons.insights),
+              label: 'Fortschritt',
             ),
             NavigationDestination(
               icon: Icon(Icons.settings_outlined),
               selectedIcon: Icon(Icons.settings),
-              label: 'Settings',
+              label: 'Einstellungen',
             ),
           ],
         ),

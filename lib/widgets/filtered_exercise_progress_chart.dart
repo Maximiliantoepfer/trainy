@@ -183,6 +183,8 @@ class _FilteredExerciseProgressChartState
   }
 }
 
+// (Ausschnitt) – ersetze die Klasse _MetricButton durch folgende Implementierung:
+
 class _MetricButton extends StatelessWidget {
   final String label;
   final bool active;
@@ -196,22 +198,28 @@ class _MetricButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Material(
-      color:
-          active
-              ? Theme.of(context).colorScheme.secondaryContainer
-              : Theme.of(context).colorScheme.surfaceVariant,
+      color: scheme.surfaceVariant, // neutral – unabhängig vom Status
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: Padding(
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: active ? scheme.primary : scheme.outlineVariant,
+            ),
+          ),
           child: Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: active ? scheme.primary : scheme.onSurface,
+            ),
           ),
         ),
       ),
