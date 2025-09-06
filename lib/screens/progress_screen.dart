@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/progress_provider.dart';
+import '../providers/workout_provider.dart';
 import '../models/workout_entry.dart';
+import '../models/workout.dart';
 import 'workout_entry_detail_screen.dart';
 
 class ProgressScreen extends StatefulWidget {
@@ -20,12 +22,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Genau einmal initial laden (kein mehrfaches fetchen bei Rebuilds)
     if (!_loadedOnce) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          context.read<ProgressProvider>().loadData();
-        }
+        if (!mounted) return;
+        context.read<ProgressProvider>().loadData();
+        // Für die Anzeige des Workout-Namens
+        context.read<WorkoutProvider>().loadWorkouts();
       });
       _loadedOnce = true;
     }
@@ -92,9 +94,21 @@ class _EntryCard extends StatelessWidget {
     final dateStr =
         '${date.day.toString().padLeft(2, '0')}.'
         '${date.month.toString().padLeft(2, '0')}.'
-        '${date.year}';
+        '${date.year} • '
+        '${date.hour.toString().padLeft(2, '0')}:'
+        '${date.minute.toString().padLeft(2, '0')}';
 
-    // simple summary: Summe Sätze über alle Übungen + Gesamtdauer
+    // Workout-Name via Provider
+    final workouts = context.watch<WorkoutProvider>().workouts;
+    Workout? w;
+    try {
+      w = workouts.firstWhere((e) => e.id == entry.workoutId);
+    } catch (_) {
+      w = null;
+    }
+    final workoutName = w?.name ?? 'Workout';
+
+    // Gesamtsätze/-dauer
     int totalSets = 0;
     int totalDuration = 0;
     entry.results.forEach((_, v) {
@@ -115,11 +129,15 @@ class _EntryCard extends StatelessWidget {
     return Card(
       child: ListTile(
         title: Text(
-          'Workout #${entry.workoutId}',
+          'Workout – $workoutName',
           style: const TextStyle(fontWeight: FontWeight.w700),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
-          '$dateStr · $totalSets Sätze${totalDuration > 0 ? ' · ${_formatDuration(totalDuration)}' : ''}',
+          '$dateStr'
+          '${totalSets > 0 ? ' · $totalSets Sätze' : ''}'
+          '${totalDuration > 0 ? ' · ${_formatDuration(totalDuration)}' : ''}',
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {

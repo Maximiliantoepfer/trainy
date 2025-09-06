@@ -14,33 +14,29 @@ class WorkoutEntryDatabase {
   Future<Database> get _db async => AppDatabase.instance.database;
 
   /// Insert eine aggregierte Session: Eine Zeile pro Exercise.
-  /// [sessionDurationSeconds] ist die **Gesamtdauer** der Session und wird in jeder Zeile mitgeschrieben.
   Future<void> insertEntry(
     WorkoutEntry entry, {
     required int sessionDurationSeconds,
   }) async {
     final db = await _db;
+    final ts = entry.date.millisecondsSinceEpoch;
+
     final batch = db.batch();
-    int seq = 0;
-
     entry.results.forEach((exerciseId, values) {
-      final jsonMap = <String, dynamic>{};
-      values.forEach((k, v) => jsonMap[k] = v);
-
+      final jsonMap = Map<String, dynamic>.from(values);
       batch.insert('workout_entries', {
-        'id': DateTime.now().microsecondsSinceEpoch + (seq++),
         'workoutId': entry.workoutId,
         'exerciseId': exerciseId,
-        'timestamp': entry.date.millisecondsSinceEpoch,
+        'timestamp': ts,
         'valuesJson': jsonEncode(jsonMap),
-        'durationSeconds': sessionDurationSeconds, // <-- Sessiondauer
+        'durationSeconds': sessionDurationSeconds, // Session-Dauer in Sek.
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     });
 
     await batch.commit(noResult: true);
   }
 
-  /// Aggregierte Einträge zurückgeben (zu Listenaufbau im Progress-Screen geeignet).
+  /// Aggregierte Einträge für den Progress-Screen.
   Future<List<WorkoutEntry>> getAggregatedEntries() async {
     final db = await _db;
     final rows = await db.query(
@@ -67,30 +63,37 @@ class WorkoutEntryDatabase {
       for (final r in groupRows) {
         pickId ??= (r['id'] as num).toInt();
         final exerciseId = (r['exerciseId'] as num).toInt();
+
         Map<String, dynamic> values;
         try {
           final decoded = jsonDecode((r['valuesJson'] as String?) ?? '{}');
-          if (decoded is Map<String, dynamic>) {
-            values = decoded;
-          } else if (decoded is Map) {
-            values = decoded.map((k, v) => MapEntry(k.toString(), v));
-          } else {
-            values = <String, dynamic>{};
-          }
+          values =
+              decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
         } catch (_) {
           values = <String, dynamic>{};
         }
 
-        // sanfte Typ-Normierung
+        // Typ-Normalisierung
+        Map<String, dynamic> fixed = Map<String, dynamic>.from(values);
         void _fixNum(String key) {
-          final v = values[key];
+          final v = fixed[key];
           if (v == null) return;
           if (key == 'sets' || key == 'reps' || key == 'duration') {
-            final parsed = int.tryParse('$v');
-            if (parsed != null) values[key] = parsed;
+            if (v is int) return;
+            if (v is String) {
+              final parsed = int.tryParse(v);
+              if (parsed != null) fixed[key] = parsed;
+            } else if (v is num) {
+              fixed[key] = v.toInt();
+            }
           } else if (key == 'weight') {
-            final parsed = double.tryParse('$v');
-            if (parsed != null) values[key] = parsed;
+            if (v is double) return;
+            if (v is String) {
+              final parsed = double.tryParse(v);
+              if (parsed != null) fixed[key] = parsed;
+            } else if (v is num) {
+              fixed[key] = v.toDouble();
+            }
           }
         }
 
@@ -99,12 +102,12 @@ class WorkoutEntryDatabase {
         _fixNum('weight');
         _fixNum('duration');
 
-        resultsMap[exerciseId] = values;
+        resultsMap[exerciseId] = fixed;
       }
 
       result.add(
         WorkoutEntry(
-          id: pickId ?? DateTime.now().millisecondsSinceEpoch,
+          id: pickId ?? ts, // Fallback
           workoutId: workoutId,
           date: DateTime.fromMillisecondsSinceEpoch(ts),
           results: resultsMap,
@@ -113,6 +116,49 @@ class WorkoutEntryDatabase {
     });
 
     return result;
+  }
+
+  /// **NEU**: Einzelne Kennzahl (z. B. 'sets' | 'reps' | 'weight' | 'duration')
+  /// innerhalb einer Zeile aktualisieren.
+  ///
+  /// Die Zeile wird eindeutig über (workoutId, exerciseId, timestamp) gefunden.
+  Future<void> updateMetric({
+    required int workoutId,
+    required int exerciseId,
+    required int timestamp,
+    required String field,
+    required num value,
+  }) async {
+    final db = await _db;
+
+    final rows = await db.query(
+      'workout_entries',
+      where: 'workoutId = ? AND exerciseId = ? AND timestamp = ?',
+      whereArgs: [workoutId, exerciseId, timestamp],
+      limit: 1,
+    );
+    if (rows.isEmpty) return;
+
+    final row = rows.first;
+    Map<String, dynamic> map;
+    try {
+      map =
+          jsonDecode((row['valuesJson'] as String?) ?? '{}')
+              as Map<String, dynamic>;
+    } catch (_) {
+      map = {};
+    }
+
+    // Feld setzen (bestehende bleiben unverändert)
+    map[field] = value;
+
+    await db.update(
+      'workout_entries',
+      {'valuesJson': jsonEncode(map)},
+      where: 'id = ?',
+      whereArgs: [(row['id'] as num).toInt()],
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   /// Rohdaten (alle Zeilen) eines Workouts

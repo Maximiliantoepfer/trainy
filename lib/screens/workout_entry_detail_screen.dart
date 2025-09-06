@@ -5,12 +5,32 @@ import 'package:provider/provider.dart';
 
 import '../models/workout_entry.dart';
 import '../providers/exercise_provider.dart';
+import '../providers/progress_provider.dart';
+import '../services/workout_entry_database.dart';
 import '../models/exercise.dart';
 
-class WorkoutEntryDetailScreen extends StatelessWidget {
+class WorkoutEntryDetailScreen extends StatefulWidget {
   final WorkoutEntry entry;
 
   const WorkoutEntryDetailScreen({super.key, required this.entry});
+
+  @override
+  State<WorkoutEntryDetailScreen> createState() =>
+      _WorkoutEntryDetailScreenState();
+}
+
+class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
+  late Map<int, Map<String, dynamic>> _results; // lokale, editierbare Kopie
+
+  @override
+  void initState() {
+    super.initState();
+    // Deep copy der Map, damit wir lokal updaten können
+    _results = {
+      for (final e in widget.entry.results.entries)
+        e.key: Map<String, dynamic>.from(e.value),
+    };
+  }
 
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}.'
@@ -20,10 +40,99 @@ class WorkoutEntryDetailScreen extends StatelessWidget {
         '${date.minute.toString().padLeft(2, '0')}';
   }
 
-  String _formatDurationSeconds(int seconds) {
-    final mm = (seconds ~/ 60).toString().padLeft(2, '0');
-    final ss = (seconds % 60).toString().padLeft(2, '0');
-    return '$mm:$ss';
+  Future<void> _editMetric({
+    required int exerciseId,
+    required String field, // 'sets' | 'reps' | 'weight' | 'duration'
+    required num? current,
+  }) async {
+    final isInt = field == 'sets' || field == 'reps' || field == 'duration';
+    final controller = TextEditingController(
+      text: current == null ? '' : '$current',
+    );
+
+    final newValue = await showDialog<num?>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(_dialogTitleFor(field)),
+          content: TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: isInt ? 'z. B. 10' : 'z. B. 42.5',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(null),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final txt = controller.text.trim().replaceAll(',', '.');
+                if (txt.isEmpty) {
+                  Navigator.of(ctx).pop(null);
+                  return;
+                }
+                num? parsed;
+                if (isInt) {
+                  final p = int.tryParse(txt);
+                  if (p != null) parsed = p;
+                } else {
+                  final p = double.tryParse(txt);
+                  if (p != null) parsed = p;
+                }
+                Navigator.of(ctx).pop(parsed);
+              },
+              child: const Text('Speichern'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (newValue == null) return;
+
+    // DB aktualisieren
+    await WorkoutEntryDatabase.instance.updateMetric(
+      workoutId: widget.entry.workoutId,
+      exerciseId: exerciseId,
+      timestamp: widget.entry.date.millisecondsSinceEpoch,
+      field: field,
+      value: newValue,
+    );
+
+    // Provider-List re-laden, damit Progress-Screen aktuell bleibt
+    await context.read<ProgressProvider>().refreshEntries();
+
+    // Lokalen Zustand updaten (UI direkt aktualisieren)
+    setState(() {
+      final m = _results[exerciseId] ?? <String, dynamic>{};
+      m[field] = newValue;
+      _results[exerciseId] = m;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Wert aktualisiert')));
+    }
+  }
+
+  String _dialogTitleFor(String field) {
+    switch (field) {
+      case 'sets':
+        return 'Sätze bearbeiten';
+      case 'reps':
+        return 'Wiederholungen bearbeiten';
+      case 'weight':
+        return 'Gewicht bearbeiten';
+      case 'duration':
+        return 'Dauer (Sek.) bearbeiten';
+      default:
+        return 'Wert bearbeiten';
+    }
   }
 
   @override
@@ -38,7 +147,7 @@ class WorkoutEntryDetailScreen extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Text(
-              _formatDate(entry.date),
+              _formatDate(widget.entry.date),
               style: Theme.of(context).textTheme.labelLarge,
             ),
           ),
@@ -47,8 +156,8 @@ class WorkoutEntryDetailScreen extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         itemBuilder: (ctx, index) {
-          final exerciseId = entry.results.keys.elementAt(index);
-          final data = entry.results[exerciseId] ?? const {};
+          final exerciseId = _results.keys.elementAt(index);
+          final data = _results[exerciseId] ?? const {};
           Exercise? ex;
           try {
             ex = exercises.firstWhere((e) => e.id == exerciseId);
@@ -57,27 +166,39 @@ class WorkoutEntryDetailScreen extends StatelessWidget {
           }
 
           return _ExerciseResultCard(
+            exerciseId: exerciseId,
             exerciseName: ex?.name ?? 'Übung #$exerciseId',
             values: data,
+            onEdit: _editMetric,
           );
         },
         separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemCount: entry.results.length,
+        itemCount: _results.length,
       ),
     );
   }
 }
 
 class _ExerciseResultCard extends StatelessWidget {
+  final int exerciseId;
   final String exerciseName;
   final Map<String, dynamic> values;
+  final Future<void> Function({
+    required int exerciseId,
+    required String field,
+    required num? current,
+  })
+  onEdit;
 
-  const _ExerciseResultCard({required this.exerciseName, required this.values});
+  const _ExerciseResultCard({
+    required this.exerciseId,
+    required this.exerciseName,
+    required this.values,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     final sets = _asInt(values['sets']);
     final reps = _asInt(values['reps']);
     final weight = _asDouble(values['weight']);
@@ -100,49 +221,74 @@ class _ExerciseResultCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 10),
-            // Kennzahlen-Chips (zeigen nur, was vorhanden ist)
+            // Kennzahlen-Chips (klickbar)
             Wrap(
               spacing: 10,
               runSpacing: 10,
               children: [
-                if (sets != null)
-                  _MetricChip(
-                    icon: Icons.layers,
-                    label: 'Sätze',
-                    value: '$sets',
-                    color: scheme.primary,
-                  ),
-                if (reps != null)
-                  _MetricChip(
-                    icon: Icons.repeat,
-                    label: 'Wdh.',
-                    value: '$reps',
-                    color: scheme.primary,
-                  ),
-                if (weight != null)
-                  _MetricChip(
-                    icon: Icons.fitness_center,
-                    label: 'Gewicht',
-                    value: _formatWeight(weight),
-                    color: scheme.primary,
-                  ),
-                if (duration != null)
-                  _MetricChip(
-                    icon: Icons.timer_outlined,
-                    label: 'Dauer',
-                    value: _formatDuration(duration),
-                    color: scheme.primary,
-                  ),
+                _MetricChip(
+                  icon: Icons.layers,
+                  label: 'Sätze',
+                  value: sets?.toString(),
+                  onTap:
+                      () => onEdit(
+                        exerciseId: exerciseId,
+                        field: 'sets',
+                        current: sets,
+                      ),
+                ),
+                _MetricChip(
+                  icon: Icons.repeat,
+                  label: 'Wdh.',
+                  value: reps?.toString(),
+                  onTap:
+                      () => onEdit(
+                        exerciseId: exerciseId,
+                        field: 'reps',
+                        current: reps,
+                      ),
+                ),
+                _MetricChip(
+                  icon: Icons.fitness_center,
+                  label: 'Gewicht',
+                  value: weight == null ? null : _formatWeight(weight),
+                  onTap:
+                      () => onEdit(
+                        exerciseId: exerciseId,
+                        field: 'weight',
+                        current: weight,
+                      ),
+                ),
+                _MetricChip(
+                  icon: Icons.timer_outlined,
+                  label: 'Dauer',
+                  value: duration == null ? null : _formatDuration(duration),
+                  onTap:
+                      () => onEdit(
+                        exerciseId: exerciseId,
+                        field: 'duration',
+                        current: duration,
+                      ),
+                ),
               ],
             ),
-            // Fallback: Wenn nichts angezeigt werden konnte, zeige Rohwerte
+            // Fallback: Wenn keine bekannten Felder, zeige Rohwerte (auch editierbar)
             if (sets == null &&
                 reps == null &&
                 weight == null &&
                 duration == null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: _RawValues(values: values),
+                child: _RawValues(
+                  values: values,
+                  onEdit: (key, current) {
+                    onEdit(
+                      exerciseId: exerciseId,
+                      field: key,
+                      current: current,
+                    );
+                  },
+                ),
               ),
           ],
         ),
@@ -150,13 +296,12 @@ class _ExerciseResultCard extends StatelessWidget {
     );
   }
 
-  String _formatWeight(double w) {
-    // Einfache Formatierung, keine Einheitserkennung
+  static String _formatWeight(double w) {
     final s = w.toStringAsFixed(w.truncateToDouble() == w ? 0 : 1);
-    return '$s';
+    return s;
   }
 
-  String _formatDuration(int seconds) {
+  static String _formatDuration(int seconds) {
     final mm = (seconds ~/ 60).toString().padLeft(2, '0');
     final ss = (seconds % 60).toString().padLeft(2, '0');
     return '$mm:$ss';
@@ -182,38 +327,45 @@ class _ExerciseResultCard extends StatelessWidget {
 class _MetricChip extends StatelessWidget {
   final IconData icon;
   final String label;
-  final String value;
-  final Color color;
+  final String? value;
+  final VoidCallback onTap;
 
   const _MetricChip({
     required this.icon,
     required this.label,
     required this.value,
-    required this.color,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hasValue = value != null && value!.isNotEmpty;
     final onColor = Theme.of(context).colorScheme.onSecondaryContainer;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: ShapeDecoration(
-        color: Theme.of(context).colorScheme.secondaryContainer,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: onColor),
-          const SizedBox(width: 8),
-          Text(
-            '$label: $value',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-        ],
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: onColor),
+        const SizedBox(width: 8),
+        Text(
+          hasValue ? '$label: $value' : '$label hinzufügen',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+
+    return Material(
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: content,
+        ),
       ),
     );
   }
@@ -221,8 +373,9 @@ class _MetricChip extends StatelessWidget {
 
 class _RawValues extends StatelessWidget {
   final Map<String, dynamic> values;
+  final void Function(String field, num? current) onEdit;
 
-  const _RawValues({required this.values});
+  const _RawValues({required this.values, required this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -244,11 +397,28 @@ class _RawValues extends StatelessWidget {
                     ),
                   ),
                 ),
-                Text(
-                  '${e.value}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                InkWell(
+                  onTap: () {
+                    final v = e.value;
+                    num? current;
+                    if (v is int) current = v;
+                    if (v is double) current = v;
+                    if (v is String) current = num.tryParse(v);
+                    onEdit(e.key, current);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      '${e.value}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
