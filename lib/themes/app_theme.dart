@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 
+/// AppTheme
+/// - FIX: Verwendet **kein** `ColorScheme.fromSeed` mehr.
+///   Das M3-Seed erzeugt eine Tonal-Palette (Primary-Tone ~40/80),
+///   wodurch Buttons/Icons sichtbar **heller** als der eingestellte Akzent wirken.
+///   Stattdessen nehmen wir ColorScheme.light/dark und überschreiben `primary`
+///   (und `secondary`) exakt mit dem Akzent.
+/// - Zusätzlich: Elevation-Overlay im Dark-Mode deaktiviert.
 class AppTheme {
   static ThemeData light(Color accent) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: accent,
-      brightness: Brightness.light,
-    );
+    final scheme = _schemeLight(accent);
 
     return _base(scheme).copyWith(
       scaffoldBackgroundColor: Colors.white,
       appBarTheme: _appBarTheme(scheme, Colors.white),
       cardTheme: _cardTheme(
         scheme,
-        const Color(0xFFF7F7F8), // neutral hell
+        const Color(0xFFF7F7F8), // neutrales helles Card-White
       ),
       dialogTheme: _dialogTheme(scheme, Colors.white),
       navigationBarTheme: _navBarTheme(scheme, Colors.white),
@@ -20,15 +24,14 @@ class AppTheme {
   }
 
   static ThemeData dark(Color accent) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: accent,
-      brightness: Brightness.dark,
-    );
+    final scheme = _schemeDark(accent);
 
+    // Feste, akzentunabhängige Dark-Hintergründe
     const scaffold = Color(0xFF0B0B0D);
     const card = Color(0xFF121316);
 
     return _base(scheme).copyWith(
+      applyElevationOverlayColor: false,
       scaffoldBackgroundColor: scaffold,
       appBarTheme: _appBarTheme(scheme, scaffold),
       cardTheme: _cardTheme(scheme, card),
@@ -39,15 +42,17 @@ class AppTheme {
 
   // ---- Basis: gemeinsame Einstellungen ----
   static ThemeData _base(ColorScheme scheme) {
-    // Basis-Theme holen, damit wir auf dessen TextTheme aufbauen können
-    final base = ThemeData(useMaterial3: true, colorScheme: scheme);
+    final base = ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+    ).copyWith(applyElevationOverlayColor: false);
 
     // Schrift insgesamt leicht größer, Titel deutlicher
     final text = base.textTheme;
     final bumped = text.copyWith(
-      // Große Titel (z. B. AppBar) – wieder groß & fett
+      // Große Titel (z. B. AppBar) – groß & fett
       titleLarge: text.titleLarge?.copyWith(
-        fontSize: 22, // vorher ~20
+        fontSize: 22,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.2,
       ),
@@ -64,7 +69,7 @@ class AppTheme {
     return base.copyWith(
       textTheme: bumped,
 
-      // Kräftige Akzentfarbe für Icons
+      // Icons sollen kräftig in Akzentfarbe erscheinen
       iconTheme: IconThemeData(color: scheme.primary),
       iconButtonTheme: IconButtonThemeData(
         style: ButtonStyle(
@@ -72,7 +77,7 @@ class AppTheme {
         ),
       ),
 
-      // Buttons: kräftig, keine Tonal-Variante
+      // Buttons: kräftige Akzentfarbe, keine Tonal-Variante
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: scheme.primary,
@@ -111,7 +116,7 @@ class AppTheme {
         ),
       ),
 
-      // Chips/Segmente: neutrale Flächen
+      // Chips/”Pills”: immer neutrale Fläche
       chipTheme: ChipThemeData(
         backgroundColor: scheme.surfaceVariant,
         selectedColor: scheme.surfaceVariant,
@@ -121,19 +126,21 @@ class AppTheme {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       ),
+
+      // SegmentedButton neutral, bei Auswahl nur Border/Text in Akzentfarbe
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
           backgroundColor: MaterialStatePropertyAll(scheme.surfaceVariant),
           foregroundColor: MaterialStateProperty.resolveWith(
-            (s) =>
-                s.contains(MaterialState.selected)
+            (states) =>
+                states.contains(MaterialState.selected)
                     ? scheme.primary
                     : scheme.onSurface,
           ),
           side: MaterialStateProperty.resolveWith(
-            (s) => BorderSide(
+            (states) => BorderSide(
               color:
-                  s.contains(MaterialState.selected)
+                  states.contains(MaterialState.selected)
                       ? scheme.primary
                       : scheme.outlineVariant,
             ),
@@ -144,7 +151,7 @@ class AppTheme {
         ),
       ),
 
-      // Textfelder: neutral
+      // Textfelder: neutrale Füllung, keine Tints
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surfaceVariant,
@@ -166,7 +173,6 @@ class AppTheme {
     surfaceTintColor: Colors.transparent,
     iconTheme: IconThemeData(color: scheme.primary),
     titleTextStyle: TextStyle(
-      // wichtig: groß & fett
       color: scheme.onSurface,
       fontSize: 22,
       fontWeight: FontWeight.w700,
@@ -208,7 +214,7 @@ class AppTheme {
                   : unselectedSize,
         ),
       ),
-      // Label-Größe & -Gewicht nach Status
+      // Labels werden in der MainNavigation verborgen; Stil hier nur fallback
       labelTextStyle: MaterialStateProperty.resolveWith(
         (states) => TextStyle(
           fontSize: states.contains(MaterialState.selected) ? 13 : 12,
@@ -225,5 +231,42 @@ class AppTheme {
       ),
       height: 76, // etwas höher für größere Icons/Labels
     );
+  }
+
+  // ---------- ColorSchemes ohne Seed ----------
+  static ColorScheme _schemeLight(Color accent) {
+    final onAccent = _onColor(accent);
+    final base = const ColorScheme.light();
+    return base.copyWith(
+      primary: accent,
+      onPrimary: onAccent,
+      secondary: accent,
+      onSecondary: onAccent,
+      // optionale Annäherung – Container nutzen wir als Hintergründe kaum
+      primaryContainer: accent.withOpacity(0.12),
+      onPrimaryContainer: _onColor(accent.withOpacity(0.12)),
+      secondaryContainer: accent.withOpacity(0.12),
+      onSecondaryContainer: _onColor(accent.withOpacity(0.12)),
+    );
+  }
+
+  static ColorScheme _schemeDark(Color accent) {
+    final onAccent = _onColor(accent);
+    final base = const ColorScheme.dark();
+    return base.copyWith(
+      primary: accent,
+      onPrimary: onAccent,
+      secondary: accent,
+      onSecondary: onAccent,
+      primaryContainer: accent.withOpacity(0.20),
+      onPrimaryContainer: _onColor(accent.withOpacity(0.20)),
+      secondaryContainer: accent.withOpacity(0.20),
+      onSecondaryContainer: _onColor(accent.withOpacity(0.20)),
+    );
+  }
+
+  static Color _onColor(Color bg) {
+    final brightness = ThemeData.estimateBrightnessForColor(bg);
+    return brightness == Brightness.dark ? Colors.white : Colors.black;
   }
 }
