@@ -1,5 +1,3 @@
-// lib/screens/progress_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,7 +5,9 @@ import '../providers/progress_provider.dart';
 import '../providers/workout_provider.dart';
 import '../models/workout_entry.dart';
 import '../models/workout.dart';
+import '../widgets/weekly_activity_chart.dart';
 import 'workout_entry_detail_screen.dart';
+import 'progress_insights_screen.dart';
 
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -26,7 +26,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         context.read<ProgressProvider>().loadData();
-        // Für die Anzeige des Workout-Namens
+        // Für die Titelauflösung (Workoutname)
         context.read<WorkoutProvider>().loadWorkouts();
       });
       _loadedOnce = true;
@@ -39,17 +39,51 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final entries = provider.entries;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Fortschritt')),
+      appBar: AppBar(
+        title: const Text('Fortschritt'),
+        actions: [
+          IconButton(
+            tooltip: 'Insights',
+            icon: const Icon(Icons.insights_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ProgressInsightsScreen(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body:
           provider.isLoading
               ? const Center(child: CircularProgressIndicator())
-              : entries.isEmpty
-              ? const _EmptyState()
-              : ListView.separated(
+              : ListView(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-                itemBuilder: (_, i) => _EntryCard(entry: entries[i]),
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemCount: entries.length,
+                children: [
+                  // Weekly Activity Chart (oben)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                      child: WeeklyActivityChart(
+                        entries: entries,
+                        title: 'Aktivität (diese Woche)',
+                        subtitle: 'Workouts pro Tag (Mo–So)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (entries.isEmpty)
+                    const _EmptyState()
+                  else
+                    ...List.generate(
+                      entries.length,
+                      (i) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _EntryCard(entry: entries[i]),
+                      ),
+                    ),
+                ],
               ),
     );
   }
@@ -60,13 +94,13 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.show_chart, size: 72),
+            const Icon(Icons.show_chart, size: 64),
             const SizedBox(height: 12),
             Text(
               'Noch keine Einträge',
@@ -108,7 +142,7 @@ class _EntryCard extends StatelessWidget {
     }
     final workoutName = w?.name ?? 'Workout';
 
-    // Gesamtsätze/-dauer
+    // Gesamtsätze/-dauer (aggregiert über Exercises)
     int totalSets = 0;
     int totalDuration = 0;
     entry.results.forEach((_, v) {

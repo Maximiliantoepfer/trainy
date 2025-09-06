@@ -1,96 +1,120 @@
-// lib/widgets/weekly_activity_chart.dart
-
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import '../models/workout_entry.dart';
 
+/// Ein leichter, dependency-freier Wochenbalken-Chart.
+/// Zeigt Workouts je Tag der **aktuellen Woche** (Mo–So).
 class WeeklyActivityChart extends StatelessWidget {
-  final Set<String> trainedDays;
-  final DateTime monday;
-  final int weeklyGoal;
-  final int trainingsDieseWoche;
-  final ValueChanged<int> onGoalChanged;
+  final List<WorkoutEntry> entries;
+  final String? title;
+  final String? subtitle;
+  final double height;
 
   const WeeklyActivityChart({
     super.key,
-    required this.trainedDays,
-    required this.monday,
-    required this.weeklyGoal,
-    required this.trainingsDieseWoche,
-    required this.onGoalChanged,
+    required this.entries,
+    this.title,
+    this.subtitle,
+    this.height = 160,
   });
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-    final days = List.generate(7, (i) => monday.add(Duration(days: i)));
-    final fmt = DateFormat('EEE');
+    final days = _currentWeekDays();
+    final counts = List<int>.generate(7, (i) {
+      final d = days[i];
+      return entries.where((e) => DateUtils.isSameDay(e.date, d)).length;
+    });
+    final maxVal = (counts.isEmpty ? 0 : counts.reduce((a, b) => a > b ? a : b))
+        .clamp(0, 10);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Diese Woche',
-                style: Theme.of(context).textTheme.titleMedium,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (title != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(title!, style: Theme.of(context).textTheme.titleMedium),
+          ),
+        if (subtitle != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              subtitle!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              Row(
-                children: [
-                  Icon(Icons.flag_outlined, size: 18, color: primary),
-                  const SizedBox(width: 6),
-                  DropdownButton<int>(
-                    value: weeklyGoal,
-                    onChanged: (v) => v != null ? onGoalChanged(v) : null,
-                    items:
-                        const [1, 2, 3, 4, 5, 6, 7]
-                            .map(
-                              (g) => DropdownMenuItem(
-                                value: g,
-                                child: Text('$g×/Woche'),
+            ),
+          ),
+        SizedBox(
+          height: height,
+          child: LayoutBuilder(
+            builder: (ctx, constraints) {
+              final barWidth =
+                  (constraints.maxWidth - 6 * 10) / 7; // 10px spacing
+              final maxBarHeight =
+                  constraints.maxHeight - 28; // Platz für Labels
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: List.generate(7, (i) {
+                  final value = counts[i];
+                  final h = maxVal == 0 ? 0.0 : (value / maxVal) * maxBarHeight;
+                  final dowLabel = _weekdayShort(i); // 0..6 -> Mo..So
+
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: i == 6 ? 0 : 10),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          // Wert (über dem Balken)
+                          SizedBox(
+                            height: 18,
+                            child: FittedBox(
+                              child: Text(
+                                value.toString(),
+                                style: Theme.of(context).textTheme.labelSmall,
                               ),
-                            )
-                            .toList(),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children:
-                days.map((d) {
-                  final key = DateFormat('yyyy-MM-dd').format(d);
-                  final hit = trainedDays.contains(key);
-                  return Column(
-                    children: [
-                      Text(fmt.format(d)),
-                      const SizedBox(height: 6),
-                      CircleAvatar(
-                        radius: 8,
-                        backgroundColor: hit ? primary : Colors.grey[700],
+                            ),
+                          ),
+                          // Balken
+                          Container(
+                            height: h,
+                            width: barWidth,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          // Label (unter dem Balken)
+                          Text(
+                            dowLabel,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   );
-                }).toList(),
+                }),
+              );
+            },
           ),
-          const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: (trainingsDieseWoche / weeklyGoal).clamp(0.0, 1.0),
-            backgroundColor: Colors.grey[800],
-            color: primary,
-            minHeight: 6,
-            borderRadius: BorderRadius.circular(6),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
+  }
+
+  /// Liefert die 7 Tage der aktuellen Woche (Mo..So) als DateOnly (Mitternacht).
+  List<DateTime> _currentWeekDays() {
+    final now = DateTime.now();
+    final today = DateUtils.dateOnly(now);
+    final start = today.subtract(Duration(days: today.weekday - 1)); // Montag
+    return List.generate(7, (i) => start.add(Duration(days: i)));
+  }
+
+  String _weekdayShort(int indexFromMonday) {
+    const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    return labels[indexFromMonday];
   }
 }
