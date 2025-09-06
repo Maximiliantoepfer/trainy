@@ -14,7 +14,7 @@ class WeeklyActivityChart extends StatelessWidget {
     required this.entries,
     this.title,
     this.subtitle,
-    this.height = 160,
+    this.height = 180, // leicht erhöht für größere Labels
   });
 
   @override
@@ -24,8 +24,19 @@ class WeeklyActivityChart extends StatelessWidget {
       final d = days[i];
       return entries.where((e) => DateUtils.isSameDay(e.date, d)).length;
     });
-    final maxVal = (counts.isEmpty ? 0 : counts.reduce((a, b) => a > b ? a : b))
-        .clamp(0, 10);
+    final maxVal = counts.fold<int>(0, (m, v) => v > m ? v : m);
+
+    final labelStyle = TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w800,
+      color: Theme.of(context).colorScheme.onSurface,
+    );
+
+    final subLabelStyle = TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w800,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,50 +60,26 @@ class WeeklyActivityChart extends StatelessWidget {
           height: height,
           child: LayoutBuilder(
             builder: (ctx, constraints) {
-              final barWidth =
-                  (constraints.maxWidth - 6 * 10) / 7; // 10px spacing
-              final maxBarHeight =
-                  constraints.maxHeight - 28; // Platz für Labels
+              // Horizontaler Abstand zwischen Tagen
+              const hSpacing = 10.0;
+              final dayWidth = (constraints.maxWidth - hSpacing * 6) / 7;
 
               return Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: List.generate(7, (i) {
                   final value = counts[i];
-                  final h = maxVal == 0 ? 0.0 : (value / maxVal) * maxBarHeight;
-                  final dowLabel = _weekdayShort(i); // 0..6 -> Mo..So
+                  final label = _weekdayShort(i); // 0..6 -> Mo..So
 
-                  return Expanded(
+                  return SizedBox(
+                    width: dayWidth,
                     child: Padding(
-                      padding: EdgeInsets.only(right: i == 6 ? 0 : 10),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          // Wert (über dem Balken)
-                          SizedBox(
-                            height: 18,
-                            child: FittedBox(
-                              child: Text(
-                                value.toString(),
-                                style: Theme.of(context).textTheme.labelSmall,
-                              ),
-                            ),
-                          ),
-                          // Balken
-                          Container(
-                            height: h,
-                            width: barWidth,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          // Label (unter dem Balken)
-                          Text(
-                            dowLabel,
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        ],
+                      padding: EdgeInsets.only(right: i == 6 ? 0 : hSpacing),
+                      child: _DayBar(
+                        value: value,
+                        maxValue: maxVal,
+                        label: label,
+                        valueStyle: labelStyle,
+                        dayStyle: subLabelStyle,
                       ),
                     ),
                   );
@@ -116,5 +103,66 @@ class WeeklyActivityChart extends StatelessWidget {
   String _weekdayShort(int indexFromMonday) {
     const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
     return labels[indexFromMonday];
+  }
+}
+
+class _DayBar extends StatelessWidget {
+  final int value;
+  final int maxValue;
+  final String label;
+  final TextStyle valueStyle;
+  final TextStyle dayStyle;
+
+  const _DayBar({
+    required this.value,
+    required this.maxValue,
+    required this.label,
+    required this.valueStyle,
+    required this.dayStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Fixe Höhen für Labels -> kein Overflow
+    const topValueHeight = 26.0; // mehr Platz für größere Schrift
+    const bottomLabelHeight = 22.0; // mehr Platz für größere Schrift
+    const middleGap = 8.0;
+
+    final barColor = Theme.of(context).colorScheme.primary;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Wert über dem Balken
+        SizedBox(
+          height: topValueHeight,
+          child: Center(
+            child: FittedBox(child: Text(value.toString(), style: valueStyle)),
+          ),
+        ),
+        // Flexibler Balkenbereich
+        Expanded(
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: FractionallySizedBox(
+              heightFactor: (maxValue <= 0) ? 0.0 : (value / maxValue),
+              child: Container(
+                width: 18, // leicht breiter für bessere Lesbarkeit
+                decoration: BoxDecoration(
+                  color: barColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: middleGap),
+        // Wochentags-Label
+        SizedBox(
+          height: bottomLabelHeight,
+          child: Center(child: FittedBox(child: Text(label, style: dayStyle))),
+        ),
+      ],
+    );
   }
 }

@@ -67,8 +67,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                       child: WeeklyActivityChart(
                         entries: entries,
-                        title: 'Aktivität (diese Woche)',
-                        subtitle: 'Workouts pro Tag (Mo–So)',
+                        title: 'Aktivität',
+                        subtitle: 'Workouts pro Tag',
                       ),
                     ),
                   ),

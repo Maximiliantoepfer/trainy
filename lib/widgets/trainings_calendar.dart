@@ -26,6 +26,16 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
     final days = _buildMonthDays(_visibleMonthFirstDay);
     final activityMap = _activityByDay(widget.entries);
 
+    // Einheitlicher, großer, gut lesbarer Stil
+    final bigLabel = TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w800,
+      color: Theme.of(context).colorScheme.onSurface,
+    );
+    final bigMuted = bigLabel.copyWith(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -69,14 +79,14 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
         const SizedBox(height: 8),
         // Wochentags-Header
         Row(
-          children: const [
-            _WeekdayHead('Mo'),
-            _WeekdayHead('Di'),
-            _WeekdayHead('Mi'),
-            _WeekdayHead('Do'),
-            _WeekdayHead('Fr'),
-            _WeekdayHead('Sa'),
-            _WeekdayHead('So'),
+          children: [
+            _WeekdayHead('Mo', style: bigMuted),
+            _WeekdayHead('Di', style: bigMuted),
+            _WeekdayHead('Mi', style: bigMuted),
+            _WeekdayHead('Do', style: bigMuted),
+            _WeekdayHead('Fr', style: bigMuted),
+            _WeekdayHead('Sa', style: bigMuted),
+            _WeekdayHead('So', style: bigMuted),
           ],
         ),
         const SizedBox(height: 8),
@@ -110,16 +120,13 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                     Positioned(
                       left: 8,
                       top: 6,
-                      child: Text(
-                        '${d.day}',
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
+                      child: Text('${d.day}', style: bigLabel),
                     ),
                     if (cnt > 0)
                       Center(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
+                            horizontal: 10,
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
@@ -129,11 +136,7 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                                 ).colorScheme.secondaryContainer,
                             borderRadius: BorderRadius.circular(999),
                           ),
-                          child: Text(
-                            '$cnt',
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
+                          child: Text('$cnt', style: bigLabel),
                         ),
                       ),
                   ],
@@ -149,7 +152,6 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
   List<DateTime> _buildMonthDays(DateTime firstDay) {
     final firstWeekday =
         DateTime(firstDay.year, firstDay.month, 1).weekday; // 1=Mo..7=So
-    final daysInMonth = DateUtils.getDaysInMonth(firstDay.year, firstDay.month);
 
     // Start am Montag der ersten Woche
     final start = DateTime(
@@ -159,7 +161,7 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
     ).subtract(Duration(days: (firstWeekday - 1)));
 
     // Mindestens 42 Felder (6 Wochen) für sauberes Raster
-    final totalCells = 42;
+    const totalCells = 42;
     return List.generate(totalCells, (i) => DateUtils.addDaysToDate(start, i));
   }
 
@@ -199,20 +201,11 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
 
 class _WeekdayHead extends StatelessWidget {
   final String label;
-  const _WeekdayHead(this.label);
+  final TextStyle style;
+  const _WeekdayHead(this.label, {required this.style});
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Center(
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
+    return Expanded(child: Center(child: Text(label, style: style)));
   }
 }
