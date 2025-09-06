@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
-import '../providers/progress_provider.dart'; // ⬅️ NEU
+import '../providers/progress_provider.dart'; // nutzt weeklyGoal speichern/lesen
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -12,7 +12,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>();
     final scheme = Theme.of(context).colorScheme;
-    final progress = context.watch<ProgressProvider>(); // ⬅️ NEU
+    final progress = context.watch<ProgressProvider>();
     final weeklyGoal = progress.weeklyGoal.clamp(1, 7); // 1..7
 
     Future<void> _pickAccent() async {
@@ -104,34 +104,43 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final c in _quickSwatches)
-                InkWell(
-                  onTap: () => theme.setAccent(c),
-                  borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: c,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color:
-                            c == theme.accent
-                                ? scheme.primary
-                                : scheme.outlineVariant,
-                        width: c == theme.accent ? 3 : 1,
+
+          // ⬇️ NUR der Block der Farbswatches wird etwas nach rechts eingerückt.
+          // Padding wirkt auf den Block, NICHT auf die Abstände zwischen den Items.
+          Padding(
+            padding: const EdgeInsets.only(
+              left: 24,
+            ), // Feinjustierbar (z. B. 20–28)
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final c in _quickSwatches)
+                  InkWell(
+                    onTap: () => theme.setAccent(c),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: c,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color:
+                              c == theme.accent
+                                  ? scheme.primary
+                                  : scheme.outlineVariant,
+                          width: c == theme.accent ? 3 : 1,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
+
           const SizedBox(height: 12),
-          // ⬅️ NEU: Ziele
+          // Ziele
           Card(
             child: Padding(
               padding: const EdgeInsets.all(14),
@@ -149,7 +158,6 @@ class SettingsScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   SegmentedButton<int>(
                     showSelectedIcon: false,
-                    // moderne, kompakte Auswahl 1..7 (limitiert auf Wochentage)
                     segments: const [
                       ButtonSegment(value: 1, label: Text('1x')),
                       ButtonSegment(value: 2, label: Text('2x')),
