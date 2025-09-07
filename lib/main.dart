@@ -52,12 +52,12 @@ class _ThemedApp extends StatelessWidget {
       theme: AppTheme.light(theme.accent),
       darkTheme: AppTheme.dark(theme.accent),
       themeMode: theme.themeMode,
-      // ⬇️ Reagiert auf App-Lebenszyklus (Resume etc.) und triggert Auto-Backup falls nötig
       home: const _AppLifecycleReactor(child: MainNavigation()),
     );
   }
 }
 
+/// Reagiert auf App-Start & -Resume und triggert ggf. Auto-Backup.
 class _AppLifecycleReactor extends StatefulWidget {
   final Widget child;
   const _AppLifecycleReactor({super.key, required this.child});
@@ -72,20 +72,15 @@ class _AppLifecycleReactorState extends State<_AppLifecycleReactor>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    // Direkt nach dem ersten Build einmal prüfen (App-Start)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final sync = context.read<CloudSyncProvider>();
-      sync.maybeAutoBackup(reason: 'app_start');
+      context.read<CloudSyncProvider>().maybeAutoBackup(reason: 'app_start');
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Bei RESUME prüfen wir, ob ein Auto-Backup fällig ist
     if (state == AppLifecycleState.resumed) {
-      final sync = context.read<CloudSyncProvider>();
-      sync.onAppResumed();
+      context.read<CloudSyncProvider>().onAppResumed();
     }
   }
 

@@ -1,9 +1,9 @@
-// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/theme_provider.dart';
-import '../providers/progress_provider.dart'; // nutzt weeklyGoal speichern/lesen
+import '../providers/progress_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -14,7 +14,7 @@ class SettingsScreen extends StatelessWidget {
     final theme = context.watch<ThemeProvider>();
     final scheme = Theme.of(context).colorScheme;
     final progress = context.watch<ProgressProvider>();
-    final weeklyGoal = progress.weeklyGoal.clamp(1, 7); // 1..7
+    final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
 
     Future<void> _pickAccent() async {
       Color temp = theme.accent;
@@ -89,6 +89,12 @@ class SettingsScreen extends StatelessWidget {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Akzentfarbe'),
+                    subtitle: Text(
+                      '#${theme.accent.value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                     trailing: FilledButton.icon(
                       onPressed: _pickAccent,
                       icon: const Icon(Icons.palette_outlined),
@@ -97,7 +103,6 @@ class SettingsScreen extends StatelessWidget {
                     onTap: _pickAccent,
                   ),
                   const SizedBox(height: 12),
-                  // ⬇️ NUR der Block der Farbswatches wird etwas nach rechts eingerückt.
                   Padding(
                     padding: const EdgeInsets.only(left: 24),
                     child: Wrap(
@@ -133,6 +138,7 @@ class SettingsScreen extends StatelessWidget {
           ),
 
           const SizedBox(height: 12),
+
           // Ziele
           Card(
             child: Padding(
@@ -172,6 +178,7 @@ class SettingsScreen extends StatelessWidget {
           ),
 
           const SizedBox(height: 12),
+
           // Cloud-Backup
           Card(
             child: Padding(
@@ -180,10 +187,9 @@ class SettingsScreen extends StatelessWidget {
                 builder: (context, sync, _) {
                   final onSurfaceVar =
                       Theme.of(context).colorScheme.onSurfaceVariant;
-                  Widget body;
 
                   if (!sync.isSignedIn) {
-                    body = Column(
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -237,184 +243,190 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ],
                     );
-                  } else {
-                    final email = sync.user?.email ?? 'angemeldet';
-                    final lastSync =
-                        sync.lastSyncMillis > 0
-                            ? DateTime.fromMillisecondsSinceEpoch(
-                              sync.lastSyncMillis,
-                            )
-                            : null;
-
-                    body = Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Cloud-Backup',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Angemeldet: $email',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodyMedium?.copyWith(color: onSurfaceVar),
-                        ),
-                        if (lastSync != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            'Letzte Sicherung: ${lastSync.toLocal()}',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: onSurfaceVar),
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Automatische Sicherung'),
-                          subtitle: Text(
-                            'Aktiviere, um in Zukunft automatisch zu sichern. Aktuell: manuelle Sicherung.',
-                            style: TextStyle(color: onSurfaceVar),
-                          ),
-                          value: sync.syncEnabled,
-                          onChanged: (v) async {
-                            await context
-                                .read<CloudSyncProvider>()
-                                .setSyncEnabled(v);
-                          },
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton.icon(
-                                onPressed:
-                                    sync.isBusy
-                                        ? null
-                                        : () async {
-                                          try {
-                                            await context
-                                                .read<CloudSyncProvider>()
-                                                .backupNow();
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Backup hochgeladen',
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          } catch (e) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text('Fehler: $e'),
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        },
-                                icon: const Icon(Icons.cloud_upload_outlined),
-                                label: const Text('Jetzt sichern'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed:
-                                    sync.isBusy
-                                        ? null
-                                        : () async {
-                                          final ok = await showDialog<bool>(
-                                            context: context,
-                                            builder:
-                                                (ctx) => AlertDialog(
-                                                  title: const Text(
-                                                    'Aus Cloud wiederherstellen?',
-                                                  ),
-                                                  content: const Text(
-                                                    'Dies ersetzt deine lokalen Daten mit dem Cloud-Backup. Fortfahren?',
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed:
-                                                          () => Navigator.pop(
-                                                            ctx,
-                                                            false,
-                                                          ),
-                                                      child: const Text(
-                                                        'Abbrechen',
-                                                      ),
-                                                    ),
-                                                    FilledButton(
-                                                      onPressed:
-                                                          () => Navigator.pop(
-                                                            ctx,
-                                                            true,
-                                                          ),
-                                                      child: const Text(
-                                                        'Ja, wiederherstellen',
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                          );
-                                          if (ok != true) return;
-                                          try {
-                                            await context
-                                                .read<CloudSyncProvider>()
-                                                .restoreNow();
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Backup wiederhergestellt',
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          } catch (e) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text('Fehler: $e'),
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        },
-                                icon: const Icon(Icons.cloud_download_outlined),
-                                label: const Text('Aus Cloud laden'),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton.icon(
-                          onPressed:
-                              sync.isBusy
-                                  ? null
-                                  : () =>
-                                      context
-                                          .read<CloudSyncProvider>()
-                                          .signOut(),
-                          icon: const Icon(Icons.logout),
-                          label: const Text('Abmelden'),
-                        ),
-                      ],
-                    );
                   }
 
-                  return body;
+                  final email = sync.user?.email ?? 'angemeldet';
+                  final lastSync =
+                      sync.lastSyncMillis > 0
+                          ? DateTime.fromMillisecondsSinceEpoch(
+                            sync.lastSyncMillis,
+                          )
+                          : null;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Cloud-Backup',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Angemeldet: $email',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: onSurfaceVar),
+                      ),
+                      if (lastSync != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Letzte Sicherung: ${lastSync.toLocal()}',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: onSurfaceVar),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Automatische Sicherung'),
+                        subtitle: Text(
+                          'Sichert spätestens alle 2 Stunden automatisch – beim App-Start, nach Pause/Fortsetzen und in Intervallen.',
+                          style: TextStyle(color: onSurfaceVar),
+                        ),
+                        value: sync.syncEnabled,
+                        onChanged: (v) async {
+                          await context
+                              .read<CloudSyncProvider>()
+                              .setSyncEnabled(v);
+                          if (v && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Automatische Sicherung aktiviert',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed:
+                                  sync.isBusy
+                                      ? null
+                                      : () async {
+                                        try {
+                                          await context
+                                              .read<CloudSyncProvider>()
+                                              .backupNow();
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Backup hochgeladen',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Fehler: $e'),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                              icon: const Icon(Icons.cloud_upload_outlined),
+                              label: const Text('Jetzt sichern'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed:
+                                  sync.isBusy
+                                      ? null
+                                      : () async {
+                                        final ok = await showDialog<bool>(
+                                          context: context,
+                                          builder:
+                                              (ctx) => AlertDialog(
+                                                title: const Text(
+                                                  'Aus Cloud wiederherstellen?',
+                                                ),
+                                                content: const Text(
+                                                  'Dies ersetzt deine lokalen Daten mit dem Cloud-Backup. Fortfahren?',
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed:
+                                                        () => Navigator.pop(
+                                                          ctx,
+                                                          false,
+                                                        ),
+                                                    child: const Text(
+                                                      'Abbrechen',
+                                                    ),
+                                                  ),
+                                                  FilledButton(
+                                                    onPressed:
+                                                        () => Navigator.pop(
+                                                          ctx,
+                                                          true,
+                                                        ),
+                                                    child: const Text(
+                                                      'Ja, wiederherstellen',
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                        );
+                                        if (ok != true) return;
+                                        try {
+                                          await context
+                                              .read<CloudSyncProvider>()
+                                              .restoreNow();
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Backup wiederhergestellt',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Fehler: $e'),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                              icon: const Icon(Icons.cloud_download_outlined),
+                              label: const Text('Aus Cloud laden'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed:
+                            sync.isBusy
+                                ? null
+                                : () =>
+                                    context.read<CloudSyncProvider>().signOut(),
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Abmelden'),
+                      ),
+                    ],
+                  );
                 },
               ),
             ),
@@ -426,10 +438,10 @@ class SettingsScreen extends StatelessWidget {
 }
 
 const _quickSwatches = <Color>[
-  Color.fromARGB(255, 63, 114, 254), // blue
-  Color.fromARGB(255, 14, 199, 255), // teal
-  Color(0xFF00C853), // green
-  Color(0xFF9C27B0), // purple
-  Color(0xFFD81B60), // pink
-  Color(0xFFF44336), // red
+  Color.fromARGB(255, 59, 111, 255),
+  Color.fromARGB(255, 14, 199, 255),
+  Color(0xFF00C853),
+  Color(0xFFD81B60),
+  Color(0xFF9C27B0),
+  Color(0xFFF44336),
 ];
