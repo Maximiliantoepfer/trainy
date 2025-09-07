@@ -52,7 +52,49 @@ class _ThemedApp extends StatelessWidget {
       theme: AppTheme.light(theme.accent),
       darkTheme: AppTheme.dark(theme.accent),
       themeMode: theme.themeMode,
-      home: const MainNavigation(),
+      // ⬇️ Reagiert auf App-Lebenszyklus (Resume etc.) und triggert Auto-Backup falls nötig
+      home: const _AppLifecycleReactor(child: MainNavigation()),
     );
   }
+}
+
+class _AppLifecycleReactor extends StatefulWidget {
+  final Widget child;
+  const _AppLifecycleReactor({super.key, required this.child});
+
+  @override
+  State<_AppLifecycleReactor> createState() => _AppLifecycleReactorState();
+}
+
+class _AppLifecycleReactorState extends State<_AppLifecycleReactor>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Direkt nach dem ersten Build einmal prüfen (App-Start)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final sync = context.read<CloudSyncProvider>();
+      sync.maybeAutoBackup(reason: 'app_start');
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Bei RESUME prüfen wir, ob ein Auto-Backup fällig ist
+    if (state == AppLifecycleState.resumed) {
+      final sync = context.read<CloudSyncProvider>();
+      sync.onAppResumed();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

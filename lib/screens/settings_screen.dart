@@ -89,12 +89,6 @@ class SettingsScreen extends StatelessWidget {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Akzentfarbe'),
-                    subtitle: Text(
-                      '#${theme.accent.value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
                     trailing: FilledButton.icon(
                       onPressed: _pickAccent,
                       icon: const Icon(Icons.palette_outlined),
@@ -434,11 +428,10 @@ class SettingsScreen extends StatelessWidget {
 }
 
 const _quickSwatches = <Color>[
-  Color.fromARGB(255, 59, 111, 255), // blue
+  Color.fromARGB(255, 63, 114, 254), // blue
   Color.fromARGB(255, 14, 199, 255), // teal
   Color(0xFF00C853), // green
-  Color.fromARGB(255, 255, 133, 40), // orange
-  Color(0xFFD81B60), // pink
   Color(0xFF9C27B0), // purple
+  Color(0xFFD81B60), // pink
   Color(0xFFF44336), // red
 ];

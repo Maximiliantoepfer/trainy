@@ -1,4 +1,5 @@
 // lib/providers/cloud_sync_provider.dart
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +17,11 @@ class CloudSyncProvider extends ChangeNotifier {
   int _lastSyncMillis = 0;
   bool _isBusy = false;
 
+  // —— Auto-Backup intern ——
+  static const int _autoThresholdMillis = 24 * 60 * 60 * 1000; // 24h
+  Timer? _periodicCheck; // sparsamer Intervall-Check im Vordergrund
+  bool _disposed = false;
+
   CloudSyncProvider() {
     _init();
   }
@@ -31,14 +37,26 @@ class CloudSyncProvider extends ChangeNotifier {
     _syncEnabled = await _settings.getSyncEnabled();
     _lastSyncMillis = await _settings.getLastSyncMillis();
     FirebaseAuth.instance.authStateChanges().listen((_) {
+      // Bei An-/Abmeldung Auto-Checks neu setzen
+      _attachAutoChecks();
       notifyListeners();
     });
+    _attachAutoChecks(); // initial
     notifyListeners();
   }
+
+  // ————————————————————
+  // Öffentliche API (UI)
+  // ————————————————————
 
   Future<void> setSyncEnabled(bool value) async {
     _syncEnabled = value;
     await _settings.setSyncEnabled(value);
+    _attachAutoChecks();
+    // Wenn gerade aktiviert wurde und wir angemeldet sind, ggf. direkt sichern
+    if (value) {
+      await maybeAutoBackup(reason: 'sync_enabled_toggle');
+    }
     notifyListeners();
   }
 
@@ -50,9 +68,7 @@ class CloudSyncProvider extends ChangeNotifier {
         await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
       } else {
         final GoogleSignInAccount? gUser = await GoogleSignIn().signIn();
-        if (gUser == null) {
-          return; // user aborted
-        }
+        if (gUser == null) return; // abgebrochen
         final gAuth = await gUser.authentication;
         final credential = GoogleAuthProvider.credential(
           accessToken: gAuth.accessToken,
@@ -60,6 +76,8 @@ class CloudSyncProvider extends ChangeNotifier {
         );
         await FirebaseAuth.instance.signInWithCredential(credential);
       }
+      // Nach erfolgreichem Login direkt prüfen
+      await maybeAutoBackup(reason: 'login');
     } finally {
       _isBusy = false;
       notifyListeners();
@@ -76,6 +94,7 @@ class CloudSyncProvider extends ChangeNotifier {
       await FirebaseAuth.instance.signOut();
     } finally {
       _isBusy = false;
+      _attachAutoChecks();
       notifyListeners();
     }
   }
@@ -135,5 +154,52 @@ class CloudSyncProvider extends ChangeNotifier {
       _isBusy = false;
       notifyListeners();
     }
+  }
+
+  // ————————————————————
+  // Auto-Backup Hooks
+  // ————————————————————
+
+  /// Extern vom App-Lifecycle (RESUME) aufgerufen.
+  Future<void> onAppResumed() async {
+    await maybeAutoBackup(reason: 'app_resume');
+  }
+
+  /// Führt – wenn aktiviert, eingeloggt & fällig – ein Backup aus.
+  Future<void> maybeAutoBackup({String reason = 'auto'}) async {
+    if (!_syncEnabled || !isSignedIn || _isBusy) return;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastSyncMillis < _autoThresholdMillis) {
+      return; // noch nicht fällig
+    }
+
+    try {
+      await backupNow();
+    } catch (_) {
+      // bewusst still: wir wollen die UX nicht nerven; manueller Button bleibt verfügbar
+    }
+  }
+
+  void _attachAutoChecks() {
+    // Bisherigen Intervall-Check beenden
+    _periodicCheck?.cancel();
+    _periodicCheck = null;
+
+    // Nur aktiv, wenn Sync aktiviert & angemeldet
+    if (!_syncEnabled || !isSignedIn || _disposed) return;
+
+    // Sparsamer Intervall-Check: alle 6h prüfen (führt nur aus, wenn 24h überschritten)
+    _periodicCheck = Timer.periodic(const Duration(hours: 6), (_) {
+      // ignore: discarded_futures
+      maybeAutoBackup(reason: 'periodic_check');
+    });
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _periodicCheck?.cancel();
+    super.dispose();
   }
 }
