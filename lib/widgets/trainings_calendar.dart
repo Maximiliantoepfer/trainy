@@ -223,7 +223,7 @@ class _DoneCheck extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color fill = Color(0xFF2E7D32); // sattes Grün (Material Green 800)
+    const Color doneFill = Color(0xFF4CAF50); // Green 500
     return AnimatedScale(
       scale: 1.0,
       duration: const Duration(milliseconds: 180),
@@ -231,7 +231,7 @@ class _DoneCheck extends StatelessWidget {
         width: 32,
         height: 32,
         decoration: const BoxDecoration(
-          color: fill, // vollflächig, nicht transparent
+          color: doneFill, // vollflächig, nicht transparent
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
