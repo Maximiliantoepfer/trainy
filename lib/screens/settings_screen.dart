@@ -271,9 +271,7 @@ class SettingsScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: const Text(
-                            'Automatische Sicherung (demnächst)',
-                          ),
+                          title: const Text('Automatische Sicherung'),
                           subtitle: Text(
                             'Aktiviere, um in Zukunft automatisch zu sichern. Aktuell: manuelle Sicherung.',
                             style: TextStyle(color: onSurfaceVar),
