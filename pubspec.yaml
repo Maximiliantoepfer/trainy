@@ -43,6 +43,11 @@ dependencies:
   collection: ^1.17.1
   flutter_speed_dial: ^5.0.0
 
+  firebase_core: ^3.3.0
+  firebase_auth: ^5.1.2
+  firebase_storage: ^12.1.1
+  google_sign_in: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

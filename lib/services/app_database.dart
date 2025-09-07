@@ -6,7 +6,7 @@ class AppDatabase {
   AppDatabase._();
 
   static const _dbName = 'trainy.db';
-  static const _dbVersion = 3;
+  static const _dbVersion = 4; // ⬅️ v4: Cloud-Sync Settings
 
   Database? _database;
 
@@ -24,7 +24,7 @@ class AppDatabase {
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Übungen (global)
+    // Exercises
     await db.execute('''
       CREATE TABLE exercises(
         id INTEGER PRIMARY KEY,
@@ -47,7 +47,7 @@ class AppDatabase {
       )
     ''');
 
-    // Mapping Workout ↔ Exercises mit fester Reihenfolge
+    // Mapping Übungen ↔ Workouts
     await db.execute('''
       CREATE TABLE exercises_in_workouts(
         id INTEGER PRIMARY KEY,
@@ -63,10 +63,17 @@ class AppDatabase {
     await db.execute('''
       CREATE TABLE user_settings(
         id INTEGER PRIMARY KEY,    -- immer 0
-        weekly_goal INTEGER NOT NULL
+        weekly_goal INTEGER NOT NULL,
+        sync_enabled INTEGER NOT NULL DEFAULT 0,
+        last_sync_millis INTEGER NOT NULL DEFAULT 0
       )
     ''');
-    await db.insert('user_settings', {'id': 0, 'weekly_goal': 2});
+    await db.insert('user_settings', {
+      'id': 0,
+      'weekly_goal': 2,
+      'sync_enabled': 0,
+      'last_sync_millis': 0,
+    });
 
     // Workout-Einträge (eine Zeile je Exercise & Session; aggregiertes valuesJson)
     await db.execute('''
@@ -113,12 +120,7 @@ class AppDatabase {
       )
     ''');
 
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS user_settings(
-        id INTEGER PRIMARY KEY,
-        weekly_goal INTEGER NOT NULL
-      )
-    ''');
+    // Defaults & Anlage user_settings falls fehlend
     final settings = await db.query('user_settings', limit: 1);
     if (settings.isEmpty) {
       await db.insert('user_settings', {'id': 0, 'weekly_goal': 2});
@@ -134,5 +136,17 @@ class AppDatabase {
         durationSeconds INTEGER NOT NULL
       )
     ''');
+
+    // v4: neue Spalten für Cloud-Sync-Settings (idempotent)
+    try {
+      await db.execute(
+        'ALTER TABLE user_settings ADD COLUMN sync_enabled INTEGER NOT NULL DEFAULT 0',
+      );
+    } catch (_) {}
+    try {
+      await db.execute(
+        'ALTER TABLE user_settings ADD COLUMN last_sync_millis INTEGER NOT NULL DEFAULT 0',
+      );
+    } catch (_) {}
   }
 }

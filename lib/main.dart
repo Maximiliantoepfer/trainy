@@ -7,10 +7,15 @@ import 'themes/app_theme.dart';
 import 'providers/exercise_provider.dart';
 import 'providers/workout_provider.dart';
 import 'providers/progress_provider.dart';
+import 'providers/cloud_sync_provider.dart';
 import 'navigation/main_navigation.dart';
 
-void main() async {
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const TrainyApp());
 }
 
@@ -29,6 +34,7 @@ class TrainyApp extends StatelessWidget {
           create: (_) => WorkoutProvider()..loadWorkouts(),
         ),
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
+        ChangeNotifierProvider(create: (_) => CloudSyncProvider()),
       ],
       child: const _ThemedApp(),
     );
