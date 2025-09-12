@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/exercise.dart';
@@ -12,6 +12,9 @@ class ExerciseScreen extends StatefulWidget {
 }
 
 class _ExerciseScreenState extends State<ExerciseScreen> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _query = '';
+
   @override
   void initState() {
     super.initState();
@@ -20,12 +23,66 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 
   @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final provider = context.watch<ExerciseProvider>();
     final list = provider.exercises;
+    final filtered =
+        _query.isEmpty
+            ? list
+            : list.where((e) {
+              final q = _query.toLowerCase();
+              return e.name.toLowerCase().contains(q) ||
+                  (e.description?.toLowerCase().contains(q) ?? false);
+            }).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Übungen')),
+      appBar: AppBar(
+        title: const Text('Übungen'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: SearchBar(
+              controller: _searchCtrl,
+              hintText: 'Übungen durchsuchen',
+              leading: Icon(
+                Icons.search,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              trailing: [
+                if (_query.isNotEmpty)
+                  IconButton(
+                    tooltip: 'Leeren',
+                    icon: Icon(
+                      Icons.close,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _query = '';
+                        _searchCtrl.clear();
+                      });
+                    },
+                  ),
+              ],
+              onChanged: (v) => setState(() => _query = v),
+              elevation: const MaterialStatePropertyAll(0),
+              padding: const MaterialStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              ),
+              backgroundColor: MaterialStatePropertyAll(
+                Theme.of(context).colorScheme.surface,
+              ),
+            ),
+          ),
+        ),
+      ),
       body:
           provider.isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -33,9 +90,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               ? _EmptyState(onAdd: () => _openEditor(context))
               : ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                itemCount: list.length,
+                itemCount: filtered.length,
                 itemBuilder: (_, i) {
-                  final e = list[i];
+                  final e = filtered[i];
                   return Card(
                     child: ListTile(
                       title: Text(
@@ -110,8 +167,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                           children: [
                             Text(
                               existing == null
-                                  ? 'Übung erstellen'
-                                  : 'Übung bearbeiten',
+                                  ? 'Ãœbung erstellen'
+                                  : 'Ãœbung bearbeiten',
                               style: Theme.of(ctx).textTheme.headlineSmall,
                             ),
                           ],
