@@ -13,6 +13,7 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _index = 0;
+  late final PageController _pageController;
 
   final _pages = const [
     HomeScreen(),
@@ -22,9 +23,26 @@ class _MainNavigationState extends State<MainNavigation> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _index);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_index],
+      body: PageView(
+        controller: _pageController,
+        physics: const BouncingScrollPhysics(),
+        onPageChanged: (i) => setState(() => _index = i),
+        children: _pages,
+      ),
 
       // Wichtig: Labels ausblenden und Ripple/Highlight lokal abschalten
       bottomNavigationBar: Theme(
@@ -41,7 +59,14 @@ class _MainNavigationState extends State<MainNavigation> {
 
           // Größen/Farben kommen aus dem NavigationBarTheme (app_theme.dart)
           selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
+          onDestinationSelected: (i) {
+            if (i == _index) return;
+            _pageController.animateToPage(
+              i,
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+            );
+          },
 
           destinations: const [
             NavigationDestination(
