@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/workout.dart';
 import '../models/exercise.dart';
 import '../providers/workout_provider.dart';
+import '../providers/cloud_sync_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/active_workout_banner.dart';
@@ -31,6 +32,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       widget.workout.id,
       _exerciseIds,
     );
+    // trigger cloud backup soon (debounced)
+    try {
+      context.read<CloudSyncProvider>().scheduleBackupSoon();
+    } catch (_) {}
   }
 
   void _onReorder(int oldIndex, int newIndex) {
@@ -140,7 +145,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           child: Row(
                             children: [
                               Text(
-                                'Ãœbungen hinzufÃ¼gen',
+                                'Übungen hinzufügen',
                                 style: Theme.of(ctx).textTheme.headlineLarge,
                               ),
                             ],
@@ -254,7 +259,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                         },
                                       ),
                                       ChoiceChip(
-                                        label: const Text('KÃ¶rpergewicht'),
+                                        label: const Text('Körpergewicht'),
                                         selected: false,
                                         onSelected: (_) {
                                           trackSets.value = true;
@@ -372,7 +377,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                     ).showSnackBar(
                                                       const SnackBar(
                                                         content: Text(
-                                                          'Ãœbungen hinzugefÃ¼gt',
+                                                          'Übungen hinzugefügt',
                                                         ),
                                                         behavior:
                                                             SnackBarBehavior
@@ -381,7 +386,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                     );
                                                   }
                                                 },
-                                                child: const Text('HinzufÃ¼gen'),
+                                                child: const Text(
+                                                  'HinzufÃ¼gen',
+                                                ),
                                               ),
                                     ),
                                   ),
@@ -438,6 +445,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       newName,
     );
     setState(() => widget.workout.name = newName);
+    try {
+      context.read<CloudSyncProvider>().scheduleBackupSoon();
+    } catch (_) {}
   }
 
   @override
@@ -460,12 +470,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.workout.name),
-        bottom: active.isActive
-            ? const PreferredSize(
-                preferredSize: Size.fromHeight(56),
-                child: ActiveWorkoutBanner(),
-              )
-            : null,
+        bottom:
+            active.isActive
+                ? const PreferredSize(
+                  preferredSize: Size.fromHeight(56),
+                  child: ActiveWorkoutBanner(),
+                )
+                : null,
         actions: [
           IconButton(
             tooltip: 'Umbenennen',
@@ -496,7 +507,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         child: const Icon(Icons.drag_handle),
                       ),
                       title: Text(
-                        e?.name ?? 'GelÃ¶schte Ãœbung ($id)',
+                        e?.name ?? 'Gelöschte Übung ($id)',
                         style: Theme.of(
                           context,
                         ).textTheme.titleMedium?.copyWith(
@@ -529,22 +540,49 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       floatingActionButton: Builder(
         builder: (ctx) {
           final active = ctx.watch<ActiveWorkoutProvider>();
-          final isThisActive = active.isActive && active.workout?.id == widget.workout.id;
-          if (_exerciseIds.isEmpty && !isThisActive) return const SizedBox.shrink();
+          final isThisActive =
+              active.isActive && active.workout?.id == widget.workout.id;
+          if (_exerciseIds.isEmpty && !isThisActive)
+            return const SizedBox.shrink();
           final exercises = ctx.read<ExerciseProvider>().exercises;
           return FloatingActionButton.extended(
             onPressed: () {
-              final list = _exerciseIds
-                  .map((id) => exercises.where((e) => e.id == id).cast<Exercise?>().firstOrNull)
-                  .whereType<Exercise>()
-                  .toList();
+              final list =
+                  _exerciseIds
+                      .map(
+                        (id) =>
+                            exercises
+                                .where((e) => e.id == id)
+                                .cast<Exercise?>()
+                                .firstOrNull,
+                      )
+                      .whereType<Exercise>()
+                      .toList();
               if (isThisActive) {
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => WorkoutRunScreen(
-                  workout: widget.workout, exercises: list, autoStart: false)));
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder:
+                        (_) => WorkoutRunScreen(
+                          workout: widget.workout,
+                          exercises: list,
+                          autoStart: false,
+                        ),
+                  ),
+                );
               } else {
-                if (active.isActive) { active.clear(); }
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => WorkoutRunScreen(
-                  workout: widget.workout, exercises: list, autoStart: true)));
+                if (active.isActive) {
+                  active.clear();
+                }
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder:
+                        (_) => WorkoutRunScreen(
+                          workout: widget.workout,
+                          exercises: list,
+                          autoStart: true,
+                        ),
+                  ),
+                );
               }
             },
             icon: const Icon(Icons.play_arrow_rounded),
@@ -559,7 +597,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           child: FilledButton.tonalIcon(
             onPressed: _addExercisesBottomSheet,
             icon: const Icon(Icons.add),
-            label: const Text('Weitere Ãœbung hinzufÃ¼gen'),
+            label: const Text('Weitere Übungen hinzufügen'),
           ),
         ),
       ),
@@ -586,16 +624,16 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Noch keine Ãœbungen',
+              'Noch keine Übungen',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
-            const Text('FÃ¼ge Ãœbungen hinzu, um dein Workout zu starten.'),
+            const Text('Füge Übungen hinzu, um dein Workout zu starten.'),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: onAdd,
               icon: const Icon(Icons.add),
-              label: const Text('Ãœbungen hinzufÃ¼gen'),
+              label: const Text('Übungen hinzufügen'),
             ),
           ],
         ),

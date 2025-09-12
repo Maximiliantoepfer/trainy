@@ -74,4 +74,45 @@ class SettingsDatabase {
       whereArgs: [0],
     );
   }
+
+  // ----- Onboarding Flag -----
+  Future<bool> getOnboardingDone() async {
+    final db = await _db;
+    try {
+      final r = await db.query('user_settings', columns: ['onboarding_done'], limit: 1);
+      if (r.isNotEmpty) {
+        final v = (r.first['onboarding_done'] ?? 0) as int;
+        return v == 1;
+      }
+      return false;
+    } catch (_) {
+      // column might not exist yet
+      return false;
+    }
+  }
+
+  Future<void> setOnboardingDone(bool done) async {
+    final db = await _db;
+    try {
+      await db.update(
+        'user_settings',
+        {'onboarding_done': done ? 1 : 0},
+        where: 'id = ?',
+        whereArgs: [0],
+      );
+    } catch (e) {
+      // add column if missing, then retry once
+      try {
+        await db.execute(
+          'ALTER TABLE user_settings ADD COLUMN onboarding_done INTEGER NOT NULL DEFAULT 0',
+        );
+      } catch (_) {}
+      await db.update(
+        'user_settings',
+        {'onboarding_done': done ? 1 : 0},
+        where: 'id = ?',
+        whereArgs: [0],
+      );
+    }
+  }
 }

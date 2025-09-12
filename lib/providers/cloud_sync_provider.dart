@@ -71,7 +71,9 @@ class CloudSyncProvider extends ChangeNotifier {
         );
         await FirebaseAuth.instance.signInWithCredential(credential);
       }
-      await maybeAutoBackup(reason: 'login');
+      // Enable auto sync on login by default, but DO NOT auto-upload
+      // to avoid accidentally overwriting an existing cloud backup.
+      await setSyncEnabled(true);
     } finally {
       _isBusy = false;
       notifyListeners();
@@ -150,6 +152,54 @@ class CloudSyncProvider extends ChangeNotifier {
       _isBusy = false;
       notifyListeners();
     }
+  }
+
+  /// Returns true if a cloud backup (latest.json) exists for the current user.
+  Future<bool> remoteBackupExists() async {
+    if (!isSignedIn) return false;
+    try {
+      final uid = user!.uid;
+      final latestRef = FirebaseStorage.instance.ref('users/$uid/backup/latest.json');
+      await latestRef.getMetadata();
+      return true;
+    } on FirebaseException catch (e) {
+      if (e.code == 'object-not-found') return false;
+      rethrow;
+    }
+  }
+
+  /// Merge cloud data into local DB (conflicts resolved by REPLACE -> cloud wins per row).
+  Future<void> mergeFromCloud() async {
+    if (!isSignedIn) throw Exception('Nicht angemeldet');
+    _isBusy = true;
+    notifyListeners();
+    try {
+      final uid = user!.uid;
+      final latestRef = FirebaseStorage.instance.ref('users/$uid/backup/latest.json');
+      final bytes = await latestRef.getData(20 * 1024 * 1024);
+      if (bytes == null || bytes.isEmpty) return;
+      final decoded = jsonDecode(utf8.decode(bytes));
+      if (decoded is! Map<String, dynamic>) return;
+      await LocalBackupService.instance.restoreAll(decoded, replace: false);
+    } finally {
+      _isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  // Debounced immediate backup after local changes.
+  Timer? _immediateDebounce;
+  void scheduleBackupSoon({Duration delay = const Duration(seconds: 2)}) {
+    if (!_syncEnabled || !isSignedIn || _disposed) return;
+    _immediateDebounce?.cancel();
+    _immediateDebounce = Timer(delay, () async {
+      if (_disposed) return;
+      try {
+        await backupNow();
+      } catch (_) {
+        // silent error
+      }
+    });
   }
 
   // ---------- Auto-Backup ----------

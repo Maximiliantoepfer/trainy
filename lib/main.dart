@@ -10,6 +10,7 @@ import 'providers/progress_provider.dart';
 import 'providers/cloud_sync_provider.dart';
 import 'providers/active_workout_provider.dart';
 import 'navigation/main_navigation.dart';
+import 'widgets/onboarding_gate.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -54,7 +55,7 @@ class _ThemedApp extends StatelessWidget {
       theme: AppTheme.light(theme.accent),
       darkTheme: AppTheme.dark(theme.accent),
       themeMode: theme.themeMode,
-      home: const _AppLifecycleReactor(child: MainNavigation()),
+      home: const OnboardingGate(child: _AppLifecycleReactor(child: MainNavigation())),
     );
   }
 }

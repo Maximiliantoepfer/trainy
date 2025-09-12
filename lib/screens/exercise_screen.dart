@@ -5,6 +5,7 @@ import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/active_workout_banner.dart';
+import '../providers/cloud_sync_provider.dart';
 
 class ExerciseScreen extends StatefulWidget {
   const ExerciseScreen({super.key});
@@ -267,6 +268,10 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                 trackWeight: trackWeight,
                                 trackDuration: trackDuration,
                               );
+                              // trigger cloud backup soon (debounced)
+                              try {
+                                ctx.read<CloudSyncProvider>().scheduleBackupSoon();
+                              } catch (_) {}
 
                               if (mounted) {
                                 Navigator.pop(ctx);

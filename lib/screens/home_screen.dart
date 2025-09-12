@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
 import '../providers/workout_provider.dart';
+import '../providers/cloud_sync_provider.dart';
 import '../providers/progress_provider.dart';
 import '../widgets/workout_card.dart';
 import 'workout_screen.dart';
@@ -87,6 +88,9 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
     ).push(MaterialPageRoute(builder: (_) => WorkoutScreen(workout: w)));
     await provider.loadWorkouts();
+    try {
+      context.read<CloudSyncProvider>().scheduleBackupSoon();
+    } catch (_) {}
   }
 
   Future<void> _confirmAndDelete(Workout workout) async {
@@ -126,6 +130,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
 
     setState(() => _selectedWorkoutId = null);
+    try {
+      context.read<CloudSyncProvider>().scheduleBackupSoon();
+    } catch (_) {}
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('„${workout.name}“ gelöscht'),

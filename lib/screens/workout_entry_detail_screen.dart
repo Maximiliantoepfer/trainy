@@ -7,6 +7,7 @@ import '../models/workout_entry.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/progress_provider.dart';
 import '../services/workout_entry_database.dart';
+import '../providers/cloud_sync_provider.dart';
 import '../models/exercise.dart';
 
 class WorkoutEntryDetailScreen extends StatefulWidget {
@@ -118,6 +119,11 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text('Wert aktualisiert')));
     }
+
+    // Trigger a debounced cloud backup for this change
+    try {
+      if (mounted) context.read<CloudSyncProvider>().scheduleBackupSoon();
+    } catch (_) {}
   }
 
   String _dialogTitleFor(String field) {
