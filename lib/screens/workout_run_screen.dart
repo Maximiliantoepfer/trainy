@@ -1,16 +1,17 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
 import '../models/exercise.dart';
 import '../providers/progress_provider.dart';
 import '../providers/exercise_provider.dart';
+import '../providers/active_workout_provider.dart';
+import '../providers/cloud_sync_provider.dart';
 
 class WorkoutRunScreen extends StatefulWidget {
   final Workout workout;
   final List<Exercise> exercises;
-  final bool autoStart; // ▶️ Neu: optionaler Auto-Start
+  final bool autoStart; // optionaler Auto-Start
 
   const WorkoutRunScreen({
     super.key,
@@ -24,124 +25,101 @@ class WorkoutRunScreen extends StatefulWidget {
 }
 
 class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
-  final Stopwatch _stopwatch = Stopwatch();
-  Timer? _ticker;
-
-  /// sekündlicher Ticker -> UI
-  final ValueNotifier<int> _elapsedSeconds = ValueNotifier<int>(0);
-
-  /// exerciseId → Liste von Sets (Map: reps/weight/sets/duration als String-Werte)
-  final Map<int, List<Map<String, String>>> _setsByExercise = {};
-
   bool _isRunning = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.autoStart) {
-      // Timer direkt starten, kein zweiter Start nötig
       WidgetsBinding.instance.addPostFrameCallback((_) => _start());
+    } else {
+      final active = context.read<ActiveWorkoutProvider>();
+      if (active.isActive) {
+        active.updateExercises(widget.exercises);
+        _isRunning = true;
+      }
     }
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    _stopwatch.stop();
-    _elapsedSeconds.dispose();
-    super.dispose();
   }
 
   void _start() {
     if (_isRunning) return;
-    _isRunning = true;
-    _stopwatch.start();
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      _elapsedSeconds.value = _stopwatch.elapsed.inSeconds;
-    });
-    setState(() {});
+    final active = context.read<ActiveWorkoutProvider>();
+    if (!active.isActive) {
+      active.start(workout: widget.workout, exercises: widget.exercises);
+    } else {
+      active.updateExercises(widget.exercises);
+    }
+    setState(() => _isRunning = true);
   }
 
   Future<void> _stopAndFinish() async {
     if (!_isRunning) return;
 
-    _stopwatch.stop();
-    _ticker?.cancel();
+    final active = context.read<ActiveWorkoutProvider>();
     _isRunning = false;
     setState(() {});
 
-    final hasAnySets = _setsByExercise.values.any((list) => list.isNotEmpty);
+    final hasAnySets =
+        active.setsByExercise.values.any((list) => list.isNotEmpty);
 
     if (!mounted) return;
 
-    if (!hasAnySets) {
-      final discard = await showDialog<bool>(
-        context: context,
-        builder:
-            (ctx) => AlertDialog(
-              title: const Text('Workout beenden'),
-              content: const Text(
-                'Du hast keine Sätze erfasst. Workout ohne Speichern beenden?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Abbrechen'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Beenden'),
-                ),
-              ],
-            ),
-      );
-      if (discard == true && mounted) {
-        Navigator.of(context).pop();
-      }
-      return;
-    }
-
-    // Speichern bestätigen
+    // Speichern bestätigen (auch wenn leer, damit klarer Flow)
     final save = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Workout beenden und speichern?'),
-            content: const Text(
-              'Die erfassten Sätze werden gespeichert und der Fortschritt aktualisiert.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Speichern'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('Workout beenden'),
+        content: Text(
+          hasAnySets
+              ? 'Die erfassten Sätze werden gespeichert.'
+              : 'Keine Sätze erfasst. Trotzdem beenden?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Beenden'),
+          ),
+        ],
+      ),
     );
 
     if (save != true) return;
 
-    final duration = _stopwatch.elapsed.inSeconds;
+    final duration = active.elapsedTotalSeconds;
 
     // 1) Last Values pro Exercise aktualisieren
     final exerciseProvider = context.read<ExerciseProvider>();
-    _setsByExercise.forEach((exerciseId, sets) {
+    active.setsByExercise.forEach((exerciseId, sets) {
       if (sets.isEmpty) return;
       final last = _deriveLastValues(sets);
       exerciseProvider.updateLastValues(exerciseId, last);
     });
 
-    // 2) Session für Progress persistieren
-    await context.read<ProgressProvider>().saveWorkoutEntries(
-      workoutId: widget.workout.id,
-      durationSeconds: duration,
-      setsByExercise: _setsByExercise,
-    );
+    // 2) Session für Progress persistieren (nur wenn Sets vorhanden)
+    if (hasAnySets) {
+      await context.read<ProgressProvider>().saveWorkoutEntries(
+        workoutId: widget.workout.id,
+        durationSeconds: duration,
+        setsByExercise: active.setsByExercise,
+      );
+    }
+
+    // 3) Optional Cloud-Backup direkt nach Abschluss
+    final cloud = context.read<CloudSyncProvider>();
+    if (cloud.syncEnabled && cloud.isSignedIn) {
+      try {
+        await cloud.backupNow();
+      } catch (_) {
+        // stiller Fehler
+      }
+    }
+
+    // 4) Aktive Session beenden
+    active.clear();
 
     if (mounted) Navigator.of(context).pop();
   }
@@ -178,30 +156,28 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
   }
 
   Future<void> _addSet(BuildContext context, Exercise e) async {
-    // Prefill aus lastValues → defaultValues
-    final last = e.lastValues;
+    final active = context.read<ActiveWorkoutProvider>();
+    final existing = List<Map<String, String>>.from(active.setsByExercise[e.id] ?? const <Map<String, String>>[]);
+    final sessionLast = existing.isNotEmpty ? existing.last : null;
+    final last = sessionLast ?? e.lastValues;
     final defs = e.defaultValues;
-
-    // Falls aus Versehen alle Felder deaktiviert sind, zeigen wir einen Hinweis
-    final tracksAny =
-        e.trackSets || e.trackReps || e.trackWeight || e.trackDuration;
+    final tracksAny = e.trackSets || e.trackReps || e.trackWeight || e.trackDuration;
     if (!tracksAny) {
       await showDialog(
         context: context,
-        builder:
-            (ctx) => AlertDialog(
-              title: Text(e.name),
-              content: const Text(
-                'Für diese Übung sind keine Felder zum Tracken aktiviert. '
-                'Aktiviere Sätze/Wdh./Gewicht/Dauer in der Übungsbearbeitung.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK'),
-                ),
-              ],
+        builder: (ctx) => AlertDialog(
+          title: Text(e.name),
+          content: const Text(
+            'Für diese Übung sind keine Felder zum Tracken aktiviert. '
+            'Aktiviere Sätze/Wdh./Gewicht/Dauer in der Übungsbearbeitung.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
             ),
+          ],
+        ),
       );
       return;
     }
@@ -221,99 +197,98 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
 
     await showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(e.name),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (e.trackSets)
-                    TextField(
-                      controller: setsCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Sätze (Anzahl)',
-                      ),
+      builder: (ctx) => AlertDialog(
+        title: Text(e.name),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (e.trackSets)
+                TextField(
+                  controller: setsCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Sätze (Anzahl)',
+                  ),
+                ),
+              if (e.trackReps)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: TextField(
+                    controller: repsCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Wiederholungen',
                     ),
-                  if (e.trackReps)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: TextField(
-                        controller: repsCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Wiederholungen',
-                        ),
-                      ),
+                  ),
+                ),
+              if (e.trackWeight)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: TextField(
+                    controller: weightCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
                     ),
-                  if (e.trackWeight)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: TextField(
-                        controller: weightCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Gewicht (kg)',
-                        ),
-                      ),
+                    decoration: const InputDecoration(
+                      labelText: 'Gewicht (kg)',
                     ),
-                  if (e.trackDuration)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: TextField(
-                        controller: durCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Dauer (Sekunden)',
-                        ),
-                      ),
+                  ),
+                ),
+              if (e.trackDuration)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: TextField(
+                    controller: durCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Dauer (Sekunden)',
                     ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final entry = <String, String>{};
-                  if (e.trackSets && setsCtrl.text.trim().isNotEmpty) {
-                    entry['sets'] = setsCtrl.text.trim();
-                  }
-                  if (e.trackReps && repsCtrl.text.trim().isNotEmpty) {
-                    entry['reps'] = repsCtrl.text.trim();
-                  }
-                  if (e.trackWeight && weightCtrl.text.trim().isNotEmpty) {
-                    entry['weight'] = weightCtrl.text.trim();
-                  }
-                  if (e.trackDuration && durCtrl.text.trim().isNotEmpty) {
-                    entry['duration'] = durCtrl.text.trim();
-                  }
-
-                  if (entry.isNotEmpty) {
-                    _setsByExercise.putIfAbsent(e.id, () => []);
-                    _setsByExercise[e.id]!.add(entry);
-                    setState(() {}); // check-icon / progress
-                  }
-                  Navigator.pop(ctx);
-                },
-                child: const Text('Speichern'),
-              ),
+                  ),
+                ),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final entry = <String, String>{};
+              if (e.trackSets && setsCtrl.text.trim().isNotEmpty) {
+                entry['sets'] = setsCtrl.text.trim();
+              }
+              if (e.trackReps && repsCtrl.text.trim().isNotEmpty) {
+                entry['reps'] = repsCtrl.text.trim();
+              }
+              if (e.trackWeight && weightCtrl.text.trim().isNotEmpty) {
+                entry['weight'] = weightCtrl.text.trim();
+              }
+              if (e.trackDuration && durCtrl.text.trim().isNotEmpty) {
+                entry['duration'] = durCtrl.text.trim();
+              }
+
+              if (entry.isNotEmpty) {
+                context.read<ActiveWorkoutProvider>().updateLastSet(e.id, entry);
+                setState(() {}); // check-icon / progress
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Speichern'),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    final active = context.watch<ActiveWorkoutProvider>();
     final total = widget.exercises.length;
-    final doneCount = _setsByExercise.values.where((v) => v.isNotEmpty).length;
+    final doneCount = active.setsByExercise.values.where((v) => v.isNotEmpty).length;
     final progress = total == 0 ? 0.0 : doneCount / total;
 
     return Scaffold(
@@ -324,15 +299,14 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
             child: Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ValueListenableBuilder<int>(
-                valueListenable: _elapsedSeconds,
-                builder:
-                    (_, sec, __) => Text(
-                      _formatTime(sec),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                      ),
-                    ),
+                valueListenable: active.elapsedSeconds,
+                builder: (_, sec, __) => Text(
+                  _formatTime(sec),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
               ),
             ),
           ),
@@ -353,7 +327,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
         itemCount: widget.exercises.length,
         itemBuilder: (_, i) {
           final e = widget.exercises[i];
-          final hasSets = (_setsByExercise[e.id] ?? const []).isNotEmpty;
+          final hasSets = (active.setsByExercise[e.id] ?? const []).isNotEmpty;
           return Card(
             child: ListTile(
               title: Text(
@@ -371,33 +345,31 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                   if (e.trackDuration) 'Dauer',
                 ].join(' · '),
               ),
-              trailing:
-                  hasSets
-                      ? const Icon(Icons.check_circle, color: Colors.green)
-                      : IconButton(
-                        tooltip: 'Satz hinzufügen',
-                        onPressed: () => _addSet(context, e),
-                        icon: Icon(Icons.add, color: accent),
-                      ),
+              trailing: hasSets
+                  ? const Icon(Icons.check_circle, color: Colors.green)
+                  : IconButton(
+                      tooltip: 'Satz hinzufügen',
+                      onPressed: () => _addSet(context, e),
+                      icon: Icon(Icons.add, color: accent),
+                    ),
               onTap: () => _addSet(context, e),
             ),
           );
         },
       ),
-      floatingActionButton:
-          _isRunning
-              ? FloatingActionButton.extended(
-                onPressed: _stopAndFinish,
-                backgroundColor: Theme.of(context).colorScheme.error,
-                foregroundColor: Theme.of(context).colorScheme.onError,
-                icon: const Icon(Icons.stop_rounded),
-                label: const Text('Stop'),
-              )
-              : FloatingActionButton.extended(
-                onPressed: _start,
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('Start'),
-              ),
+      floatingActionButton: _isRunning
+          ? FloatingActionButton.extended(
+              onPressed: _stopAndFinish,
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+              icon: const Icon(Icons.stop_rounded),
+              label: const Text('Stop'),
+            )
+          : FloatingActionButton.extended(
+              onPressed: _start,
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('Start'),
+            ),
     );
   }
 }

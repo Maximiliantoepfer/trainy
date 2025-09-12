@@ -8,6 +8,8 @@ import '../models/workout.dart';
 import '../widgets/weekly_activity_chart.dart';
 import 'workout_entry_detail_screen.dart';
 import 'progress_insights_screen.dart';
+import '../widgets/active_workout_banner.dart';
+import '../providers/active_workout_provider.dart';
 
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -37,10 +39,17 @@ class _ProgressScreenState extends State<ProgressScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<ProgressProvider>();
     final entries = provider.entries;
+    final active = context.watch<ActiveWorkoutProvider>();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Fortschritt'),
+        bottom: active.isActive
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(56),
+                child: ActiveWorkoutBanner(),
+              )
+            : null,
         actions: [
           IconButton(
             tooltip: 'Insights',

@@ -7,6 +7,8 @@ import '../providers/workout_provider.dart';
 import '../providers/progress_provider.dart';
 import '../widgets/workout_card.dart';
 import 'workout_screen.dart';
+import '../widgets/active_workout_banner.dart';
+import '../providers/active_workout_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -149,6 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<WorkoutProvider>();
     final workouts = provider.workouts;
+    final active = context.watch<ActiveWorkoutProvider>();
 
     final progress = context.watch<ProgressProvider>();
     final trainedWeekdays = _trainedWeekdaysThisWeek(progress.entries);
@@ -166,6 +169,12 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Workouts'),
+          bottom: active.isActive
+              ? const PreferredSize(
+                  preferredSize: Size.fromHeight(56),
+                  child: ActiveWorkoutBanner(),
+                )
+              : null,
           actions: [
             IconButton(
               onPressed: () => _createWorkout(context),

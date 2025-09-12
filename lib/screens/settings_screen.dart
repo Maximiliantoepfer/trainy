@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/cloud_sync_provider.dart';
+import '../widgets/active_workout_banner.dart';
+import '../providers/active_workout_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -15,6 +17,7 @@ class SettingsScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final progress = context.watch<ProgressProvider>();
     final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
+    final active = context.watch<ActiveWorkoutProvider>();
 
     Future<void> _pickAccent() async {
       Color temp = theme.accent;
@@ -47,7 +50,15 @@ class SettingsScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Einstellungen')),
+      appBar: AppBar(
+        title: const Text('Einstellungen'),
+        bottom: active.isActive
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(56),
+                child: ActiveWorkoutBanner(),
+              )
+            : null,
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

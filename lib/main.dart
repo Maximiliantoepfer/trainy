@@ -8,6 +8,7 @@ import 'providers/exercise_provider.dart';
 import 'providers/workout_provider.dart';
 import 'providers/progress_provider.dart';
 import 'providers/cloud_sync_provider.dart';
+import 'providers/active_workout_provider.dart';
 import 'navigation/main_navigation.dart';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -35,6 +36,7 @@ class TrainyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
         ChangeNotifierProvider(create: (_) => CloudSyncProvider()),
+        ChangeNotifierProvider(create: (_) => ActiveWorkoutProvider()),
       ],
       child: const _ThemedApp(),
     );

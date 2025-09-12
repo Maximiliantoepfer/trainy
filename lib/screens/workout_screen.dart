@@ -1,10 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
 import '../models/exercise.dart';
 import '../providers/workout_provider.dart';
 import '../providers/exercise_provider.dart';
+import '../providers/active_workout_provider.dart';
+import '../widgets/active_workout_banner.dart';
 import 'workout_run_screen.dart';
 
 class WorkoutScreen extends StatefulWidget {
@@ -103,7 +105,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             Navigator.pop(ctx);
             ScaffoldMessenger.of(rootContext).showSnackBar(
               SnackBar(
-                content: Text('„$name“ wurde erstellt und hinzugefügt'),
+                content: Text('â€ž$nameâ€œ wurde erstellt und hinzugefÃ¼gt'),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -138,7 +140,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           child: Row(
                             children: [
                               Text(
-                                'Übungen hinzufügen',
+                                'Ãœbungen hinzufÃ¼gen',
                                 style: Theme.of(ctx).textTheme.headlineLarge,
                               ),
                             ],
@@ -157,7 +159,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         Expanded(
                           child: TabBarView(
                             children: [
-                              // Tab 1: vorhandene Exercises auswählen
+                              // Tab 1: vorhandene Exercises auswÃ¤hlen
                               ListView.builder(
                                 padding: const EdgeInsets.fromLTRB(
                                   16,
@@ -169,7 +171,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                 itemBuilder: (_, i) {
                                   final e = all[i];
                                   final subtitle = <String>[];
-                                  if (e.trackSets) subtitle.add('Sätze');
+                                  if (e.trackSets) subtitle.add('SÃ¤tze');
                                   if (e.trackReps) subtitle.add('Wdh.');
                                   if (e.trackWeight) subtitle.add('Gewicht');
                                   if (e.trackDuration) subtitle.add('Dauer');
@@ -197,7 +199,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                       subtitle:
                                           subtitle.isEmpty
                                               ? null
-                                              : Text(subtitle.join(' · ')),
+                                              : Text(subtitle.join(' Â· ')),
                                       controlAffinity:
                                           ListTileControlAffinity.leading,
                                       shape: RoundedRectangleBorder(
@@ -252,7 +254,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                         },
                                       ),
                                       ChoiceChip(
-                                        label: const Text('Körpergewicht'),
+                                        label: const Text('KÃ¶rpergewicht'),
                                         selected: false,
                                         onSelected: (_) {
                                           trackSets.value = true;
@@ -263,7 +265,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                         },
                                       ),
                                       ChoiceChip(
-                                        label: const Text('Sätze + Dauer'),
+                                        label: const Text('SÃ¤tze + Dauer'),
                                         selected: false,
                                         onSelected: (_) {
                                           trackSets.value = true;
@@ -340,7 +342,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                         : null,
                                                 icon: const Icon(Icons.add),
                                                 label: const Text(
-                                                  'Erstellen & hinzufügen',
+                                                  'Erstellen & hinzufÃ¼gen',
                                                 ),
                                               )
                                               : FilledButton(
@@ -370,7 +372,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                     ).showSnackBar(
                                                       const SnackBar(
                                                         content: Text(
-                                                          'Übungen hinzugefügt',
+                                                          'Ãœbungen hinzugefÃ¼gt',
                                                         ),
                                                         behavior:
                                                             SnackBarBehavior
@@ -379,7 +381,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                     );
                                                   }
                                                 },
-                                                child: const Text('Hinzufügen'),
+                                                child: const Text('HinzufÃ¼gen'),
                                               ),
                                     ),
                                   ),
@@ -441,6 +443,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   Widget build(BuildContext context) {
     final exercises = context.watch<ExerciseProvider>().exercises;
+    final active = context.watch<ActiveWorkoutProvider>();
     final items =
         _exerciseIds
             .map(
@@ -457,6 +460,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.workout.name),
+        bottom: active.isActive
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(56),
+                child: ActiveWorkoutBanner(),
+              )
+            : null,
         actions: [
           IconButton(
             tooltip: 'Umbenennen',
@@ -487,7 +496,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         child: const Icon(Icons.drag_handle),
                       ),
                       title: Text(
-                        e?.name ?? 'Gelöschte Übung ($id)',
+                        e?.name ?? 'GelÃ¶schte Ãœbung ($id)',
                         style: Theme.of(
                           context,
                         ).textTheme.titleMedium?.copyWith(
@@ -500,11 +509,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                               ? const Text('Nicht mehr vorhanden')
                               : Text(
                                 [
-                                  if (e.trackSets) 'Sätze',
+                                  if (e.trackSets) 'SÃ¤tze',
                                   if (e.trackReps) 'Wdh.',
                                   if (e.trackWeight) 'Gewicht',
                                   if (e.trackDuration) 'Dauer',
-                                ].join(' · '),
+                                ].join(' Â· '),
                               ),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline),
@@ -517,36 +526,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   );
                 },
               ),
-      floatingActionButton:
-          canStart
-              ? FloatingActionButton.extended(
-                onPressed: () {
-                  final list =
-                      _exerciseIds
-                          .map(
-                            (id) =>
-                                exercises
-                                    .where((e) => e.id == id)
-                                    .cast<Exercise?>()
-                                    .firstOrNull,
-                          )
-                          .whereType<Exercise>()
-                          .toList();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder:
-                          (_) => WorkoutRunScreen(
-                            workout: widget.workout,
-                            exercises: list,
-                            autoStart: true, // ▶️ Timer startet direkt
-                          ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('Start'),
-              )
-              : null,
+      floatingActionButton: Builder(
+        builder: (ctx) {
+          final active = ctx.watch<ActiveWorkoutProvider>();
+          final isThisActive = active.isActive && active.workout?.id == widget.workout.id;
+          if (_exerciseIds.isEmpty && !isThisActive) return const SizedBox.shrink();
+          final exercises = ctx.read<ExerciseProvider>().exercises;
+          return FloatingActionButton.extended(
+            onPressed: () {
+              final list = _exerciseIds
+                  .map((id) => exercises.where((e) => e.id == id).cast<Exercise?>().firstOrNull)
+                  .whereType<Exercise>()
+                  .toList();
+              if (isThisActive) {
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => WorkoutRunScreen(
+                  workout: widget.workout, exercises: list, autoStart: false)));
+              } else {
+                if (active.isActive) { active.clear(); }
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => WorkoutRunScreen(
+                  workout: widget.workout, exercises: list, autoStart: true)));
+              }
+            },
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: Text(isThisActive ? 'Fortsetzen' : 'Start'),
+          );
+        },
+      ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
@@ -554,7 +559,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           child: FilledButton.tonalIcon(
             onPressed: _addExercisesBottomSheet,
             icon: const Icon(Icons.add),
-            label: const Text('Weitere Übung hinzufügen'),
+            label: const Text('Weitere Ãœbung hinzufÃ¼gen'),
           ),
         ),
       ),
@@ -581,16 +586,16 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Noch keine Übungen',
+              'Noch keine Ãœbungen',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
-            const Text('Füge Übungen hinzu, um dein Workout zu starten.'),
+            const Text('FÃ¼ge Ãœbungen hinzu, um dein Workout zu starten.'),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: onAdd,
               icon: const Icon(Icons.add),
-              label: const Text('Übungen hinzufügen'),
+              label: const Text('Ãœbungen hinzufÃ¼gen'),
             ),
           ],
         ),
@@ -617,7 +622,7 @@ class _TrackChecklist extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _tile(context, 'Sätze zählen', 'z. B. 3 Sätze', trackSets),
+        _tile(context, 'SÃ¤tze zÃ¤hlen', 'z. B. 3 SÃ¤tze', trackSets),
         _tile(context, 'Wiederholungen', 'z. B. 10 pro Satz', trackReps),
         _tile(context, 'Gewicht', 'z. B. 50 kg', trackWeight),
         _tile(context, 'Dauer', 'z. B. 60 Sekunden', trackDuration),
