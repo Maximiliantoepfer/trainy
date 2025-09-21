@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/active_workout_provider.dart';
+import '../utils/duration_utils.dart';
 import '../screens/workout_run_screen.dart';
 
 const Duration _kBannerAnim = Duration(milliseconds: 200);
@@ -133,8 +134,4 @@ class _BannerContent extends StatelessWidget {
   }
 }
 
-String _formatBannerTime(int seconds) {
-  final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
-  final secs = (seconds % 60).toString().padLeft(2, '0');
-  return '$minutes:$secs';
-}
+String _formatBannerTime(int seconds) => DurationFormatter.digital(seconds);

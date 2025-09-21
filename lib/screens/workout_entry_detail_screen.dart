@@ -9,6 +9,7 @@ import '../providers/progress_provider.dart';
 import '../services/workout_entry_database.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../models/exercise.dart';
+import '../utils/duration_utils.dart';
 
 class WorkoutEntryDetailScreen extends StatefulWidget {
   final WorkoutEntry entry;
@@ -268,7 +269,10 @@ class _ExerciseResultCard extends StatelessWidget {
                 _MetricChip(
                   icon: Icons.timer_outlined,
                   label: 'Dauer',
-                  value: duration == null ? null : _formatDuration(duration),
+                  value:
+                      duration == null
+                          ? null
+                          : DurationFormatter.verbose(duration),
                   onTap:
                       () => onEdit(
                         exerciseId: exerciseId,
@@ -305,12 +309,6 @@ class _ExerciseResultCard extends StatelessWidget {
   static String _formatWeight(double w) {
     final s = w.toStringAsFixed(w.truncateToDouble() == w ? 0 : 1);
     return s;
-  }
-
-  static String _formatDuration(int seconds) {
-    final mm = (seconds ~/ 60).toString().padLeft(2, '0');
-    final ss = (seconds % 60).toString().padLeft(2, '0');
-    return '$mm:$ss';
   }
 
   static int? _asInt(dynamic v) {

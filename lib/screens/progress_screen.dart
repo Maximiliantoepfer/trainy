@@ -9,6 +9,7 @@ import '../widgets/weekly_activity_chart.dart';
 import 'workout_entry_detail_screen.dart';
 import 'progress_insights_screen.dart';
 import '../widgets/active_workout_banner.dart';
+import '../utils/duration_utils.dart';
 import '../providers/active_workout_provider.dart';
 
 class ProgressScreen extends StatefulWidget {
@@ -28,7 +29,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         context.read<ProgressProvider>().loadData();
-        // Für die Titelauflösung (Workoutname)
+        // FÃ¼r die TitelauflÃ¶sung (Workoutname)
         context.read<WorkoutProvider>().loadWorkouts();
       });
       _loadedOnce = true;
@@ -44,12 +45,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Fortschritt'),
-        bottom: active.isActive
-            ? const PreferredSize(
-                preferredSize: Size.fromHeight(56),
-                child: ActiveWorkoutBanner(),
-              )
-            : null,
+        bottom:
+            active.isActive
+                ? const PreferredSize(
+                  preferredSize: Size.fromHeight(56),
+                  child: ActiveWorkoutBanner(),
+                )
+                : null,
         actions: [
           IconButton(
             tooltip: 'Insights',
@@ -76,7 +78,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                       child: WeeklyActivityChart(
                         entries: entries,
-                        title: 'Aktivität',
+                        title: 'AktivitÃ¤t',
                         subtitle: 'Workouts pro Tag',
                       ),
                     ),
@@ -112,12 +114,12 @@ class _EmptyState extends StatelessWidget {
             const Icon(Icons.show_chart, size: 64),
             const SizedBox(height: 12),
             Text(
-              'Noch keine Einträge',
+              'Noch keine EintrÃ¤ge',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             const Text(
-              'Starte ein Workout und erfasse Sätze, dann erscheinen sie hier.',
+              'Starte ein Workout und erfasse SÃ¤tze, dann erscheinen sie hier.',
               textAlign: TextAlign.center,
             ),
           ],
@@ -137,7 +139,7 @@ class _EntryCard extends StatelessWidget {
     final dateStr =
         '${date.day.toString().padLeft(2, '0')}.'
         '${date.month.toString().padLeft(2, '0')}.'
-        '${date.year} • '
+        '${date.year} â€¢ '
         '${date.hour.toString().padLeft(2, '0')}:'
         '${date.minute.toString().padLeft(2, '0')}';
 
@@ -151,7 +153,7 @@ class _EntryCard extends StatelessWidget {
     }
     final workoutName = w?.name ?? 'Workout';
 
-    // Gesamtsätze/-dauer (aggregiert über Exercises)
+    // GesamtsÃ¤tze/-dauer (aggregiert Ã¼ber Exercises)
     int totalSets = 0;
     int totalDuration = 0;
     entry.results.forEach((_, v) {
@@ -172,15 +174,15 @@ class _EntryCard extends StatelessWidget {
     return Card(
       child: ListTile(
         title: Text(
-          'Workout – $workoutName',
+          'Workout â€“ $workoutName',
           style: const TextStyle(fontWeight: FontWeight.w700),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
           '$dateStr'
-          '${totalSets > 0 ? ' · $totalSets Sätze' : ''}'
-          '${totalDuration > 0 ? ' · ${_formatDuration(totalDuration)}' : ''}',
+          '${totalSets > 0 ? ' Â· $totalSets SÃ¤tze' : ''}'
+          '${totalDuration > 0 ? ' Â· ${DurationFormatter.verbose(totalDuration)}' : ''}',
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {
@@ -192,11 +194,5 @@ class _EntryCard extends StatelessWidget {
         },
       ),
     );
-  }
-
-  String _formatDuration(int seconds) {
-    final mm = (seconds ~/ 60).toString().padLeft(2, '0');
-    final ss = (seconds % 60).toString().padLeft(2, '0');
-    return '$mm:$ss';
   }
 }

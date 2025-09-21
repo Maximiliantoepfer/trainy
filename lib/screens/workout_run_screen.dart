@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
@@ -7,6 +8,7 @@ import '../providers/progress_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../providers/cloud_sync_provider.dart';
+import '../utils/duration_utils.dart';
 
 const Duration _kFastAnim = Duration(milliseconds: 200);
 const Duration _kProgressAnim = Duration(milliseconds: 260);
@@ -155,11 +157,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     return map;
   }
 
-  String _formatTime(int seconds) {
-    final mm = (seconds ~/ 60).toString().padLeft(2, '0');
-    final ss = (seconds % 60).toString().padLeft(2, '0');
-    return '$mm:$ss';
-  }
+  String _formatTime(int seconds) => DurationFormatter.digital(seconds);
 
   Future<void> _addSet(BuildContext context, Exercise e) async {
     final active = context.read<ActiveWorkoutProvider>();
@@ -201,8 +199,17 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     final setsCtrl = TextEditingController(
       text: last['sets'] ?? defs['sets'] ?? '',
     );
-    final durCtrl = TextEditingController(
-      text: last['duration'] ?? defs['duration'] ?? '',
+    final durationParts = DurationFormatter.fromRaw(
+      last['duration'] ?? defs['duration'],
+    );
+    final durHoursCtrl = TextEditingController(
+      text: durationParts.hours > 0 ? '${durationParts.hours}' : '',
+    );
+    final durMinutesCtrl = TextEditingController(
+      text: durationParts.minutes > 0 ? '${durationParts.minutes}' : '',
+    );
+    final durSecondsCtrl = TextEditingController(
+      text: durationParts.seconds > 0 ? '${durationParts.seconds}' : '',
     );
 
     await showDialog(
@@ -249,12 +256,83 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                   if (e.trackDuration)
                     Padding(
                       padding: const EdgeInsets.only(top: 10),
-                      child: TextField(
-                        controller: durCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Dauer (Sekunden)',
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Dauer',
+                            style: Theme.of(ctx).textTheme.labelLarge,
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: durHoursCtrl,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.next,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  decoration: InputDecoration(
+                                    labelText: 'Std',
+                                    filled: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: durMinutesCtrl,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.next,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  decoration: InputDecoration(
+                                    labelText: 'Min',
+                                    filled: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: durSecondsCtrl,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  decoration: InputDecoration(
+                                    labelText: 'Sek',
+                                    filled: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -277,8 +355,16 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                   if (e.trackWeight && weightCtrl.text.trim().isNotEmpty) {
                     entry['weight'] = weightCtrl.text.trim();
                   }
-                  if (e.trackDuration && durCtrl.text.trim().isNotEmpty) {
-                    entry['duration'] = durCtrl.text.trim();
+                  if (e.trackDuration) {
+                    final durationSeconds =
+                        DurationFormatter.totalSecondsFromTexts(
+                          durHoursCtrl.text,
+                          durMinutesCtrl.text,
+                          durSecondsCtrl.text,
+                        );
+                    if (durationSeconds > 0) {
+                      entry['duration'] = '$durationSeconds';
+                    }
                   }
 
                   if (entry.isNotEmpty) {
