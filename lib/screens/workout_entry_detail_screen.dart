@@ -1,4 +1,4 @@
-// lib/screens/workout_entry_detail_screen.dart
+﻿// lib/screens/workout_entry_detail_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -27,7 +27,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // Deep copy der Map, damit wir lokal updaten können
+    // Deep copy der Map, damit wir lokal updaten kÃ¶nnen
     _results = {
       for (final e in widget.entry.results.entries)
         e.key: Map<String, dynamic>.from(e.value),
@@ -37,7 +37,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}.'
         '${date.month.toString().padLeft(2, '0')}.'
-        '${date.year} • '
+        '${date.year} â€¢ '
         '${date.hour.toString().padLeft(2, '0')}:'
         '${date.minute.toString().padLeft(2, '0')}';
   }
@@ -130,7 +130,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
   String _dialogTitleFor(String field) {
     switch (field) {
       case 'sets':
-        return 'Sätze bearbeiten';
+        return 'SÃ¤tze bearbeiten';
       case 'reps':
         return 'Wiederholungen bearbeiten';
       case 'weight':
@@ -174,7 +174,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
 
           return _ExerciseResultCard(
             exerciseId: exerciseId,
-            exerciseName: ex?.name ?? 'Übung #$exerciseId',
+            exerciseName: ex?.name ?? 'Ãœbung #$exerciseId',
             values: data,
             onEdit: _editMetric,
           );
@@ -235,7 +235,7 @@ class _ExerciseResultCard extends StatelessWidget {
               children: [
                 _MetricChip(
                   icon: Icons.layers,
-                  label: 'Sätze',
+                  label: 'SÃ¤tze',
                   value: sets?.toString(),
                   onTap:
                       () => onEdit(
@@ -256,7 +256,7 @@ class _ExerciseResultCard extends StatelessWidget {
                       ),
                 ),
                 _MetricChip(
-                  icon: Icons.fitness_center,
+                  icon: Icons.fitness_center_rounded,
                   label: 'Gewicht',
                   value: weight == null ? null : _formatWeight(weight),
                   onTap:
@@ -352,7 +352,7 @@ class _MetricChip extends StatelessWidget {
         Icon(icon, size: 18, color: onColor),
         const SizedBox(width: 8),
         Text(
-          hasValue ? '$label: $value' : '$label hinzufügen',
+          hasValue ? '$label: $value' : '$label hinzufÃ¼gen',
           style: Theme.of(
             context,
           ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -360,7 +360,7 @@ class _MetricChip extends StatelessWidget {
       ],
     );
 
-    // (Ausschnitt) – in _ValuePill.build() den Material-Container anpassen:
+    // (Ausschnitt) â€“ in _ValuePill.build() den Material-Container anpassen:
     return Material(
       color: Theme.of(context).colorScheme.surfaceVariant, // neutral
       borderRadius: BorderRadius.circular(14),

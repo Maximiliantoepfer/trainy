@@ -1,4 +1,4 @@
-// lib/workout_card.dart
+﻿// lib/workout_card.dart
 
 import 'package:flutter/material.dart';
 import '../models/workout.dart';
@@ -68,7 +68,7 @@ class WorkoutCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
-                    Icons.fitness_center,
+                    Icons.fitness_center_rounded,
                     size: 26,
                     color: scheme.primary,
                   ),
@@ -87,7 +87,7 @@ class WorkoutCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       if (workout.exerciseIds.isNotEmpty)
                         Text(
-                          '${workout.exerciseIds.length} Übung(en)',
+                          '${workout.exerciseIds.length} Ãœbung(en)',
                           style: bodyStyle?.copyWith(
                             color: textTheme.bodySmall?.color?.withOpacity(0.7),
                           ),
@@ -119,7 +119,7 @@ class WorkoutCard extends StatelessWidget {
                     ),
                   ),
                   color: selected ? Colors.red : scheme.primary,
-                  tooltip: selected ? 'Löschen' : 'Bearbeiten',
+                  tooltip: selected ? 'LÃ¶schen' : 'Bearbeiten',
                 ),
               ],
             ),

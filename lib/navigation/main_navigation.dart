@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
 import '../screens/exercise_screen.dart';
 import '../screens/progress_screen.dart';
@@ -47,7 +47,7 @@ class _MainNavigationState extends State<MainNavigation> {
       // Wichtig: Labels ausblenden und Ripple/Highlight lokal abschalten
       bottomNavigationBar: Theme(
         data: Theme.of(context).copyWith(
-          // verhindert die „Hintergrunderleuchtung“ beim Tippen
+          // verhindert die â€žHintergrunderleuchtungâ€œ beim Tippen
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
           splashColor: Colors.transparent,
@@ -57,7 +57,7 @@ class _MainNavigationState extends State<MainNavigation> {
           // Nur Icons, keine Labels
           labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
 
-          // Größen/Farben kommen aus dem NavigationBarTheme (app_theme.dart)
+          // GrÃ¶ÃŸen/Farben kommen aus dem NavigationBarTheme (app_theme.dart)
           selectedIndex: _index,
           onDestinationSelected: (i) {
             if (i == _index) return;
@@ -75,9 +75,9 @@ class _MainNavigationState extends State<MainNavigation> {
               label: 'Workouts', // wird dank alwaysHide nicht angezeigt
             ),
             NavigationDestination(
-              icon: Icon(Icons.fitness_center_outlined),
-              selectedIcon: Icon(Icons.fitness_center),
-              label: 'Übungen',
+              icon: Icon(Icons.fitness_center_rounded, fill: 0),
+              selectedIcon: Icon(Icons.fitness_center_rounded, fill: 0),
+              label: 'Ãœbungen',
             ),
             NavigationDestination(
               icon: Icon(Icons.insights_outlined),

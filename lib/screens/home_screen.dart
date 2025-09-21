@@ -1,4 +1,4 @@
-// lib/screens/home_screen.dart
+﻿// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -26,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Beim ersten Öffnen Workouts + Progress laden
+    // Beim ersten Ã–ffnen Workouts + Progress laden
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<WorkoutProvider>().loadWorkouts();
       context.read<ProgressProvider>().loadData();
@@ -103,9 +103,9 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Workout löschen?'),
+            title: const Text('Workout lÃ¶schen?'),
             content: Text(
-              '„${workout.name}“ wird endgültig gelöscht. Fortfahren?',
+              'â€ž${workout.name}â€œ wird endgÃ¼ltig gelÃ¶scht. Fortfahren?',
             ),
             actions: [
               TextButton(
@@ -120,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Löschen'),
+                child: const Text('LÃ¶schen'),
               ),
             ],
           ),
@@ -137,7 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('„${workout.name}“ gelöscht'),
+        content: Text('â€ž${workout.name}â€œ gelÃ¶scht'),
         backgroundColor: scheme.surface,
         behavior: SnackBarBehavior.floating,
       ),
@@ -218,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () => _createWorkout(context),
-          shape: const CircleBorder(), // ⬅️ explizit rund
+          shape: const CircleBorder(), // â¬…ï¸ explizit rund
           child: const Icon(Icons.add),
         ),
         body: AnimatedSwitcher(
@@ -331,7 +331,7 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.fitness_center, size: 52),
+            const Icon(Icons.fitness_center_rounded, size: 52),
             const SizedBox(height: 16),
             Text('Noch keine Workouts', style: text.titleLarge),
             const SizedBox(height: 8),
@@ -347,7 +347,7 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// --- Wochen-Widget (Mo–So) mit Ziel -----------------------------------------
+/// --- Wochen-Widget (Moâ€“So) mit Ziel -----------------------------------------
 
 class _WeeklyOverviewCard extends StatelessWidget {
   final Set<int> trainedWeekdays; // 1=Mo .. 7=So
@@ -416,7 +416,7 @@ class _DayPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    // HELLERES Grün für Done (vorher 0xFF2E7D32)
+    // HELLERES GrÃ¼n fÃ¼r Done (vorher 0xFF2E7D32)
     const Color doneFill = Color(0xFF4CAF50); // Green 500
     const Color doneShadow = Color(0x404CAF50); // 25% Alpha
 
