@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
@@ -9,6 +9,8 @@ import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/active_workout_banner.dart';
 import 'workout_run_screen.dart';
+
+const Duration _kWorkoutAnim = Duration(milliseconds: 200);
 
 class WorkoutScreen extends StatefulWidget {
   final Workout workout;
@@ -485,58 +487,83 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ),
         ],
       ),
-      body:
-          _exerciseIds.isEmpty
-              ? _EmptyState(onAdd: _addExercisesBottomSheet)
-              : ReorderableListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
-                itemCount: _exerciseIds.length,
-                onReorder: _onReorder,
-                buildDefaultDragHandles: false,
-                proxyDecorator:
-                    (child, index, animation) =>
-                        ScaleTransition(scale: animation, child: child),
-                itemBuilder: (_, i) {
-                  final id = _exerciseIds[i];
-                  final e = items[i];
-                  return Card(
-                    key: ValueKey('exercise_$id'),
-                    child: ListTile(
-                      leading: ReorderableDragStartListener(
-                        index: i,
-                        child: const Icon(Icons.drag_handle),
-                      ),
-                      title: Text(
-                        e?.name ?? 'Gelöschte Übung ($id)',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.titleMedium?.copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
+      body: AnimatedSwitcher(
+        duration: _kWorkoutAnim,
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        transitionBuilder: (child, animation) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOut,
+            reverseCurve: Curves.easeIn,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: SizeTransition(sizeFactor: curved, child: child),
+          );
+        },
+        child:
+            _exerciseIds.isEmpty
+                ? _EmptyState(
+                  key: const ValueKey('workout-empty'),
+                  onAdd: _addExercisesBottomSheet,
+                )
+                : ReorderableListView.builder(
+                  key: const ValueKey('workout-list'),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
+                  itemCount: _exerciseIds.length,
+                  onReorder: _onReorder,
+                  buildDefaultDragHandles: false,
+                  proxyDecorator:
+                      (child, index, animation) =>
+                          ScaleTransition(scale: animation, child: child),
+                  itemBuilder: (_, i) {
+                    final id = _exerciseIds[i];
+                    final e = items[i];
+                    return AnimatedSize(
+                      key: ValueKey('exercise_$id'),
+                      duration: _kWorkoutAnim,
+                      curve: Curves.easeOut,
+                      child: Card(
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        child: ListTile(
+                          leading: ReorderableDragStartListener(
+                            index: i,
+                            child: const Icon(Icons.drag_handle),
+                          ),
+                          title: Text(
+                            e?.name ?? 'Gelöschte Übung ($id)',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleMedium?.copyWith(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          subtitle:
+                              e == null
+                                  ? const Text('Nicht mehr vorhanden')
+                                  : Text(
+                                    [
+                                      if (e.trackSets) 'Sätze',
+                                      if (e.trackReps) 'Wdh.',
+                                      if (e.trackWeight) 'Gewicht',
+                                      if (e.trackDuration) 'Dauer',
+                                    ].join(' / '),
+                                  ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () async {
+                              setState(() => _exerciseIds.removeAt(i));
+                              await _persistOrder(context);
+                            },
+                          ),
                         ),
                       ),
-                      subtitle:
-                          e == null
-                              ? const Text('Nicht mehr vorhanden')
-                              : Text(
-                                [
-                                  if (e.trackSets) 'SÃ¤tze',
-                                  if (e.trackReps) 'Wdh.',
-                                  if (e.trackWeight) 'Gewicht',
-                                  if (e.trackDuration) 'Dauer',
-                                ].join(' Â· '),
-                              ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () async {
-                          setState(() => _exerciseIds.removeAt(i));
-                          await _persistOrder(context);
-                        },
-                      ),
-                    ),
-                  );
-                },
-              ),
+                    );
+                  },
+                ),
+      ),
       floatingActionButton: Builder(
         builder: (ctx) {
           final active = ctx.watch<ActiveWorkoutProvider>();

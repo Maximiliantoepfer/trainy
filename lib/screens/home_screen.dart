@@ -11,6 +11,8 @@ import 'workout_screen.dart';
 import '../widgets/active_workout_banner.dart';
 import '../providers/active_workout_provider.dart';
 
+const Duration _kHomeAnim = Duration(milliseconds: 200);
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -176,12 +178,36 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Workouts'),
-          bottom: active.isActive
-              ? const PreferredSize(
-                  preferredSize: Size.fromHeight(56),
-                  child: ActiveWorkoutBanner(),
-                )
-              : null,
+          bottom: PreferredSize(
+            preferredSize: Size.fromHeight(active.isActive ? 56 : 0),
+            child: AnimatedSwitcher(
+              duration: _kHomeAnim,
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOut,
+                  reverseCurve: Curves.easeIn,
+                );
+                return FadeTransition(
+                  opacity: curved,
+                  child: SizeTransition(
+                    sizeFactor: curved,
+                    axisAlignment: -1,
+                    child: child,
+                  ),
+                );
+              },
+              child:
+                  active.isActive
+                      ? const ActiveWorkoutBanner(key: ValueKey('home-banner'))
+                      : const SizedBox(
+                        key: ValueKey('home-banner-empty'),
+                        height: 0,
+                      ),
+            ),
+          ),
           actions: [
             IconButton(
               onPressed: () => _createWorkout(context),
@@ -195,61 +221,78 @@ class _HomeScreenState extends State<HomeScreen> {
           shape: const CircleBorder(), // ⬅️ explizit rund
           child: const Icon(Icons.add),
         ),
-        body:
-            provider.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                      child: _WeeklyOverviewCard(
-                        trainedWeekdays:
-                            isProgressLoading ? const {} : trainedWeekdays,
-                        weeklyGoal: weeklyGoal,
+        body: AnimatedSwitcher(
+          duration: _kHomeAnim,
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) {
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOut,
+              reverseCurve: Curves.easeIn,
+            );
+            return FadeTransition(opacity: curved, child: child);
+          },
+          child:
+              provider.isLoading
+                  ? const Center(
+                    key: ValueKey('home-loading'),
+                    child: CircularProgressIndicator(),
+                  )
+                  : Column(
+                    key: const ValueKey('home-content'),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        child: _WeeklyOverviewCard(
+                          trainedWeekdays:
+                              isProgressLoading ? const {} : trainedWeekdays,
+                          weeklyGoal: weeklyGoal,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child:
-                          workouts.isEmpty
-                              ? const _EmptyState()
-                              : ListView.separated(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  12,
-                                  16,
-                                  100,
-                                ),
-                                itemCount: workouts.length,
-                                separatorBuilder:
-                                    (_, __) => const SizedBox(height: 12),
-                                itemBuilder: (ctx, i) {
-                                  final w = workouts[i];
-                                  final selected = w.id == _selectedWorkoutId;
+                      Expanded(
+                        child:
+                            workouts.isEmpty
+                                ? const _EmptyState()
+                                : ListView.separated(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    100,
+                                  ),
+                                  itemCount: workouts.length,
+                                  separatorBuilder:
+                                      (_, __) => const SizedBox(height: 12),
+                                  itemBuilder: (ctx, i) {
+                                    final w = workouts[i];
+                                    final selected = w.id == _selectedWorkoutId;
 
-                                  return WorkoutCard(
-                                    workout: w,
-                                    selected: selected,
-                                    onTap: () => _openWorkout(w),
-                                    onLongPress: () {
-                                      setState(
-                                        () =>
-                                            _selectedWorkoutId =
-                                                selected ? null : w.id,
-                                      );
-                                    },
-                                    onPrimaryActionTap: () {
-                                      if (selected) {
-                                        _confirmAndDelete(w);
-                                      } else {
-                                        _openWorkout(w);
-                                      }
-                                    },
-                                  );
-                                },
-                              ),
-                    ),
-                  ],
-                ),
+                                    return WorkoutCard(
+                                      workout: w,
+                                      selected: selected,
+                                      onTap: () => _openWorkout(w),
+                                      onLongPress: () {
+                                        setState(
+                                          () =>
+                                              _selectedWorkoutId =
+                                                  selected ? null : w.id,
+                                        );
+                                      },
+                                      onPrimaryActionTap: () {
+                                        if (selected) {
+                                          _confirmAndDelete(w);
+                                        } else {
+                                          _openWorkout(w);
+                                        }
+                                      },
+                                    );
+                                  },
+                                ),
+                      ),
+                    ],
+                  ),
+        ),
       ),
     );
   }

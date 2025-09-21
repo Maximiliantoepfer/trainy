@@ -4,18 +4,56 @@ import 'package:provider/provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../screens/workout_run_screen.dart';
 
+const Duration _kBannerAnim = Duration(milliseconds: 200);
+
 class ActiveWorkoutBanner extends StatelessWidget {
   const ActiveWorkoutBanner({super.key});
 
   @override
   Widget build(BuildContext context) {
     final active = context.watch<ActiveWorkoutProvider>();
-    if (!active.isActive || active.workout == null)
-      return const SizedBox.shrink();
+    final isVisible = active.isActive && active.workout != null;
 
+    return AnimatedSwitcher(
+      duration: _kBannerAnim,
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, animation) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, -0.15),
+              end: Offset.zero,
+            ).animate(curved),
+            child: child,
+          ),
+        );
+      },
+      child:
+          isVisible
+              ? _BannerContent(
+                active: active,
+                key: const ValueKey('banner-content'),
+              )
+              : const SizedBox(key: ValueKey('banner-empty'), height: 0),
+    );
+  }
+}
+
+class _BannerContent extends StatelessWidget {
+  final ActiveWorkoutProvider active;
+  const _BannerContent({required this.active, super.key});
+
+  @override
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final workout = active.workout!;
-
     return Material(
       color: scheme.surfaceVariant,
       child: InkWell(
@@ -54,11 +92,34 @@ class ActiveWorkoutBanner extends StatelessWidget {
               ValueListenableBuilder<int>(
                 valueListenable: active.elapsedSeconds,
                 builder:
-                    (_, sec, __) => Text(
-                      _format(sec),
-                      style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w800,
+                    (_, sec, __) => AnimatedSwitcher(
+                      duration: _kBannerAnim,
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) {
+                        final curved = CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOut,
+                          reverseCurve: Curves.easeIn,
+                        );
+                        return FadeTransition(
+                          opacity: curved,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.2),
+                              end: Offset.zero,
+                            ).animate(curved),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Text(
+                        _formatBannerTime(sec),
+                        key: ValueKey(sec),
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
               ),
@@ -70,10 +131,10 @@ class ActiveWorkoutBanner extends StatelessWidget {
       ),
     );
   }
+}
 
-  String _format(int s) {
-    final mm = (s ~/ 60).toString().padLeft(2, '0');
-    final ss = (s % 60).toString().padLeft(2, '0');
-    return '$mm:$ss';
-  }
+String _formatBannerTime(int seconds) {
+  final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
+  final secs = (seconds % 60).toString().padLeft(2, '0');
+  return '$minutes:$secs';
 }
