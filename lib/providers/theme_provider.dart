@@ -1,11 +1,16 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider extends ChangeNotifier {
   static const _kAccentKey = 'accent_argb';
   static const _kThemeModeKey = 'theme_mode'; // system|light|dark
 
-  Color _accent = const Color(0xFF2962FF); // default blue
+  Color _accent = const Color.fromARGB(
+    255,
+    71,
+    118,
+    248,
+  ); // default accent (hellblau)
   ThemeMode _themeMode = ThemeMode.system;
 
   Color get accent => _accent;

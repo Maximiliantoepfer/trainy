@@ -54,12 +54,13 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Einstellungen'),
-        bottom: active.isActive
-            ? const PreferredSize(
-                preferredSize: Size.fromHeight(56),
-                child: ActiveWorkoutBanner(),
-              )
-            : null,
+        bottom:
+            active.isActive
+                ? const PreferredSize(
+                  preferredSize: Size.fromHeight(56),
+                  child: ActiveWorkoutBanner(),
+                )
+                : null,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -218,127 +219,222 @@ class SettingsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         FilledButton.icon(
-                          onPressed: sync.isBusy
-                              ? null
-                              : () async {
-                                  try {
-                                    final cloud = context.read<CloudSyncProvider>();
-                                    await cloud.signInWithGoogle();
-                                    if (!context.mounted) return;
+                          onPressed:
+                              sync.isBusy
+                                  ? null
+                                  : () async {
+                                    try {
+                                      final cloud =
+                                          context.read<CloudSyncProvider>();
+                                      await cloud.signInWithGoogle();
+                                      if (!context.mounted) return;
 
-                                    // After login: if backup exists, offer safe choices
-                                    final exists = await cloud.remoteBackupExists();
-                                    if (exists) {
-                                      final choice = await showDialog<String>(
-                                        context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title: const Text('Cloud-Backup gefunden'),
-                                          content: const Text(
-                                            'Ein vorhandenes Cloud-Backup wurde gefunden. Wie moechtest du fortfahren?'
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(ctx, 'cancel'),
-                                              child: const Text('Abbrechen'),
-                                            ),
-                                            FilledButton(
-                                              onPressed: () => Navigator.pop(ctx, 'merge'),
-                                              child: const Text('Zusammenfuehren (empfohlen)'),
-                                            ),
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(ctx, 'load'),
-                                              child: const Text('Backup laden'),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-
-                                      if (choice == 'load') {
-                                        try {
-                                          await cloud.restoreNow();
-                                          if (!context.mounted) return;
-                                          // Reload views
-                                          await context.read<ExerciseProvider>().loadExercises();
-                                          await context.read<WorkoutProvider>().loadWorkouts();
-                                          await context.read<ProgressProvider>().loadData();
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Backup geladen')),
-                                          );
-                                        } catch (e) {
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Fehler: $e')),
-                                            );
-                                          }
-                                        }
-                                      } else if (choice == 'merge') {
-                                        try {
-                                          await cloud.mergeFromCloud();
-                                          if (!context.mounted) return;
-                                          await context.read<ExerciseProvider>().loadExercises();
-                                          await context.read<WorkoutProvider>().loadWorkouts();
-                                          await context.read<ProgressProvider>().loadData();
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Mit Cloud zusammengefuehrt')),
-                                          );
-                                        } catch (e) {
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('Fehler: $e')),
-                                            );
-                                          }
-                                        }
-                                      } else if (choice == 'cancel') {
-                                        // No-op
-                                      } else {
-                                        // Fallback path: offer to overwrite cloud (double confirm)
-                                        final overwrite = await showDialog<bool>(
+                                      // After login: if backup exists, offer safe choices
+                                      final exists =
+                                          await cloud.remoteBackupExists();
+                                      if (exists) {
+                                        final choice = await showDialog<String>(
                                           context: context,
-                                          builder: (ctx2) => AlertDialog(
-                                            title: const Text('Cloud ueberschreiben?'),
-                                            content: const Text('Alle alten Daten des Cloud-Backups gehen verloren. Fortfahren?'),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(ctx2, false),
-                                                child: const Text('Abbrechen'),
+                                          builder:
+                                              (ctx) => AlertDialog(
+                                                title: const Text(
+                                                  'Cloud-Backup gefunden',
+                                                ),
+                                                content: const Text(
+                                                  'Ein vorhandenes Cloud-Backup wurde gefunden. Wie moechtest du fortfahren?',
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed:
+                                                        () => Navigator.pop(
+                                                          ctx,
+                                                          'cancel',
+                                                        ),
+                                                    child: const Text(
+                                                      'Abbrechen',
+                                                    ),
+                                                  ),
+                                                  FilledButton(
+                                                    onPressed:
+                                                        () => Navigator.pop(
+                                                          ctx,
+                                                          'merge',
+                                                        ),
+                                                    child: const Text(
+                                                      'Zusammenfuehren (empfohlen)',
+                                                    ),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed:
+                                                        () => Navigator.pop(
+                                                          ctx,
+                                                          'load',
+                                                        ),
+                                                    child: const Text(
+                                                      'Backup laden',
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                              FilledButton(
-                                                onPressed: () => Navigator.pop(ctx2, true),
-                                                child: const Text('Ja, ueberschreiben'),
-                                              ),
-                                            ],
-                                          ),
                                         );
-                                        if (overwrite == true) {
+
+                                        if (choice == 'load') {
                                           try {
-                                            await cloud.backupNow();
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Cloud-Backup aktualisiert')),
-                                              );
-                                            }
+                                            await cloud.restoreNow();
+                                            if (!context.mounted) return;
+                                            // Reload views
+                                            await context
+                                                .read<ExerciseProvider>()
+                                                .loadExercises();
+                                            await context
+                                                .read<WorkoutProvider>()
+                                                .loadWorkouts();
+                                            await context
+                                                .read<ProgressProvider>()
+                                                .loadData();
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('Backup geladen'),
+                                              ),
+                                            );
                                           } catch (e) {
                                             if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(content: Text('Fehler: $e')),
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Fehler: $e'),
+                                                ),
                                               );
                                             }
                                           }
+                                        } else if (choice == 'merge') {
+                                          try {
+                                            await cloud.mergeFromCloud();
+                                            if (!context.mounted) return;
+                                            await context
+                                                .read<ExerciseProvider>()
+                                                .loadExercises();
+                                            await context
+                                                .read<WorkoutProvider>()
+                                                .loadWorkouts();
+                                            await context
+                                                .read<ProgressProvider>()
+                                                .loadData();
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Mit Cloud zusammengefuehrt',
+                                                ),
+                                              ),
+                                            );
+                                          } catch (e) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Fehler: $e'),
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        } else if (choice == 'cancel') {
+                                          // No-op
+                                        } else {
+                                          // Fallback path: offer to overwrite cloud (double confirm)
+                                          final overwrite = await showDialog<
+                                            bool
+                                          >(
+                                            context: context,
+                                            builder:
+                                                (ctx2) => AlertDialog(
+                                                  title: const Text(
+                                                    'Cloud ueberschreiben?',
+                                                  ),
+                                                  content: const Text(
+                                                    'Alle alten Daten des Cloud-Backups gehen verloren. Fortfahren?',
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed:
+                                                          () => Navigator.pop(
+                                                            ctx2,
+                                                            false,
+                                                          ),
+                                                      child: const Text(
+                                                        'Abbrechen',
+                                                      ),
+                                                    ),
+                                                    FilledButton(
+                                                      onPressed:
+                                                          () => Navigator.pop(
+                                                            ctx2,
+                                                            true,
+                                                          ),
+                                                      child: const Text(
+                                                        'Ja, ueberschreiben',
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                          );
+                                          if (overwrite == true) {
+                                            try {
+                                              await cloud.backupNow();
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Cloud-Backup aktualisiert',
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                            } catch (e) {
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text('Fehler: $e'),
+                                                  ),
+                                                );
+                                              }
+                                            }
+                                          }
                                         }
+                                      } else {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Anmeldung erfolgreich',
+                                            ),
+                                          ),
+                                        );
                                       }
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Anmeldung erfolgreich')),
-                                      );
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Anmeldung fehlgeschlagen: $e',
+                                            ),
+                                          ),
+                                        );
+                                      }
                                     }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Anmeldung fehlgeschlagen: $e')),
-                                      );
-                                    }
-                                  }
-                                },
+                                  },
                           icon: const Icon(Icons.login),
                           label: const Text('Mit Google anmelden'),
                         ),
@@ -539,7 +635,7 @@ class SettingsScreen extends StatelessWidget {
 }
 
 const _quickSwatches = <Color>[
-  Color.fromARGB(255, 59, 111, 255),
+  Color.fromARGB(255, 80, 127, 255),
   Color.fromARGB(255, 14, 199, 255),
   Color(0xFF00C853),
   Color(0xFFD81B60),
