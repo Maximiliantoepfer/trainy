@@ -10,11 +10,21 @@ import '../providers/workout_provider.dart';
 import '../widgets/active_workout_banner.dart';
 import '../providers/active_workout_provider.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
   @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = context.watch<ThemeProvider>();
     final scheme = Theme.of(context).colorScheme;
     final progress = context.watch<ProgressProvider>();

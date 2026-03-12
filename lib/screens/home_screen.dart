@@ -20,13 +20,17 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with AutomaticKeepAliveClientMixin {
   int? _selectedWorkoutId;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    // Beim ersten Ã–ffnen Workouts + Progress laden
+    // Beim ersten Öffnen Workouts + Progress laden
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<WorkoutProvider>().loadWorkouts();
       context.read<ProgressProvider>().loadData();
@@ -103,9 +107,9 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Workout lÃ¶schen?'),
+            title: const Text('Workout löschen?'),
             content: Text(
-              'â€ž${workout.name}â€œ wird endgÃ¼ltig gelÃ¶scht. Fortfahren?',
+              '„${workout.name}" wird endgültig gelöscht. Fortfahren?',
             ),
             actions: [
               TextButton(
@@ -120,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('LÃ¶schen'),
+                child: const Text('Löschen'),
               ),
             ],
           ),
@@ -137,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('â€ž${workout.name}â€œ gelÃ¶scht'),
+        content: Text('„${workout.name}" gelöscht'),
         backgroundColor: scheme.surface,
         behavior: SnackBarBehavior.floating,
       ),
@@ -158,6 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final provider = context.watch<WorkoutProvider>();
     final workouts = provider.workouts;
     final active = context.watch<ActiveWorkoutProvider>();
@@ -416,7 +421,7 @@ class _DayPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    // HELLERES GrÃ¼n fÃ¼r Done (vorher 0xFF2E7D32)
+    // HELLERES Grün für Done (vorher 0xFF2E7D32)
     const Color doneFill = Color(0xFF4CAF50); // Green 500
     const Color doneShadow = Color(0x404CAF50); // 25% Alpha
 

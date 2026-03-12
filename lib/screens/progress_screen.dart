@@ -19,8 +19,12 @@ class ProgressScreen extends StatefulWidget {
   State<ProgressScreen> createState() => _ProgressScreenState();
 }
 
-class _ProgressScreenState extends State<ProgressScreen> {
+class _ProgressScreenState extends State<ProgressScreen>
+    with AutomaticKeepAliveClientMixin {
   bool _loadedOnce = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void didChangeDependencies() {
@@ -29,7 +33,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         context.read<ProgressProvider>().loadData();
-        // FÃ¼r die TitelauflÃ¶sung (Workoutname)
+        // Für die Titelauflösung (Workoutname)
         context.read<WorkoutProvider>().loadWorkouts();
       });
       _loadedOnce = true;
@@ -38,6 +42,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final provider = context.watch<ProgressProvider>();
     final entries = provider.entries;
     final active = context.watch<ActiveWorkoutProvider>();
@@ -78,7 +83,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                       child: WeeklyActivityChart(
                         entries: entries,
-                        title: 'AktivitÃ¤t',
+                        title: 'Aktivität',
                         subtitle: 'Workouts pro Tag',
                       ),
                     ),
@@ -114,12 +119,12 @@ class _EmptyState extends StatelessWidget {
             const Icon(Icons.show_chart, size: 64),
             const SizedBox(height: 12),
             Text(
-              'Noch keine EintrÃ¤ge',
+              'Noch keine Einträge',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             const Text(
-              'Starte ein Workout und erfasse SÃ¤tze, dann erscheinen sie hier.',
+              'Starte ein Workout und erfasse Sätze, dann erscheinen sie hier.',
               textAlign: TextAlign.center,
             ),
           ],
@@ -139,7 +144,7 @@ class _EntryCard extends StatelessWidget {
     final dateStr =
         '${date.day.toString().padLeft(2, '0')}.'
         '${date.month.toString().padLeft(2, '0')}.'
-        '${date.year} â€¢ '
+        '${date.year} • '
         '${date.hour.toString().padLeft(2, '0')}:'
         '${date.minute.toString().padLeft(2, '0')}';
 
@@ -153,7 +158,7 @@ class _EntryCard extends StatelessWidget {
     }
     final workoutName = w?.name ?? 'Workout';
 
-    // GesamtsÃ¤tze/-dauer (aggregiert Ã¼ber Exercises)
+    // Gesamtsätze/-dauer (aggregiert über Exercises)
     int totalSets = 0;
     int totalDuration = 0;
     entry.results.forEach((_, v) {
@@ -181,8 +186,8 @@ class _EntryCard extends StatelessWidget {
         ),
         subtitle: Text(
           '$dateStr'
-          '${totalSets > 0 ? ' Â· $totalSets SÃ¤tze' : ''}'
-          '${totalDuration > 0 ? ' Â· ${DurationFormatter.verbose(totalDuration)}' : ''}',
+          '${totalSets > 0 ? ' · $totalSets Sätze' : ''}'
+          '${totalDuration > 0 ? ' · ${DurationFormatter.verbose(totalDuration)}' : ''}',
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {

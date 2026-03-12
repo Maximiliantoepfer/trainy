@@ -87,7 +87,7 @@ class WorkoutCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       if (workout.exerciseIds.isNotEmpty)
                         Text(
-                          '${workout.exerciseIds.length} Ãœbung(en)',
+                          '${workout.exerciseIds.length} Übung(en)',
                           style: bodyStyle?.copyWith(
                             color: textTheme.bodySmall?.color?.withOpacity(0.7),
                           ),
@@ -119,7 +119,7 @@ class WorkoutCard extends StatelessWidget {
                     ),
                   ),
                   color: selected ? Colors.red : scheme.primary,
-                  tooltip: selected ? 'LÃ¶schen' : 'Bearbeiten',
+                  tooltip: selected ? 'Löschen' : 'Bearbeiten',
                 ),
               ],
             ),

@@ -27,7 +27,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // Deep copy der Map, damit wir lokal updaten kÃ¶nnen
+    // Deep copy der Map, damit wir lokal updaten können
     _results = {
       for (final e in widget.entry.results.entries)
         e.key: Map<String, dynamic>.from(e.value),
@@ -37,7 +37,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}.'
         '${date.month.toString().padLeft(2, '0')}.'
-        '${date.year} â€¢ '
+        '${date.year} • '
         '${date.hour.toString().padLeft(2, '0')}:'
         '${date.minute.toString().padLeft(2, '0')}';
   }
@@ -130,7 +130,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
   String _dialogTitleFor(String field) {
     switch (field) {
       case 'sets':
-        return 'SÃ¤tze bearbeiten';
+        return 'Sätze bearbeiten';
       case 'reps':
         return 'Wiederholungen bearbeiten';
       case 'weight':
@@ -174,7 +174,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
 
           return _ExerciseResultCard(
             exerciseId: exerciseId,
-            exerciseName: ex?.name ?? 'Ãœbung #$exerciseId',
+            exerciseName: ex?.name ?? 'Übung #$exerciseId',
             values: data,
             onEdit: _editMetric,
           );
@@ -235,7 +235,7 @@ class _ExerciseResultCard extends StatelessWidget {
               children: [
                 _MetricChip(
                   icon: Icons.layers,
-                  label: 'SÃ¤tze',
+                  label: 'Sätze',
                   value: sets?.toString(),
                   onTap:
                       () => onEdit(
@@ -352,7 +352,7 @@ class _MetricChip extends StatelessWidget {
         Icon(icon, size: 18, color: onColor),
         const SizedBox(width: 8),
         Text(
-          hasValue ? '$label: $value' : '$label hinzufÃ¼gen',
+          hasValue ? '$label: $value' : '$label hinzufügen',
           style: Theme.of(
             context,
           ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),

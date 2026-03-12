@@ -39,7 +39,7 @@ class _MainNavigationState extends State<MainNavigation> {
     return Scaffold(
       body: PageView(
         controller: _pageController,
-        physics: const BouncingScrollPhysics(),
+        physics: const ClampingScrollPhysics(),
         onPageChanged: (i) => setState(() => _index = i),
         children: _pages,
       ),
@@ -47,7 +47,7 @@ class _MainNavigationState extends State<MainNavigation> {
       // Wichtig: Labels ausblenden und Ripple/Highlight lokal abschalten
       bottomNavigationBar: Theme(
         data: Theme.of(context).copyWith(
-          // verhindert die â€žHintergrunderleuchtungâ€œ beim Tippen
+          // verhindert die „Hintergrunderleuchtung" beim Tippen
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
           splashColor: Colors.transparent,
@@ -57,7 +57,7 @@ class _MainNavigationState extends State<MainNavigation> {
           // Nur Icons, keine Labels
           labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
 
-          // GrÃ¶ÃŸen/Farben kommen aus dem NavigationBarTheme (app_theme.dart)
+          // Größen/Farben kommen aus dem NavigationBarTheme (app_theme.dart)
           selectedIndex: _index,
           onDestinationSelected: (i) {
             if (i == _index) return;
@@ -77,7 +77,7 @@ class _MainNavigationState extends State<MainNavigation> {
             NavigationDestination(
               icon: Icon(Icons.fitness_center_rounded, fill: 0),
               selectedIcon: Icon(Icons.fitness_center_rounded, fill: 0),
-              label: 'Ãœbungen',
+              label: 'Übungen',
             ),
             NavigationDestination(
               icon: Icon(Icons.insights_outlined),

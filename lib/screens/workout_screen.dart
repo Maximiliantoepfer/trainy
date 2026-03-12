@@ -112,7 +112,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             Navigator.pop(ctx);
             ScaffoldMessenger.of(rootContext).showSnackBar(
               SnackBar(
-                content: Text('â€ž$nameâ€œ wurde erstellt und hinzugefÃ¼gt'),
+                content: Text('„$name" wurde erstellt und hinzugefügt'),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -166,7 +166,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         Expanded(
                           child: TabBarView(
                             children: [
-                              // Tab 1: vorhandene Exercises auswÃ¤hlen
+                              // Tab 1: vorhandene Exercises auswählen
                               ListView.builder(
                                 padding: const EdgeInsets.fromLTRB(
                                   16,
@@ -178,7 +178,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                 itemBuilder: (_, i) {
                                   final e = all[i];
                                   final subtitle = <String>[];
-                                  if (e.trackSets) subtitle.add('SÃ¤tze');
+                                  if (e.trackSets) subtitle.add('Sätze');
                                   if (e.trackReps) subtitle.add('Wdh.');
                                   if (e.trackWeight) subtitle.add('Gewicht');
                                   if (e.trackDuration) subtitle.add('Dauer');
@@ -206,7 +206,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                       subtitle:
                                           subtitle.isEmpty
                                               ? null
-                                              : Text(subtitle.join(' Â· ')),
+                                              : Text(subtitle.join(' · ')),
                                       controlAffinity:
                                           ListTileControlAffinity.leading,
                                       shape: RoundedRectangleBorder(
@@ -272,7 +272,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                         },
                                       ),
                                       ChoiceChip(
-                                        label: const Text('SÃ¤tze + Dauer'),
+                                        label: const Text('Sätze + Dauer'),
                                         selected: false,
                                         onSelected: (_) {
                                           trackSets.value = true;
@@ -349,7 +349,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                         : null,
                                                 icon: const Icon(Icons.add),
                                                 label: const Text(
-                                                  'Erstellen & hinzufÃ¼gen',
+                                                  'Erstellen & hinzufügen',
                                                 ),
                                               )
                                               : FilledButton(
@@ -389,7 +389,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                   }
                                                 },
                                                 child: const Text(
-                                                  'HinzufÃ¼gen',
+                                                  'Hinzufügen',
                                                 ),
                                               ),
                                     ),
@@ -687,7 +687,7 @@ class _TrackChecklist extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _tile(context, 'SÃ¤tze zÃ¤hlen', 'z. B. 3 SÃ¤tze', trackSets),
+        _tile(context, 'Sätze zählen', 'z. B. 3 Sätze', trackSets),
         _tile(context, 'Wiederholungen', 'z. B. 10 pro Satz', trackReps),
         _tile(context, 'Gewicht', 'z. B. 50 kg', trackWeight),
         _tile(context, 'Dauer', 'z. B. 60 Sekunden', trackDuration),
