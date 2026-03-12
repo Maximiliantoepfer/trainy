@@ -14,9 +14,13 @@ class ExerciseScreen extends StatefulWidget {
   State<ExerciseScreen> createState() => _ExerciseScreenState();
 }
 
-class _ExerciseScreenState extends State<ExerciseScreen> {
+class _ExerciseScreenState extends State<ExerciseScreen>
+    with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -32,6 +36,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final provider = context.watch<ExerciseProvider>();
     final list = provider.exercises;
     final filtered =
@@ -47,7 +52,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ãœbungen'),
+        title: const Text('Übungen'),
         bottom: PreferredSize(
           preferredSize: Size.fromHeight((isActive ? 56 : 0) + 60),
           child: Column(
@@ -58,7 +63,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: SearchBar(
                   controller: _searchCtrl,
-                  hintText: 'Ãœbungen durchsuchen',
+                  hintText: 'Übungen durchsuchen',
                   leading: Icon(
                     Icons.search,
                     color: Theme.of(context).colorScheme.primary,
@@ -111,11 +116,11 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       ),
                       subtitle: Text(
                         [
-                          if (e.trackSets) 'SÃ¤tze',
+                          if (e.trackSets) 'Sätze',
                           if (e.trackReps) 'Wdh.',
                           if (e.trackWeight) 'Gewicht',
                           if (e.trackDuration) 'Dauer',
-                        ].join(' Â· '),
+                        ].join(' · '),
                       ),
                       trailing: IconButton(
                         icon: const Icon(Icons.edit_outlined),
@@ -177,8 +182,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                           children: [
                             Text(
                               existing == null
-                                  ? 'Ãœbung erstellen'
-                                  : 'Ãœbung bearbeiten',
+                                  ? 'Übung erstellen'
+                                  : 'Übung bearbeiten',
                               style: Theme.of(ctx).textTheme.headlineSmall,
                             ),
                           ],
@@ -215,8 +220,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                       value: trackSets,
                                       onChanged:
                                           (v) => setModal(() => trackSets = v),
-                                      title: const Text('SÃ¤tze'),
-                                      subtitle: const Text('z. B. 3 SÃ¤tze'),
+                                      title: const Text('Sätze'),
+                                      subtitle: const Text('z. B. 3 Sätze'),
                                     ),
                                     SwitchListTile(
                                       value: trackReps,
@@ -288,8 +293,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                       SnackBar(
                                         content: Text(
                                           existing == null
-                                              ? 'Ãœbung "$name" angelegt'
-                                              : 'Ãœbung "$name" aktualisiert',
+                                              ? 'Übung "$name" angelegt'
+                                              : 'Übung "$name" aktualisiert',
                                         ),
                                         behavior: SnackBarBehavior.floating,
                                       ),
@@ -333,16 +338,16 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Noch keine Ãœbungen',
+              'Noch keine Übungen',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
-            const Text('Lege deine erste Ãœbung an, um zu starten.'),
+            const Text('Lege deine erste Übung an, um zu starten.'),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: onAdd,
               icon: const Icon(Icons.add),
-              label: const Text('Ãœbung anlegen'),
+              label: const Text('Übung anlegen'),
             ),
           ],
         ),

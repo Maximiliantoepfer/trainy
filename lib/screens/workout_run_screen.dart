@@ -71,7 +71,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
 
     if (!mounted) return;
 
-    // Speichern bestÃÂ¤tigen (auch wenn leer, damit klarer Flow)
+    // Speichern bestätigen (auch wenn leer, damit klarer Flow)
     final save = await showDialog<bool>(
       context: context,
       builder:
@@ -79,8 +79,8 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
             title: const Text('Workout beenden'),
             content: Text(
               hasAnySets
-                  ? 'Die erfassten SÃÂ¤tze werden gespeichert.'
-                  : 'Keine SÃÂ¤tze erfasst. Trotzdem beenden?',
+                  ? 'Die erfassten Sätze werden gespeichert.'
+                  : 'Keine Sätze erfasst. Trotzdem beenden?',
             ),
             actions: [
               TextButton(
@@ -107,7 +107,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       exerciseProvider.updateLastValues(exerciseId, last);
     });
 
-    // 2) Session fÃÂ¼r Progress persistieren (nur wenn Sets vorhanden)
+    // 2) Session für Progress persistieren (nur wenn Sets vorhanden)
     if (hasAnySets) {
       await context.read<ProgressProvider>().saveWorkoutEntries(
         workoutId: widget.workout.id,
@@ -176,8 +176,8 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
             (ctx) => AlertDialog(
               title: Text(e.name),
               content: const Text(
-                'FÃÂ¼r diese ÃÅbung sind keine Felder zum Tracken aktiviert. '
-                'Aktiviere SÃÂ¤tze/Wdh./Gewicht/Dauer in der ÃÅbungsbearbeitung.',
+                'Für diese Übung sind keine Felder zum Tracken aktiviert. '
+                'Aktiviere Sätze/Wdh./Gewicht/Dauer in der Übungsbearbeitung.',
               ),
               actions: [
                 TextButton(
@@ -226,7 +226,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                       controller: setsCtrl,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'SÃÂ¤tze (Anzahl)',
+                        labelText: 'Sätze (Anzahl)',
                       ),
                     ),
                   if (e.trackReps)

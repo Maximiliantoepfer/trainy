@@ -9,6 +9,7 @@ import 'providers/workout_provider.dart';
 import 'providers/progress_provider.dart';
 import 'providers/cloud_sync_provider.dart';
 import 'providers/active_workout_provider.dart';
+import 'providers/locale_provider.dart';
 import 'navigation/main_navigation.dart';
 import 'widgets/onboarding_gate.dart';
 
@@ -28,6 +29,7 @@ class TrainyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider()..init()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(
           create: (_) => ExerciseProvider()..loadExercises(),
