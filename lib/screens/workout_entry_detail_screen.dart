@@ -1,5 +1,3 @@
-﻿// lib/screens/workout_entry_detail_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -22,29 +20,20 @@ class WorkoutEntryDetailScreen extends StatefulWidget {
 }
 
 class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
-  late Map<int, Map<String, dynamic>> _results; // lokale, editierbare Kopie
+  late Map<int, Map<String, dynamic>> _results;
 
   @override
   void initState() {
     super.initState();
-    // Deep copy der Map, damit wir lokal updaten können
     _results = {
       for (final e in widget.entry.results.entries)
         e.key: Map<String, dynamic>.from(e.value),
     };
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}.'
-        '${date.month.toString().padLeft(2, '0')}.'
-        '${date.year} • '
-        '${date.hour.toString().padLeft(2, '0')}:'
-        '${date.minute.toString().padLeft(2, '0')}';
-  }
-
   Future<void> _editMetric({
     required int exerciseId,
-    required String field, // 'sets' | 'reps' | 'weight' | 'duration'
+    required String field,
     required num? current,
   }) async {
     final isInt = field == 'sets' || field == 'reps' || field == 'duration';
@@ -56,17 +45,16 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: Text(_dialogTitleFor(field)),
+          icon: Icon(_iconForField(field),
+              size: 28, color: Theme.of(ctx).colorScheme.primary),
           content: TextField(
             controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
             autofocus: true,
-            decoration: InputDecoration(
-              hintText: isInt ? 'z. B. 10' : 'z. B. 42.5',
-            ),
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: () => Navigator.of(ctx).pop(null),
               child: const Text('Abbrechen'),
             ),
@@ -87,7 +75,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
                 }
                 Navigator.of(ctx).pop(parsed);
               },
-              child: const Text('Speichern'),
+              child: const Icon(Icons.check_rounded),
             ),
           ],
         );
@@ -96,7 +84,6 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
 
     if (newValue == null) return;
 
-    // DB aktualisieren
     await WorkoutEntryDatabase.instance.updateMetric(
       workoutId: widget.entry.workoutId,
       exerciseId: exerciseId,
@@ -105,63 +92,66 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
       value: newValue,
     );
 
-    // Provider-List re-laden, damit Progress-Screen aktuell bleibt
     await context.read<ProgressProvider>().refreshEntries();
 
-    // Lokalen Zustand updaten (UI direkt aktualisieren)
     setState(() {
       final m = _results[exerciseId] ?? <String, dynamic>{};
       m[field] = newValue;
       _results[exerciseId] = m;
     });
 
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Wert aktualisiert')));
-    }
-
-    // Trigger a debounced cloud backup for this change
     try {
       if (mounted) context.read<CloudSyncProvider>().scheduleBackupSoon();
     } catch (_) {}
   }
 
-  String _dialogTitleFor(String field) {
+  IconData _iconForField(String field) {
     switch (field) {
       case 'sets':
-        return 'Sätze bearbeiten';
+        return Icons.layers_rounded;
       case 'reps':
-        return 'Wiederholungen bearbeiten';
+        return Icons.repeat_rounded;
       case 'weight':
-        return 'Gewicht bearbeiten';
+        return Icons.fitness_center_rounded;
       case 'duration':
-        return 'Dauer (Sek.) bearbeiten';
+        return Icons.timer_outlined;
       default:
-        return 'Wert bearbeiten';
+        return Icons.edit_rounded;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final exercises = context.watch<ExerciseProvider>().exercises;
+    final scheme = Theme.of(context).colorScheme;
+    final date = widget.entry.date;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Workout-Details'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(24),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Text(
-              _formatDate(widget.entry.date),
-              style: Theme.of(context).textTheme.labelLarge,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.calendar_today_rounded,
+                size: 16, color: scheme.onSurfaceVariant.withOpacity(0.6)),
+            const SizedBox(width: 6),
+            Text(
+              '${date.day.toString().padLeft(2, '0')}.'
+              '${date.month.toString().padLeft(2, '0')}.'
+              '${date.year}',
             ),
-          ),
+            const SizedBox(width: 10),
+            Icon(Icons.access_time_rounded,
+                size: 16, color: scheme.onSurfaceVariant.withOpacity(0.6)),
+            const SizedBox(width: 4),
+            Text(
+              '${date.hour.toString().padLeft(2, '0')}:'
+              '${date.minute.toString().padLeft(2, '0')}',
+            ),
+          ],
         ),
       ),
       body: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         itemBuilder: (ctx, index) {
           final exerciseId = _results.keys.elementAt(index);
           final data = _results[exerciseId] ?? const {};
@@ -174,12 +164,12 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
 
           return _ExerciseResultCard(
             exerciseId: exerciseId,
-            exerciseName: ex?.name ?? 'Übung #$exerciseId',
+            exerciseName: ex?.name ?? '#$exerciseId',
             values: data,
             onEdit: _editMetric,
           );
         },
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemCount: _results.length,
       ),
     );
@@ -194,8 +184,7 @@ class _ExerciseResultCard extends StatelessWidget {
     required int exerciseId,
     required String field,
     required num? current,
-  })
-  onEdit;
+  }) onEdit;
 
   const _ExerciseResultCard({
     required this.exerciseId,
@@ -206,6 +195,7 @@ class _ExerciseResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final sets = _asInt(values['sets']);
     final reps = _asInt(values['reps']);
     final weight = _asDouble(values['weight']);
@@ -218,71 +208,60 @@ class _ExerciseResultCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Titel
             Text(
               exerciseName,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 10),
-            // Kennzahlen-Chips (klickbar)
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
+            const SizedBox(height: 12),
+            Row(
               children: [
-                _MetricChip(
-                  icon: Icons.layers,
-                  label: 'Sätze',
-                  value: sets?.toString(),
-                  onTap:
-                      () => onEdit(
+                if (sets != null)
+                  _MetricPill(
+                    icon: Icons.layers_rounded,
+                    value: '$sets',
+                    scheme: scheme,
+                    onTap: () => onEdit(
                         exerciseId: exerciseId,
                         field: 'sets',
-                        current: sets,
-                      ),
-                ),
-                _MetricChip(
-                  icon: Icons.repeat,
-                  label: 'Wdh.',
-                  value: reps?.toString(),
-                  onTap:
-                      () => onEdit(
+                        current: sets),
+                  ),
+                if (reps != null)
+                  _MetricPill(
+                    icon: Icons.repeat_rounded,
+                    value: '$reps',
+                    scheme: scheme,
+                    onTap: () => onEdit(
                         exerciseId: exerciseId,
                         field: 'reps',
-                        current: reps,
-                      ),
-                ),
-                _MetricChip(
-                  icon: Icons.fitness_center_rounded,
-                  label: 'Gewicht',
-                  value: weight == null ? null : _formatWeight(weight),
-                  onTap:
-                      () => onEdit(
+                        current: reps),
+                  ),
+                if (weight != null)
+                  _MetricPill(
+                    icon: Icons.fitness_center_rounded,
+                    value: _formatWeight(weight),
+                    scheme: scheme,
+                    onTap: () => onEdit(
                         exerciseId: exerciseId,
                         field: 'weight',
-                        current: weight,
-                      ),
-                ),
-                _MetricChip(
-                  icon: Icons.timer_outlined,
-                  label: 'Dauer',
-                  value:
-                      duration == null
-                          ? null
-                          : DurationFormatter.verbose(duration),
-                  onTap:
-                      () => onEdit(
+                        current: weight),
+                  ),
+                if (duration != null)
+                  _MetricPill(
+                    icon: Icons.timer_outlined,
+                    value: DurationFormatter.verbose(duration),
+                    scheme: scheme,
+                    onTap: () => onEdit(
                         exerciseId: exerciseId,
                         field: 'duration',
-                        current: duration,
-                      ),
-                ),
+                        current: duration),
+                  ),
               ],
             ),
-            // Fallback: Wenn keine bekannten Felder, zeige Rohwerte (auch editierbar)
             if (sets == null &&
                 reps == null &&
                 weight == null &&
@@ -307,8 +286,7 @@ class _ExerciseResultCard extends StatelessWidget {
   }
 
   static String _formatWeight(double w) {
-    final s = w.toStringAsFixed(w.truncateToDouble() == w ? 0 : 1);
-    return s;
+    return w.toStringAsFixed(w.truncateToDouble() == w ? 0 : 1);
   }
 
   static int? _asInt(dynamic v) {
@@ -328,48 +306,43 @@ class _ExerciseResultCard extends StatelessWidget {
   }
 }
 
-class _MetricChip extends StatelessWidget {
+class _MetricPill extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final String? value;
+  final String value;
+  final ColorScheme scheme;
   final VoidCallback onTap;
 
-  const _MetricChip({
+  const _MetricPill({
     required this.icon,
-    required this.label,
     required this.value,
+    required this.scheme,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasValue = value != null && value!.isNotEmpty;
-    final onColor = Theme.of(context).colorScheme.onSecondaryContainer;
-
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18, color: onColor),
-        const SizedBox(width: 8),
-        Text(
-          hasValue ? '$label: $value' : '$label hinzufügen',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-        ),
-      ],
-    );
-
-    // (Ausschnitt) â€“ in _ValuePill.build() den Material-Container anpassen:
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceVariant, // neutral
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: content,
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: scheme.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: scheme.primary),
+                const SizedBox(width: 6),
+                Text(value,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -413,12 +386,11 @@ class _RawValues extends StatelessWidget {
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 4,
-                    ),
+                        horizontal: 6, vertical: 4),
                     child: Text(
                       '${e.value}',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style:
+                          Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         decoration: TextDecoration.underline,
                       ),

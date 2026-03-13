@@ -92,40 +92,16 @@ class _BannerContent extends StatelessWidget {
               const SizedBox(width: 8),
               ValueListenableBuilder<int>(
                 valueListenable: active.elapsedSeconds,
-                builder:
-                    (_, sec, __) => AnimatedSwitcher(
-                      duration: _kBannerAnim,
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeIn,
-                      transitionBuilder: (child, animation) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOut,
-                          reverseCurve: Curves.easeIn,
-                        );
-                        return FadeTransition(
-                          opacity: curved,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.2),
-                              end: Offset.zero,
-                            ).animate(curved),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: Text(
-                        _formatBannerTime(sec),
-                        key: ValueKey(sec),
-                        style: TextStyle(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
+                builder: (_, sec, __) => Text(
+                  _formatBannerTime(sec),
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+              Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant.withOpacity(0.5)),
             ],
           ),
         ),

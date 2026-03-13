@@ -73,7 +73,7 @@ class AppTheme {
       iconTheme: IconThemeData(color: scheme.primary),
       iconButtonTheme: IconButtonThemeData(
         style: ButtonStyle(
-          foregroundColor: MaterialStatePropertyAll(scheme.primary),
+          foregroundColor: WidgetStatePropertyAll(scheme.primary),
         ),
       ),
 
@@ -100,12 +100,12 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: ButtonStyle(
-          backgroundColor: MaterialStatePropertyAll(scheme.primary),
-          foregroundColor: MaterialStatePropertyAll(scheme.onPrimary),
-          shape: MaterialStatePropertyAll(
+          backgroundColor: WidgetStatePropertyAll(scheme.primary),
+          foregroundColor: WidgetStatePropertyAll(scheme.onPrimary),
+          shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
-          elevation: const MaterialStatePropertyAll(0),
+          elevation: const WidgetStatePropertyAll(0),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -140,22 +140,22 @@ class AppTheme {
       // SegmentedButton neutral, bei Auswahl nur Border/Text in Akzentfarbe
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
-          backgroundColor: MaterialStatePropertyAll(scheme.surfaceVariant),
-          foregroundColor: MaterialStateProperty.resolveWith(
+          backgroundColor: WidgetStatePropertyAll(scheme.surfaceVariant),
+          foregroundColor: WidgetStateProperty.resolveWith(
             (states) =>
-                states.contains(MaterialState.selected)
+                states.contains(WidgetState.selected)
                     ? scheme.primary
                     : scheme.onSurface,
           ),
-          side: MaterialStateProperty.resolveWith(
+          side: WidgetStateProperty.resolveWith(
             (states) => BorderSide(
               color:
-                  states.contains(MaterialState.selected)
+                  states.contains(WidgetState.selected)
                       ? scheme.primary
                       : scheme.outlineVariant,
             ),
           ),
-          shape: MaterialStatePropertyAll(
+          shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
@@ -212,28 +212,28 @@ class AppTheme {
       backgroundColor: bg,
       indicatorColor: Colors.transparent, // kein Glow/Indicator
       // Icon-Größe & -Farbe nach Status
-      iconTheme: MaterialStateProperty.resolveWith(
+      iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
           color:
-              states.contains(MaterialState.selected)
+              states.contains(WidgetState.selected)
                   ? scheme.primary
                   : scheme.onSurfaceVariant,
           size:
-              states.contains(MaterialState.selected)
+              states.contains(WidgetState.selected)
                   ? selectedSize
                   : unselectedSize,
         ),
       ),
       // Labels werden in der MainNavigation verborgen; Stil hier nur fallback
-      labelTextStyle: MaterialStateProperty.resolveWith(
+      labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
-          fontSize: states.contains(MaterialState.selected) ? 13 : 12,
+          fontSize: states.contains(WidgetState.selected) ? 13 : 12,
           fontWeight:
-              states.contains(MaterialState.selected)
+              states.contains(WidgetState.selected)
                   ? FontWeight.w700
                   : FontWeight.w500,
           color:
-              states.contains(MaterialState.selected)
+              states.contains(WidgetState.selected)
                   ? scheme.primary
                   : scheme.onSurfaceVariant,
           letterSpacing: -0.1,

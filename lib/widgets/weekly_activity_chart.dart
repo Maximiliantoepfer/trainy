@@ -77,28 +77,21 @@ class WeeklyActivityChart extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (title != null || subtitle != null)
+          if (title != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 children: [
-                  if (title != null)
-                    Expanded(
-                      child: Text(
-                        title!,
-                        style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  Icon(Icons.bar_chart_rounded,
+                      size: 18, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    title!,
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
-                  if (subtitle != null)
-                    Text(
-                      subtitle!,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: textTheme.bodySmall?.color?.withOpacity(0.7),
-                      ),
-                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),

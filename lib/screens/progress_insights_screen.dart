@@ -15,9 +15,8 @@ class ProgressInsightsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Insights')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          // Trainingskalender
           Card(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
@@ -25,7 +24,6 @@ class ProgressInsightsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          // Exercise-Progress
           const FilteredExerciseProgressChart(),
         ],
       ),

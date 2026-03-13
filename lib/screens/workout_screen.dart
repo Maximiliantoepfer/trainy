@@ -10,8 +10,6 @@ import '../providers/active_workout_provider.dart';
 import '../widgets/active_workout_banner.dart';
 import 'workout_run_screen.dart';
 
-const Duration _kWorkoutAnim = Duration(milliseconds: 200);
-
 class WorkoutScreen extends StatefulWidget {
   final Workout workout;
   const WorkoutScreen({super.key, required this.workout});
@@ -31,13 +29,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Future<void> _persistOrder(BuildContext context) async {
     await context.read<WorkoutProvider>().setWorkoutExercises(
-      widget.workout.id,
-      _exerciseIds,
-    );
-    // trigger cloud backup soon (debounced)
-    try {
-      context.read<CloudSyncProvider>().scheduleBackupSoon();
-    } catch (_) {}
+          widget.workout.id, _exerciseIds);
+    try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
   }
 
   void _onReorder(int oldIndex, int newIndex) {
@@ -52,14 +45,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Future<void> _addExercisesBottomSheet() async {
     final all = context.read<ExerciseProvider>().exercises;
     final selected = Set<int>.from(_exerciseIds);
-
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     final trackSets = ValueNotifier<bool>(true);
     final trackReps = ValueNotifier<bool>(true);
     final trackWeight = ValueNotifier<bool>(true);
     final trackDuration = ValueNotifier<bool>(false);
-
     final rootContext = context;
 
     await showModalBottomSheet(
@@ -73,50 +64,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       builder: (ctx) {
         Future<void> createAndAttach() async {
           final name = nameCtrl.text.trim();
-          if (name.isEmpty) {
-            await showDialog(
-              context: ctx,
-              builder:
-                  (_) => AlertDialog(
-                    title: const Text('Name fehlt'),
-                    content: const Text('Bitte einen Namen eingeben'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('OK'),
-                      ),
-                    ],
-                  ),
-            );
-            return;
-          }
-
+          if (name.isEmpty) return;
           final newId = await ctx.read<ExerciseProvider>().addExercise(
-            name: name,
-            description: descCtrl.text.trim(),
-            trackSets: trackSets.value,
-            trackReps: trackReps.value,
-            trackWeight: trackWeight.value,
-            trackDuration: trackDuration.value,
-          );
-
-          final merged = [
-            ..._exerciseIds,
-            if (!_exerciseIds.contains(newId)) newId,
-          ];
-
+                name: name,
+                description: descCtrl.text.trim(),
+                trackSets: trackSets.value,
+                trackReps: trackReps.value,
+                trackWeight: trackWeight.value,
+                trackDuration: trackDuration.value,
+              );
+          final merged = [..._exerciseIds, if (!_exerciseIds.contains(newId)) newId];
           setState(() => _exerciseIds = merged);
           await _persistOrder(rootContext);
-
-          if (rootContext.mounted) {
-            Navigator.pop(ctx);
-            ScaffoldMessenger.of(rootContext).showSnackBar(
-              SnackBar(
-                content: Text('„$name" wurde erstellt und hinzugefügt'),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
+          if (rootContext.mounted) Navigator.pop(ctx);
         }
 
         return StatefulBuilder(
@@ -128,273 +88,157 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 child: LayoutBuilder(
                   builder: (ctx, constraints) {
                     final controller = DefaultTabController.of(ctx)!;
-
                     return Column(
                       mainAxisSize: MainAxisSize.max,
                       children: [
                         const SizedBox(height: 12),
                         Container(
-                          width: 44,
-                          height: 4,
+                          width: 44, height: 4,
                           decoration: BoxDecoration(
                             color: Theme.of(ctx).colorScheme.outlineVariant,
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
-                            children: [
-                              Text(
-                                'Übungen hinzufügen',
-                                style: Theme.of(ctx).textTheme.headlineLarge,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
                         TabBar(
                           tabs: const [
-                            Tab(text: 'Vorhandene'),
-                            Tab(text: 'Neu erstellen'),
+                            Tab(icon: Icon(Icons.list_rounded)),
+                            Tab(icon: Icon(Icons.add_rounded)),
                           ],
                           onTap: (_) => modalSetState(() {}),
                         ),
-
                         Expanded(
                           child: TabBarView(
                             children: [
-                              // Tab 1: vorhandene Exercises auswählen
+                              // Tab 1: existing exercises
                               ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  16,
-                                  16,
-                                  24,
-                                ),
+                                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                                 itemCount: all.length,
                                 itemBuilder: (_, i) {
                                   final e = all[i];
-                                  final subtitle = <String>[];
-                                  if (e.trackSets) subtitle.add('Sätze');
-                                  if (e.trackReps) subtitle.add('Wdh.');
-                                  if (e.trackWeight) subtitle.add('Gewicht');
-                                  if (e.trackDuration) subtitle.add('Dauer');
+                                  final isChecked = selected.contains(e.id);
                                   return Card(
-                                    child: CheckboxListTile(
-                                      value: selected.contains(e.id),
-                                      onChanged: (v) {
+                                    margin: const EdgeInsets.only(bottom: 6),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(14),
+                                      onTap: () {
                                         modalSetState(() {
-                                          if (v == true) {
-                                            selected.add(e.id);
-                                          } else {
-                                            selected.remove(e.id);
-                                          }
+                                          if (isChecked) selected.remove(e.id);
+                                          else selected.add(e.id);
                                         });
                                       },
-                                      title: Text(
-                                        e.name,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleMedium?.copyWith(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w800,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 12),
+                                        child: Row(
+                                          children: [
+                                            AnimatedContainer(
+                                              duration: const Duration(milliseconds: 200),
+                                              width: 24, height: 24,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: isChecked
+                                                    ? Theme.of(ctx).colorScheme.primary
+                                                    : Colors.transparent,
+                                                border: Border.all(
+                                                  color: isChecked
+                                                      ? Theme.of(ctx).colorScheme.primary
+                                                      : Theme.of(ctx).colorScheme.outlineVariant,
+                                                  width: 1.5,
+                                                ),
+                                              ),
+                                              child: isChecked
+                                                  ? const Icon(Icons.check_rounded,
+                                                      size: 16, color: Colors.white)
+                                                  : null,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Text(e.name,
+                                                  style: Theme.of(ctx).textTheme.titleMedium),
+                                            ),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (e.trackSets)
+                                                  _MiniIcon(Icons.layers_rounded),
+                                                if (e.trackReps)
+                                                  _MiniIcon(Icons.repeat_rounded),
+                                                if (e.trackWeight)
+                                                  _MiniIcon(Icons.fitness_center_rounded),
+                                                if (e.trackDuration)
+                                                  _MiniIcon(Icons.timer_outlined),
+                                              ],
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      subtitle:
-                                          subtitle.isEmpty
-                                              ? null
-                                              : Text(subtitle.join(' · ')),
-                                      controlAffinity:
-                                          ListTileControlAffinity.leading,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
                                       ),
                                     ),
                                   );
                                 },
                               ),
-
-                              // Tab 2: neue Exercise erstellen
+                              // Tab 2: create new
                               ListView(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  16,
-                                  16,
-                                  24,
-                                ),
+                                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                                 children: [
                                   TextField(
                                     controller: nameCtrl,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Name *',
-                                      hintText: 'z. B. Plank',
-                                    ),
+                                    decoration: const InputDecoration(hintText: 'Name'),
                                     autofocus: true,
                                     onChanged: (_) => modalSetState(() {}),
                                   ),
                                   const SizedBox(height: 10),
                                   TextField(
                                     controller: descCtrl,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Beschreibung',
-                                    ),
-                                    minLines: 1,
-                                    maxLines: 3,
+                                    decoration: const InputDecoration(hintText: 'Beschreibung'),
+                                    minLines: 1, maxLines: 3,
                                   ),
-                                  const SizedBox(height: 16),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
+                                  const SizedBox(height: 20),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                     children: [
-                                      ChoiceChip(
-                                        label: const Text('Standard'),
-                                        selected: false,
-                                        onSelected: (_) {
-                                          trackSets.value = true;
-                                          trackReps.value = true;
-                                          trackWeight.value = true;
-                                          trackDuration.value = false;
-                                          modalSetState(() {});
-                                        },
-                                      ),
-                                      ChoiceChip(
-                                        label: const Text('Körpergewicht'),
-                                        selected: false,
-                                        onSelected: (_) {
-                                          trackSets.value = true;
-                                          trackReps.value = true;
-                                          trackWeight.value = false;
-                                          trackDuration.value = false;
-                                          modalSetState(() {});
-                                        },
-                                      ),
-                                      ChoiceChip(
-                                        label: const Text('Sätze + Dauer'),
-                                        selected: false,
-                                        onSelected: (_) {
-                                          trackSets.value = true;
-                                          trackReps.value = false;
-                                          trackWeight.value = false;
-                                          trackDuration.value = true;
-                                          modalSetState(() {});
-                                        },
-                                      ),
+                                      _TrackToggleSmall(icon: Icons.layers_rounded, notifier: trackSets, onChange: () => modalSetState(() {})),
+                                      _TrackToggleSmall(icon: Icons.repeat_rounded, notifier: trackReps, onChange: () => modalSetState(() {})),
+                                      _TrackToggleSmall(icon: Icons.fitness_center_rounded, notifier: trackWeight, onChange: () => modalSetState(() {})),
+                                      _TrackToggleSmall(icon: Icons.timer_outlined, notifier: trackDuration, onChange: () => modalSetState(() {})),
                                     ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _TrackChecklist(
-                                    trackSets: trackSets,
-                                    trackReps: trackReps,
-                                    trackWeight: trackWeight,
-                                    trackDuration: trackDuration,
                                   ),
                                 ],
                               ),
                             ],
                           ),
                         ),
-
-                        // Dynamische Bottom-CTA (achtet auf Keyboard)
                         AnimatedBuilder(
                           animation: controller.animation ?? controller,
                           builder: (_, __) {
                             final isCreateTab = controller.index == 1;
                             final canCreate = nameCtrl.text.trim().isNotEmpty;
-                            final bottomInset =
-                                MediaQuery.of(ctx).viewInsets.bottom;
-
+                            final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
                             return AnimatedPadding(
                               duration: const Duration(milliseconds: 180),
                               curve: Curves.easeOut,
-                              padding: EdgeInsets.fromLTRB(
-                                16,
-                                0,
-                                16,
-                                16 + bottomInset,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      onPressed: () => Navigator.pop(ctx),
-                                      child: const Text('Abbrechen'),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: AnimatedSwitcher(
-                                      duration: const Duration(
-                                        milliseconds: 180,
+                              padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: isCreateTab
+                                    ? FilledButton.icon(
+                                        onPressed: canCreate ? () async => createAndAttach() : null,
+                                        icon: const Icon(Icons.add_rounded),
+                                        label: const Text('Erstellen'),
+                                      )
+                                    : FilledButton.icon(
+                                        onPressed: () async {
+                                          final merged = [
+                                            ..._exerciseIds,
+                                            ...selected.where((id) => !_exerciseIds.contains(id)),
+                                          ];
+                                          setState(() => _exerciseIds = merged);
+                                          await _persistOrder(rootContext);
+                                          if (rootContext.mounted) Navigator.pop(ctx);
+                                        },
+                                        icon: const Icon(Icons.check_rounded),
+                                        label: const Text('Fertig'),
                                       ),
-                                      switchInCurve: Curves.easeOut,
-                                      switchOutCurve: Curves.easeIn,
-                                      transitionBuilder:
-                                          (child, anim) => ScaleTransition(
-                                            scale: anim,
-                                            child: child,
-                                          ),
-                                      child:
-                                          isCreateTab
-                                              ? FilledButton.icon(
-                                                key: const ValueKey(
-                                                  'create_and_add',
-                                                ),
-                                                onPressed:
-                                                    canCreate
-                                                        ? () async =>
-                                                            createAndAttach()
-                                                        : null,
-                                                icon: const Icon(Icons.add),
-                                                label: const Text(
-                                                  'Erstellen & hinzufügen',
-                                                ),
-                                              )
-                                              : FilledButton(
-                                                key: const ValueKey(
-                                                  'add_selected',
-                                                ),
-                                                onPressed: () async {
-                                                  final merged = [
-                                                    ..._exerciseIds,
-                                                    ...selected.where(
-                                                      (id) =>
-                                                          !_exerciseIds
-                                                              .contains(id),
-                                                    ),
-                                                  ];
-                                                  setState(
-                                                    () => _exerciseIds = merged,
-                                                  );
-                                                  await _persistOrder(
-                                                    rootContext,
-                                                  );
-
-                                                  if (rootContext.mounted) {
-                                                    Navigator.pop(ctx);
-                                                    ScaffoldMessenger.of(
-                                                      rootContext,
-                                                    ).showSnackBar(
-                                                      const SnackBar(
-                                                        content: Text(
-                                                          'Übungen hinzugefügt',
-                                                        ),
-                                                        behavior:
-                                                            SnackBarBehavior
-                                                                .floating,
-                                                      ),
-                                                    );
-                                                  }
-                                                },
-                                                child: const Text(
-                                                  'Hinzufügen',
-                                                ),
-                                              ),
-                                    ),
-                                  ),
-                                ],
                               ),
                             );
                           },
@@ -416,200 +260,161 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final ctrl = TextEditingController(text: widget.workout.name);
     await showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Workout umbenennen'),
-            content: TextField(
-              controller: ctrl,
-              decoration: const InputDecoration(labelText: 'Workout-Name'),
-              autofocus: true,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  newName =
-                      ctrl.text.trim().isNotEmpty
-                          ? ctrl.text.trim()
-                          : widget.workout.name;
-                  Navigator.pop(ctx);
-                },
-                child: const Text('Speichern'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: const Icon(Icons.edit_outlined),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Name'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Abbrechen')),
+          FilledButton(
+            onPressed: () {
+              newName = ctrl.text.trim().isNotEmpty
+                  ? ctrl.text.trim()
+                  : widget.workout.name;
+              Navigator.pop(ctx);
+            },
+            child: const Icon(Icons.check_rounded),
           ),
+        ],
+      ),
     );
     await context.read<WorkoutProvider>().updateWorkoutName(
-      widget.workout.id,
-      newName,
-    );
+          widget.workout.id, newName);
     setState(() => widget.workout.name = newName);
-    try {
-      context.read<CloudSyncProvider>().scheduleBackupSoon();
-    } catch (_) {}
+    try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
     final exercises = context.watch<ExerciseProvider>().exercises;
     final active = context.watch<ActiveWorkoutProvider>();
-    final items =
-        _exerciseIds
-            .map(
-              (id) =>
-                  exercises
-                      .where((e) => e.id == id)
-                      .cast<Exercise?>()
-                      .firstOrNull,
-            )
-            .toList();
-
-    final canStart = _exerciseIds.isNotEmpty;
+    final scheme = Theme.of(context).colorScheme;
+    final items = _exerciseIds
+        .map((id) => exercises
+            .where((e) => e.id == id)
+            .cast<Exercise?>()
+            .firstOrNull)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.workout.name),
-        bottom:
-            active.isActive
-                ? const PreferredSize(
-                  preferredSize: Size.fromHeight(56),
-                  child: ActiveWorkoutBanner(),
-                )
-                : null,
+        bottom: active.isActive
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(56),
+                child: ActiveWorkoutBanner(),
+              )
+            : null,
         actions: [
           IconButton(
-            tooltip: 'Umbenennen',
             onPressed: _rename,
             icon: const Icon(Icons.edit_outlined),
           ),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: _kWorkoutAnim,
-        switchInCurve: Curves.easeOut,
-        switchOutCurve: Curves.easeIn,
-        transitionBuilder: (child, animation) {
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOut,
-            reverseCurve: Curves.easeIn,
-          );
-          return FadeTransition(
-            opacity: curved,
-            child: SizeTransition(sizeFactor: curved, child: child),
-          );
-        },
-        child:
-            _exerciseIds.isEmpty
-                ? _EmptyState(
-                  key: const ValueKey('workout-empty'),
-                  onAdd: _addExercisesBottomSheet,
-                )
-                : ReorderableListView.builder(
-                  key: const ValueKey('workout-list'),
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
-                  itemCount: _exerciseIds.length,
-                  onReorder: _onReorder,
-                  buildDefaultDragHandles: false,
-                  proxyDecorator:
-                      (child, index, animation) =>
-                          ScaleTransition(scale: animation, child: child),
-                  itemBuilder: (_, i) {
-                    final id = _exerciseIds[i];
-                    final e = items[i];
-                    return AnimatedSize(
-                      key: ValueKey('exercise_$id'),
-                      duration: _kWorkoutAnim,
-                      curve: Curves.easeOut,
-                      child: Card(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        child: ListTile(
-                          leading: ReorderableDragStartListener(
-                            index: i,
-                            child: const Icon(Icons.drag_handle),
-                          ),
-                          title: Text(
-                            e?.name ?? 'Gelöschte Übung ($id)',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.titleMedium?.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          subtitle:
-                              e == null
-                                  ? const Text('Nicht mehr vorhanden')
-                                  : Text(
-                                    [
-                                      if (e.trackSets) 'Sätze',
-                                      if (e.trackReps) 'Wdh.',
-                                      if (e.trackWeight) 'Gewicht',
-                                      if (e.trackDuration) 'Dauer',
-                                    ].join(' / '),
-                                  ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () async {
-                              setState(() => _exerciseIds.removeAt(i));
-                              await _persistOrder(context);
-                            },
+      body: _exerciseIds.isEmpty
+          ? _EmptyState(onAdd: _addExercisesBottomSheet)
+          : ReorderableListView.builder(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
+              itemCount: _exerciseIds.length,
+              onReorder: _onReorder,
+              buildDefaultDragHandles: false,
+              proxyDecorator: (child, index, animation) =>
+                  ScaleTransition(scale: animation, child: child),
+              itemBuilder: (_, i) {
+                final id = _exerciseIds[i];
+                final e = items[i];
+                return Card(
+                  key: ValueKey('exercise_$id'),
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    child: Row(
+                      children: [
+                        ReorderableDragStartListener(
+                          index: i,
+                          child: Icon(Icons.drag_handle_rounded,
+                              color: scheme.onSurfaceVariant.withOpacity(0.4)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                e?.name ?? '#$id',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              if (e != null) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    if (e.trackSets)
+                                      _MiniIcon(Icons.layers_rounded),
+                                    if (e.trackReps)
+                                      _MiniIcon(Icons.repeat_rounded),
+                                    if (e.trackWeight)
+                                      _MiniIcon(Icons.fitness_center_rounded),
+                                    if (e.trackDuration)
+                                      _MiniIcon(Icons.timer_outlined),
+                                  ],
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-      ),
+                        IconButton(
+                          icon: Icon(Icons.close_rounded,
+                              size: 20,
+                              color: scheme.onSurfaceVariant.withOpacity(0.4)),
+                          onPressed: () async {
+                            setState(() => _exerciseIds.removeAt(i));
+                            await _persistOrder(context);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
       floatingActionButton: Builder(
         builder: (ctx) {
           final active = ctx.watch<ActiveWorkoutProvider>();
           final isThisActive =
               active.isActive && active.workout?.id == widget.workout.id;
-          if (_exerciseIds.isEmpty && !isThisActive)
+          if (_exerciseIds.isEmpty && !isThisActive) {
             return const SizedBox.shrink();
+          }
           final exercises = ctx.read<ExerciseProvider>().exercises;
           return FloatingActionButton.extended(
             onPressed: () {
-              final list =
-                  _exerciseIds
-                      .map(
-                        (id) =>
-                            exercises
-                                .where((e) => e.id == id)
-                                .cast<Exercise?>()
-                                .firstOrNull,
-                      )
-                      .whereType<Exercise>()
-                      .toList();
+              final list = _exerciseIds
+                  .map((id) => exercises
+                      .where((e) => e.id == id)
+                      .cast<Exercise?>()
+                      .firstOrNull)
+                  .whereType<Exercise>()
+                  .toList();
               if (isThisActive) {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder:
-                        (_) => WorkoutRunScreen(
-                          workout: widget.workout,
-                          exercises: list,
-                          autoStart: false,
-                        ),
-                  ),
-                );
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => WorkoutRunScreen(
+                        workout: widget.workout,
+                        exercises: list,
+                        autoStart: false)));
               } else {
-                if (active.isActive) {
-                  active.clear();
-                }
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder:
-                        (_) => WorkoutRunScreen(
-                          workout: widget.workout,
-                          exercises: list,
-                          autoStart: true,
-                        ),
-                  ),
-                );
+                if (active.isActive) active.clear();
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => WorkoutRunScreen(
+                        workout: widget.workout,
+                        exercises: list,
+                        autoStart: true)));
               }
             },
             icon: const Icon(Icons.play_arrow_rounded),
@@ -620,11 +425,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: FilledButton.tonalIcon(
             onPressed: _addExercisesBottomSheet,
-            icon: const Icon(Icons.add),
-            label: const Text('Weitere Übungen hinzufügen'),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Hinzufügen'),
           ),
         ),
       ),
@@ -638,92 +443,97 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.add_circle_outline,
-              size: 72,
-              color: Theme.of(context).colorScheme.outline,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: scheme.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Noch keine Übungen',
-              style: Theme.of(context).textTheme.titleLarge,
+            child: Icon(Icons.list_alt_rounded,
+                size: 32, color: scheme.primary),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Hinzufügen'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniIcon extends StatelessWidget {
+  final IconData icon;
+  const _MiniIcon(this.icon);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Icon(icon,
+          size: 14,
+          color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4)),
+    );
+  }
+}
+
+class _TrackToggleSmall extends StatelessWidget {
+  final IconData icon;
+  final ValueNotifier<bool> notifier;
+  final VoidCallback onChange;
+
+  const _TrackToggleSmall({
+    required this.icon,
+    required this.notifier,
+    required this.onChange,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ValueListenableBuilder<bool>(
+      valueListenable: notifier,
+      builder: (_, active, __) => GestureDetector(
+        onTap: () {
+          notifier.value = !notifier.value;
+          onChange();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: active
+                ? scheme.primary.withOpacity(0.12)
+                : scheme.surfaceContainerHighest.withOpacity(0.5),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: active
+                  ? scheme.primary.withOpacity(0.4)
+                  : scheme.outlineVariant.withOpacity(0.3),
+              width: 1.5,
             ),
-            const SizedBox(height: 8),
-            const Text('Füge Übungen hinzu, um dein Workout zu starten.'),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add),
-              label: const Text('Übungen hinzufügen'),
-            ),
-          ],
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon,
+              size: 20,
+              color: active
+                  ? scheme.primary
+                  : scheme.onSurfaceVariant.withOpacity(0.4)),
         ),
       ),
     );
   }
 }
 
-class _TrackChecklist extends StatelessWidget {
-  final ValueNotifier<bool> trackSets;
-  final ValueNotifier<bool> trackReps;
-  final ValueNotifier<bool> trackWeight;
-  final ValueNotifier<bool> trackDuration;
-
-  const _TrackChecklist({
-    super.key,
-    required this.trackSets,
-    required this.trackReps,
-    required this.trackWeight,
-    required this.trackDuration,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _tile(context, 'Sätze zählen', 'z. B. 3 Sätze', trackSets),
-        _tile(context, 'Wiederholungen', 'z. B. 10 pro Satz', trackReps),
-        _tile(context, 'Gewicht', 'z. B. 50 kg', trackWeight),
-        _tile(context, 'Dauer', 'z. B. 60 Sekunden', trackDuration),
-      ],
-    );
-  }
-
-  Widget _tile(
-    BuildContext context,
-    String title,
-    String? subtitle,
-    ValueNotifier<bool> state,
-  ) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: state,
-      builder:
-          (_, v, __) => Card(
-            child: CheckboxListTile(
-              value: v,
-              onChanged: (val) => state.value = val ?? false,
-              title: Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              subtitle: subtitle == null ? null : Text(subtitle),
-              controlAffinity: ListTileControlAffinity.leading,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-          ),
-    );
-  }
-}
-
-// kleine Extension um firstOrNull zu bekommen
 extension _IterableX<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }

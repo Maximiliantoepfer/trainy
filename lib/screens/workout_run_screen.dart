@@ -17,7 +17,7 @@ const Duration _kFabAnim = Duration(milliseconds: 220);
 class WorkoutRunScreen extends StatefulWidget {
   final Workout workout;
   final List<Exercise> exercises;
-  final bool autoStart; // optionaler Auto-Start
+  final bool autoStart;
 
   const WorkoutRunScreen({
     super.key,
@@ -71,35 +71,40 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
 
     if (!mounted) return;
 
-    // Speichern bestätigen (auch wenn leer, damit klarer Flow)
     final save = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Workout beenden'),
-            content: Text(
-              hasAnySets
-                  ? 'Die erfassten Sätze werden gespeichert.'
-                  : 'Keine Sätze erfasst. Trotzdem beenden?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Beenden'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        icon: Icon(
+          hasAnySets
+              ? Icons.check_circle_outline_rounded
+              : Icons.warning_amber_rounded,
+          size: 32,
+          color: hasAnySets
+              ? const Color(0xFF4CAF50)
+              : Theme.of(ctx).colorScheme.error,
+        ),
+        content: Text(
+          hasAnySets
+              ? 'Die erfassten Sätze werden gespeichert.'
+              : 'Keine Sätze erfasst. Trotzdem beenden?',
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
           ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Icon(Icons.check_rounded),
+          ),
+        ],
+      ),
     );
 
     if (save != true) return;
 
     final duration = active.elapsedTotalSeconds;
 
-    // 1) Last Values pro Exercise aktualisieren
     final exerciseProvider = context.read<ExerciseProvider>();
     active.setsByExercise.forEach((exerciseId, sets) {
       if (sets.isEmpty) return;
@@ -107,7 +112,6 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       exerciseProvider.updateLastValues(exerciseId, last);
     });
 
-    // 2) Session für Progress persistieren (nur wenn Sets vorhanden)
     if (hasAnySets) {
       await context.read<ProgressProvider>().saveWorkoutEntries(
         workoutId: widget.workout.id,
@@ -116,17 +120,13 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       );
     }
 
-    // 3) Optional Cloud-Backup direkt nach Abschluss
     final cloud = context.read<CloudSyncProvider>();
     if (cloud.syncEnabled && cloud.isSignedIn) {
       try {
         await cloud.backupNow();
-      } catch (_) {
-        // stiller Fehler
-      }
+      } catch (_) {}
     }
 
-    // 4) Aktive Session beenden
     active.clear();
 
     if (mounted) Navigator.of(context).pop();
@@ -172,20 +172,20 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     if (!tracksAny) {
       await showDialog(
         context: context,
-        builder:
-            (ctx) => AlertDialog(
-              title: Text(e.name),
-              content: const Text(
-                'Für diese Übung sind keine Felder zum Tracken aktiviert. '
-                'Aktiviere Sätze/Wdh./Gewicht/Dauer in der Übungsbearbeitung.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK'),
-                ),
-              ],
+        builder: (ctx) => AlertDialog(
+          icon: Icon(Icons.warning_amber_rounded,
+              size: 32, color: Theme.of(ctx).colorScheme.error),
+          content: const Text(
+            'Für diese Übung sind keine Felder zum Tracken aktiviert. '
+            'Aktiviere Sätze/Wdh./Gewicht/Dauer in der Übungsbearbeitung.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
             ),
+          ],
+        ),
       );
       return;
     }
@@ -212,180 +212,200 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       text: durationParts.seconds > 0 ? '${durationParts.seconds}' : '',
     );
 
-    await showDialog(
+    final scheme = Theme.of(context).colorScheme;
+
+    await showModalBottomSheet(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(e.name),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (e.trackSets)
-                    TextField(
-                      controller: setsCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Sätze (Anzahl)',
-                      ),
-                    ),
-                  if (e.trackReps)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: TextField(
-                        controller: repsCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Wiederholungen',
-                        ),
-                      ),
-                    ),
-                  if (e.trackWeight)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: TextField(
-                        controller: weightCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Gewicht (kg)',
-                        ),
-                      ),
-                    ),
-                  if (e.trackDuration)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Dauer',
-                            style: Theme.of(ctx).textTheme.labelLarge,
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: durHoursCtrl,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: InputDecoration(
-                                    labelText: 'Std',
-                                    filled: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextField(
-                                  controller: durMinutesCtrl,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: InputDecoration(
-                                    labelText: 'Min',
-                                    filled: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextField(
-                                  controller: durSecondsCtrl,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: InputDecoration(
-                                    labelText: 'Sek',
-                                    filled: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outlineVariant.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Abbrechen'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Row(
+                  children: [
+                    Icon(Icons.add_circle_outline_rounded,
+                        size: 24, color: scheme.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(e.name,
+                          style: Theme.of(ctx).textTheme.titleMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
               ),
-              FilledButton(
-                onPressed: () {
-                  final entry = <String, String>{};
-                  if (e.trackSets && setsCtrl.text.trim().isNotEmpty) {
-                    entry['sets'] = setsCtrl.text.trim();
-                  }
-                  if (e.trackReps && repsCtrl.text.trim().isNotEmpty) {
-                    entry['reps'] = repsCtrl.text.trim();
-                  }
-                  if (e.trackWeight && weightCtrl.text.trim().isNotEmpty) {
-                    entry['weight'] = weightCtrl.text.trim();
-                  }
-                  if (e.trackDuration) {
-                    final durationSeconds =
-                        DurationFormatter.totalSecondsFromTexts(
+              const SizedBox(height: 16),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: Column(
+                    children: [
+                      if (e.trackSets)
+                        _InputRow(
+                          icon: Icons.layers_rounded,
+                          controller: setsCtrl,
+                          keyboardType: TextInputType.number,
+                        ),
+                      if (e.trackReps)
+                        _InputRow(
+                          icon: Icons.repeat_rounded,
+                          controller: repsCtrl,
+                          keyboardType: TextInputType.number,
+                        ),
+                      if (e.trackWeight)
+                        _InputRow(
+                          icon: Icons.fitness_center_rounded,
+                          controller: weightCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          suffix: 'kg',
+                        ),
+                      if (e.trackDuration) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.timer_outlined,
+                                size: 20,
+                                color: scheme.onSurfaceVariant
+                                    .withOpacity(0.6)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: durHoursCtrl,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.next,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                decoration: InputDecoration(
+                                  hintText: 'Std',
+                                  filled: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: durMinutesCtrl,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.next,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                decoration: InputDecoration(
+                                  hintText: 'Min',
+                                  filled: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: durSecondsCtrl,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                decoration: InputDecoration(
+                                  hintText: 'Sek',
+                                  filled: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      final entry = <String, String>{};
+                      if (e.trackSets && setsCtrl.text.trim().isNotEmpty) {
+                        entry['sets'] = setsCtrl.text.trim();
+                      }
+                      if (e.trackReps && repsCtrl.text.trim().isNotEmpty) {
+                        entry['reps'] = repsCtrl.text.trim();
+                      }
+                      if (e.trackWeight &&
+                          weightCtrl.text.trim().isNotEmpty) {
+                        entry['weight'] = weightCtrl.text.trim();
+                      }
+                      if (e.trackDuration) {
+                        final durationSeconds =
+                            DurationFormatter.totalSecondsFromTexts(
                           durHoursCtrl.text,
                           durMinutesCtrl.text,
                           durSecondsCtrl.text,
                         );
-                    if (durationSeconds > 0) {
-                      entry['duration'] = '$durationSeconds';
-                    }
-                  }
+                        if (durationSeconds > 0) {
+                          entry['duration'] = '$durationSeconds';
+                        }
+                      }
 
-                  if (entry.isNotEmpty) {
-                    context.read<ActiveWorkoutProvider>().updateLastSet(
-                      e.id,
-                      entry,
-                    );
-                    setState(() {}); // check-icon / progress
-                  }
-                  Navigator.pop(ctx);
-                },
-                child: const Text('Speichern'),
+                      if (entry.isNotEmpty) {
+                        context.read<ActiveWorkoutProvider>().updateLastSet(
+                          e.id,
+                          entry,
+                        );
+                        setState(() {});
+                      }
+                      Navigator.pop(ctx);
+                    },
+                    child: const Icon(Icons.check_rounded),
+                  ),
+                ),
               ),
             ],
           ),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
+    final scheme = Theme.of(context).colorScheme;
     final active = context.watch<ActiveWorkoutProvider>();
     final total = widget.exercises.length;
     final doneCount =
@@ -401,53 +421,20 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
               padding: const EdgeInsets.only(right: 8),
               child: ValueListenableBuilder<int>(
                 valueListenable: active.elapsedSeconds,
-                builder:
-                    (_, sec, __) => AnimatedSwitcher(
-                      duration: _kFastAnim,
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeInCubic,
-                      layoutBuilder:
-                          (currentChild, previousChildren) => Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              ...previousChildren,
-                              if (currentChild != null) currentChild,
-                            ],
-                          ),
-                      transitionBuilder: (child, animation) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOut,
-                          reverseCurve: Curves.easeIn,
-                        );
-                        return FadeTransition(
-                          opacity: curved,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.2),
-                              end: Offset.zero,
-                            ).animate(curved),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: Text(
-                        _formatTime(sec),
-                        key: ValueKey(sec),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                        ),
-                      ),
-                    ),
+                builder: (_, sec, __) => Text(
+                  _formatTime(sec),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
               ),
             ),
           ),
           if (_isRunning)
             IconButton(
-              tooltip: 'Stoppen & speichern',
               onPressed: _stopAndFinish,
-              icon: const Icon(Icons.stop_circle_outlined),
+              icon: Icon(Icons.stop_circle_outlined, color: scheme.error),
             ),
         ],
         bottom: PreferredSize(
@@ -456,99 +443,117 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
             tween: Tween(begin: 0, end: progress),
             duration: _kProgressAnim,
             curve: Curves.easeOut,
-            builder:
-                (context, value, _) =>
-                    LinearProgressIndicator(value: value, minHeight: 4),
+            builder: (context, value, _) =>
+                LinearProgressIndicator(value: value, minHeight: 4),
           ),
         ),
       ),
       body: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
         itemCount: widget.exercises.length,
         itemBuilder: (_, i) {
           final e = widget.exercises[i];
-          final hasSets = (active.setsByExercise[e.id] ?? const []).isNotEmpty;
-          return AnimatedContainer(
-            duration: _kFastAnim,
-            curve: Curves.easeOut,
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              boxShadow:
-                  hasSets
-                      ? [
-                        BoxShadow(
-                          color: Colors.green.withOpacity(0.18),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                      : const [],
-            ),
+          final hasSets =
+              (active.setsByExercise[e.id] ?? const []).isNotEmpty;
+          final setCount =
+              (active.setsByExercise[e.id] ?? const []).length;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
             child: Card(
-              margin: EdgeInsets.zero,
+              color: hasSets
+                  ? const Color(0xFF4CAF50).withOpacity(0.06)
+                  : null,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
+                side: hasSets
+                    ? BorderSide(
+                        color: const Color(0xFF4CAF50).withOpacity(0.25),
+                        width: 1.5)
+                    : BorderSide.none,
               ),
-              color:
-                  hasSets
-                      ? Theme.of(context).colorScheme.surfaceVariant
-                      : Theme.of(context).cardColor,
-              child: ListTile(
-                title: Text(
-                  e.name,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                subtitle: Text(
-                  [
-                    if (e.trackSets) 'Sätze',
-                    if (e.trackReps) 'Wdh.',
-                    if (e.trackWeight) 'Gewicht',
-                    if (e.trackDuration) 'Dauer',
-                  ].join(' / '),
-                ),
-                trailing: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: AnimatedSwitcher(
-                    duration: _kFastAnim,
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) {
-                      final scale = Tween<double>(
-                        begin: 0.85,
-                        end: 1,
-                      ).animate(animation);
-                      return FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(scale: scale, child: child),
-                      );
-                    },
-                    child:
-                        hasSets
-                            ? Center(
-                              key: ValueKey('done_${e.id}'),
-                              child: const Icon(
-                                Icons.check_circle,
-                                color: Colors.green,
-                              ),
-                            )
-                            : IconButton(
-                              key: ValueKey('add_${e.id}'),
-                              tooltip: 'Satz hinzufügen',
-                              padding: EdgeInsets.zero,
-                              constraints: BoxConstraints.tight(
-                                const Size(48, 48),
-                              ),
-                              onPressed: () => _addSet(context, e),
-                              icon: Icon(Icons.add, color: accent),
-                            ),
-                  ),
-                ),
+              child: InkWell(
                 onTap: () => _addSet(context, e),
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: hasSets
+                              ? const Color(0xFF4CAF50).withOpacity(0.12)
+                              : scheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: Icon(
+                          hasSets
+                              ? Icons.check_rounded
+                              : Icons.fitness_center_rounded,
+                          size: 20,
+                          color: hasSets
+                              ? const Color(0xFF4CAF50)
+                              : scheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(e.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                if (e.trackSets)
+                                  _MiniIcon(Icons.layers_rounded, scheme),
+                                if (e.trackReps)
+                                  _MiniIcon(Icons.repeat_rounded, scheme),
+                                if (e.trackWeight)
+                                  _MiniIcon(
+                                      Icons.fitness_center_rounded, scheme),
+                                if (e.trackDuration)
+                                  _MiniIcon(Icons.timer_outlined, scheme),
+                                if (hasSets) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF4CAF50)
+                                          .withOpacity(0.12),
+                                      borderRadius:
+                                          BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      '$setCount',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            color:
+                                                const Color(0xFF4CAF50),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.add_rounded, color: scheme.primary),
+                    ],
+                  ),
+                ),
               ),
             ),
           );
@@ -559,29 +564,82 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
         transitionBuilder: (child, animation) {
-          final scale = Tween<double>(begin: 0.9, end: 1).animate(animation);
+          final scale =
+              Tween<double>(begin: 0.9, end: 1).animate(animation);
           return FadeTransition(
             opacity: animation,
             child: ScaleTransition(scale: scale, child: child),
           );
         },
-        child:
-            _isRunning
-                ? FloatingActionButton.extended(
-                  key: const ValueKey('fab_stop'),
-                  onPressed: _stopAndFinish,
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                  foregroundColor: Theme.of(context).colorScheme.onError,
-                  icon: const Icon(Icons.stop_rounded),
-                  label: const Text('Stop'),
-                )
-                : FloatingActionButton.extended(
-                  key: const ValueKey('fab_start'),
-                  onPressed: _start,
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Text('Start'),
-                ),
+        child: _isRunning
+            ? FloatingActionButton(
+                key: const ValueKey('fab_stop'),
+                onPressed: _stopAndFinish,
+                backgroundColor: scheme.error,
+                foregroundColor: scheme.onError,
+                child: const Icon(Icons.stop_rounded),
+              )
+            : FloatingActionButton(
+                key: const ValueKey('fab_start'),
+                onPressed: _start,
+                child: const Icon(Icons.play_arrow_rounded),
+              ),
       ),
+    );
+  }
+}
+
+class _InputRow extends StatelessWidget {
+  final IconData icon;
+  final TextEditingController controller;
+  final TextInputType keyboardType;
+  final String? suffix;
+
+  const _InputRow({
+    required this.icon,
+    required this.controller,
+    this.keyboardType = TextInputType.number,
+    this.suffix,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon,
+              size: 20, color: scheme.onSurfaceVariant.withOpacity(0.6)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              keyboardType: keyboardType,
+              decoration: InputDecoration(
+                suffixText: suffix,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniIcon extends StatelessWidget {
+  final IconData icon;
+  final ColorScheme scheme;
+  const _MiniIcon(this.icon, this.scheme);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Icon(icon,
+          size: 14, color: scheme.onSurfaceVariant.withOpacity(0.45)),
     );
   }
 }
