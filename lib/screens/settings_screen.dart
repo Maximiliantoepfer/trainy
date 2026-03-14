@@ -75,9 +75,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       for (final c in _quickSwatches)
                         _ColorDot(
@@ -409,13 +408,13 @@ class _ColorDot extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
-        width: 48,
-        height: 48,
+        width: 40,
+        height: 40,
         child: Center(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            width: 36,
-            height: 36,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: isCustom ? null : color,
               gradient: isCustom
@@ -507,5 +506,5 @@ const _quickSwatches = <Color>[
   Color(0xFF4CAF50),
   Color(0xFFE91E63),
   Color(0xFF9C27B0),
-  Color(0xFFFF5722),
+  Color(0xFFE64A19),
 ];
