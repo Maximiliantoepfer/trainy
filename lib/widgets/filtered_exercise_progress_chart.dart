@@ -77,6 +77,7 @@ class _FilteredExerciseProgressChartState
                     Container(
                       width: 40,
                       height: 40,
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
                         color: scheme.primary.withValues(alpha: 0.12),

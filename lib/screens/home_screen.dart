@@ -318,6 +318,7 @@ class _EmptyState extends StatelessWidget {
               child: Container(
                 width: 72,
                 height: 72,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer,
                   borderRadius: BorderRadius.circular(20),
