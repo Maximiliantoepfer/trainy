@@ -21,6 +21,9 @@ class Exercise {
   /// Optionales Icon (Material codePoint)
   final int? icon;
 
+  /// Trainingsziel (z. B. "Kraft", "Ausdauer", "Cardio", "Mobilität")
+  final String? goal;
+
   const Exercise({
     required this.id,
     required this.name,
@@ -33,6 +36,7 @@ class Exercise {
     required this.lastValues,
     required this.units,
     required this.icon,
+    this.goal,
   });
 
   Exercise copyWith({
@@ -47,6 +51,7 @@ class Exercise {
     Map<String, String>? lastValues,
     Map<String, String>? units,
     int? icon,
+    String? goal,
   }) {
     return Exercise(
       id: id ?? this.id,
@@ -60,6 +65,7 @@ class Exercise {
       lastValues: lastValues ?? this.lastValues,
       units: units ?? this.units,
       icon: icon ?? this.icon,
+      goal: goal ?? this.goal,
     );
   }
 }

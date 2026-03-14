@@ -151,7 +151,6 @@ class _HomeScreenState extends State<HomeScreen>
     final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
     final effectiveTrainingDays = progress.effectiveTrainingDays;
     final isProgressLoading = progress.isLoading;
-    final goalReached = trainedWeekdays.length >= weeklyGoal;
     final streak = _calculateStreak(progress.entries);
 
     return PopScope(
@@ -171,9 +170,6 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         body: Column(
           children: [
-            // Greeting
-            _GreetingSection(goalReached: goalReached),
-
             // Active workout banner
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
@@ -185,20 +181,14 @@ class _HomeScreenState extends State<HomeScreen>
 
             // Weekly overview
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
               child: _WeeklyOverviewCard(
                 trainedWeekdays: isProgressLoading ? const {} : trainedWeekdays,
                 weeklyGoal: weeklyGoal,
                 trainingDays: effectiveTrainingDays,
-              ),
-            ),
-
-            // Quick stats
-            if (!isProgressLoading)
-              _QuickStats(
-                trainedCount: trainedWeekdays.length,
                 streak: streak,
               ),
+            ),
 
             // Workout list
             Expanded(
@@ -287,99 +277,6 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
-class _GreetingSection extends StatelessWidget {
-  final bool goalReached;
-  const _GreetingSection({required this.goalReached});
-
-  @override
-  Widget build(BuildContext context) {
-    final hour = DateTime.now().hour;
-    final greeting = hour < 12
-        ? 'Guten Morgen'
-        : hour < 18
-            ? 'Guten Tag'
-            : 'Guten Abend';
-    final subtitle = goalReached
-        ? 'Wochenziel erreicht! Weiter so!'
-        : 'Bereit fuer dein Training?';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(greeting, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickStats extends StatelessWidget {
-  final int trainedCount;
-  final int streak;
-  const _QuickStats({required this.trainedCount, required this.streak});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-      child: Row(
-        children: [
-          _StatChip(
-            icon: Icons.fitness_center_rounded,
-            label: '$trainedCount diese Woche',
-            scheme: scheme,
-          ),
-          const SizedBox(width: 8),
-          if (streak > 0)
-            _StatChip(
-              icon: Icons.local_fire_department_rounded,
-              label: '$streak-Tage-Streak',
-              scheme: scheme,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final ColorScheme scheme;
-  const _StatChip({required this.icon, required this.label, required this.scheme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: scheme.onSurfaceVariant),
-          const SizedBox(width: 6),
-          Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          )),
-        ],
-      ),
-    );
-  }
-}
-
 class _EmptyState extends StatelessWidget {
   final VoidCallback onCreateWorkout;
   const _EmptyState({required this.onCreateWorkout});
@@ -414,7 +311,7 @@ class _EmptyState extends StatelessWidget {
               style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              'Erstelle Workouts, fuege Uebungen hinzu und tracke deinen Fortschritt.',
+              'Erstelle Workouts, füge Übungen hinzu und tracke deinen Fortschritt.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -439,10 +336,12 @@ class _WeeklyOverviewCard extends StatelessWidget {
   final Set<int> trainedWeekdays;
   final int weeklyGoal;
   final Set<int> trainingDays;
+  final int streak;
   const _WeeklyOverviewCard({
     required this.trainedWeekdays,
     required this.weeklyGoal,
     required this.trainingDays,
+    required this.streak,
   });
 
   @override
@@ -536,6 +435,22 @@ class _WeeklyOverviewCard extends StatelessWidget {
                 );
               }),
             ),
+            if (streak > 0) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.local_fire_department_rounded, size: 16, color: scheme.tertiary),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$streak-Tage-Streak',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: scheme.tertiary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

@@ -6,7 +6,7 @@ class AppDatabase {
   AppDatabase._();
 
   static const _dbName = 'trainy.db';
-  static const _dbVersion = 4; // ⬅️ v4: Cloud-Sync Settings
+  static const _dbVersion = 5; // ⬅️ v5: Exercise goals + Umlaut-Migration
 
   Database? _database;
 
@@ -34,7 +34,8 @@ class AppDatabase {
         defaultValues TEXT NOT NULL,   -- json map
         lastValues TEXT NOT NULL,      -- json map
         units TEXT NOT NULL,           -- json map
-        icon INTEGER
+        icon INTEGER,
+        goal TEXT
       )
     ''');
 
@@ -148,5 +149,27 @@ class AppDatabase {
         'ALTER TABLE user_settings ADD COLUMN last_sync_millis INTEGER NOT NULL DEFAULT 0',
       );
     } catch (_) {}
+
+    // v5: goal column for exercises
+    try {
+      await db.execute('ALTER TABLE exercises ADD COLUMN goal TEXT');
+    } catch (_) {}
+
+    // v5: Umlaut-Fixes für bestehende Seed-Daten
+    const umlautFixes = {
+      'Bankdruecken': 'Bankdrücken',
+      'Schulterdruecken': 'Schulterdrücken',
+      'Klimmzuege': 'Klimmzüge',
+      'Liegestuetze': 'Liegestütze',
+      'Trizeps-Druecken': 'Trizepsdrücken',
+    };
+    for (final e in umlautFixes.entries) {
+      try {
+        await db.execute(
+          'UPDATE exercises SET name = ? WHERE name = ?',
+          [e.value, e.key],
+        );
+      } catch (_) {}
+    }
   }
 }

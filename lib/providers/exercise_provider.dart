@@ -35,6 +35,7 @@ class ExerciseProvider extends ChangeNotifier {
     Map<String, String>? lastValues,
     Map<String, String>? units,
     int? icon,
+    String? goal,
   }) async {
     final exerciseId = await ExerciseDatabase.instance.addOrUpdateExercise(
       id: id,
@@ -48,6 +49,7 @@ class ExerciseProvider extends ChangeNotifier {
       lastValues: lastValues,
       units: units,
       icon: icon,
+      goal: goal,
     );
 
     final newExercise = Exercise(
@@ -62,6 +64,7 @@ class ExerciseProvider extends ChangeNotifier {
       lastValues: lastValues ?? const {},
       units: units ?? const {},
       icon: icon,
+      goal: goal,
     );
 
     final idx = _exercises.indexWhere((e) => e.id == exerciseId);
@@ -91,6 +94,7 @@ class ExerciseProvider extends ChangeNotifier {
     Map<String, String>? lastValues,
     Map<String, String>? units,
     int? icon,
+    String? goal,
   }) {
     return addOrUpdateExercise(
       id: id,
@@ -104,6 +108,7 @@ class ExerciseProvider extends ChangeNotifier {
       lastValues: lastValues,
       units: units,
       icon: icon,
+      goal: goal,
     );
   }
 
@@ -115,6 +120,7 @@ class ExerciseProvider extends ChangeNotifier {
     required bool trackReps,
     required bool trackWeight,
     required bool trackDuration,
+    String? goal,
   }) {
     return addOrUpdateExercise(
       name: name,
@@ -123,6 +129,7 @@ class ExerciseProvider extends ChangeNotifier {
       trackReps: trackReps,
       trackWeight: trackWeight,
       trackDuration: trackDuration,
+      goal: goal,
     );
   }
 

@@ -9,6 +9,7 @@ import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../utils/duration_utils.dart';
+import '../utils/goal_utils.dart';
 import 'workout_success_screen.dart';
 
 class WorkoutRunScreen extends StatefulWidget {
@@ -296,7 +297,15 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                   Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(e.name, style: Theme.of(context).textTheme.titleMedium),
+                      Row(
+                        children: [
+                          Flexible(child: Text(e.name, style: Theme.of(context).textTheme.titleMedium)),
+                          if (e.goal != null) ...[
+                            const SizedBox(width: 8),
+                            goalBadge(e.goal!, scheme),
+                          ],
+                        ],
+                      ),
                       const SizedBox(height: 2),
                       if (hasSets)
                         Text('${sets.length} Satz${sets.length == 1 ? "" : "e"} erfasst',

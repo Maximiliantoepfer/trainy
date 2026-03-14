@@ -6,6 +6,8 @@ import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/active_workout_banner.dart';
 import '../providers/cloud_sync_provider.dart';
+import '../widgets/exercise_editor_form.dart';
+import '../utils/goal_utils.dart';
 
 class ExerciseScreen extends StatefulWidget {
   const ExerciseScreen({super.key});
@@ -119,10 +121,11 @@ class _ExerciseScreenState extends State<ExerciseScreen>
   Future<void> _openEditor(BuildContext context, {Exercise? existing}) async {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final descCtrl = TextEditingController(text: existing?.description ?? '');
-    bool trackSets = existing?.trackSets ?? true;
-    bool trackReps = existing?.trackReps ?? true;
-    bool trackWeight = existing?.trackWeight ?? true;
-    bool trackDuration = existing?.trackDuration ?? false;
+    final trackSets = ValueNotifier(existing?.trackSets ?? true);
+    final trackReps = ValueNotifier(existing?.trackReps ?? true);
+    final trackWeight = ValueNotifier(existing?.trackWeight ?? true);
+    final trackDuration = ValueNotifier(existing?.trackDuration ?? false);
+    final goal = ValueNotifier<String?>(existing?.goal);
 
     await showModalBottomSheet(
       context: context,
@@ -130,106 +133,81 @@ class _ExerciseScreenState extends State<ExerciseScreen>
       useSafeArea: true,
       showDragHandle: true,
       builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModal) => SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        existing == null ? 'Übung erstellen' : 'Übung bearbeiten',
-                        style: Theme.of(ctx).textTheme.titleLarge,
-                      ),
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      existing == null ? 'Übung erstellen' : 'Übung bearbeiten',
+                      style: Theme.of(ctx).textTheme.titleLarge,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextField(
-                            controller: nameCtrl,
-                            decoration: const InputDecoration(labelText: 'Name', hintText: 'z. B. Bankdrücken'),
-                            autofocus: true,
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: descCtrl,
-                            decoration: const InputDecoration(labelText: 'Beschreibung (optional)'),
-                            minLines: 1, maxLines: 3,
-                          ),
-                          const SizedBox(height: 20),
-                          Text('Tracking', style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
-                            color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
-                          const SizedBox(height: 8),
-                          _toggleRow(ctx, 'Sätze', trackSets, (v) => setModal(() => trackSets = v)),
-                          _toggleRow(ctx, 'Wiederholungen', trackReps, (v) => setModal(() => trackReps = v)),
-                          _toggleRow(ctx, 'Gewicht', trackWeight, (v) => setModal(() => trackWeight = v)),
-                          _toggleRow(ctx, 'Dauer', trackDuration, (v) => setModal(() => trackDuration = v)),
-                        ],
-                      ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: ExerciseEditorForm(
+                      nameCtrl: nameCtrl,
+                      descCtrl: descCtrl,
+                      trackSets: trackSets,
+                      trackReps: trackReps,
+                      trackWeight: trackWeight,
+                      trackDuration: trackDuration,
+                      goal: goal,
+                      autofocusName: true,
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                    child: Row(
-                      children: [
-                        Expanded(child: SizedBox(
-                          height: 48,
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Abbrechen'),
-                          ),
-                        )),
-                        const SizedBox(width: 12),
-                        Expanded(child: SizedBox(
-                          height: 48,
-                          child: FilledButton(
-                          onPressed: () async {
-                            final name = nameCtrl.text.trim();
-                            if (name.isEmpty) return;
-                            await ctx.read<ExerciseProvider>().addOrUpdateExercise(
-                              id: existing?.id, name: name, description: descCtrl.text.trim(),
-                              trackSets: trackSets, trackReps: trackReps,
-                              trackWeight: trackWeight, trackDuration: trackDuration,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  child: Row(
+                    children: [
+                      Expanded(child: SizedBox(
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Abbrechen'),
+                        ),
+                      )),
+                      const SizedBox(width: 12),
+                      Expanded(child: SizedBox(
+                        height: 48,
+                        child: FilledButton(
+                        onPressed: () async {
+                          final name = nameCtrl.text.trim();
+                          if (name.isEmpty) return;
+                          await ctx.read<ExerciseProvider>().addOrUpdateExercise(
+                            id: existing?.id, name: name, description: descCtrl.text.trim(),
+                            trackSets: trackSets.value, trackReps: trackReps.value,
+                            trackWeight: trackWeight.value, trackDuration: trackDuration.value,
+                            goal: goal.value,
+                          );
+                          try { ctx.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
+                          if (mounted) {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(existing == null ? '„$name" angelegt' : '„$name" aktualisiert')),
                             );
-                            try { ctx.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
-                            if (mounted) {
-                              Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(existing == null ? '„$name" angelegt' : '„$name" aktualisiert')),
-                              );
-                            }
-                          },
-                          child: Text(existing == null ? 'Erstellen' : 'Speichern'),
-                        ))),
-                      ],
-                    ),
+                          }
+                        },
+                        child: Text(existing == null ? 'Erstellen' : 'Speichern'),
+                      ))),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _toggleRow(BuildContext ctx, String label, bool value, ValueChanged<bool> onChanged) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(children: [
-        Expanded(child: Text(label, style: Theme.of(ctx).textTheme.bodyMedium)),
-        Switch(value: value, onChanged: onChanged),
-      ]),
     );
   }
 }
@@ -253,7 +231,15 @@ class _ExerciseTile extends StatelessWidget {
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(exercise.name, style: Theme.of(context).textTheme.titleMedium),
+                Row(
+                  children: [
+                    Flexible(child: Text(exercise.name, style: Theme.of(context).textTheme.titleMedium)),
+                    if (exercise.goal != null) ...[
+                      const SizedBox(width: 8),
+                      goalBadge(exercise.goal!, scheme),
+                    ],
+                  ],
+                ),
                 if (tags.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(tags.join(' · '), style: Theme.of(context).textTheme.bodySmall),

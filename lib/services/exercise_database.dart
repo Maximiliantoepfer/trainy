@@ -24,6 +24,7 @@ class ExerciseDatabase {
     Map<String, String>? lastValues,
     Map<String, String>? units,
     int? icon,
+    String? goal,
   }) async {
     final exerciseId = id ?? DateTime.now().millisecondsSinceEpoch;
     final e = Exercise(
@@ -38,6 +39,7 @@ class ExerciseDatabase {
       lastValues: lastValues ?? const {},
       units: units ?? const {},
       icon: icon,
+      goal: goal,
     );
     await upsertExercise(e);
     return exerciseId;
@@ -61,6 +63,7 @@ class ExerciseDatabase {
       'lastValues': jsonEncode(e.lastValues),
       'units': jsonEncode(e.units),
       'icon': e.icon,
+      'goal': e.goal,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -100,31 +103,31 @@ class ExerciseDatabase {
     if (count != null && count > 0) return;
 
     const seeds = [
-      {'name': 'Bankdruecken',     'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Kniebeugen',       'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Kreuzheben',       'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Schulterdruecken', 'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Langhantelrudern', 'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Klimmzuege',       'sets': true, 'reps': true, 'weight': false,'dur': false},
-      {'name': 'Liegestuetze',     'sets': true, 'reps': true, 'weight': false,'dur': false},
-      {'name': 'Dips',             'sets': true, 'reps': true, 'weight': false,'dur': false},
-      {'name': 'Bizeps-Curls',     'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Trizeps-Druecken', 'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Beinpresse',       'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Ausfallschritte',  'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Wadenheben',       'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Plank',            'sets': true, 'reps': false,'weight': false,'dur': true},
-      {'name': 'Sit-ups',          'sets': true, 'reps': true, 'weight': false,'dur': false},
-      {'name': 'Russian Twist',    'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Latzug',           'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Butterfly',        'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Beinbeuger',       'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Beinstrecker',     'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Seitheben',        'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Facepulls',        'sets': true, 'reps': true, 'weight': true, 'dur': false},
-      {'name': 'Laufen',           'sets': false,'reps': false,'weight': false,'dur': true},
-      {'name': 'Radfahren',        'sets': false,'reps': false,'weight': false,'dur': true},
-      {'name': 'Seilspringen',     'sets': true, 'reps': false,'weight': false,'dur': true},
+      {'name': 'Bankdrücken',      'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Kniebeugen',       'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Kreuzheben',       'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Schulterdrücken',  'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Langhantelrudern', 'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Klimmzüge',        'sets': true, 'reps': true, 'weight': false,'dur': false, 'goal': 'Kraft'},
+      {'name': 'Liegestütze',      'sets': true, 'reps': true, 'weight': false,'dur': false, 'goal': 'Kraft'},
+      {'name': 'Dips',             'sets': true, 'reps': true, 'weight': false,'dur': false, 'goal': 'Kraft'},
+      {'name': 'Bizeps-Curls',     'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Trizepsdrücken',   'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Beinpresse',       'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Ausfallschritte',  'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Wadenheben',       'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Plank',            'sets': true, 'reps': false,'weight': false,'dur': true,  'goal': 'Ausdauer'},
+      {'name': 'Sit-ups',          'sets': true, 'reps': true, 'weight': false,'dur': false, 'goal': 'Kraft'},
+      {'name': 'Russian Twist',    'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Latzug',           'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Butterfly',        'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Beinbeuger',       'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Beinstrecker',     'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Seitheben',        'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Facepulls',        'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
+      {'name': 'Laufen',           'sets': false,'reps': false,'weight': false,'dur': true,  'goal': 'Cardio'},
+      {'name': 'Radfahren',        'sets': false,'reps': false,'weight': false,'dur': true,  'goal': 'Cardio'},
+      {'name': 'Seilspringen',     'sets': true, 'reps': false,'weight': false,'dur': true,  'goal': 'Ausdauer'},
     ];
 
     for (int i = 0; i < seeds.length; i++) {
@@ -136,6 +139,7 @@ class ExerciseDatabase {
         trackReps: s['reps'] as bool,
         trackWeight: s['weight'] as bool,
         trackDuration: s['dur'] as bool,
+        goal: s['goal'] as String?,
       );
     }
   }
@@ -176,6 +180,7 @@ class ExerciseDatabase {
       lastValues: _toStrMap(lastVals),
       units: _toStrMap(units),
       icon: r['icon'] as int?,
+      goal: r['goal'] as String?,
     );
   }
 }

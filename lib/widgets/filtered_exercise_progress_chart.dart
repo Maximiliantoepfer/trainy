@@ -7,8 +7,8 @@ import '../providers/exercise_provider.dart';
 import '../models/workout_entry.dart';
 import '../models/exercise.dart';
 
-/// Zeigt den Verlauf (Reps/Gewicht/Dauer/Saetze) fuer eine ausgewaehlte Uebung.
-/// Lightweight Line-Chart via CustomPainter (keine zusaetzlichen Packages).
+/// Zeigt den Verlauf (Reps/Gewicht/Dauer/Sätze) für eine ausgewählte Übung.
+/// Lightweight Line-Chart via CustomPainter (keine zusätzlichen Packages).
 class FilteredExerciseProgressChart extends StatefulWidget {
   const FilteredExerciseProgressChart({super.key});
 
@@ -33,7 +33,7 @@ class _FilteredExerciseProgressChartState
         title: 'Exercise-Progress',
         child: const Padding(
           padding: EdgeInsets.all(12),
-          child: Text('Lege zuerst Uebungen an, um Fortschritt zu sehen.'),
+          child: Text('Lege zuerst Übungen an, um Fortschritt zu sehen.'),
         ),
       );
     }
@@ -94,7 +94,7 @@ class _FilteredExerciseProgressChartState
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Uebung',
+                            'Übung',
                             style: textTheme.labelMedium?.copyWith(
                               color: scheme.onSurfaceVariant,
                               letterSpacing: 0.2,
@@ -126,7 +126,7 @@ class _FilteredExerciseProgressChartState
                 if (selectedExercise.trackReps) (key: 'reps', label: 'Wdh.'),
                 if (selectedExercise.trackWeight) (key: 'weight', label: 'Gewicht'),
                 if (selectedExercise.trackDuration) (key: 'duration', label: 'Dauer'),
-                if (selectedExercise.trackSets) (key: 'sets', label: 'Saetze'),
+                if (selectedExercise.trackSets) (key: 'sets', label: 'Sätze'),
               ];
 
               if (availableMetrics.isNotEmpty && !availableMetrics.any((m) => m.key == _metric)) {
@@ -167,7 +167,7 @@ class _FilteredExerciseProgressChartState
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
-                'Noch keine Daten fuer diese Uebung.',
+                'Noch keine Daten für diese Übung.',
                 style: textTheme.bodyLarge?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
@@ -270,7 +270,7 @@ class _FilteredExerciseProgressChartState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Uebung auswaehlen',
+                          'Übung auswählen',
                           style: textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.2,
@@ -282,7 +282,7 @@ class _FilteredExerciseProgressChartState
                           textInputAction: TextInputAction.search,
                           decoration: InputDecoration(
                             prefixIcon: const Icon(Icons.search_rounded),
-                            hintText: 'Nach Uebung suchen',
+                            hintText: 'Nach Übung suchen',
                             filled: true,
                             fillColor: theme.colorScheme.surfaceContainerHigh
                                 .withValues(alpha: 0.6),
@@ -449,7 +449,7 @@ class _FilteredExerciseProgressChartState
       case 'duration':
         return 'Sek.';
       case 'sets':
-        return 'Saetze';
+        return 'Sätze';
       default:
         return '';
     }

@@ -8,6 +8,8 @@ import '../providers/cloud_sync_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/active_workout_banner.dart';
+import '../widgets/exercise_editor_form.dart';
+import '../utils/goal_utils.dart';
 import 'workout_run_screen.dart';
 
 const Duration _kWorkoutAnim = Duration(milliseconds: 200);
@@ -59,6 +61,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final trackReps = ValueNotifier<bool>(true);
     final trackWeight = ValueNotifier<bool>(true);
     final trackDuration = ValueNotifier<bool>(false);
+    final goal = ValueNotifier<String?>(null);
 
     final rootContext = context;
 
@@ -96,6 +99,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             trackReps: trackReps.value,
             trackWeight: trackWeight.value,
             trackDuration: trackDuration.value,
+            goal: goal.value,
           );
 
           final merged = [
@@ -181,7 +185,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                                     child: TextField(
                                       decoration: InputDecoration(
-                                        hintText: 'Uebung suchen...',
+                                        hintText: 'Übung suchen...',
                                         prefixIcon: const Icon(Icons.search_rounded),
                                         suffixIcon: searchQuery.isNotEmpty
                                             ? IconButton(
@@ -205,6 +209,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                         if (e.trackReps) subtitle.add('Wdh.');
                                         if (e.trackWeight) subtitle.add('Gewicht');
                                         if (e.trackDuration) subtitle.add('Dauer');
+                                        final subtitleText = subtitle.join(' · ');
+                                        final cScheme = Theme.of(context).colorScheme;
                                         return Card(
                                           child: CheckboxListTile(
                                             value: selected.contains(e.id),
@@ -217,19 +223,24 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                 }
                                               });
                                             },
-                                            title: Text(
-                                              e.name,
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.titleMedium?.copyWith(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w800,
-                                              ),
+                                            title: Row(
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    e.name,
+                                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                                      fontSize: 18,
+                                                      fontWeight: FontWeight.w800,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (e.goal != null) ...[
+                                                  const SizedBox(width: 8),
+                                                  goalBadge(e.goal!, cScheme),
+                                                ],
+                                              ],
                                             ),
-                                            subtitle:
-                                                subtitle.isEmpty
-                                                    ? null
-                                                    : Text(subtitle.join(' · ')),
+                                            subtitle: subtitleText.isEmpty ? null : Text(subtitleText),
                                             controlAffinity:
                                                 ListTileControlAffinity.leading,
                                             shape: RoundedRectangleBorder(
@@ -245,77 +256,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
                               // Tab 2: neue Exercise erstellen
                               ListView(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  16,
-                                  16,
-                                  24,
-                                ),
+                                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                                 children: [
-                                  TextField(
-                                    controller: nameCtrl,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Name *',
-                                      hintText: 'z. B. Plank',
-                                    ),
-                                    autofocus: true,
-                                    onChanged: (_) => modalSetState(() {}),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  TextField(
-                                    controller: descCtrl,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Beschreibung',
-                                    ),
-                                    minLines: 1,
-                                    maxLines: 3,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      ChoiceChip(
-                                        label: const Text('Standard'),
-                                        selected: false,
-                                        onSelected: (_) {
-                                          trackSets.value = true;
-                                          trackReps.value = true;
-                                          trackWeight.value = true;
-                                          trackDuration.value = false;
-                                          modalSetState(() {});
-                                        },
-                                      ),
-                                      ChoiceChip(
-                                        label: const Text('Körpergewicht'),
-                                        selected: false,
-                                        onSelected: (_) {
-                                          trackSets.value = true;
-                                          trackReps.value = true;
-                                          trackWeight.value = false;
-                                          trackDuration.value = false;
-                                          modalSetState(() {});
-                                        },
-                                      ),
-                                      ChoiceChip(
-                                        label: const Text('Sätze + Dauer'),
-                                        selected: false,
-                                        onSelected: (_) {
-                                          trackSets.value = true;
-                                          trackReps.value = false;
-                                          trackWeight.value = false;
-                                          trackDuration.value = true;
-                                          modalSetState(() {});
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _TrackChecklist(
+                                  ExerciseEditorForm(
+                                    nameCtrl: nameCtrl,
+                                    descCtrl: descCtrl,
                                     trackSets: trackSets,
                                     trackReps: trackReps,
                                     trackWeight: trackWeight,
                                     trackDuration: trackDuration,
+                                    goal: goal,
+                                    autofocusName: true,
+                                    onChanged: () => modalSetState(() {}),
                                   ),
                                 ],
                               ),
@@ -363,8 +315,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                         switchInCurve: Curves.easeOut,
                                         switchOutCurve: Curves.easeIn,
                                         transitionBuilder:
-                                            (child, anim) => ScaleTransition(
-                                              scale: anim,
+                                            (child, anim) => FadeTransition(
+                                              opacity: anim,
                                               child: child,
                                             ),
                                         child:
@@ -584,14 +536,22 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                               index: i,
                               child: const Icon(Icons.drag_handle),
                             ),
-                            title: Text(
-                              e?.name ?? 'Gelöschte Übung ($id)',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.titleMedium?.copyWith(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                              ),
+                            title: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    e?.name ?? 'Gelöschte Übung ($id)',
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                if (e?.goal != null) ...[
+                                  const SizedBox(width: 8),
+                                  goalBadge(e!.goal!, scheme),
+                                ],
+                              ],
                             ),
                             subtitle:
                                 e == null
@@ -716,59 +676,6 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _TrackChecklist extends StatelessWidget {
-  final ValueNotifier<bool> trackSets;
-  final ValueNotifier<bool> trackReps;
-  final ValueNotifier<bool> trackWeight;
-  final ValueNotifier<bool> trackDuration;
-
-  const _TrackChecklist({
-    super.key,
-    required this.trackSets,
-    required this.trackReps,
-    required this.trackWeight,
-    required this.trackDuration,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _tile(context, 'Sätze zählen', 'z. B. 3 Sätze', trackSets),
-        _tile(context, 'Wiederholungen', 'z. B. 10 pro Satz', trackReps),
-        _tile(context, 'Gewicht', 'z. B. 50 kg', trackWeight),
-        _tile(context, 'Dauer', 'z. B. 60 Sekunden', trackDuration),
-      ],
-    );
-  }
-
-  Widget _tile(
-    BuildContext context,
-    String title,
-    String? subtitle,
-    ValueNotifier<bool> state,
-  ) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: state,
-      builder:
-          (_, v, __) => Card(
-            child: CheckboxListTile(
-              value: v,
-              onChanged: (val) => state.value = val ?? false,
-              title: Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              subtitle: subtitle == null ? null : Text(subtitle),
-              controlAffinity: ListTileControlAffinity.leading,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-          ),
-    );
-  }
-}
 
 // kleine Extension um firstOrNull zu bekommen
 extension _IterableX<T> on Iterable<T> {
