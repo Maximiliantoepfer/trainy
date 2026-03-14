@@ -26,11 +26,30 @@ class WorkoutScreen extends StatefulWidget {
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
   late List<int> _exerciseIds;
+  late Set<int> _assignedDays;
 
   @override
   void initState() {
     super.initState();
     _exerciseIds = List<int>.from(widget.workout.exerciseIds);
+    _assignedDays = Set<int>.from(widget.workout.assignedDays);
+  }
+
+  void _toggleDay(int day) {
+    setState(() {
+      if (_assignedDays.contains(day)) {
+        _assignedDays = Set<int>.from(_assignedDays)..remove(day);
+      } else {
+        _assignedDays = Set<int>.from(_assignedDays)..add(day);
+      }
+    });
+    context.read<WorkoutProvider>().setWorkoutDays(
+      widget.workout.id,
+      _assignedDays,
+    );
+    try {
+      context.read<CloudSyncProvider>().scheduleBackupSoon();
+    } catch (_) {}
   }
 
   Future<void> _persistOrder(BuildContext context) async {
@@ -472,13 +491,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           onTap: _rename,
           child: Text(widget.workout.name, overflow: TextOverflow.ellipsis),
         ),
-        bottom:
-            active.isActive
-                ? const PreferredSize(
-                  preferredSize: Size.fromHeight(56),
-                  child: ActiveWorkoutBanner(),
-                )
-                : null,
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(
+            48 + (active.isActive ? 56 : 0),
+          ),
+          child: Column(
+            children: [
+              _DayAssignmentRow(
+                assignedDays: _assignedDays,
+                onToggle: _toggleDay,
+              ),
+              if (active.isActive) const ActiveWorkoutBanner(),
+            ],
+          ),
+        ),
       ),
       body: AnimatedSwitcher(
         duration: _kWorkoutAnim,
@@ -734,6 +760,50 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+
+class _DayAssignmentRow extends StatelessWidget {
+  final Set<int> assignedDays;
+  final void Function(int day) onToggle;
+  const _DayAssignmentRow({required this.assignedDays, required this.onToggle});
+
+  static const _labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(7, (i) {
+          final day = i + 1;
+          final selected = assignedDays.contains(day);
+          return GestureDetector(
+            onTap: () => onToggle(day),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 38,
+              height: 32,
+              decoration: BoxDecoration(
+                color: selected ? scheme.primaryContainer : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(10),
+                border: selected ? Border.all(color: scheme.primary, width: 1.5) : null,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                _labels[i],
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
 
 // kleine Extension um firstOrNull zu bekommen
 extension _IterableX<T> on Iterable<T> {

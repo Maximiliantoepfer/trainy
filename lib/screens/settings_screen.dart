@@ -148,6 +148,9 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
           ),
 
+          const SizedBox(height: 16),
+          _WorkoutScheduleCard(),
+
           const SizedBox(height: 24),
 
           // --- Cloud ---
@@ -434,6 +437,99 @@ class _ColorDot extends StatelessWidget {
                     ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
                     : null,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkoutScheduleCard extends StatelessWidget {
+  static const _labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final workouts = context.watch<WorkoutProvider>().workouts;
+    final progress = context.watch<ProgressProvider>();
+    final trainingDays = progress.trainingDays.isEmpty
+        ? progress.effectiveTrainingDays
+        : progress.trainingDays;
+
+    if (workouts.isEmpty) return const SizedBox.shrink();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Trainingsplan',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant)),
+            const SizedBox(height: 12),
+            ...List.generate(7, (i) {
+              final day = i + 1;
+              final isTrainingDay = trainingDays.contains(day);
+              final assignedWorkouts = workouts
+                  .where((w) => w.assignedDays.contains(day))
+                  .toList();
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: Text(
+                        _labels[i],
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: isTrainingDay
+                              ? scheme.onSurface
+                              : scheme.onSurfaceVariant.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: isTrainingDay
+                          ? Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (final w in workouts)
+                                  FilterChip(
+                                    label: Text(w.name),
+                                    selected: assignedWorkouts.contains(w),
+                                    onSelected: (_) {
+                                      final current = Set<int>.from(w.assignedDays);
+                                      if (current.contains(day)) {
+                                        current.remove(day);
+                                      } else {
+                                        current.add(day);
+                                      }
+                                      context.read<WorkoutProvider>().setWorkoutDays(w.id, current);
+                                      try {
+                                        context.read<CloudSyncProvider>().scheduleBackupSoon();
+                                      } catch (_) {}
+                                    },
+                                    visualDensity: VisualDensity.compact,
+                                    labelStyle: Theme.of(context).textTheme.labelSmall,
+                                  ),
+                              ],
+                            )
+                          : Text(
+                              'Ruhetag',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
         ),
       ),
     );

@@ -6,7 +6,7 @@ class AppDatabase {
   AppDatabase._();
 
   static const _dbName = 'trainy.db';
-  static const _dbVersion = 7; // ⬅️ v7: merge_history Tabelle
+  static const _dbVersion = 8; // ⬅️ v8: workout_day_assignments Tabelle
 
   Database? _database;
 
@@ -103,6 +103,16 @@ class AppDatabase {
         sourceKey TEXT,
         targetId INTEGER NOT NULL,
         mergedAt TEXT NOT NULL
+      )
+    ''');
+
+    // Workout-Tages-Zuordnung (many-to-many)
+    await db.execute('''
+      CREATE TABLE workout_day_assignments(
+        workoutId INTEGER NOT NULL,
+        dayOfWeek INTEGER NOT NULL,
+        PRIMARY KEY(workoutId, dayOfWeek),
+        FOREIGN KEY(workoutId) REFERENCES workouts(id) ON DELETE CASCADE
       )
     ''');
   }
@@ -205,6 +215,16 @@ class AppDatabase {
         sourceKey TEXT,
         targetId INTEGER NOT NULL,
         mergedAt TEXT NOT NULL
+      )
+    ''');
+
+    // v8: Workout-Tages-Zuordnung
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS workout_day_assignments(
+        workoutId INTEGER NOT NULL,
+        dayOfWeek INTEGER NOT NULL,
+        PRIMARY KEY(workoutId, dayOfWeek),
+        FOREIGN KEY(workoutId) REFERENCES workouts(id) ON DELETE CASCADE
       )
     ''');
   }

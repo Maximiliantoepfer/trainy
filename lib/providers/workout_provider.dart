@@ -65,6 +65,19 @@ class WorkoutProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> setWorkoutDays(int workoutId, Set<int> days) async {
+    await WorkoutDatabase.instance.setWorkoutDays(workoutId, days);
+    final idx = _workouts.indexWhere((w) => w.id == workoutId);
+    if (idx >= 0) {
+      _workouts[idx] = _workouts[idx].copyWith(assignedDays: days);
+      notifyListeners();
+    }
+  }
+
+  List<Workout> workoutsForDay(int dayOfWeek) {
+    return _workouts.where((w) => w.assignedDays.contains(dayOfWeek)).toList();
+  }
+
   Future<void> deleteWorkout(int workoutId) async {
     await WorkoutDatabase.instance.deleteWorkout(workoutId);
     _workouts.removeWhere((w) => w.id == workoutId);

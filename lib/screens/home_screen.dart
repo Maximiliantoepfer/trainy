@@ -170,7 +170,8 @@ class _HomeScreenState extends State<HomeScreen>
           onPressed: () => _createWorkout(context),
           child: const Icon(Icons.add_rounded),
         ),
-        body: Column(
+        body: ListView(
+          padding: const EdgeInsets.only(bottom: 100),
           children: [
             // Active workout banner
             AnimatedSize(
@@ -198,50 +199,63 @@ class _HomeScreenState extends State<HomeScreen>
               child: MotivationalQuoteCard(),
             ),
 
+            // Today's workout
+            Builder(builder: (context) {
+              final todayWorkouts = context.watch<WorkoutProvider>().workoutsForDay(DateTime.now().weekday);
+              if (todayWorkouts.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                child: _TodaysWorkoutCard(
+                  workouts: todayWorkouts,
+                  onStart: (w) => _openWorkout(w),
+                ),
+              );
+            }),
+
             // Workout list
-            Expanded(
-              child: provider.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : workouts.isEmpty
-                      ? _EmptyState(onCreateWorkout: () => _createWorkout(context))
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
-                          itemCount: workouts.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
-                          itemBuilder: (ctx, i) {
-                            final w = workouts[i];
-                            final selected = w.id == _selectedWorkoutId;
-                            return TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0.0, end: 1.0),
-                              duration: Duration(milliseconds: 300 + (i * 50)),
-                              curve: Curves.easeOutCubic,
-                              builder: (_, v, child) => Opacity(
-                                opacity: v,
-                                child: Transform.translate(
-                                  offset: Offset(0, 20 * (1 - v)),
-                                  child: child,
-                                ),
-                              ),
-                              child: WorkoutCard(
-                                workout: w,
-                                selected: selected,
-                                onTap: () => _openWorkout(w),
-                                onLongPress: () {
-                                  setState(() => _selectedWorkoutId =
-                                      selected ? null : w.id);
-                                },
-                                onPrimaryActionTap: () {
-                                  if (selected) {
-                                    _confirmAndDelete(w);
-                                  } else {
-                                    _openWorkout(w);
-                                  }
-                                },
-                              ),
-                            );
-                          },
-                        ),
-            ),
+            if (provider.isLoading)
+              const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (workouts.isEmpty)
+              _EmptyState(onCreateWorkout: () => _createWorkout(context))
+            else
+              ...List.generate(workouts.length, (i) {
+                final w = workouts[i];
+                final selected = w.id == _selectedWorkoutId;
+                return Padding(
+                  padding: EdgeInsets.fromLTRB(20, i == 0 ? 12 : 6, 20, 6),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: Duration(milliseconds: 300 + (i * 50)),
+                    curve: Curves.easeOutCubic,
+                    builder: (_, v, child) => Opacity(
+                      opacity: v,
+                      child: Transform.translate(
+                        offset: Offset(0, 20 * (1 - v)),
+                        child: child,
+                      ),
+                    ),
+                    child: WorkoutCard(
+                      workout: w,
+                      selected: selected,
+                      onTap: () => _openWorkout(w),
+                      onLongPress: () {
+                        setState(() => _selectedWorkoutId =
+                            selected ? null : w.id);
+                      },
+                      onPrimaryActionTap: () {
+                        if (selected) {
+                          _confirmAndDelete(w);
+                        } else {
+                          _openWorkout(w);
+                        }
+                      },
+                    ),
+                  ),
+                );
+              }),
           ],
         ),
       ),
@@ -294,6 +308,166 @@ class _HomeScreenState extends State<HomeScreen>
       }
     }
     return set;
+  }
+}
+
+class _TodaysWorkoutCard extends StatelessWidget {
+  final List<Workout> workouts;
+  final void Function(Workout) onStart;
+  const _TodaysWorkoutCard({required this.workouts, required this.onStart});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    if (workouts.length == 1) {
+      final w = workouts.first;
+      return TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+        builder: (_, v, child) => Opacity(
+          opacity: v,
+          child: Transform.translate(
+            offset: Offset(0, 16 * (1 - v)),
+            child: child,
+          ),
+        ),
+        child: Card(
+          color: scheme.primaryContainer,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => onStart(w),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Heutiges Training',
+                          style: textTheme.labelLarge?.copyWith(
+                            color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+                          )),
+                        const SizedBox(height: 4),
+                        Text(w.name,
+                          style: textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onPrimaryContainer,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text('${w.exerciseIds.length} Übungen',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+                          )),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    onPressed: () => onStart(w),
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text("Los geht's"),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: scheme.primary,
+                      foregroundColor: scheme.onPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Multiple workouts
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      builder: (_, v, child) => Opacity(
+        opacity: v,
+        child: Transform.translate(
+          offset: Offset(0, 16 * (1 - v)),
+          child: child,
+        ),
+      ),
+      child: Card(
+        color: scheme.primaryContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Heutiges Training',
+                style: textTheme.labelLarge?.copyWith(
+                  color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+                )),
+              const SizedBox(height: 12),
+              ...workouts.map((w) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => onStart(w),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: ImageIcon(
+                            const AssetImage('assets/icons/hantel.png'),
+                            color: scheme.onPrimaryContainer,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(w.name,
+                                style: textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: scheme.onPrimaryContainer,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text('${w.exerciseIds.length} Übungen',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+                                )),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => onStart(w),
+                          icon: Icon(Icons.play_arrow_rounded,
+                            color: scheme.onPrimaryContainer),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

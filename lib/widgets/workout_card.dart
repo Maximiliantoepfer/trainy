@@ -90,6 +90,17 @@ class WorkoutCard extends StatelessWidget {
                           ),
                         ],
                       ),
+                      if (workout.assignedDays.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          (workout.assignedDays.toList()..sort())
+                              .map((d) => const ['Mo','Di','Mi','Do','Fr','Sa','So'][d - 1])
+                              .join(', '),
+                          style: textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

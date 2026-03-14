@@ -20,6 +20,7 @@ class LocalBackupService {
     result['exercises_in_workouts'] = await q('exercises_in_workouts');
     result['workout_entries'] = await q('workout_entries');
     result['merge_history'] = await q('merge_history');
+    result['workout_day_assignments'] = await q('workout_day_assignments');
     return result;
   }
 
@@ -31,6 +32,7 @@ class LocalBackupService {
     final db = await AppDatabase.instance.database;
     await db.transaction((txn) async {
       if (replace) {
+        await txn.delete('workout_day_assignments');
         await txn.delete('merge_history');
         await txn.delete('workout_entries');
         await txn.delete('exercises_in_workouts');
@@ -63,6 +65,10 @@ class LocalBackupService {
       await insertAll(
         'merge_history',
         data['merge_history'] as List<dynamic>?,
+      );
+      await insertAll(
+        'workout_day_assignments',
+        data['workout_day_assignments'] as List<dynamic>?,
       );
     });
   }

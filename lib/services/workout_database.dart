@@ -45,6 +45,16 @@ class WorkoutDatabase {
   Future<List<Workout>> getAllWorkouts() async {
     final db = await _db;
     final rows = await db.query('workouts', orderBy: 'name COLLATE NOCASE ASC');
+
+    // Alle Tages-Zuordnungen in einer Query laden
+    final dayRows = await db.query('workout_day_assignments');
+    final dayMap = <int, Set<int>>{};
+    for (final r in dayRows) {
+      final wId = (r['workoutId'] as num).toInt();
+      final day = (r['dayOfWeek'] as num).toInt();
+      dayMap.putIfAbsent(wId, () => <int>{}).add(day);
+    }
+
     final result = <Workout>[];
 
     for (final row in rows) {
@@ -62,6 +72,7 @@ class WorkoutDatabase {
           name: (row['name'] ?? '') as String,
           description: (row['description'] ?? '') as String,
           exerciseIds: ids,
+          assignedDays: dayMap[workoutId] ?? const {},
         ),
       );
     }
@@ -78,11 +89,30 @@ class WorkoutDatabase {
     );
   }
 
+  Future<void> setWorkoutDays(int workoutId, Set<int> days) async {
+    final db = await _db;
+    final batch = db.batch();
+    batch.delete('workout_day_assignments',
+      where: 'workoutId = ?', whereArgs: [workoutId]);
+    for (final day in days) {
+      batch.insert('workout_day_assignments', {
+        'workoutId': workoutId,
+        'dayOfWeek': day,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+  }
+
   Future<void> deleteWorkout(int id) async {
     final db = await _db;
     await db.delete('workouts', where: 'id = ?', whereArgs: [id]);
     await db.delete(
       'exercises_in_workouts',
+      where: 'workoutId = ?',
+      whereArgs: [id],
+    );
+    await db.delete(
+      'workout_day_assignments',
       where: 'workoutId = ?',
       whereArgs: [id],
     );
