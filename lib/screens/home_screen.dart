@@ -507,7 +507,8 @@ class _DayDot extends StatelessWidget {
       child = Icon(Icons.check_rounded, color: scheme.onTertiary, size: 20);
     } else if (isTrainingDay) {
       bgColor = scheme.surfaceContainerHighest.withValues(alpha: 0.5);
-      child = null;
+      child = Icon(Icons.fitness_center_rounded,
+          color: scheme.onSurfaceVariant.withValues(alpha: 0.4), size: 18);
     } else {
       bgColor = scheme.surfaceContainerHighest.withValues(alpha: 0.5);
       child = Icon(Icons.weekend_rounded,
