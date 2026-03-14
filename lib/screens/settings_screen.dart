@@ -31,606 +31,193 @@ class _SettingsScreenState extends State<SettingsScreen>
     final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
     final active = context.watch<ActiveWorkoutProvider>();
 
-    Future<void> _pickAccent() async {
-      Color temp = theme.accent;
-      await showDialog(
-        context: context,
-        builder:
-            (ctx) => AlertDialog(
-              title: const Text('Akzentfarbe wählen'),
-              content: SingleChildScrollView(
-                child: BlockPicker(
-                  pickerColor: temp,
-                  onColorChanged: (c) => temp = c,
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Abbrechen'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    theme.setAccent(temp);
-                  },
-                  child: const Text('Übernehmen'),
-                ),
-              ],
-            ),
-      );
-    }
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Einstellungen'),
-        bottom:
-            active.isActive
-                ? const PreferredSize(
-                  preferredSize: Size.fromHeight(56),
-                  child: ActiveWorkoutBanner(),
-                )
-                : null,
-      ),
+      appBar: AppBar(title: const Text('Einstellungen')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
         children: [
-          // Darstellung
+          AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            child: active.isActive
+                ? const Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: ActiveWorkoutBanner(),
+                  )
+                : const SizedBox.shrink(),
+          ),
+
+          // --- Appearance ---
+          _SectionHeader(title: 'Darstellung'),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Darstellung',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 10),
+                  Text('Design-Modus',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: scheme.onSurfaceVariant)),
+                  const SizedBox(height: 12),
                   SegmentedButton<ThemeMode>(
                     showSelectedIcon: false,
                     segments: const [
-                      ButtonSegment(
-                        value: ThemeMode.system,
-                        label: Text('System'),
-                        icon: Icon(Icons.auto_mode),
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.light,
-                        label: Text('Hell'),
-                        icon: Icon(Icons.light_mode),
-                      ),
-                      ButtonSegment(
-                        value: ThemeMode.dark,
-                        label: Text('Dunkel'),
-                        icon: Icon(Icons.dark_mode),
-                      ),
+                      ButtonSegment(value: ThemeMode.system, label: Text('System')),
+                      ButtonSegment(value: ThemeMode.light, label: Text('Hell')),
+                      ButtonSegment(value: ThemeMode.dark, label: Text('Dunkel')),
                     ],
                     selected: {theme.themeMode},
                     onSelectionChanged: (v) => theme.setThemeMode(v.first),
                   ),
-                  const SizedBox(height: 10),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Akzentfarbe'),
-                    subtitle: Text(
-                      '#${theme.accent.value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    trailing: FilledButton.icon(
-                      onPressed: _pickAccent,
-                      icon: const Icon(Icons.palette_outlined),
-                      label: const Text('Ändern'),
-                    ),
-                    onTap: _pickAccent,
-                  ),
+                  const SizedBox(height: 20),
+                  Text('Akzentfarbe',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 24),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final c in _quickSwatches)
-                          InkWell(
-                            onTap: () => theme.setAccent(c),
-                            borderRadius: BorderRadius.circular(14),
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: c,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color:
-                                      c == theme.accent
-                                          ? scheme.primary
-                                          : scheme.outlineVariant,
-                                  width: c == theme.accent ? 3 : 1,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final c in _quickSwatches)
+                        _ColorDot(
+                          color: c,
+                          isSelected: c.value == theme.accent.value,
+                          onTap: () => theme.setAccent(c),
+                        ),
+                      _ColorDot(
+                        color: theme.accent,
+                        isSelected: false,
+                        isCustom: true,
+                        onTap: () => _pickAccent(context, theme),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 24),
 
-          // Ziele
+          // --- Goals ---
+          _SectionHeader(title: 'Wochenziel'),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Ziele', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Trainingstage pro Woche',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
+                  Text('Trainingstage pro Woche',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant)),
+                  const SizedBox(height: 12),
                   SegmentedButton<int>(
                     showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(value: 1, label: Text('1x')),
-                      ButtonSegment(value: 2, label: Text('2x')),
-                      ButtonSegment(value: 3, label: Text('3x')),
-                      ButtonSegment(value: 4, label: Text('4x')),
-                      ButtonSegment(value: 5, label: Text('5x')),
-                      ButtonSegment(value: 6, label: Text('6x')),
-                      ButtonSegment(value: 7, label: Text('7x')),
-                    ],
+                    segments: List.generate(7, (i) =>
+                        ButtonSegment(value: i + 1, label: Text('${i + 1}'))),
                     selected: {weeklyGoal},
-                    onSelectionChanged: (v) {
-                      final goal = v.first.clamp(1, 7);
-                      context.read<ProgressProvider>().setWeeklyGoal(goal);
-                    },
+                    onSelectionChanged: (v) =>
+                        context.read<ProgressProvider>().setWeeklyGoal(v.first.clamp(1, 7)),
                   ),
                 ],
               ),
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 24),
 
-          // Cloud-Backup
+          // --- Cloud ---
+          _SectionHeader(title: 'Cloud-Backup'),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               child: Consumer<CloudSyncProvider>(
                 builder: (context, sync, _) {
-                  final onSurfaceVar =
-                      Theme.of(context).colorScheme.onSurfaceVariant;
-
                   if (!sync.isSignedIn) {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Cloud-Backup',
-                          style: Theme.of(context).textTheme.titleMedium,
+                          'Sichere deine Daten in der Cloud.',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant),
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Melde dich mit Google an, um deine Trainingsdaten sicher in der Cloud zu sichern oder wiederherzustellen.',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodyMedium?.copyWith(color: onSurfaceVar),
-                        ),
-                        const SizedBox(height: 12),
-                        FilledButton.icon(
-                          onPressed:
-                              sync.isBusy
-                                  ? null
-                                  : () async {
-                                    try {
-                                      final cloud =
-                                          context.read<CloudSyncProvider>();
-                                      await cloud.signInWithGoogle();
-                                      if (!context.mounted) return;
-
-                                      // After login: if backup exists, offer safe choices
-                                      final exists =
-                                          await cloud.remoteBackupExists();
-                                      if (exists) {
-                                        final choice = await showDialog<String>(
-                                          context: context,
-                                          builder:
-                                              (ctx) => AlertDialog(
-                                                title: const Text(
-                                                  'Cloud-Backup gefunden',
-                                                ),
-                                                content: const Text(
-                                                  'Ein vorhandenes Cloud-Backup wurde gefunden. Wie moechtest du fortfahren?',
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          ctx,
-                                                          'cancel',
-                                                        ),
-                                                    child: const Text(
-                                                      'Abbrechen',
-                                                    ),
-                                                  ),
-                                                  FilledButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          ctx,
-                                                          'merge',
-                                                        ),
-                                                    child: const Text(
-                                                      'Zusammenfuehren (empfohlen)',
-                                                    ),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          ctx,
-                                                          'load',
-                                                        ),
-                                                    child: const Text(
-                                                      'Backup laden',
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                        );
-
-                                        if (choice == 'load') {
-                                          try {
-                                            await cloud.restoreNow();
-                                            if (!context.mounted) return;
-                                            // Reload views
-                                            await context
-                                                .read<ExerciseProvider>()
-                                                .loadExercises();
-                                            await context
-                                                .read<WorkoutProvider>()
-                                                .loadWorkouts();
-                                            await context
-                                                .read<ProgressProvider>()
-                                                .loadData();
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text('Backup geladen'),
-                                              ),
-                                            );
-                                          } catch (e) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text('Fehler: $e'),
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        } else if (choice == 'merge') {
-                                          try {
-                                            await cloud.mergeFromCloud();
-                                            if (!context.mounted) return;
-                                            await context
-                                                .read<ExerciseProvider>()
-                                                .loadExercises();
-                                            await context
-                                                .read<WorkoutProvider>()
-                                                .loadWorkouts();
-                                            await context
-                                                .read<ProgressProvider>()
-                                                .loadData();
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Mit Cloud zusammengefuehrt',
-                                                ),
-                                              ),
-                                            );
-                                          } catch (e) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text('Fehler: $e'),
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        } else if (choice == 'cancel') {
-                                          // No-op
-                                        } else {
-                                          // Fallback path: offer to overwrite cloud (double confirm)
-                                          final overwrite = await showDialog<
-                                            bool
-                                          >(
-                                            context: context,
-                                            builder:
-                                                (ctx2) => AlertDialog(
-                                                  title: const Text(
-                                                    'Cloud ueberschreiben?',
-                                                  ),
-                                                  content: const Text(
-                                                    'Alle alten Daten des Cloud-Backups gehen verloren. Fortfahren?',
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed:
-                                                          () => Navigator.pop(
-                                                            ctx2,
-                                                            false,
-                                                          ),
-                                                      child: const Text(
-                                                        'Abbrechen',
-                                                      ),
-                                                    ),
-                                                    FilledButton(
-                                                      onPressed:
-                                                          () => Navigator.pop(
-                                                            ctx2,
-                                                            true,
-                                                          ),
-                                                      child: const Text(
-                                                        'Ja, ueberschreiben',
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                          );
-                                          if (overwrite == true) {
-                                            try {
-                                              await cloud.backupNow();
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      'Cloud-Backup aktualisiert',
-                                                    ),
-                                                  ),
-                                                );
-                                              }
-                                            } catch (e) {
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text('Fehler: $e'),
-                                                  ),
-                                                );
-                                              }
-                                            }
-                                          }
-                                        }
-                                      } else {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Anmeldung erfolgreich',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Anmeldung fehlgeschlagen: $e',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
-                          icon: const Icon(Icons.login),
-                          label: const Text('Mit Google anmelden'),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: sync.isBusy ? null : () => _signIn(context),
+                            icon: const Icon(Icons.login_rounded),
+                            label: const Text('Mit Google anmelden'),
+                          ),
                         ),
                       ],
                     );
                   }
 
                   final email = sync.user?.email ?? 'angemeldet';
-                  final lastSync =
-                      sync.lastSyncMillis > 0
-                          ? DateTime.fromMillisecondsSinceEpoch(
-                            sync.lastSyncMillis,
-                          )
-                          : null;
-
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Cloud-Backup',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Angemeldet: $email',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium?.copyWith(color: onSurfaceVar),
-                      ),
-                      if (lastSync != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Letzte Sicherung: ${lastSync.toLocal()}',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: onSurfaceVar),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Automatische Sicherung'),
-                        subtitle: Text(
-                          'Sichert spätestens alle 2 Stunden automatisch – beim App-Start, nach Pause/Fortsetzen und in Intervallen.',
-                          style: TextStyle(color: onSurfaceVar),
-                        ),
-                        value: sync.syncEnabled,
-                        onChanged: (v) async {
-                          await context
-                              .read<CloudSyncProvider>()
-                              .setSyncEnabled(v);
-                          if (v && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Automatische Sicherung aktiviert',
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 8),
                       Row(
                         children: [
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed:
-                                  sync.isBusy
-                                      ? null
-                                      : () async {
-                                        try {
-                                          await context
-                                              .read<CloudSyncProvider>()
-                                              .backupNow();
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Backup hochgeladen',
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        } catch (e) {
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text('Fehler: $e'),
-                                              ),
-                                            );
-                                          }
-                                        }
-                                      },
-                              icon: const Icon(Icons.cloud_upload_outlined),
-                              label: const Text('Jetzt sichern'),
-                            ),
-                          ),
+                          Icon(Icons.cloud_done_outlined, size: 20,
+                              color: scheme.primary),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed:
-                                  sync.isBusy
-                                      ? null
-                                      : () async {
-                                        final ok = await showDialog<bool>(
-                                          context: context,
-                                          builder:
-                                              (ctx) => AlertDialog(
-                                                title: const Text(
-                                                  'Aus Cloud wiederherstellen?',
-                                                ),
-                                                content: const Text(
-                                                  'Dies ersetzt deine lokalen Daten mit dem Cloud-Backup. Fortfahren?',
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          ctx,
-                                                          false,
-                                                        ),
-                                                    child: const Text(
-                                                      'Abbrechen',
-                                                    ),
-                                                  ),
-                                                  FilledButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          ctx,
-                                                          true,
-                                                        ),
-                                                    child: const Text(
-                                                      'Ja, wiederherstellen',
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                        );
-                                        if (ok != true) return;
-                                        try {
-                                          await context
-                                              .read<CloudSyncProvider>()
-                                              .restoreNow();
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Backup wiederhergestellt',
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        } catch (e) {
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text('Fehler: $e'),
-                                              ),
-                                            );
-                                          }
-                                        }
-                                      },
-                              icon: const Icon(Icons.cloud_download_outlined),
-                              label: const Text('Aus Cloud laden'),
-                            ),
+                            child: Text(email,
+                                style: Theme.of(context).textTheme.bodyMedium),
                           ),
                         ],
                       ),
+                      if (sync.lastSyncMillis > 0) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Letzte Sicherung: ${_formatSync(sync.lastSyncMillis)}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(child: Text('Auto-Backup',
+                              style: Theme.of(context).textTheme.bodyMedium)),
+                          Switch(
+                            value: sync.syncEnabled,
+                            onChanged: (v) async {
+                              await context.read<CloudSyncProvider>().setSyncEnabled(v);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(child: FilledButton.icon(
+                            onPressed: sync.isBusy ? null : () => _backup(context),
+                            icon: const Icon(Icons.cloud_upload_outlined),
+                            label: const Text('Sichern'),
+                          )),
+                          const SizedBox(width: 10),
+                          Expanded(child: OutlinedButton.icon(
+                            onPressed: sync.isBusy ? null : () => _restore(context),
+                            icon: const Icon(Icons.cloud_download_outlined),
+                            label: const Text('Laden'),
+                          )),
+                        ],
+                      ),
                       const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed:
-                            sync.isBusy
-                                ? null
-                                : () =>
-                                    context.read<CloudSyncProvider>().signOut(),
-                        icon: const Icon(Icons.logout),
-                        label: const Text('Abmelden'),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: sync.isBusy ? null : () =>
+                              context.read<CloudSyncProvider>().signOut(),
+                          icon: const Icon(Icons.logout_rounded, size: 18),
+                          label: const Text('Abmelden'),
+                        ),
                       ),
                     ],
                   );
@@ -642,13 +229,188 @@ class _SettingsScreenState extends State<SettingsScreen>
       ),
     );
   }
+
+  Future<void> _pickAccent(BuildContext context, ThemeProvider theme) async {
+    Color temp = theme.accent;
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Akzentfarbe'),
+        content: SingleChildScrollView(
+          child: BlockPicker(
+            pickerColor: temp,
+            onColorChanged: (c) => temp = c,
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
+          FilledButton(onPressed: () { Navigator.pop(ctx); theme.setAccent(temp); },
+              child: const Text('Übernehmen')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _signIn(BuildContext context) async {
+    try {
+      final cloud = context.read<CloudSyncProvider>();
+      await cloud.signInWithGoogle();
+      if (!context.mounted) return;
+
+      final exists = await cloud.remoteBackupExists();
+      if (exists) {
+        final choice = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Cloud-Backup gefunden'),
+            content: const Text('Ein vorhandenes Backup wurde gefunden.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, 'cancel'), child: const Text('Abbrechen')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, 'merge'), child: const Text('Zusammenführen')),
+              TextButton(onPressed: () => Navigator.pop(ctx, 'load'), child: const Text('Backup laden')),
+            ],
+          ),
+        );
+
+        if (choice == 'load') {
+          try {
+            await cloud.restoreNow();
+            if (!context.mounted) return;
+            await _reloadAll(context);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backup geladen')));
+          } catch (e) {
+            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+          }
+        } else if (choice == 'merge') {
+          try {
+            await cloud.mergeFromCloud();
+            if (!context.mounted) return;
+            await _reloadAll(context);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Zusammengeführt')));
+          } catch (e) {
+            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+          }
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Anmeldung erfolgreich')));
+      }
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+    }
+  }
+
+  Future<void> _backup(BuildContext context) async {
+    try {
+      await context.read<CloudSyncProvider>().backupNow();
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backup hochgeladen')));
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+    }
+  }
+
+  Future<void> _restore(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Wiederherstellen?'),
+        content: const Text('Lokale Daten werden durch das Cloud-Backup ersetzt.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Wiederherstellen')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await context.read<CloudSyncProvider>().restoreNow();
+      if (context.mounted) {
+        await _reloadAll(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wiederhergestellt')));
+      }
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+    }
+  }
+
+  Future<void> _reloadAll(BuildContext context) async {
+    await context.read<ExerciseProvider>().loadExercises();
+    await context.read<WorkoutProvider>().loadWorkouts();
+    await context.read<ProgressProvider>().loadData();
+  }
+
+  String _formatSync(int millis) {
+    final d = DateTime.fromMillisecondsSinceEpoch(millis).toLocal();
+    return '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year} '
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(title,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            letterSpacing: 0.5,
+          )),
+    );
+  }
+}
+
+class _ColorDot extends StatelessWidget {
+  final Color color;
+  final bool isSelected;
+  final bool isCustom;
+  final VoidCallback onTap;
+
+  const _ColorDot({
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+    this.isCustom = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: isCustom ? null : color,
+          gradient: isCustom
+              ? LinearGradient(colors: [
+                  Colors.red, Colors.orange, Colors.yellow,
+                  Colors.green, Colors.blue, Colors.purple,
+                ])
+              : null,
+          shape: BoxShape.circle,
+          border: isSelected
+              ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 2.5)
+              : Border.all(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.4)),
+        ),
+        child: isCustom
+            ? const Icon(Icons.palette_rounded, size: 18, color: Colors.white)
+            : isSelected
+                ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
+                : null,
+      ),
+    );
+  }
 }
 
 const _quickSwatches = <Color>[
-  Color.fromARGB(255, 80, 127, 255),
-  Color.fromARGB(255, 14, 199, 255),
-  Color(0xFF00C853),
-  Color(0xFFD81B60),
+  Color(0xFF4776F8),
+  Color(0xFF0EC7FF),
+  Color(0xFF4CAF50),
+  Color(0xFFE91E63),
   Color(0xFF9C27B0),
-  Color(0xFFF44336),
+  Color(0xFFFF5722),
 ];

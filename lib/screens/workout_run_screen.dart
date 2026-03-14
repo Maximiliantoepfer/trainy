@@ -10,14 +10,10 @@ import '../providers/active_workout_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../utils/duration_utils.dart';
 
-const Duration _kFastAnim = Duration(milliseconds: 200);
-const Duration _kProgressAnim = Duration(milliseconds: 260);
-const Duration _kFabAnim = Duration(milliseconds: 220);
-
 class WorkoutRunScreen extends StatefulWidget {
   final Workout workout;
   final List<Exercise> exercises;
-  final bool autoStart; // optionaler Auto-Start
+  final bool autoStart;
 
   const WorkoutRunScreen({
     super.key,
@@ -60,84 +56,54 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
 
   Future<void> _stopAndFinish() async {
     if (!_isRunning) return;
-
     final active = context.read<ActiveWorkoutProvider>();
     _isRunning = false;
     setState(() {});
 
-    final hasAnySets = active.setsByExercise.values.any(
-      (list) => list.isNotEmpty,
-    );
-
+    final hasAnySets = active.setsByExercise.values.any((list) => list.isNotEmpty);
     if (!mounted) return;
 
-    // Speichern bestätigen (auch wenn leer, damit klarer Flow)
     final save = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Workout beenden'),
-            content: Text(
-              hasAnySets
-                  ? 'Die erfassten Sätze werden gespeichert.'
-                  : 'Keine Sätze erfasst. Trotzdem beenden?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Beenden'),
-              ),
-            ],
-          ),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Workout beenden'),
+        content: Text(hasAnySets
+            ? 'Die erfassten Sätze werden gespeichert.'
+            : 'Keine Sätze erfasst. Trotzdem beenden?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Beenden')),
+        ],
+      ),
     );
 
     if (save != true) return;
 
     final duration = active.elapsedTotalSeconds;
-
-    // 1) Last Values pro Exercise aktualisieren
     final exerciseProvider = context.read<ExerciseProvider>();
     active.setsByExercise.forEach((exerciseId, sets) {
       if (sets.isEmpty) return;
-      final last = _deriveLastValues(sets);
-      exerciseProvider.updateLastValues(exerciseId, last);
+      exerciseProvider.updateLastValues(exerciseId, _deriveLastValues(sets));
     });
 
-    // 2) Session für Progress persistieren (nur wenn Sets vorhanden)
     if (hasAnySets) {
       await context.read<ProgressProvider>().saveWorkoutEntries(
-        workoutId: widget.workout.id,
-        durationSeconds: duration,
+        workoutId: widget.workout.id, durationSeconds: duration,
         setsByExercise: active.setsByExercise,
       );
     }
 
-    // 3) Optional Cloud-Backup direkt nach Abschluss
     final cloud = context.read<CloudSyncProvider>();
     if (cloud.syncEnabled && cloud.isSignedIn) {
-      try {
-        await cloud.backupNow();
-      } catch (_) {
-        // stiller Fehler
-      }
+      try { await cloud.backupNow(); } catch (_) {}
     }
 
-    // 4) Aktive Session beenden
     active.clear();
-
     if (mounted) Navigator.of(context).pop();
   }
 
   Map<String, String> _deriveLastValues(List<Map<String, String>> sets) {
-    String? lastReps;
-    String? lastWeight;
-    String? lastSets;
-    String? lastDuration;
-
+    String? lastReps, lastWeight, lastSets, lastDuration;
     for (final s in sets) {
       final reps = s['reps']?.trim();
       final weight = s['weight']?.trim();
@@ -148,16 +114,13 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       if (setsVal != null && setsVal.isNotEmpty) lastSets = setsVal;
       if (dur != null && dur.isNotEmpty) lastDuration = dur;
     }
-
     final map = <String, String>{};
-    if (lastSets != null) map['sets'] = lastSets!;
-    if (lastReps != null) map['reps'] = lastReps!;
-    if (lastWeight != null) map['weight'] = lastWeight!;
-    if (lastDuration != null) map['duration'] = lastDuration!;
+    if (lastSets != null) map['sets'] = lastSets;
+    if (lastReps != null) map['reps'] = lastReps;
+    if (lastWeight != null) map['weight'] = lastWeight;
+    if (lastDuration != null) map['duration'] = lastDuration;
     return map;
   }
-
-  String _formatTime(int seconds) => DurationFormatter.digital(seconds);
 
   Future<void> _addSet(BuildContext context, Exercise e) async {
     final active = context.read<ActiveWorkoutProvider>();
@@ -167,229 +130,93 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     final sessionLast = existing.isNotEmpty ? existing.last : null;
     final last = sessionLast ?? e.lastValues;
     final defs = e.defaultValues;
-    final tracksAny =
-        e.trackSets || e.trackReps || e.trackWeight || e.trackDuration;
+    final tracksAny = e.trackSets || e.trackReps || e.trackWeight || e.trackDuration;
+
     if (!tracksAny) {
-      await showDialog(
-        context: context,
-        builder:
-            (ctx) => AlertDialog(
-              title: Text(e.name),
-              content: const Text(
-                'Für diese Übung sind keine Felder zum Tracken aktiviert. '
-                'Aktiviere Sätze/Wdh./Gewicht/Dauer in der Übungsbearbeitung.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-      );
+      await showDialog(context: context, builder: (ctx) => AlertDialog(
+        title: Text(e.name),
+        content: const Text('Keine Felder zum Tracken aktiviert.'),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+      ));
       return;
     }
 
-    final repsCtrl = TextEditingController(
-      text: last['reps'] ?? defs['reps'] ?? '',
-    );
-    final weightCtrl = TextEditingController(
-      text: last['weight'] ?? defs['weight'] ?? '',
-    );
-    final setsCtrl = TextEditingController(
-      text: last['sets'] ?? defs['sets'] ?? '',
-    );
-    final durationParts = DurationFormatter.fromRaw(
-      last['duration'] ?? defs['duration'],
-    );
-    final durHoursCtrl = TextEditingController(
-      text: durationParts.hours > 0 ? '${durationParts.hours}' : '',
-    );
-    final durMinutesCtrl = TextEditingController(
-      text: durationParts.minutes > 0 ? '${durationParts.minutes}' : '',
-    );
-    final durSecondsCtrl = TextEditingController(
-      text: durationParts.seconds > 0 ? '${durationParts.seconds}' : '',
-    );
+    final repsCtrl = TextEditingController(text: last['reps'] ?? defs['reps'] ?? '');
+    final weightCtrl = TextEditingController(text: last['weight'] ?? defs['weight'] ?? '');
+    final setsCtrl = TextEditingController(text: last['sets'] ?? defs['sets'] ?? '');
+    final durationParts = DurationFormatter.fromRaw(last['duration'] ?? defs['duration']);
+    final durHoursCtrl = TextEditingController(text: durationParts.hours > 0 ? '${durationParts.hours}' : '');
+    final durMinutesCtrl = TextEditingController(text: durationParts.minutes > 0 ? '${durationParts.minutes}' : '');
+    final durSecondsCtrl = TextEditingController(text: durationParts.seconds > 0 ? '${durationParts.seconds}' : '');
 
-    await showDialog(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(e.name),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (e.trackSets)
-                    TextField(
-                      controller: setsCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Sätze (Anzahl)',
-                      ),
-                    ),
-                  if (e.trackReps)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: TextField(
-                        controller: repsCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Wiederholungen',
-                        ),
-                      ),
-                    ),
-                  if (e.trackWeight)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: TextField(
-                        controller: weightCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Gewicht (kg)',
-                        ),
-                      ),
-                    ),
-                  if (e.trackDuration)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Dauer',
-                            style: Theme.of(ctx).textTheme.labelLarge,
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: durHoursCtrl,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: InputDecoration(
-                                    labelText: 'Std',
-                                    filled: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextField(
-                                  controller: durMinutesCtrl,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: InputDecoration(
-                                    labelText: 'Min',
-                                    filled: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextField(
-                                  controller: durSecondsCtrl,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: InputDecoration(
-                                    labelText: 'Sek',
-                                    filled: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final entry = <String, String>{};
-                  if (e.trackSets && setsCtrl.text.trim().isNotEmpty) {
-                    entry['sets'] = setsCtrl.text.trim();
-                  }
-                  if (e.trackReps && repsCtrl.text.trim().isNotEmpty) {
-                    entry['reps'] = repsCtrl.text.trim();
-                  }
-                  if (e.trackWeight && weightCtrl.text.trim().isNotEmpty) {
-                    entry['weight'] = weightCtrl.text.trim();
-                  }
-                  if (e.trackDuration) {
-                    final durationSeconds =
-                        DurationFormatter.totalSecondsFromTexts(
-                          durHoursCtrl.text,
-                          durMinutesCtrl.text,
-                          durSecondsCtrl.text,
-                        );
-                    if (durationSeconds > 0) {
-                      entry['duration'] = '$durationSeconds';
-                    }
-                  }
-
-                  if (entry.isNotEmpty) {
-                    context.read<ActiveWorkoutProvider>().updateLastSet(
-                      e.id,
-                      entry,
-                    );
-                    setState(() {}); // check-icon / progress
-                  }
-                  Navigator.pop(ctx);
-                },
-                child: const Text('Speichern'),
-              ),
+    await showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: Text(e.name),
+      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (e.trackSets)
+          TextField(controller: setsCtrl, keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Sätze')),
+        if (e.trackReps)
+          Padding(padding: const EdgeInsets.only(top: 12),
+            child: TextField(controller: repsCtrl, keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Wiederholungen'))),
+        if (e.trackWeight)
+          Padding(padding: const EdgeInsets.only(top: 12),
+            child: TextField(controller: weightCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Gewicht (kg)'))),
+        if (e.trackDuration)
+          Padding(padding: const EdgeInsets.only(top: 12), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Dauer', style: Theme.of(ctx).textTheme.labelLarge),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: TextField(controller: durHoursCtrl,
+                  keyboardType: TextInputType.number, textInputAction: TextInputAction.next,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(labelText: 'Std'))),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(controller: durMinutesCtrl,
+                  keyboardType: TextInputType.number, textInputAction: TextInputAction.next,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(labelText: 'Min'))),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(controller: durSecondsCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(labelText: 'Sek'))),
+              ]),
             ],
-          ),
-    );
+          )),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
+        FilledButton(onPressed: () {
+          final entry = <String, String>{};
+          if (e.trackSets && setsCtrl.text.trim().isNotEmpty) entry['sets'] = setsCtrl.text.trim();
+          if (e.trackReps && repsCtrl.text.trim().isNotEmpty) entry['reps'] = repsCtrl.text.trim();
+          if (e.trackWeight && weightCtrl.text.trim().isNotEmpty) entry['weight'] = weightCtrl.text.trim();
+          if (e.trackDuration) {
+            final secs = DurationFormatter.totalSecondsFromTexts(
+              durHoursCtrl.text, durMinutesCtrl.text, durSecondsCtrl.text);
+            if (secs > 0) entry['duration'] = '$secs';
+          }
+          if (entry.isNotEmpty) {
+            context.read<ActiveWorkoutProvider>().updateLastSet(e.id, entry);
+            setState(() {});
+          }
+          Navigator.pop(ctx);
+        }, child: const Text('Speichern')),
+      ],
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
+    final scheme = Theme.of(context).colorScheme;
     final active = context.watch<ActiveWorkoutProvider>();
     final total = widget.exercises.length;
-    final doneCount =
-        active.setsByExercise.values.where((v) => v.isNotEmpty).length;
+    final doneCount = active.setsByExercise.values.where((v) => v.isNotEmpty).length;
     final progress = total == 0 ? 0.0 : doneCount / total;
 
     return Scaffold(
@@ -401,186 +228,78 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
               padding: const EdgeInsets.only(right: 8),
               child: ValueListenableBuilder<int>(
                 valueListenable: active.elapsedSeconds,
-                builder:
-                    (_, sec, __) => AnimatedSwitcher(
-                      duration: _kFastAnim,
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeInCubic,
-                      layoutBuilder:
-                          (currentChild, previousChildren) => Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              ...previousChildren,
-                              if (currentChild != null) currentChild,
-                            ],
-                          ),
-                      transitionBuilder: (child, animation) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOut,
-                          reverseCurve: Curves.easeIn,
-                        );
-                        return FadeTransition(
-                          opacity: curved,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.2),
-                              end: Offset.zero,
-                            ).animate(curved),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: Text(
-                        _formatTime(sec),
-                        key: ValueKey(sec),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                        ),
-                      ),
-                    ),
+                builder: (_, sec, __) => Text(
+                  DurationFormatter.digital(sec),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: [const FontFeature.tabularFigures()],
+                  ),
+                ),
               ),
             ),
           ),
           if (_isRunning)
-            IconButton(
-              tooltip: 'Stoppen & speichern',
-              onPressed: _stopAndFinish,
-              icon: const Icon(Icons.stop_circle_outlined),
-            ),
+            IconButton(tooltip: 'Beenden', onPressed: _stopAndFinish,
+              icon: Icon(Icons.stop_circle_outlined, color: scheme.error)),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(4),
+          preferredSize: const Size.fromHeight(3),
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: progress),
-            duration: _kProgressAnim,
+            duration: const Duration(milliseconds: 300),
             curve: Curves.easeOut,
-            builder:
-                (context, value, _) =>
-                    LinearProgressIndicator(value: value, minHeight: 4),
+            builder: (_, value, __) => LinearProgressIndicator(value: value),
           ),
         ),
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+      body: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
         itemCount: widget.exercises.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (_, i) {
           final e = widget.exercises[i];
           final hasSets = (active.setsByExercise[e.id] ?? const []).isNotEmpty;
-          return AnimatedContainer(
-            duration: _kFastAnim,
-            curve: Curves.easeOut,
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
+          return Card(
+            color: hasSets ? scheme.primary.withOpacity(0.06) : null,
+            child: InkWell(
+              onTap: () => _addSet(context, e),
               borderRadius: BorderRadius.circular(16),
-              boxShadow:
-                  hasSets
-                      ? [
-                        BoxShadow(
-                          color: Colors.green.withOpacity(0.18),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                      : const [],
-            ),
-            child: Card(
-              margin: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              color:
-                  hasSets
-                      ? Theme.of(context).colorScheme.surfaceVariant
-                      : Theme.of(context).cardColor,
-              child: ListTile(
-                title: Text(
-                  e.name,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(children: [
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(e.name, style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 2),
+                      Text([
+                        if (e.trackSets) 'Sätze', if (e.trackReps) 'Wdh.',
+                        if (e.trackWeight) 'Gewicht', if (e.trackDuration) 'Dauer',
+                      ].join(' · '), style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  )),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: hasSets
+                        ? Icon(Icons.check_circle_rounded, key: ValueKey('done_${e.id}'), color: const Color(0xFF4CAF50))
+                        : Icon(Icons.add_circle_outline_rounded, key: ValueKey('add_${e.id}'), color: scheme.primary),
                   ),
-                ),
-                subtitle: Text(
-                  [
-                    if (e.trackSets) 'Sätze',
-                    if (e.trackReps) 'Wdh.',
-                    if (e.trackWeight) 'Gewicht',
-                    if (e.trackDuration) 'Dauer',
-                  ].join(' / '),
-                ),
-                trailing: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: AnimatedSwitcher(
-                    duration: _kFastAnim,
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) {
-                      final scale = Tween<double>(
-                        begin: 0.85,
-                        end: 1,
-                      ).animate(animation);
-                      return FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(scale: scale, child: child),
-                      );
-                    },
-                    child:
-                        hasSets
-                            ? Center(
-                              key: ValueKey('done_${e.id}'),
-                              child: const Icon(
-                                Icons.check_circle,
-                                color: Colors.green,
-                              ),
-                            )
-                            : IconButton(
-                              key: ValueKey('add_${e.id}'),
-                              tooltip: 'Satz hinzufügen',
-                              padding: EdgeInsets.zero,
-                              constraints: BoxConstraints.tight(
-                                const Size(48, 48),
-                              ),
-                              onPressed: () => _addSet(context, e),
-                              icon: Icon(Icons.add, color: accent),
-                            ),
-                  ),
-                ),
-                onTap: () => _addSet(context, e),
+                ]),
               ),
             ),
           );
         },
       ),
       floatingActionButton: AnimatedSwitcher(
-        duration: _kFabAnim,
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          final scale = Tween<double>(begin: 0.9, end: 1).animate(animation);
-          return FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(scale: scale, child: child),
-          );
-        },
-        child:
-            _isRunning
-                ? FloatingActionButton.extended(
-                  key: const ValueKey('fab_stop'),
-                  onPressed: _stopAndFinish,
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                  foregroundColor: Theme.of(context).colorScheme.onError,
-                  icon: const Icon(Icons.stop_rounded),
-                  label: const Text('Stop'),
-                )
-                : FloatingActionButton.extended(
-                  key: const ValueKey('fab_start'),
-                  onPressed: _start,
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Text('Start'),
-                ),
+        duration: const Duration(milliseconds: 200),
+        child: _isRunning
+            ? FloatingActionButton.extended(key: const ValueKey('fab_stop'),
+                onPressed: _stopAndFinish, backgroundColor: scheme.error,
+                foregroundColor: scheme.onError,
+                icon: const Icon(Icons.stop_rounded), label: const Text('Beenden'))
+            : FloatingActionButton.extended(key: const ValueKey('fab_start'),
+                onPressed: _start,
+                icon: const Icon(Icons.play_arrow_rounded), label: const Text('Start')),
       ),
     );
   }

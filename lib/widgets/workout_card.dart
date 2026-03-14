@@ -1,9 +1,5 @@
-﻿// lib/workout_card.dart
-
 import 'package:flutter/material.dart';
 import '../models/workout.dart';
-
-const Duration _kCardAnim = Duration(milliseconds: 200);
 
 class WorkoutCard extends StatelessWidget {
   final Workout workout;
@@ -26,54 +22,43 @@ class WorkoutCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    final titleStyle = textTheme.titleMedium;
-    final bodyStyle = textTheme.bodySmall;
-    final baseColor = Theme.of(context).cardColor;
-    final highlightColor = scheme.primary.withOpacity(0.14);
-
     return AnimatedContainer(
-      duration: _kCardAnim,
+      duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        boxShadow:
-            selected
-                ? [
-                  BoxShadow(
-                    color: scheme.primary.withOpacity(0.18),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-                : const [],
+        borderRadius: BorderRadius.circular(16),
+        color: selected
+            ? scheme.primary.withOpacity(0.08)
+            : Theme.of(context).cardColor,
+        border: selected
+            ? Border.all(color: scheme.primary.withOpacity(0.3), width: 1.5)
+            : null,
       ),
       child: Material(
-        color: selected ? highlightColor : baseColor,
-        elevation: 0,
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: scheme.primary.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(14),
+                    color: scheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     Icons.fitness_center_rounded,
-                    size: 26,
+                    size: 20,
                     color: scheme.primary,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,44 +67,34 @@ class WorkoutCard extends StatelessWidget {
                         workout.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: titleStyle,
+                        style: textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 4),
-                      if (workout.exerciseIds.isNotEmpty)
+                      if (workout.exerciseIds.isNotEmpty) ...[
+                        const SizedBox(height: 2),
                         Text(
-                          '${workout.exerciseIds.length} Übung(en)',
-                          style: bodyStyle?.copyWith(
-                            color: textTheme.bodySmall?.color?.withOpacity(0.7),
-                          ),
+                          '${workout.exerciseIds.length} Übungen',
+                          style: textTheme.bodySmall,
                         ),
+                      ],
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                IconButton(
-                  onPressed: onPrimaryActionTap ?? onTap,
-                  icon: AnimatedSwitcher(
-                    duration: _kCardAnim,
-                    switchInCurve: Curves.easeOutBack,
-                    switchOutCurve: Curves.easeIn,
-                    transitionBuilder: (child, animation) {
-                      final curved = CurvedAnimation(
-                        parent: animation,
-                        curve: Curves.easeOutBack,
-                        reverseCurve: Curves.easeIn,
-                      );
-                      return FadeTransition(
-                        opacity: curved,
-                        child: ScaleTransition(scale: curved, child: child),
-                      );
-                    },
-                    child: Icon(
-                      selected ? Icons.delete_forever_rounded : Icons.edit,
-                      key: ValueKey(selected),
-                    ),
-                  ),
-                  color: selected ? Colors.red : scheme.primary,
-                  tooltip: selected ? 'Löschen' : 'Bearbeiten',
+                const SizedBox(width: 8),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: selected
+                      ? IconButton(
+                          key: const ValueKey('delete'),
+                          onPressed: onPrimaryActionTap,
+                          icon: Icon(Icons.delete_outline_rounded,
+                            color: scheme.error),
+                          tooltip: 'Löschen',
+                        )
+                      : Icon(
+                          Icons.chevron_right_rounded,
+                          key: const ValueKey('chevron'),
+                          color: scheme.onSurfaceVariant.withOpacity(0.4),
+                        ),
                 ),
               ],
             ),

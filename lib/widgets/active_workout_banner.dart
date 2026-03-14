@@ -5,127 +5,72 @@ import '../providers/active_workout_provider.dart';
 import '../utils/duration_utils.dart';
 import '../screens/workout_run_screen.dart';
 
-const Duration _kBannerAnim = Duration(milliseconds: 200);
-
 class ActiveWorkoutBanner extends StatelessWidget {
   const ActiveWorkoutBanner({super.key});
 
   @override
   Widget build(BuildContext context) {
     final active = context.watch<ActiveWorkoutProvider>();
-    final isVisible = active.isActive && active.workout != null;
+    if (!active.isActive || active.workout == null) {
+      return const SizedBox.shrink();
+    }
 
-    return AnimatedSwitcher(
-      duration: _kBannerAnim,
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
-      transitionBuilder: (child, animation) {
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return FadeTransition(
-          opacity: curved,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, -0.15),
-              end: Offset.zero,
-            ).animate(curved),
-            child: child,
-          ),
-        );
-      },
-      child:
-          isVisible
-              ? _BannerContent(
-                active: active,
-                key: const ValueKey('banner-content'),
-              )
-              : const SizedBox(key: ValueKey('banner-empty'), height: 0),
-    );
-  }
-}
-
-class _BannerContent extends StatelessWidget {
-  final ActiveWorkoutProvider active;
-  const _BannerContent({required this.active, super.key});
-
-  @override
-  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final workout = active.workout!;
+
     return Material(
-      color: scheme.surfaceVariant,
+      color: scheme.primary.withOpacity(0.08),
       child: InkWell(
         onTap: () {
-          final ex = active.exercises;
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder:
-                  (_) => WorkoutRunScreen(
-                    workout: workout,
-                    exercises: ex,
-                    autoStart: false,
-                  ),
+              builder: (_) => WorkoutRunScreen(
+                workout: workout,
+                exercises: active.exercises,
+                autoStart: false,
+              ),
             ),
           );
         },
-        child: Container(
-          height: 56,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Row(
             children: [
-              Icon(Icons.timer, color: scheme.primary, size: 18),
-              const SizedBox(width: 8),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: scheme.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.timer_rounded, color: scheme.primary, size: 18),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   workout.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: scheme.primary,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               ValueListenableBuilder<int>(
                 valueListenable: active.elapsedSeconds,
-                builder:
-                    (_, sec, __) => AnimatedSwitcher(
-                      duration: _kBannerAnim,
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeIn,
-                      transitionBuilder: (child, animation) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOut,
-                          reverseCurve: Curves.easeIn,
-                        );
-                        return FadeTransition(
-                          opacity: curved,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.2),
-                              end: Offset.zero,
-                            ).animate(curved),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: Text(
-                        _formatBannerTime(sec),
-                        key: ValueKey(sec),
-                        style: TextStyle(
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
+                builder: (_, sec, __) => Text(
+                  DurationFormatter.digital(sec),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: [const FontFeature.tabularFigures()],
+                  ),
+                ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+              Icon(Icons.chevron_right_rounded,
+                  color: scheme.primary.withOpacity(0.6), size: 20),
             ],
           ),
         ),
@@ -133,5 +78,3 @@ class _BannerContent extends StatelessWidget {
     );
   }
 }
-
-String _formatBannerTime(int seconds) => DurationFormatter.digital(seconds);

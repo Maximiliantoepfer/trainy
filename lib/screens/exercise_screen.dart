@@ -39,101 +39,79 @@ class _ExerciseScreenState extends State<ExerciseScreen>
     super.build(context);
     final provider = context.watch<ExerciseProvider>();
     final list = provider.exercises;
-    final filtered =
-        _query.isEmpty
-            ? list
-            : list.where((e) {
-              final q = _query.toLowerCase();
-              return e.name.toLowerCase().contains(q) ||
-                  (e.description?.toLowerCase().contains(q) ?? false);
-            }).toList();
+    final scheme = Theme.of(context).colorScheme;
+    final filtered = _query.isEmpty
+        ? list
+        : list.where((e) {
+            final q = _query.toLowerCase();
+            return e.name.toLowerCase().contains(q) ||
+                (e.description?.toLowerCase().contains(q) ?? false);
+          }).toList();
 
     final isActive = context.watch<ActiveWorkoutProvider>().isActive;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Übungen'),
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight((isActive ? 56 : 0) + 60),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isActive) const ActiveWorkoutBanner(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: SearchBar(
-                  controller: _searchCtrl,
-                  hintText: 'Übungen durchsuchen',
-                  leading: Icon(
-                    Icons.search,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  trailing: [
-                    if (_query.isNotEmpty)
-                      IconButton(
-                        tooltip: 'Leeren',
-                        icon: Icon(
-                          Icons.close,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+      appBar: AppBar(title: const Text('Übungen')),
+      body: Column(
+        children: [
+          AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            child: isActive
+                ? const ActiveWorkoutBanner()
+                : const SizedBox.shrink(),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: 'Übung suchen...',
+                prefixIcon: Icon(Icons.search_rounded,
+                    color: scheme.onSurfaceVariant.withOpacity(0.5)),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.close_rounded,
+                            color: scheme.onSurfaceVariant),
                         onPressed: () {
-                          setState(() {
-                            _query = '';
-                            _searchCtrl.clear();
-                          });
+                          setState(() { _query = ''; _searchCtrl.clear(); });
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
+          Expanded(
+            child: provider.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : list.isEmpty
+                    ? _EmptyState(onAdd: () => _openEditor(context))
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) {
+                          final e = filtered[i];
+                          final tags = [
+                            if (e.trackSets) 'Sätze',
+                            if (e.trackReps) 'Wdh.',
+                            if (e.trackWeight) 'Gewicht',
+                            if (e.trackDuration) 'Dauer',
+                          ];
+                          return _ExerciseTile(
+                            exercise: e, tags: tags,
+                            onTap: () => _openEditor(context, existing: e),
+                          );
                         },
                       ),
-                  ],
-                  onChanged: (v) => setState(() => _query = v),
-                  elevation: const MaterialStatePropertyAll(0),
-                  padding: const MaterialStatePropertyAll(
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  ),
-                  backgroundColor: MaterialStatePropertyAll(
-                    Theme.of(context).colorScheme.surface,
-                  ),
-                ),
-              ),
-            ],
           ),
-        ),
+        ],
       ),
-      body:
-          provider.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : list.isEmpty
-              ? _EmptyState(onAdd: () => _openEditor(context))
-              : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                itemCount: filtered.length,
-                itemBuilder: (_, i) {
-                  final e = filtered[i];
-                  return Card(
-                    child: ListTile(
-                      title: Text(
-                        e.name,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      subtitle: Text(
-                        [
-                          if (e.trackSets) 'Sätze',
-                          if (e.trackReps) 'Wdh.',
-                          if (e.trackWeight) 'Gewicht',
-                          if (e.trackDuration) 'Dauer',
-                        ].join(' · '),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () => _openEditor(context, existing: e),
-                      ),
-                    ),
-                  );
-                },
-              ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openEditor(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Neu'),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Neue Übung'),
       ),
     );
   }
@@ -150,207 +128,174 @@ class _ExerciseScreenState extends State<ExerciseScreen>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (ctx) {
         return StatefulBuilder(
-          builder:
-              (ctx, setModal) => SafeArea(
-                top: false,
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          builder: (ctx, setModal) => SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  _dragHandle(ctx),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        existing == null ? 'Übung erstellen' : 'Übung bearbeiten',
+                        style: Theme.of(ctx).textTheme.titleLarge,
+                      ),
+                    ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 12),
-                      Container(
-                        width: 44,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Theme.of(ctx).colorScheme.outlineVariant,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            Text(
-                              existing == null
-                                  ? 'Übung erstellen'
-                                  : 'Übung bearbeiten',
-                              style: Theme.of(ctx).textTheme.headlineSmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Flexible(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                          child: Column(
-                            children: [
-                              TextField(
-                                controller: nameCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Name *',
-                                  hintText: 'z. B. Plank',
-                                ),
-                                autofocus: true,
-                              ),
-                              const SizedBox(height: 10),
-                              TextField(
-                                controller: descCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Beschreibung',
-                                ),
-                                minLines: 1,
-                                maxLines: 3,
-                              ),
-                              const SizedBox(height: 12),
-                              Card(
-                                child: Column(
-                                  children: [
-                                    SwitchListTile(
-                                      value: trackSets,
-                                      onChanged:
-                                          (v) => setModal(() => trackSets = v),
-                                      title: const Text('Sätze'),
-                                      subtitle: const Text('z. B. 3 Sätze'),
-                                    ),
-                                    SwitchListTile(
-                                      value: trackReps,
-                                      onChanged:
-                                          (v) => setModal(() => trackReps = v),
-                                      title: const Text('Wiederholungen'),
-                                      subtitle: const Text('z. B. 10 pro Satz'),
-                                    ),
-                                    SwitchListTile(
-                                      value: trackWeight,
-                                      onChanged:
-                                          (v) =>
-                                              setModal(() => trackWeight = v),
-                                      title: const Text('Gewicht'),
-                                      subtitle: const Text('z. B. 50 kg'),
-                                    ),
-                                    SwitchListTile(
-                                      value: trackDuration,
-                                      onChanged:
-                                          (v) =>
-                                              setModal(() => trackDuration = v),
-                                      title: const Text('Dauer'),
-                                      subtitle: const Text('z. B. 60 Sekunden'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
+                            controller: nameCtrl,
+                            decoration: const InputDecoration(labelText: 'Name', hintText: 'z. B. Bankdrücken'),
+                            autofocus: true,
                           ),
-                        ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: descCtrl,
+                            decoration: const InputDecoration(labelText: 'Beschreibung (optional)'),
+                            minLines: 1, maxLines: 3,
+                          ),
+                          const SizedBox(height: 20),
+                          Text('Tracking', style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
+                            color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
+                          const SizedBox(height: 8),
+                          _toggleRow(ctx, 'Sätze', trackSets, (v) => setModal(() => trackSets = v)),
+                          _toggleRow(ctx, 'Wiederholungen', trackReps, (v) => setModal(() => trackReps = v)),
+                          _toggleRow(ctx, 'Gewicht', trackWeight, (v) => setModal(() => trackWeight = v)),
+                          _toggleRow(ctx, 'Dauer', trackDuration, (v) => setModal(() => trackDuration = v)),
+                        ],
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                child: const Text('Abbrechen'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: FilledButton(
-                                onPressed: () async {
-                                  final name = nameCtrl.text.trim();
-                                  if (name.isEmpty) return;
-
-                                  final provider = ctx.read<ExerciseProvider>();
-                                  await provider.addOrUpdateExercise(
-                                    id: existing?.id,
-                                    name: name,
-                                    description: descCtrl.text.trim(),
-                                    trackSets: trackSets,
-                                    trackReps: trackReps,
-                                    trackWeight: trackWeight,
-                                    trackDuration: trackDuration,
-                                  );
-                                  // trigger cloud backup soon (debounced)
-                                  try {
-                                    ctx
-                                        .read<CloudSyncProvider>()
-                                        .scheduleBackupSoon();
-                                  } catch (_) {}
-
-                                  if (mounted) {
-                                    Navigator.pop(ctx);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          existing == null
-                                              ? 'Übung "$name" angelegt'
-                                              : 'Übung "$name" aktualisiert',
-                                        ),
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
-                                  }
-                                },
-                                child: Text(
-                                  existing == null ? 'Erstellen' : 'Speichern',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                    child: Row(
+                      children: [
+                        Expanded(child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Abbrechen'),
+                        )),
+                        const SizedBox(width: 12),
+                        Expanded(child: FilledButton(
+                          onPressed: () async {
+                            final name = nameCtrl.text.trim();
+                            if (name.isEmpty) return;
+                            await ctx.read<ExerciseProvider>().addOrUpdateExercise(
+                              id: existing?.id, name: name, description: descCtrl.text.trim(),
+                              trackSets: trackSets, trackReps: trackReps,
+                              trackWeight: trackWeight, trackDuration: trackDuration,
+                            );
+                            try { ctx.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
+                            if (mounted) {
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(existing == null ? '„$name" angelegt' : '„$name" aktualisiert')),
+                              );
+                            }
+                          },
+                          child: Text(existing == null ? 'Erstellen' : 'Speichern'),
+                        )),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+            ),
+          ),
         );
       },
+    );
+  }
+
+  Widget _dragHandle(BuildContext ctx) => Center(
+    child: Container(width: 36, height: 4, decoration: BoxDecoration(
+      color: Theme.of(ctx).colorScheme.outlineVariant.withOpacity(0.5),
+      borderRadius: BorderRadius.circular(2),
+    )),
+  );
+
+  Widget _toggleRow(BuildContext ctx, String label, bool value, ValueChanged<bool> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(children: [
+        Expanded(child: Text(label, style: Theme.of(ctx).textTheme.bodyMedium)),
+        Switch(value: value, onChanged: onChanged),
+      ]),
+    );
+  }
+}
+
+class _ExerciseTile extends StatelessWidget {
+  final Exercise exercise;
+  final List<String> tags;
+  final VoidCallback onTap;
+  const _ExerciseTile({required this.exercise, required this.tags, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(children: [
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(exercise.name, style: Theme.of(context).textTheme.titleMedium),
+                if (tags.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(tags.join(' · '), style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ],
+            )),
+            Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant.withOpacity(0.4)),
+          ]),
+        ),
+      ),
     );
   }
 }
 
 class _EmptyState extends StatelessWidget {
   final VoidCallback onAdd;
-  const _EmptyState({required this.onAdd, super.key});
+  const _EmptyState({required this.onAdd});
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.fitness_center_rounded,
-              size: 72,
-              color: Theme.of(context).colorScheme.outline,
+        padding: const EdgeInsets.all(40),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 72, height: 72,
+            decoration: BoxDecoration(
+              color: scheme.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Noch keine Übungen',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            const Text('Lege deine erste Übung an, um zu starten.'),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add),
-              label: const Text('Übung anlegen'),
-            ),
-          ],
-        ),
+            child: Icon(Icons.fitness_center_rounded, size: 32, color: scheme.primary),
+          ),
+          const SizedBox(height: 20),
+          Text('Noch keine Übungen', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          Text('Lege deine erste Übung an.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
+        ]),
       ),
     );
   }

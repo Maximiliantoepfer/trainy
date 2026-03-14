@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
 import '../screens/exercise_screen.dart';
 import '../screens/progress_screen.dart';
@@ -43,54 +43,54 @@ class _MainNavigationState extends State<MainNavigation> {
         onPageChanged: (i) => setState(() => _index = i),
         children: _pages,
       ),
-
-      // Wichtig: Labels ausblenden und Ripple/Highlight lokal abschalten
-      bottomNavigationBar: Theme(
-        data: Theme.of(context).copyWith(
-          // verhindert die „Hintergrunderleuchtung" beim Tippen
-          splashFactory: NoSplash.splashFactory,
-          highlightColor: Colors.transparent,
-          splashColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-        ),
-        child: NavigationBar(
-          // Nur Icons, keine Labels
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-
-          // Größen/Farben kommen aus dem NavigationBarTheme (app_theme.dart)
-          selectedIndex: _index,
-          onDestinationSelected: (i) {
-            if (i == _index) return;
-            _pageController.animateToPage(
-              i,
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOutCubic,
-            );
-          },
-
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Workouts', // wird dank alwaysHide nicht angezeigt
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Divider(height: 0.5, thickness: 0.5,
+            color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3)),
+          Theme(
+            data: Theme.of(context).copyWith(
+              splashFactory: NoSplash.splashFactory,
+              highlightColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              hoverColor: Colors.transparent,
             ),
-            NavigationDestination(
-              icon: Icon(Icons.fitness_center_rounded, fill: 0),
-              selectedIcon: Icon(Icons.fitness_center_rounded, fill: 0),
-              label: 'Übungen',
+            child: NavigationBar(
+              selectedIndex: _index,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              onDestinationSelected: (i) {
+                if (i == _index) return;
+                _pageController.animateToPage(
+                  i,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                );
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: 'Home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.fitness_center_outlined),
+                  selectedIcon: Icon(Icons.fitness_center_rounded),
+                  label: 'Übungen',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.bar_chart_outlined),
+                  selectedIcon: Icon(Icons.bar_chart_rounded),
+                  label: 'Fortschritt',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings_rounded),
+                  label: 'Mehr',
+                ),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.insights_outlined),
-              selectedIcon: Icon(Icons.insights),
-              label: 'Fortschritt',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings),
-              label: 'Einstellungen',
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

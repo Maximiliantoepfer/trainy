@@ -1,4 +1,3 @@
-﻿// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -10,8 +9,6 @@ import '../widgets/workout_card.dart';
 import 'workout_screen.dart';
 import '../widgets/active_workout_banner.dart';
 import '../providers/active_workout_provider.dart';
-
-const Duration _kHomeAnim = Duration(milliseconds: 200);
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,7 +27,6 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-    // Beim ersten Öffnen Workouts + Progress laden
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       context.read<WorkoutProvider>().loadWorkouts();
       context.read<ProgressProvider>().loadData();
@@ -44,45 +40,42 @@ class _HomeScreenState extends State<HomeScreen>
 
     String? name = await showDialog<String>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Neues Workout'),
-            content: Form(
-              key: formKey,
-              child: TextFormField(
-                controller: controller,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Workout-Namen eingeben',
-                ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) {
-                    return 'Bitte Namen eingeben';
-                  }
-                  return null;
-                },
-                onFieldSubmitted: (_) {
-                  if (formKey.currentState?.validate() ?? false) {
-                    Navigator.of(ctx).pop(controller.text.trim());
-                  }
-                },
-              ),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Neues Workout'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Workout-Name',
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  if (formKey.currentState?.validate() ?? false) {
-                    Navigator.of(ctx).pop(controller.text.trim());
-                  }
-                },
-                child: const Text('Speichern'),
-              ),
-            ],
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Bitte Namen eingeben';
+              return null;
+            },
+            onFieldSubmitted: (_) {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.of(ctx).pop(controller.text.trim());
+              }
+            },
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.of(ctx).pop(controller.text.trim());
+              }
+            },
+            child: const Text('Erstellen'),
+          ),
+        ],
+      ),
     );
 
     if (name == null) return;
@@ -90,44 +83,36 @@ class _HomeScreenState extends State<HomeScreen>
     final w = await provider.createWorkout(name: name);
     if (!mounted) return;
 
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => WorkoutScreen(workout: w)));
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => WorkoutScreen(workout: w)),
+    );
     await provider.loadWorkouts();
-    try {
-      context.read<CloudSyncProvider>().scheduleBackupSoon();
-    } catch (_) {}
+    try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
   }
 
   Future<void> _confirmAndDelete(Workout workout) async {
     final provider = context.read<WorkoutProvider>();
-    final scheme = Theme.of(context).colorScheme;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Workout löschen?'),
-            content: Text(
-              '„${workout.name}" wird endgültig gelöscht. Fortfahren?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.all<Color>(Colors.red),
-                  foregroundColor: MaterialStateProperty.all<Color>(
-                    Colors.white,
-                  ),
-                ),
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Löschen'),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('Workout löschen?'),
+        content: Text('„${workout.name}" wird endgültig gelöscht.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Abbrechen'),
           ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
     );
 
     if (confirmed != true) return;
@@ -136,15 +121,9 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted) return;
 
     setState(() => _selectedWorkoutId = null);
-    try {
-      context.read<CloudSyncProvider>().scheduleBackupSoon();
-    } catch (_) {}
+    try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('„${workout.name}" gelöscht'),
-        backgroundColor: scheme.surface,
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text('„${workout.name}" gelöscht')),
     );
   }
 
@@ -153,9 +132,9 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() => _selectedWorkoutId = null);
       return;
     }
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => WorkoutScreen(workout: workout)));
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => WorkoutScreen(workout: workout)),
+    );
     if (!mounted) return;
     await context.read<WorkoutProvider>().loadWorkouts();
   }
@@ -172,131 +151,82 @@ class _HomeScreenState extends State<HomeScreen>
     final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
     final isProgressLoading = progress.isLoading;
 
-    return WillPopScope(
-      onWillPop: () async {
-        if (_selectedWorkoutId != null) {
+    return PopScope(
+      canPop: _selectedWorkoutId == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selectedWorkoutId != null) {
           setState(() => _selectedWorkoutId = null);
-          return false;
         }
-        return true;
       },
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Workouts'),
-          bottom: PreferredSize(
-            preferredSize: Size.fromHeight(active.isActive ? 56 : 0),
-            child: AnimatedSwitcher(
-              duration: _kHomeAnim,
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              transitionBuilder: (child, animation) {
-                final curved = CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOut,
-                  reverseCurve: Curves.easeIn,
-                );
-                return FadeTransition(
-                  opacity: curved,
-                  child: SizeTransition(
-                    sizeFactor: curved,
-                    axisAlignment: -1,
-                    child: child,
-                  ),
-                );
-              },
-              child:
-                  active.isActive
-                      ? const ActiveWorkoutBanner(key: ValueKey('home-banner'))
-                      : const SizedBox(
-                        key: ValueKey('home-banner-empty'),
-                        height: 0,
-                      ),
-            ),
-          ),
           actions: [
             IconButton(
               onPressed: () => _createWorkout(context),
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add_rounded,
+                color: Theme.of(context).colorScheme.primary),
               tooltip: 'Neues Workout',
             ),
           ],
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () => _createWorkout(context),
-          shape: const CircleBorder(), // â¬…ï¸ explizit rund
-          child: const Icon(Icons.add),
+          child: const Icon(Icons.add_rounded),
         ),
-        body: AnimatedSwitcher(
-          duration: _kHomeAnim,
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (child, animation) {
-            final curved = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOut,
-              reverseCurve: Curves.easeIn,
-            );
-            return FadeTransition(opacity: curved, child: child);
-          },
-          child:
-              provider.isLoading
-                  ? const Center(
-                    key: ValueKey('home-loading'),
-                    child: CircularProgressIndicator(),
-                  )
-                  : Column(
-                    key: const ValueKey('home-content'),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                        child: _WeeklyOverviewCard(
-                          trainedWeekdays:
-                              isProgressLoading ? const {} : trainedWeekdays,
-                          weeklyGoal: weeklyGoal,
-                        ),
-                      ),
-                      Expanded(
-                        child:
-                            workouts.isEmpty
-                                ? const _EmptyState()
-                                : ListView.separated(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    12,
-                                    16,
-                                    100,
-                                  ),
-                                  itemCount: workouts.length,
-                                  separatorBuilder:
-                                      (_, __) => const SizedBox(height: 12),
-                                  itemBuilder: (ctx, i) {
-                                    final w = workouts[i];
-                                    final selected = w.id == _selectedWorkoutId;
+        body: Column(
+          children: [
+            // Active workout banner
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              child: active.isActive
+                  ? const ActiveWorkoutBanner()
+                  : const SizedBox.shrink(),
+            ),
 
-                                    return WorkoutCard(
-                                      workout: w,
-                                      selected: selected,
-                                      onTap: () => _openWorkout(w),
-                                      onLongPress: () {
-                                        setState(
-                                          () =>
-                                              _selectedWorkoutId =
-                                                  selected ? null : w.id,
-                                        );
-                                      },
-                                      onPrimaryActionTap: () {
-                                        if (selected) {
-                                          _confirmAndDelete(w);
-                                        } else {
-                                          _openWorkout(w);
-                                        }
-                                      },
-                                    );
-                                  },
-                                ),
-                      ),
-                    ],
-                  ),
+            // Weekly overview
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              child: _WeeklyOverviewCard(
+                trainedWeekdays: isProgressLoading ? const {} : trainedWeekdays,
+                weeklyGoal: weeklyGoal,
+              ),
+            ),
+
+            // Workout list
+            Expanded(
+              child: provider.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : workouts.isEmpty
+                      ? const _EmptyState()
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+                          itemCount: workouts.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          itemBuilder: (ctx, i) {
+                            final w = workouts[i];
+                            final selected = w.id == _selectedWorkoutId;
+                            return WorkoutCard(
+                              workout: w,
+                              selected: selected,
+                              onTap: () => _openWorkout(w),
+                              onLongPress: () {
+                                setState(() => _selectedWorkoutId =
+                                    selected ? null : w.id);
+                              },
+                              onPrimaryActionTap: () {
+                                if (selected) {
+                                  _confirmAndDelete(w);
+                                } else {
+                                  _openWorkout(w);
+                                }
+                              },
+                            );
+                          },
+                        ),
+            ),
+          ],
         ),
       ),
     );
@@ -305,11 +235,8 @@ class _HomeScreenState extends State<HomeScreen>
   Set<int> _trainedWeekdaysThisWeek(List entries) {
     if (entries.isEmpty) return {};
     final now = DateTime.now();
-    final monday = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).subtract(Duration(days: now.weekday - 1));
+    final monday = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
     final start = DateTime(monday.year, monday.month, monday.day);
     final endExclusive = start.add(const Duration(days: 7));
 
@@ -329,20 +256,32 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.fitness_center_rounded, size: 52),
-            const SizedBox(height: 16),
-            Text('Noch keine Workouts', style: text.titleLarge),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: scheme.primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(Icons.fitness_center_rounded,
+                size: 32, color: scheme.primary),
+            ),
+            const SizedBox(height: 20),
+            Text('Noch keine Workouts',
+              style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              'Erstelle dein erstes Workout mit dem Plus-Button.',
-              style: text.bodyMedium,
+              'Erstelle dein erstes Workout\nmit dem Plus-Button.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -352,11 +291,11 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// --- Wochen-Widget (Moâ€“So) mit Ziel -----------------------------------------
+// --- Weekly overview ---
 
 class _WeeklyOverviewCard extends StatelessWidget {
-  final Set<int> trainedWeekdays; // 1=Mo .. 7=So
-  final int weeklyGoal; // 1..7
+  final Set<int> trainedWeekdays;
+  final int weeklyGoal;
   const _WeeklyOverviewCard({
     required this.trainedWeekdays,
     required this.weeklyGoal,
@@ -364,45 +303,65 @@ class _WeeklyOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
+    final doneCount = trainedWeekdays.length;
+    final progress = weeklyGoal > 0 ? (doneCount / weeklyGoal).clamp(0.0, 1.0) : 0.0;
 
     const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
-    final headerStyle = text.titleLarge?.copyWith(
-      fontWeight: FontWeight.w800,
-      letterSpacing: -0.2,
-    );
-
-    final counterStyle = text.bodyLarge?.copyWith(
-      color: scheme.onSurfaceVariant,
-      fontWeight: FontWeight.w700,
-    );
-
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text('Diese Woche', style: headerStyle),
+                Text('Diese Woche',
+                  style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
-                Text(
-                  '${trainedWeekdays.length}/$weeklyGoal',
-                  style: counterStyle,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: doneCount >= weeklyGoal
+                        ? const Color(0xFF4CAF50).withOpacity(0.12)
+                        : scheme.surfaceContainerHighest.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$doneCount / $weeklyGoal',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: doneCount >= weeklyGoal
+                          ? const Color(0xFF4CAF50)
+                          : scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
+            // Progress bar
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 4,
+                backgroundColor: scheme.surfaceContainerHighest.withOpacity(0.5),
+                valueColor: AlwaysStoppedAnimation(
+                  doneCount >= weeklyGoal
+                      ? const Color(0xFF4CAF50)
+                      : scheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: List.generate(7, (i) {
                 final weekday = i + 1;
                 final done = trainedWeekdays.contains(weekday);
-                final label = labels[i];
-                return _DayPill(label: label, done: done);
+                return _DayDot(label: labels[i], done: done);
               }),
             ),
           ],
@@ -412,70 +371,41 @@ class _WeeklyOverviewCard extends StatelessWidget {
   }
 }
 
-class _DayPill extends StatelessWidget {
+class _DayDot extends StatelessWidget {
   final String label;
   final bool done;
-  const _DayPill({required this.label, required this.done});
+  const _DayDot({required this.label, required this.done});
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-
-    // HELLERES Grün für Done (vorher 0xFF2E7D32)
-    const Color doneFill = Color(0xFF4CAF50); // Green 500
-    const Color doneShadow = Color(0x404CAF50); // 25% Alpha
-
-    final dayLabelStyle = Theme.of(context).textTheme.labelLarge?.copyWith(
-      fontSize: 15.5,
-      fontWeight: FontWeight.w800,
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-      letterSpacing: -0.1,
-    );
+    const doneColor = Color(0xFF4CAF50);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
-          width: 38,
-          height: 38,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
-            color: done ? doneFill : scheme.surfaceVariant,
+            color: done ? doneColor : scheme.surfaceContainerHighest.withOpacity(0.5),
             shape: BoxShape.circle,
-            border: Border.all(color: done ? doneFill : scheme.outlineVariant),
-            boxShadow:
-                done
-                    ? const [
-                      BoxShadow(
-                        color: doneShadow,
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ]
-                    : null,
           ),
           alignment: Alignment.center,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 150),
-            child:
-                done
-                    ? const Icon(
-                      Icons.check_rounded,
-                      key: ValueKey('icon_done'),
-                      color: Colors.white,
-                      size: 20,
-                    )
-                    : Icon(
-                      Icons.fiber_manual_record,
-                      key: const ValueKey('icon_neutral'),
-                      size: 10,
-                      color: scheme.onSurfaceVariant,
-                    ),
+          child: done
+              ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
+              : null,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(label, style: dayLabelStyle),
       ],
     );
   }

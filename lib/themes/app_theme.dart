@@ -1,178 +1,334 @@
 import 'package:flutter/material.dart';
 
-/// AppTheme
-/// - FIX: Verwendet **kein** `ColorScheme.fromSeed` mehr.
-///   Das M3-Seed erzeugt eine Tonal-Palette (Primary-Tone ~40/80),
-///   wodurch Buttons/Icons sichtbar **heller** als der eingestellte Akzent wirken.
-///   Stattdessen nehmen wir ColorScheme.light/dark und überschreiben `primary`
-///   (und `secondary`) exakt mit dem Akzent.
-/// - Zusätzlich: Elevation-Overlay im Dark-Mode deaktiviert.
+/// AppTheme – Modern & Minimalistic
+///
+/// Design-Prinzipien:
+/// - Konsistenter 16px Border-Radius überall
+/// - Mehr Weißraum, subtilere Farben
+/// - Kein `ColorScheme.fromSeed` – exakte Akzentfarbe
+/// - Flache Oberflächen, keine Elevation-Overlays
+/// - Sanfte Übergänge, reduzierte visuelle Noise
 class AppTheme {
+  // Einheitliche Design-Konstanten
+  static const double kRadius = 16;
+  static const double kRadiusLg = 20;
+  static const double kRadiusSm = 12;
+  static const double kRadiusPill = 999;
+
   static ThemeData light(Color accent) {
     final scheme = _schemeLight(accent);
+    const scaffold = Color(0xFFF8F8FA);
+    const card = Colors.white;
 
-    return _base(scheme).copyWith(
-      scaffoldBackgroundColor: Colors.white,
-      appBarTheme: _appBarTheme(scheme, Colors.white),
-      cardTheme: _cardTheme(
-        scheme,
-        const Color(0xFFF7F7F8), // neutrales helles Card-White
-      ),
+    return _base(scheme, Brightness.light).copyWith(
+      scaffoldBackgroundColor: scaffold,
+      appBarTheme: _appBarTheme(scheme, scaffold),
+      cardTheme: _cardTheme(scheme, card),
       dialogTheme: _dialogTheme(scheme, Colors.white),
-      navigationBarTheme: _navBarTheme(scheme, Colors.white),
+      navigationBarTheme: _navBarTheme(scheme, scaffold),
+      snackBarTheme: _snackBarTheme(scheme),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant.withOpacity(0.5),
+        thickness: 0.5,
+      ),
     );
   }
 
   static ThemeData dark(Color accent) {
     final scheme = _schemeDark(accent);
+    const scaffold = Color(0xFF0E0E10);
+    const card = Color(0xFF1A1A1E);
 
-    // Feste, akzentunabhängige Dark-Hintergründe
-    const scaffold = Color(0xFF0B0B0D);
-    const card = Color(0xFF121316);
-
-    return _base(scheme).copyWith(
+    return _base(scheme, Brightness.dark).copyWith(
       applyElevationOverlayColor: false,
       scaffoldBackgroundColor: scaffold,
       appBarTheme: _appBarTheme(scheme, scaffold),
       cardTheme: _cardTheme(scheme, card),
-      dialogTheme: _dialogTheme(scheme, card),
+      dialogTheme: _dialogTheme(scheme, const Color(0xFF1E1E22)),
       navigationBarTheme: _navBarTheme(scheme, scaffold),
+      snackBarTheme: _snackBarTheme(scheme),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant.withOpacity(0.3),
+        thickness: 0.5,
+      ),
     );
   }
 
-  // ---- Basis: gemeinsame Einstellungen ----
-  static ThemeData _base(ColorScheme scheme) {
+  // ---- Basis ----
+  static ThemeData _base(ColorScheme scheme, Brightness brightness) {
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
+      brightness: brightness,
     ).copyWith(applyElevationOverlayColor: false);
 
-    // Schrift insgesamt leicht größer, Titel deutlicher
     final text = base.textTheme;
     final bumped = text.copyWith(
-      // Große Titel (z. B. AppBar) – groß & fett
-      titleLarge: text.titleLarge?.copyWith(
+      headlineLarge: text.headlineLarge?.copyWith(
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+      ),
+      headlineSmall: text.headlineSmall?.copyWith(
         fontSize: 22,
         fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+      ),
+      titleLarge: text.titleLarge?.copyWith(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
         letterSpacing: -0.2,
       ),
       titleMedium: text.titleMedium?.copyWith(
-        fontSize: 18,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.1,
+      ),
+      titleSmall: text.titleSmall?.copyWith(
+        fontSize: 14,
         fontWeight: FontWeight.w600,
       ),
-      // Fließtext leicht angehoben
       bodyLarge: text.bodyLarge?.copyWith(fontSize: 16),
-      bodyMedium: text.bodyMedium?.copyWith(fontSize: 15),
-      labelMedium: text.labelMedium?.copyWith(fontSize: 13),
+      bodyMedium: text.bodyMedium?.copyWith(fontSize: 14),
+      bodySmall: text.bodySmall?.copyWith(
+        fontSize: 12,
+        color: scheme.onSurfaceVariant,
+      ),
+      labelLarge: text.labelLarge?.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+      labelMedium: text.labelMedium?.copyWith(fontSize: 12),
+      labelSmall: text.labelSmall?.copyWith(fontSize: 11),
     );
 
     return base.copyWith(
       textTheme: bumped,
 
-      // Icons sollen kräftig in Akzentfarbe erscheinen
-      iconTheme: IconThemeData(color: scheme.primary),
+      // Icons: subtil, nicht alles in Akzentfarbe
+      iconTheme: IconThemeData(color: scheme.onSurfaceVariant, size: 22),
       iconButtonTheme: IconButtonThemeData(
         style: ButtonStyle(
-          foregroundColor: MaterialStatePropertyAll(scheme.primary),
+          foregroundColor: WidgetStatePropertyAll(scheme.onSurfaceVariant),
         ),
       ),
 
+      // FAB: Pill-Shape, kein übermäßiger Schatten
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
-        elevation: 6,
-        focusElevation: 8,
-        hoverElevation: 8,
-        highlightElevation: 8,
-        // shape: StadiumBorder(), // optional, wenn du die Pill-Optik forcieren willst
+        elevation: 2,
+        focusElevation: 4,
+        hoverElevation: 4,
+        highlightElevation: 4,
+        shape: const StadiumBorder(),
       ),
 
-      // Buttons: kräftige Akzentfarbe, keine Tonal-Variante
+      // ElevatedButton: kräftige Akzentfarbe, Pill-Form
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
           elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(kRadius),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
+
+      // FilledButton
       filledButtonTheme: FilledButtonThemeData(
         style: ButtonStyle(
-          backgroundColor: MaterialStatePropertyAll(scheme.primary),
-          foregroundColor: MaterialStatePropertyAll(scheme.onPrimary),
-          shape: MaterialStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          backgroundColor: WidgetStatePropertyAll(scheme.primary),
+          foregroundColor: WidgetStatePropertyAll(scheme.onPrimary),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           ),
-          elevation: const MaterialStatePropertyAll(0),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(kRadius),
+            ),
+          ),
+          elevation: const WidgetStatePropertyAll(0),
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
         ),
       ),
+
+      // TextButton
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: scheme.primary,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(kRadiusSm),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
+
+      // OutlinedButton
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: scheme.primary,
-          side: BorderSide(color: scheme.primary),
+          foregroundColor: scheme.onSurface,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          side: BorderSide(color: scheme.outlineVariant),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(kRadius),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
 
-      // Chips/”Pills”: immer neutrale Fläche
+      // Chips: neutral, Pill-Form
       chipTheme: ChipThemeData(
-        backgroundColor: scheme.surfaceVariant,
-        selectedColor: scheme.surfaceVariant,
-        side: BorderSide(color: scheme.outlineVariant),
-        labelStyle: TextStyle(color: scheme.onSurface),
-        secondarySelectedColor: scheme.surfaceVariant,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+        backgroundColor: scheme.surfaceContainerHighest.withOpacity(0.5),
+        selectedColor: scheme.primary.withOpacity(0.12),
+        side: BorderSide.none,
+        labelStyle: TextStyle(
+          color: scheme.onSurface,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kRadiusPill),
+        ),
       ),
 
-      // SegmentedButton neutral, bei Auswahl nur Border/Text in Akzentfarbe
+      // SegmentedButton
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
-          backgroundColor: MaterialStatePropertyAll(scheme.surfaceVariant),
-          foregroundColor: MaterialStateProperty.resolveWith(
-            (states) =>
-                states.contains(MaterialState.selected)
-                    ? scheme.primary
-                    : scheme.onSurface,
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? scheme.primary.withOpacity(0.12)
+                : Colors.transparent,
           ),
-          side: MaterialStateProperty.resolveWith(
-            (states) => BorderSide(
-              color:
-                  states.contains(MaterialState.selected)
-                      ? scheme.primary
-                      : scheme.outlineVariant,
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? scheme.primary
+                : scheme.onSurfaceVariant,
+          ),
+          side: WidgetStatePropertyAll(
+            BorderSide(color: scheme.outlineVariant.withOpacity(0.6)),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(kRadiusSm),
             ),
           ),
-          shape: MaterialStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ),
       ),
 
-      // Textfelder: neutrale Füllung, keine Tints
+      // Textfelder: sauber, minimalistisch
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceVariant,
+        fillColor: scheme.surfaceContainerHighest.withOpacity(0.4),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(kRadius),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(kRadius),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: scheme.primary),
+          borderRadius: BorderRadius.circular(kRadius),
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(kRadius),
+          borderSide: BorderSide(color: scheme.error),
+        ),
+        hintStyle: TextStyle(
+          color: scheme.onSurfaceVariant.withOpacity(0.5),
+          fontWeight: FontWeight.w400,
+        ),
+        labelStyle: TextStyle(
+          color: scheme.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+
+      // SwitchListTile
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? scheme.onPrimary
+              : scheme.outline,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? scheme.primary
+              : scheme.surfaceContainerHighest,
+        ),
+        trackOutlineColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? Colors.transparent
+              : scheme.outline.withOpacity(0.3),
+        ),
+      ),
+
+      // ListTile
+      listTileTheme: ListTileThemeData(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kRadius),
+        ),
+        dense: false,
+        visualDensity: VisualDensity.standard,
+      ),
+
+      // BottomSheet
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        showDragHandle: false,
+      ),
+
+      // TabBar
+      tabBarTheme: TabBarTheme(
+        labelColor: scheme.primary,
+        unselectedLabelColor: scheme.onSurfaceVariant,
+        indicatorColor: scheme.primary,
+        indicatorSize: TabBarIndicatorSize.label,
+        labelStyle: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+
+      // ProgressIndicator
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: scheme.primary,
+        linearMinHeight: 3,
+        linearTrackColor: scheme.primary.withOpacity(0.1),
       ),
     );
   }
@@ -180,12 +336,14 @@ class AppTheme {
   static AppBarTheme _appBarTheme(ColorScheme scheme, Color bg) => AppBarTheme(
     backgroundColor: bg,
     elevation: 0,
+    scrolledUnderElevation: 0,
     surfaceTintColor: Colors.transparent,
-    iconTheme: IconThemeData(color: scheme.primary),
+    centerTitle: false,
+    iconTheme: IconThemeData(color: scheme.onSurface, size: 22),
     titleTextStyle: TextStyle(
       color: scheme.onSurface,
-      fontSize: 22,
-      fontWeight: FontWeight.w700,
+      fontSize: 20,
+      fontWeight: FontWeight.w600,
       letterSpacing: -0.2,
     ),
   );
@@ -194,56 +352,77 @@ class AppTheme {
     color: bg,
     elevation: 0,
     surfaceTintColor: Colors.transparent,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(kRadius),
+    ),
+    margin: EdgeInsets.zero,
   );
 
   static DialogTheme _dialogTheme(ColorScheme scheme, Color bg) => DialogTheme(
     backgroundColor: bg,
     surfaceTintColor: Colors.transparent,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(kLgRadius),
+    ),
+    titleTextStyle: TextStyle(
+      color: scheme.onSurface,
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.2,
+    ),
   );
 
-  static NavigationBarThemeData _navBarTheme(ColorScheme scheme, Color bg) {
-    // Un-/Ausgewählt unterschiedlich groß
-    const double unselectedSize = 26;
-    const double selectedSize = 32;
+  static const double kLgRadius = 20;
 
+  static NavigationBarThemeData _navBarTheme(ColorScheme scheme, Color bg) {
     return NavigationBarThemeData(
       backgroundColor: bg,
-      indicatorColor: Colors.transparent, // kein Glow/Indicator
-      // Icon-Größe & -Farbe nach Status
-      iconTheme: MaterialStateProperty.resolveWith(
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      indicatorColor: scheme.primary.withOpacity(0.12),
+      indicatorShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadiusSm),
+      ),
+      iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
-          color:
-              states.contains(MaterialState.selected)
-                  ? scheme.primary
-                  : scheme.onSurfaceVariant,
-          size:
-              states.contains(MaterialState.selected)
-                  ? selectedSize
-                  : unselectedSize,
+          color: states.contains(WidgetState.selected)
+              ? scheme.primary
+              : scheme.onSurfaceVariant.withOpacity(0.6),
+          size: 24,
         ),
       ),
-      // Labels werden in der MainNavigation verborgen; Stil hier nur fallback
-      labelTextStyle: MaterialStateProperty.resolveWith(
+      labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
-          fontSize: states.contains(MaterialState.selected) ? 13 : 12,
-          fontWeight:
-              states.contains(MaterialState.selected)
-                  ? FontWeight.w700
-                  : FontWeight.w500,
-          color:
-              states.contains(MaterialState.selected)
-                  ? scheme.primary
-                  : scheme.onSurfaceVariant,
-          letterSpacing: -0.1,
+          fontSize: 11,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w600
+              : FontWeight.w500,
+          color: states.contains(WidgetState.selected)
+              ? scheme.primary
+              : scheme.onSurfaceVariant.withOpacity(0.6),
+          letterSpacing: 0.1,
         ),
       ),
-      height: 76, // etwas höher für größere Icons/Labels
+      height: 64,
     );
   }
 
-  // ---------- ColorSchemes ohne Seed ----------
+  static SnackBarThemeData _snackBarTheme(ColorScheme scheme) =>
+      SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: scheme.inverseSurface,
+        contentTextStyle: TextStyle(
+          color: scheme.onInverseSurface,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kRadiusSm),
+        ),
+        elevation: 2,
+      );
+
+  // ---------- ColorSchemes ----------
   static ColorScheme _schemeLight(Color accent) {
     final onAccent = _onColor(accent);
     final base = const ColorScheme.light();
@@ -252,11 +431,11 @@ class AppTheme {
       onPrimary: onAccent,
       secondary: accent,
       onSecondary: onAccent,
-      // optionale Annäherung – Container nutzen wir als Hintergründe kaum
-      primaryContainer: accent.withOpacity(0.12),
-      onPrimaryContainer: _onColor(accent.withOpacity(0.12)),
-      secondaryContainer: accent.withOpacity(0.12),
-      onSecondaryContainer: _onColor(accent.withOpacity(0.12)),
+      primaryContainer: accent.withOpacity(0.08),
+      onPrimaryContainer: accent,
+      secondaryContainer: accent.withOpacity(0.08),
+      onSecondaryContainer: accent,
+      surfaceContainerHighest: const Color(0xFFEEEEF0),
     );
   }
 
@@ -268,10 +447,11 @@ class AppTheme {
       onPrimary: onAccent,
       secondary: accent,
       onSecondary: onAccent,
-      primaryContainer: accent.withOpacity(0.20),
-      onPrimaryContainer: _onColor(accent.withOpacity(0.20)),
-      secondaryContainer: accent.withOpacity(0.20),
-      onSecondaryContainer: _onColor(accent.withOpacity(0.20)),
+      primaryContainer: accent.withOpacity(0.15),
+      onPrimaryContainer: accent,
+      secondaryContainer: accent.withOpacity(0.15),
+      onSecondaryContainer: accent,
+      surfaceContainerHighest: const Color(0xFF252528),
     );
   }
 
