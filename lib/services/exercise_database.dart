@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 
 import 'app_database.dart';
 import '../models/exercise.dart';
+import '../data/standard_exercises.dart';
 
 class ExerciseDatabase {
   static final ExerciseDatabase instance = ExerciseDatabase._init();
@@ -96,53 +97,169 @@ class ExerciseDatabase {
 
   // ---- Helpers ----
 
-  Future<void> seedDefaultExercises() async {
+  /// Stellt sicher, dass alle Standardübungen in der DB vorhanden sind.
+  /// Neue Übungen werden nur eingefügt, wenn ihr Key noch nicht in
+  /// `seeded_standards` eingetragen ist. Dadurch bleibt eine vom User
+  /// umbenannte Standardübung erhalten, ohne dass das Original erneut
+  /// angelegt wird.
+  Future<void> ensureStandardExercises() async {
     final db = await _db;
-    final count = Sqflite.firstIntValue(
-      await db.rawQuery('SELECT COUNT(*) FROM exercises'));
-    if (count != null && count > 0) return;
-
-    const seeds = [
-      {'name': 'Bankdrücken',      'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Kniebeugen',       'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Kreuzheben',       'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Schulterdrücken',  'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Langhantelrudern', 'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Klimmzüge',        'sets': true, 'reps': true, 'weight': false,'dur': false, 'goal': 'Kraft'},
-      {'name': 'Liegestütze',      'sets': true, 'reps': true, 'weight': false,'dur': false, 'goal': 'Kraft'},
-      {'name': 'Dips',             'sets': true, 'reps': true, 'weight': false,'dur': false, 'goal': 'Kraft'},
-      {'name': 'Bizeps-Curls',     'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Trizepsdrücken',   'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Beinpresse',       'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Ausfallschritte',  'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Wadenheben',       'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Plank',            'sets': true, 'reps': false,'weight': false,'dur': true,  'goal': 'Ausdauer'},
-      {'name': 'Sit-ups',          'sets': true, 'reps': true, 'weight': false,'dur': false, 'goal': 'Kraft'},
-      {'name': 'Russian Twist',    'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Latzug',           'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Butterfly',        'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Beinbeuger',       'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Beinstrecker',     'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Seitheben',        'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Facepulls',        'sets': true, 'reps': true, 'weight': true, 'dur': false, 'goal': 'Kraft'},
-      {'name': 'Laufen',           'sets': false,'reps': false,'weight': false,'dur': true,  'goal': 'Cardio'},
-      {'name': 'Radfahren',        'sets': false,'reps': false,'weight': false,'dur': true,  'goal': 'Cardio'},
-      {'name': 'Seilspringen',     'sets': true, 'reps': false,'weight': false,'dur': true,  'goal': 'Ausdauer'},
-    ];
-
-    for (int i = 0; i < seeds.length; i++) {
-      final s = seeds[i];
-      await addOrUpdateExercise(
-        id: i + 1,
-        name: s['name'] as String,
-        trackSets: s['sets'] as bool,
-        trackReps: s['reps'] as bool,
-        trackWeight: s['weight'] as bool,
-        trackDuration: s['dur'] as bool,
-        goal: s['goal'] as String?,
+    for (final std in standardExercises) {
+      final existing = await db.query(
+        'seeded_standards',
+        where: 'key = ?',
+        whereArgs: [std.key],
       );
+      if (existing.isNotEmpty) continue;
+
+      // Guard A: War diese Standardübung schon mal gemergt?
+      final mergedAway = await db.query(
+        'merge_history',
+        where: 'sourceKey = ?',
+        whereArgs: [std.key],
+        limit: 1,
+      );
+      if (mergedAway.isNotEmpty) {
+        await db.insert('seeded_standards', {'key': std.key},
+            conflictAlgorithm: ConflictAlgorithm.ignore);
+        continue;
+      }
+
+      // Guard B: Existiert bereits eine Übung mit gleichem Namen?
+      final nameMatch = await db.rawQuery(
+        'SELECT id FROM exercises WHERE LOWER(name) = LOWER(?) LIMIT 1',
+        [std.name],
+      );
+      if (nameMatch.isNotEmpty) {
+        await db.insert('seeded_standards', {'key': std.key},
+            conflictAlgorithm: ConflictAlgorithm.ignore);
+        continue;
+      }
+
+      await addOrUpdateExercise(
+        name: std.name,
+        trackSets: std.trackSets,
+        trackReps: std.trackReps,
+        trackWeight: std.trackWeight,
+        trackDuration: std.trackDuration,
+        goal: std.goal,
+      );
+      await db.insert('seeded_standards', {'key': std.key});
     }
   }
+
+  // ---- Merge ----
+
+  /// Zählt wie viele workout_entries für eine Übung existieren.
+  Future<int> countEntriesForExercise(int exerciseId) async {
+    final db = await _db;
+    return Sqflite.firstIntValue(
+      await db.rawQuery(
+        'SELECT COUNT(*) FROM workout_entries WHERE exerciseId = ?',
+        [exerciseId],
+      ),
+    ) ?? 0;
+  }
+
+  /// Gibt die Namen aller Übungen zurück, die in [exerciseId] zusammengeführt wurden.
+  Future<List<String>> getMergeHistory(int exerciseId) async {
+    final db = await _db;
+    final rows = await db.query(
+      'merge_history',
+      columns: ['sourceName'],
+      where: 'targetId = ?',
+      whereArgs: [exerciseId],
+      orderBy: 'mergedAt ASC',
+    );
+    return rows.map((r) => r['sourceName'] as String).toList();
+  }
+
+  /// Führt [sourceId] in [targetId] zusammen.
+  /// Alle workout_entries und Workout-Zuordnungen werden auf target übertragen,
+  /// die Quell-Übung wird gelöscht.
+  Future<MergeResult> mergeExercises(int sourceId, int targetId) async {
+    final db = await _db;
+    return db.transaction((txn) async {
+      // 1. workout_entries: sourceId → targetId
+      final movedEntries = await txn.rawUpdate(
+        'UPDATE workout_entries SET exerciseId = ? WHERE exerciseId = ?',
+        [targetId, sourceId],
+      );
+
+      // 2. exercises_in_workouts: sourceId → targetId
+      //    Wenn target schon im selben Workout → source-Eintrag löschen
+      final sourceLinks = await txn.query(
+        'exercises_in_workouts',
+        where: 'exerciseId = ?',
+        whereArgs: [sourceId],
+      );
+      int movedWorkouts = 0;
+      for (final link in sourceLinks) {
+        final workoutId = link['workoutId'] as int;
+        final targetExists = await txn.query(
+          'exercises_in_workouts',
+          where: 'workoutId = ? AND exerciseId = ?',
+          whereArgs: [workoutId, targetId],
+        );
+        if (targetExists.isNotEmpty) {
+          await txn.delete(
+            'exercises_in_workouts',
+            where: 'id = ?',
+            whereArgs: [link['id']],
+          );
+        } else {
+          await txn.update(
+            'exercises_in_workouts',
+            {'exerciseId': targetId},
+            where: 'id = ?',
+            whereArgs: [link['id']],
+          );
+          movedWorkouts++;
+        }
+      }
+
+      // 3. Source-Name nachschlagen (vor Löschung)
+      final sourceRows = await txn.query(
+        'exercises',
+        columns: ['name'],
+        where: 'id = ?',
+        whereArgs: [sourceId],
+      );
+      final sourceName = sourceRows.isNotEmpty
+          ? sourceRows.first['name'] as String
+          : 'Unbekannt';
+
+      // 4. Prüfen ob Source eine Standardübung war (Name → Key)
+      String? sourceKey;
+      for (final std in standardExercises) {
+        if (std.name.toLowerCase() == sourceName.toLowerCase()) {
+          sourceKey = std.key;
+          break;
+        }
+      }
+
+      // 5. Ketten-Handling: A→B, dann B→C ⇒ A→C + B→C
+      await txn.rawUpdate(
+        'UPDATE merge_history SET targetId = ? WHERE targetId = ?',
+        [targetId, sourceId],
+      );
+
+      // 6. Merge protokollieren
+      await txn.insert('merge_history', {
+        'sourceName': sourceName,
+        'sourceKey': sourceKey,
+        'targetId': targetId,
+        'mergedAt': DateTime.now().toUtc().toIso8601String(),
+      });
+
+      // 7. Quell-Übung löschen
+      await txn.delete('exercises', where: 'id = ?', whereArgs: [sourceId]);
+
+      return MergeResult(movedEntries: movedEntries, movedWorkouts: movedWorkouts);
+    });
+  }
+
+  // ---- Helpers ----
 
   Exercise _fromRow(Map<String, Object?> r) {
     Map<String, dynamic> _parseMap(Object? v) {
@@ -183,4 +300,10 @@ class ExerciseDatabase {
       goal: r['goal'] as String?,
     );
   }
+}
+
+class MergeResult {
+  final int movedEntries;
+  final int movedWorkouts;
+  const MergeResult({required this.movedEntries, required this.movedWorkouts});
 }

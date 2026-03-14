@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
@@ -9,6 +10,7 @@ import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/exercise_editor_form.dart';
+import '../widgets/exercise_editor_sheet.dart';
 import '../utils/goal_utils.dart';
 import 'workout_run_screen.dart';
 
@@ -49,6 +51,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       _exerciseIds.insert(newIndex, id);
     });
     _persistOrder(context);
+  }
+
+  Future<void> _openExerciseEditor(Exercise exercise) async {
+    final saved = await showExerciseEditorSheet(
+      context,
+      existing: exercise,
+      warnOnEdit: true,
+    );
+    if (saved && mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _addExercisesBottomSheet() async {
@@ -457,14 +470,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       appBar: AppBar(
         title: GestureDetector(
           onTap: _rename,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(child: Text(widget.workout.name, overflow: TextOverflow.ellipsis)),
-              const SizedBox(width: 6),
-              Icon(Icons.edit_outlined, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ],
-          ),
+          child: Text(widget.workout.name, overflow: TextOverflow.ellipsis),
         ),
         bottom:
             active.isActive
@@ -501,9 +507,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   itemCount: _exerciseIds.length,
                   onReorder: _onReorder,
                   buildDefaultDragHandles: false,
-                  proxyDecorator:
-                      (child, index, animation) =>
-                          ScaleTransition(scale: animation, child: child),
+                  proxyDecorator: (child, index, animation) {
+                    HapticFeedback.mediumImpact();
+                    return AnimatedBuilder(
+                      animation: animation,
+                      builder: (_, __) => Material(
+                        elevation: 4,
+                        borderRadius: BorderRadius.circular(16),
+                        shadowColor: Colors.black26,
+                        child: child,
+                      ),
+                    );
+                  },
                   itemBuilder: (_, i) {
                     final id = _exerciseIds[i];
                     final e = items[i];
@@ -516,54 +531,97 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         padding: const EdgeInsets.only(right: 20),
                         margin: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
-                          color: scheme.error,
+                          color: scheme.secondaryContainer,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Icon(Icons.delete_outline_rounded, color: scheme.onError),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Entfernen', style: TextStyle(
+                              color: scheme.onSecondaryContainer,
+                              fontWeight: FontWeight.w600,
+                            )),
+                            const SizedBox(width: 8),
+                            Icon(Icons.remove_circle_outline_rounded,
+                              color: scheme.onSecondaryContainer),
+                          ],
+                        ),
                       ),
                       onDismissed: (_) async {
                         setState(() => _exerciseIds.removeAt(i));
                         await _persistOrder(context);
                       },
-                      child: AnimatedSize(
-                        key: ValueKey('exercise_$id'),
-                        duration: _kWorkoutAnim,
-                        curve: Curves.easeOut,
-                        child: Card(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          child: ListTile(
-                            leading: ReorderableDragStartListener(
-                              index: i,
-                              child: const Icon(Icons.drag_handle),
-                            ),
-                            title: Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    e?.name ?? 'Gelöschte Übung ($id)',
-                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
+                      child: ReorderableDelayedDragStartListener(
+                        index: i,
+                        child: AnimatedSize(
+                          key: ValueKey('exercise_$id'),
+                          duration: _kWorkoutAnim,
+                          curve: Curves.easeOut,
+                          child: Card(
+                            margin: const EdgeInsets.symmetric(vertical: 6),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              onTap: e != null ? () => _openExerciseEditor(e) : null,
+                              borderRadius: BorderRadius.circular(16),
+                              child: IntrinsicHeight(
+                                child: Row(
+                                  children: [
+                                    if (e?.goal != null)
+                                      Container(
+                                        width: 4,
+                                        color: goalColor(e!.goal!, scheme),
+                                      ),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 14),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      Flexible(
+                                                        child: Text(
+                                                          e?.name ?? 'Gelöschte Übung ($id)',
+                                                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                                            fontWeight: FontWeight.w700,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      if (e?.goal != null) ...[
+                                                        const SizedBox(width: 8),
+                                                        goalBadge(e!.goal!, scheme),
+                                                      ],
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    e == null
+                                                        ? 'Nicht mehr vorhanden'
+                                                        : [
+                                                            if (e.trackSets) 'Sätze',
+                                                            if (e.trackReps) 'Wdh.',
+                                                            if (e.trackWeight) 'Gewicht',
+                                                            if (e.trackDuration) 'Dauer',
+                                                          ].join(' · '),
+                                                    style: Theme.of(context).textTheme.bodySmall,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Icon(Icons.chevron_right_rounded,
+                                              color: scheme.onSurfaceVariant.withOpacity(0.4)),
+                                          ],
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
-                                if (e?.goal != null) ...[
-                                  const SizedBox(width: 8),
-                                  goalBadge(e!.goal!, scheme),
-                                ],
-                              ],
+                              ),
                             ),
-                            subtitle:
-                                e == null
-                                    ? const Text('Nicht mehr vorhanden')
-                                    : Text(
-                                      [
-                                        if (e.trackSets) 'Sätze',
-                                        if (e.trackReps) 'Wdh.',
-                                        if (e.trackWeight) 'Gewicht',
-                                        if (e.trackDuration) 'Dauer',
-                                      ].join(' / '),
-                                    ),
                           ),
                         ),
                       ),

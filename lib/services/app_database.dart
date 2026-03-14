@@ -6,7 +6,7 @@ class AppDatabase {
   AppDatabase._();
 
   static const _dbName = 'trainy.db';
-  static const _dbVersion = 5; // ⬅️ v5: Exercise goals + Umlaut-Migration
+  static const _dbVersion = 7; // ⬅️ v7: merge_history Tabelle
 
   Database? _database;
 
@@ -85,6 +85,24 @@ class AppDatabase {
         timestamp INTEGER NOT NULL,
         valuesJson TEXT NOT NULL,
         durationSeconds INTEGER NOT NULL
+      )
+    ''');
+
+    // Tracking welche Standardübungen bereits eingefügt wurden
+    await db.execute('''
+      CREATE TABLE seeded_standards(
+        key TEXT PRIMARY KEY
+      )
+    ''');
+
+    // Merge-History: protokolliert zusammengeführte Übungen
+    await db.execute('''
+      CREATE TABLE merge_history(
+        id INTEGER PRIMARY KEY,
+        sourceName TEXT NOT NULL,
+        sourceKey TEXT,
+        targetId INTEGER NOT NULL,
+        mergedAt TEXT NOT NULL
       )
     ''');
   }
@@ -171,5 +189,23 @@ class AppDatabase {
         );
       } catch (_) {}
     }
+
+    // v6: Tracking-Tabelle für Standardübungen
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS seeded_standards(
+        key TEXT PRIMARY KEY
+      )
+    ''');
+
+    // v7: Merge-History-Tabelle
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS merge_history(
+        id INTEGER PRIMARY KEY,
+        sourceName TEXT NOT NULL,
+        sourceKey TEXT,
+        targetId INTEGER NOT NULL,
+        mergedAt TEXT NOT NULL
+      )
+    ''');
   }
 }

@@ -14,7 +14,7 @@ class ExerciseProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      await ExerciseDatabase.instance.seedDefaultExercises();
+      await ExerciseDatabase.instance.ensureStandardExercises();
       _exercises = await ExerciseDatabase.instance.getAllExercises();
     } finally {
       _isLoading = false;
@@ -152,5 +152,24 @@ class ExerciseProvider extends ChangeNotifier {
     await ExerciseDatabase.instance.deleteExercise(exerciseId);
     _exercises.removeWhere((x) => x.id == exerciseId);
     notifyListeners();
+  }
+
+  /// Führt sourceId in targetId zusammen.
+  /// Alle Fortschrittsdaten und Workout-Zuordnungen werden übertragen.
+  Future<MergeResult> mergeExercise(int sourceId, int targetId) async {
+    final result = await ExerciseDatabase.instance.mergeExercises(sourceId, targetId);
+    _exercises.removeWhere((e) => e.id == sourceId);
+    notifyListeners();
+    return result;
+  }
+
+  /// Zählt Fortschrittseinträge für eine Übung (für Merge-Bestätigung).
+  Future<int> countEntriesForExercise(int exerciseId) async {
+    return ExerciseDatabase.instance.countEntriesForExercise(exerciseId);
+  }
+
+  /// Gibt Namen aller Übungen zurück, die in [exerciseId] zusammengeführt wurden.
+  Future<List<String>> getMergeHistory(int exerciseId) async {
+    return ExerciseDatabase.instance.getMergeHistory(exerciseId);
   }
 }

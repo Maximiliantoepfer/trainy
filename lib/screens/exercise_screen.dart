@@ -5,8 +5,7 @@ import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/active_workout_banner.dart';
-import '../providers/cloud_sync_provider.dart';
-import '../widgets/exercise_editor_form.dart';
+import '../widgets/exercise_editor_sheet.dart';
 import '../utils/goal_utils.dart';
 
 class ExerciseScreen extends StatefulWidget {
@@ -119,96 +118,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
   }
 
   Future<void> _openEditor(BuildContext context, {Exercise? existing}) async {
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
-    final descCtrl = TextEditingController(text: existing?.description ?? '');
-    final trackSets = ValueNotifier(existing?.trackSets ?? true);
-    final trackReps = ValueNotifier(existing?.trackReps ?? true);
-    final trackWeight = ValueNotifier(existing?.trackWeight ?? true);
-    final trackDuration = ValueNotifier(existing?.trackDuration ?? false);
-    final goal = ValueNotifier<String?>(existing?.goal);
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      existing == null ? 'Übung erstellen' : 'Übung bearbeiten',
-                      style: Theme.of(ctx).textTheme.titleLarge,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                    child: ExerciseEditorForm(
-                      nameCtrl: nameCtrl,
-                      descCtrl: descCtrl,
-                      trackSets: trackSets,
-                      trackReps: trackReps,
-                      trackWeight: trackWeight,
-                      trackDuration: trackDuration,
-                      goal: goal,
-                      autofocusName: true,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                  child: Row(
-                    children: [
-                      Expanded(child: SizedBox(
-                        height: 48,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Abbrechen'),
-                        ),
-                      )),
-                      const SizedBox(width: 12),
-                      Expanded(child: SizedBox(
-                        height: 48,
-                        child: FilledButton(
-                        onPressed: () async {
-                          final name = nameCtrl.text.trim();
-                          if (name.isEmpty) return;
-                          await ctx.read<ExerciseProvider>().addOrUpdateExercise(
-                            id: existing?.id, name: name, description: descCtrl.text.trim(),
-                            trackSets: trackSets.value, trackReps: trackReps.value,
-                            trackWeight: trackWeight.value, trackDuration: trackDuration.value,
-                            goal: goal.value,
-                          );
-                          try { ctx.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
-                          if (mounted) {
-                            Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(existing == null ? '„$name" angelegt' : '„$name" aktualisiert')),
-                            );
-                          }
-                        },
-                        child: Text(existing == null ? 'Erstellen' : 'Speichern'),
-                      ))),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    await showExerciseEditorSheet(context, existing: existing);
   }
 }
 

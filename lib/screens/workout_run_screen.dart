@@ -288,42 +288,56 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
           final hasSets = sets.isNotEmpty;
           return Card(
             color: hasSets ? scheme.primaryContainer : null,
+            clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () => _addSet(context, e),
               borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(children: [
-                  Expanded(child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(child: Text(e.name, style: Theme.of(context).textTheme.titleMedium)),
-                          if (e.goal != null) ...[
-                            const SizedBox(width: 8),
-                            goalBadge(e.goal!, scheme),
-                          ],
-                        ],
+              child: IntrinsicHeight(
+                child: Row(
+                  children: [
+                    if (e.goal != null)
+                      Container(
+                        width: 4,
+                        color: goalColor(e.goal!, scheme),
                       ),
-                      const SizedBox(height: 2),
-                      if (hasSets)
-                        Text('${sets.length} Satz${sets.length == 1 ? "" : "e"} erfasst',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.tertiary))
-                      else
-                        Text([
-                          if (e.trackSets) 'Sätze', if (e.trackReps) 'Wdh.',
-                          if (e.trackWeight) 'Gewicht', if (e.trackDuration) 'Dauer',
-                        ].join(' · '), style: Theme.of(context).textTheme.bodySmall),
-                    ],
-                  )),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: hasSets
-                        ? Icon(Icons.check_circle_rounded, key: ValueKey('done_${e.id}'), color: scheme.tertiary)
-                        : Icon(Icons.add_circle_outline_rounded, key: ValueKey('add_${e.id}'), color: scheme.primary),
-                  ),
-                ]),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        child: Row(children: [
+                          Expanded(child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(child: Text(e.name, style: Theme.of(context).textTheme.titleMedium)),
+                                  if (e.goal != null) ...[
+                                    const SizedBox(width: 8),
+                                    goalBadge(e.goal!, scheme),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              if (hasSets)
+                                Text('${sets.length} Satz${sets.length == 1 ? "" : "e"} erfasst',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.tertiary))
+                              else
+                                Text([
+                                  if (e.trackSets) 'Sätze', if (e.trackReps) 'Wdh.',
+                                  if (e.trackWeight) 'Gewicht', if (e.trackDuration) 'Dauer',
+                                ].join(' · '), style: Theme.of(context).textTheme.bodySmall),
+                            ],
+                          )),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: hasSets
+                                ? Icon(Icons.check_circle_rounded, key: ValueKey('done_${e.id}'), color: scheme.tertiary)
+                                : Icon(Icons.add_circle_outline_rounded, key: ValueKey('add_${e.id}'), color: scheme.primary),
+                          ),
+                        ]),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
