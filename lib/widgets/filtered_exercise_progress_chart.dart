@@ -81,8 +81,8 @@ class _FilteredExerciseProgressChartState
                         borderRadius: BorderRadius.circular(12),
                         color: scheme.primary.withValues(alpha: 0.12),
                       ),
-                      child: Icon(
-                        Icons.fitness_center,
+                      child: ImageIcon(
+                        const AssetImage('assets/icons/hantel.png'),
                         color: scheme.primary,
                         size: 22,
                       ),

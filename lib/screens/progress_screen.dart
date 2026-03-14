@@ -277,7 +277,7 @@ class _EntryCard extends StatelessWidget {
                 color: scheme.primaryContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.fitness_center_rounded,
+              child: ImageIcon(const AssetImage('assets/icons/hantel.png'),
                 color: scheme.onPrimaryContainer, size: 20),
             ),
             const SizedBox(width: 14),

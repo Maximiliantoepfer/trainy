@@ -48,13 +48,14 @@ class WorkoutCard extends StatelessWidget {
                 Container(
                   width: 48,
                   height: 48,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(
-                    Icons.fitness_center_rounded,
-                    size: 24,
+                  child: ImageIcon(
+                    const AssetImage('assets/icons/hantel.png'),
+                    size: 22,
                     color: scheme.onPrimaryContainer,
                   ),
                 ),
@@ -72,7 +73,7 @@ class WorkoutCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.list_rounded, size: 14,
+                          Icon(Icons.list_rounded, size: 16,
                             color: workout.exerciseIds.isNotEmpty
                                 ? scheme.onSurfaceVariant
                                 : scheme.onSurfaceVariant.withValues(alpha: 0.4)),
@@ -81,7 +82,7 @@ class WorkoutCard extends StatelessWidget {
                             workout.exerciseIds.isNotEmpty
                                 ? '${workout.exerciseIds.length} Übungen'
                                 : 'Keine Übungen',
-                            style: textTheme.bodySmall?.copyWith(
+                            style: textTheme.bodyMedium?.copyWith(
                               color: workout.exerciseIds.isEmpty
                                   ? scheme.onSurfaceVariant.withValues(alpha: 0.4)
                                   : null,

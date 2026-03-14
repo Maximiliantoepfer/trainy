@@ -322,7 +322,7 @@ class _EmptyState extends StatelessWidget {
                   color: scheme.primaryContainer,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Icon(Icons.fitness_center_rounded,
+                child: ImageIcon(const AssetImage('assets/icons/hantel.png'),
                   size: 32, color: scheme.onPrimaryContainer),
               ),
             ),
@@ -464,11 +464,11 @@ class _WeeklyOverviewCard extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const AnimatedFlameIcon(size: 22),
+                  const AnimatedFlameIcon(size: 28),
                   const SizedBox(width: 8),
                   Text(
                     '$streak-Tage-Streak',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: const Color(0xFFFF6D00),
                       fontWeight: FontWeight.w700,
                     ),
@@ -504,15 +504,21 @@ class _DayDot extends StatelessWidget {
     final Widget? child;
     if (done) {
       bgColor = scheme.tertiary;
-      child = Icon(Icons.check_rounded, color: scheme.onTertiary, size: 20);
+      child = Icon(Icons.check_rounded, color: scheme.onTertiary, size: 22);
     } else if (isTrainingDay) {
-      bgColor = scheme.surfaceContainerHighest.withValues(alpha: 0.5);
-      child = Icon(Icons.fitness_center_rounded,
-          color: scheme.onSurfaceVariant.withValues(alpha: 0.4), size: 18);
+      bgColor = scheme.surfaceContainerHighest.withValues(alpha: 0.65);
+      child = ImageIcon(
+        const AssetImage('assets/icons/muskel.png'),
+        color: scheme.onSurfaceVariant.withValues(alpha: 0.55),
+        size: 21,
+      );
     } else {
-      bgColor = scheme.surfaceContainerHighest.withValues(alpha: 0.5);
-      child = Icon(Icons.weekend_rounded,
-          color: scheme.onSurfaceVariant.withValues(alpha: 0.4), size: 18);
+      bgColor = scheme.surfaceContainerHighest.withValues(alpha: 0.65);
+      child = ImageIcon(
+        const AssetImage('assets/icons/sofa.png'),
+        color: scheme.onSurfaceVariant.withValues(alpha: 0.55),
+        size: 21,
+      );
     }
 
     return Semantics(
@@ -546,7 +552,7 @@ class _DayDot extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
               color: isToday ? scheme.primary : scheme.onSurfaceVariant,
               fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
             ),

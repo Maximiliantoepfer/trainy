@@ -67,25 +67,25 @@ class _MainNavigationState extends State<MainNavigation> {
                   curve: Curves.easeOutCubic,
                 );
               },
-              destinations: const [
+              destinations: [
                 NavigationDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home_rounded),
+                  icon: ImageIcon(AssetImage('assets/icons/web-house.png'), size: 26),
+                  selectedIcon: ImageIcon(AssetImage('assets/icons/web-house.png'), size: 26),
                   label: 'Home',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.fitness_center_outlined),
-                  selectedIcon: Icon(Icons.fitness_center_rounded),
+                  icon: ImageIcon(AssetImage('assets/icons/hantel.png'), size: 26),
+                  selectedIcon: ImageIcon(AssetImage('assets/icons/hantel.png'), size: 26),
                   label: 'Übungen',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.bar_chart_outlined),
-                  selectedIcon: Icon(Icons.bar_chart_rounded),
+                  icon: ImageIcon(AssetImage('assets/icons/diagramm.png'), size: 26),
+                  selectedIcon: ImageIcon(AssetImage('assets/icons/diagramm.png'), size: 26),
                   label: 'Fortschritt',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  selectedIcon: Icon(Icons.settings_rounded),
+                  icon: ImageIcon(AssetImage('assets/icons/die-einstellungen.png'), size: 26),
+                  selectedIcon: ImageIcon(AssetImage('assets/icons/die-einstellungen.png'), size: 26),
                   label: 'Mehr',
                 ),
               ],

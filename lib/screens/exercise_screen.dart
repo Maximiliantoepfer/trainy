@@ -181,7 +181,7 @@ class _EmptyState extends StatelessWidget {
               color: scheme.primaryContainer,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Icon(Icons.fitness_center_rounded, size: 32, color: scheme.onPrimaryContainer),
+            child: ImageIcon(const AssetImage('assets/icons/hantel.png'), size: 32, color: scheme.onPrimaryContainer),
           ),
           const SizedBox(height: 20),
           Text('Noch keine Übungen', style: Theme.of(context).textTheme.titleLarge),

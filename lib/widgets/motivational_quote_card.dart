@@ -31,10 +31,10 @@ class MotivationalQuoteCard extends StatelessWidget {
               Row(
                 children: [
                   Icon(Icons.format_quote_rounded,
-                      size: 18, color: scheme.onSurfaceVariant),
+                      size: 20, color: scheme.onSurfaceVariant),
                   const SizedBox(width: 8),
                   Text('Spruch des Tages',
-                      style: textTheme.labelMedium?.copyWith(
+                      style: textTheme.labelLarge?.copyWith(
                         color: scheme.onSurfaceVariant,
                       )),
                 ],
@@ -52,7 +52,7 @@ class MotivationalQuoteCard extends StatelessWidget {
                   alignment: Alignment.centerRight,
                   child: Text(
                     '— ${quote.author}',
-                    style: textTheme.bodySmall?.copyWith(
+                    style: textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
                   ),

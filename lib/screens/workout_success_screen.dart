@@ -130,16 +130,16 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
                           alignment: WrapAlignment.center,
                           children: [
                             _StatChip(
-                              icon: Icons.timer_outlined,
+                              icon: Icon(Icons.timer_outlined, size: 16, color: scheme.onSurfaceVariant),
                               label: DurationFormatter.verbose(widget.durationSeconds),
                             ),
                             _StatChip(
-                              icon: Icons.fitness_center_rounded,
+                              icon: ImageIcon(const AssetImage('assets/icons/hantel.png'), size: 16, color: scheme.onSurfaceVariant),
                               label: '${widget.exerciseCount} Übungen',
                             ),
                             if (widget.totalSets > 0)
                               _StatChip(
-                                icon: Icons.layers_rounded,
+                                icon: Icon(Icons.layers_rounded, size: 16, color: scheme.onSurfaceVariant),
                                 label: '${widget.totalSets} Sätze',
                               ),
                           ],
@@ -208,7 +208,7 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
 }
 
 class _StatChip extends StatelessWidget {
-  final IconData icon;
+  final Widget icon;
   final String label;
   const _StatChip({required this.icon, required this.label});
 
@@ -224,7 +224,7 @@ class _StatChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: scheme.onSurfaceVariant),
+          icon,
           const SizedBox(width: 6),
           Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(
             color: scheme.onSurfaceVariant,

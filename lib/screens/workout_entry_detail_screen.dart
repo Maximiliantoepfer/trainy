@@ -229,7 +229,7 @@ class _ExerciseResultCard extends StatelessWidget {
                   color: scheme.primaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.fitness_center_rounded,
+                child: ImageIcon(const AssetImage('assets/icons/hantel.png'),
                   color: scheme.onPrimaryContainer, size: 18),
               ),
               const SizedBox(width: 12),
@@ -247,7 +247,7 @@ class _ExerciseResultCard extends StatelessWidget {
               runSpacing: 10,
               children: [
                 _MetricChip(
-                  icon: Icons.layers,
+                  icon: Icon(Icons.layers, size: 18, color: scheme.onSecondaryContainer),
                   label: 'Sätze',
                   value: sets?.toString(),
                   onTap:
@@ -258,7 +258,7 @@ class _ExerciseResultCard extends StatelessWidget {
                       ),
                 ),
                 _MetricChip(
-                  icon: Icons.repeat,
+                  icon: Icon(Icons.repeat, size: 18, color: scheme.onSecondaryContainer),
                   label: 'Wdh.',
                   value: reps?.toString(),
                   onTap:
@@ -269,7 +269,7 @@ class _ExerciseResultCard extends StatelessWidget {
                       ),
                 ),
                 _MetricChip(
-                  icon: Icons.fitness_center_rounded,
+                  icon: ImageIcon(const AssetImage('assets/icons/hantel.png'), size: 18, color: scheme.onSecondaryContainer),
                   label: 'Gewicht',
                   value: weight == null ? null : _formatWeight(weight),
                   onTap:
@@ -280,7 +280,7 @@ class _ExerciseResultCard extends StatelessWidget {
                       ),
                 ),
                 _MetricChip(
-                  icon: Icons.timer_outlined,
+                  icon: Icon(Icons.timer_outlined, size: 18, color: scheme.onSecondaryContainer),
                   label: 'Dauer',
                   value:
                       duration == null
@@ -351,7 +351,7 @@ class _ExerciseResultCard extends StatelessWidget {
 }
 
 class _MetricChip extends StatelessWidget {
-  final IconData icon;
+  final Widget icon;
   final String label;
   final String? value;
   final VoidCallback onTap;
@@ -366,12 +366,11 @@ class _MetricChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasValue = value != null && value!.isNotEmpty;
-    final onColor = Theme.of(context).colorScheme.onSecondaryContainer;
 
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 18, color: onColor),
+        icon,
         const SizedBox(width: 8),
         Text(
           hasValue ? '$label: $value' : '$label hinzufügen',
