@@ -54,6 +54,7 @@ const List<MotivationalQuote> motivationalQuotes = [
   MotivationalQuote(text: 'Es geht nicht darum, wie langsam du gehst, solange du nicht stehen bleibst.', author: 'Konfuzius'),
   MotivationalQuote(text: 'Was du heute tust, entscheidet, wer du morgen bist.'),
   MotivationalQuote(text: 'Der Körper erreicht, was der Geist glaubt.'),
+  MotivationalQuote(text: 'Body follows Mind.'),
   // Energie & Power
   MotivationalQuote(text: 'Hör auf zu wünschen. Fang an zu machen.'),
   MotivationalQuote(text: 'Kein Schweiß, kein Ruhm.'),
