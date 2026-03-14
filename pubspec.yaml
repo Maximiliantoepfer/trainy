@@ -108,5 +108,5 @@ flutter:
 flutter_launcher_icons:
   android: "launcher_icon"   # Name des Icons für Android (Standard)
   ios: true                  # Icons für iOS generieren? (Ja)
-  image_path: "assets/icons/hantel.png" # Pfad zu deiner Icon-Datei
+  image_path: "assets/icons/trainy.png" # Pfad zu deiner Icon-Datei
   min_sdk_android: 21        # Optional: Mindest-Android-SDK (für adaptive Icons)
