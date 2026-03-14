@@ -12,6 +12,8 @@ import '../widgets/trainings_calendar.dart';
 import '../widgets/filtered_exercise_progress_chart.dart';
 import '../utils/duration_utils.dart';
 import '../providers/active_workout_provider.dart';
+import '../widgets/app_bar_title.dart';
+import '../widgets/screen_info_dialog.dart';
 
 class ProgressScreen extends StatefulWidget {
   final VoidCallback? onSwipePastStart;
@@ -66,7 +68,18 @@ class _ProgressScreenState extends State<ProgressScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fortschritt'),
+        title: const AppBarTitle('Fortschritt'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline_rounded, size: 20),
+            onPressed: () => showScreenInfoDialog(
+              context,
+              title: 'Fortschritt',
+              description: 'Verfolge deinen Trainingsfortschritt. Im Verlauf siehst du alle absolvierten Workouts, in Insights findest du Kalender und Übungsdiagramme.',
+            ),
+            tooltip: 'Info',
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(
             56 + (active.isActive ? 56 : 0),

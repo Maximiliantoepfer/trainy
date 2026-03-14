@@ -6,6 +6,8 @@ import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/exercise_editor_sheet.dart';
+import '../widgets/app_bar_title.dart';
+import '../widgets/screen_info_dialog.dart';
 import '../utils/goal_utils.dart';
 
 class ExerciseScreen extends StatefulWidget {
@@ -52,7 +54,20 @@ class _ExerciseScreenState extends State<ExerciseScreen>
     final isActive = context.watch<ActiveWorkoutProvider>().isActive;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Übungen')),
+      appBar: AppBar(
+        title: const AppBarTitle('Übungen'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline_rounded, size: 20),
+            onPressed: () => showScreenInfoDialog(
+              context,
+              title: 'Übungen',
+              description: 'Verwalte deine Übungen. Erstelle neue Übungen, bearbeite bestehende und lege fest, welche Metriken du tracken möchtest.',
+            ),
+            tooltip: 'Info',
+          ),
+        ],
+      ),
       body: Column(
         children: [
           AnimatedSize(

@@ -342,12 +342,13 @@ class AppTheme {
     scrolledUnderElevation: 0,
     surfaceTintColor: Colors.transparent,
     centerTitle: false,
+    titleSpacing: 24,
     iconTheme: IconThemeData(color: scheme.onSurface, size: 22),
     titleTextStyle: TextStyle(
       color: scheme.onSurface,
-      fontSize: 20,
-      fontWeight: FontWeight.w600,
-      letterSpacing: -0.2,
+      fontSize: 24,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.3,
     ),
   );
 

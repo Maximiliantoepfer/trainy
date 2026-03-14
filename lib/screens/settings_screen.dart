@@ -8,6 +8,8 @@ import '../providers/cloud_sync_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/workout_provider.dart';
 import '../widgets/active_workout_banner.dart';
+import '../widgets/app_bar_title.dart';
+import '../widgets/screen_info_dialog.dart';
 import '../providers/active_workout_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -32,7 +34,20 @@ class _SettingsScreenState extends State<SettingsScreen>
     final active = context.watch<ActiveWorkoutProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Einstellungen')),
+      appBar: AppBar(
+        title: const AppBarTitle('Einstellungen'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline_rounded, size: 20),
+            onPressed: () => showScreenInfoDialog(
+              context,
+              title: 'Einstellungen',
+              description: 'Passe Trainy an deine Bedürfnisse an. Wähle dein Design, setze Wochenziele und sichere deine Daten in der Cloud.',
+            ),
+            tooltip: 'Info',
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
         children: [
@@ -57,7 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Design-Modus',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
                   SegmentedButton<ThemeMode>(
@@ -72,7 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ),
                   const SizedBox(height: 20),
                   Text('Akzentfarbe',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
                   Row(
@@ -109,7 +124,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Trainingstage pro Woche',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
                   SegmentedButton<int>(
@@ -133,7 +148,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Trainingstage',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
                   _TrainingDaysPicker(
@@ -385,9 +400,8 @@ class _SectionHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(left: 4),
       child: Text(title,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
-            letterSpacing: 0.5,
           )),
     );
   }
@@ -411,13 +425,13 @@ class _ColorDot extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
         child: Center(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            width: 32,
-            height: 32,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               color: isCustom ? null : color,
               gradient: isCustom
@@ -464,7 +478,7 @@ class _WorkoutScheduleCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Trainingsplan',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: scheme.onSurfaceVariant)),
             const SizedBox(height: 12),
             ...List.generate(7, (i) {
@@ -600,7 +614,8 @@ const _quickSwatches = <Color>[
   Color(0xFF4776F8),
   Color(0xFF0EC7FF),
   Color(0xFF4CAF50),
+  Color(0xFFFF5722),
+  Color(0xFFD32F2F),
   Color(0xFFE91E63),
   Color(0xFF9C27B0),
-  Color(0xFFE64A19),
 ];

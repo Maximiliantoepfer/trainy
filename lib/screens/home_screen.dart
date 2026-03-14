@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
@@ -6,6 +7,8 @@ import '../providers/workout_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../providers/progress_provider.dart';
 import '../widgets/workout_card.dart';
+import '../widgets/app_bar_title.dart';
+import '../widgets/screen_info_dialog.dart';
 import 'workout_screen.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/animated_flame_icon.dart';
@@ -22,9 +25,17 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with AutomaticKeepAliveClientMixin {
   int? _selectedWorkoutId;
+  DateTime _selectedDate = DateTime.now();
 
   @override
   bool get wantKeepAlive => true;
+
+  DateTime _dateForWeekday(int weekday) {
+    final now = DateTime.now();
+    final monday = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+    return monday.add(Duration(days: weekday - 1));
+  }
 
   @override
   void initState() {
@@ -164,7 +175,29 @@ class _HomeScreenState extends State<HomeScreen>
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Trainy'),
+          title: const AppBarTitle('Trainy'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.info_outline_rounded, size: 20),
+              onPressed: () => showScreenInfoDialog(
+                context,
+                title: 'Trainy',
+                description: 'Dein Dashboard auf einen Blick. Hier siehst du deine Wochenübersicht, geplante Workouts und kannst direkt ein Training starten.',
+              ),
+              tooltip: 'Info',
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 20),
+              child: Center(
+                child: Text(
+                  DateFormat('d. MMMM', 'de_DE').format(_selectedDate),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () => _createWorkout(context),
@@ -190,6 +223,12 @@ class _HomeScreenState extends State<HomeScreen>
                 weeklyGoal: weeklyGoal,
                 trainingDays: effectiveTrainingDays,
                 streak: streak,
+                selectedWeekday: _selectedDate.weekday,
+                onDayTap: (weekday) {
+                  setState(() {
+                    _selectedDate = _dateForWeekday(weekday);
+                  });
+                },
               ),
             ),
 
@@ -201,13 +240,21 @@ class _HomeScreenState extends State<HomeScreen>
 
             // Today's workout
             Builder(builder: (context) {
-              final todayWorkouts = context.watch<WorkoutProvider>().workoutsForDay(DateTime.now().weekday);
-              if (todayWorkouts.isEmpty) return const SizedBox.shrink();
+              final selectedWorkouts = context.watch<WorkoutProvider>().workoutsForDay(_selectedDate.weekday);
+              if (selectedWorkouts.isEmpty) return const SizedBox.shrink();
+              final now = DateTime.now();
+              final isToday = _selectedDate.year == now.year &&
+                  _selectedDate.month == now.month &&
+                  _selectedDate.day == now.day;
+              final dayLabel = isToday
+                  ? 'Heutiges Training'
+                  : '${DateFormat.EEEE('de_DE').format(_selectedDate)}-Training';
               return Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                 child: _TodaysWorkoutCard(
-                  workouts: todayWorkouts,
+                  workouts: selectedWorkouts,
                   onStart: (w) => _openWorkout(w),
+                  dayLabel: dayLabel,
                 ),
               );
             }),
@@ -314,7 +361,12 @@ class _HomeScreenState extends State<HomeScreen>
 class _TodaysWorkoutCard extends StatelessWidget {
   final List<Workout> workouts;
   final void Function(Workout) onStart;
-  const _TodaysWorkoutCard({required this.workouts, required this.onStart});
+  final String dayLabel;
+  const _TodaysWorkoutCard({
+    required this.workouts,
+    required this.onStart,
+    this.dayLabel = 'Heutiges Training',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -347,7 +399,7 @@ class _TodaysWorkoutCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Heutiges Training',
+                        Text(dayLabel,
                           style: textTheme.labelLarge?.copyWith(
                             color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
                           )),
@@ -532,11 +584,15 @@ class _WeeklyOverviewCard extends StatelessWidget {
   final int weeklyGoal;
   final Set<int> trainingDays;
   final int streak;
+  final int selectedWeekday;
+  final ValueChanged<int>? onDayTap;
   const _WeeklyOverviewCard({
     required this.trainedWeekdays,
     required this.weeklyGoal,
     required this.trainingDays,
     required this.streak,
+    required this.selectedWeekday,
+    this.onDayTap,
   });
 
   @override
@@ -632,6 +688,8 @@ class _WeeklyOverviewCard extends StatelessWidget {
                   done: done,
                   isTrainingDay: isTrainingDay,
                   isToday: weekday == today,
+                  isSelected: weekday == selectedWeekday,
+                  onTap: () => onDayTap?.call(weekday),
                 );
               }),
             ),
@@ -663,11 +721,15 @@ class _DayDot extends StatelessWidget {
   final bool done;
   final bool isTrainingDay;
   final bool isToday;
+  final bool isSelected;
+  final VoidCallback? onTap;
   const _DayDot({
     required this.label,
     required this.done,
     required this.isTrainingDay,
     required this.isToday,
+    this.isSelected = false,
+    this.onTap,
   });
 
   @override
@@ -696,43 +758,59 @@ class _DayDot extends StatelessWidget {
       );
     }
 
-    return Semantics(
-      label: '$label: ${done ? "trainiert" : isTrainingDay ? "geplant" : "Ruhetag"}',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: isToday
-                ? BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: scheme.primary, width: 2),
-                  )
-                : null,
-            padding: isToday ? const EdgeInsets.all(1) : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: bgColor,
-                shape: BoxShape.circle,
+    final highlighted = isSelected || isToday;
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Semantics(
+        label: '$label: ${done ? "trainiert" : isTrainingDay ? "geplant" : "Ruhetag"}',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: isToday
+                  ? BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: scheme.primary, width: 2),
+                    )
+                  : null,
+              padding: isToday ? const EdgeInsets.all(1) : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: child,
               ),
-              alignment: Alignment.center,
-              child: child,
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: isToday ? scheme.primary : scheme.onSurfaceVariant,
-              fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: highlighted ? scheme.primary : scheme.onSurfaceVariant,
+                fontWeight: highlighted ? FontWeight.w700 : FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 3),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 16,
+              height: 3,
+              decoration: BoxDecoration(
+                color: isSelected ? scheme.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
