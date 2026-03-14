@@ -74,6 +74,14 @@ class ActiveWorkoutProvider extends ChangeNotifier {
     }
   }
 
+  void removeSetAt(int exerciseId, int index) {
+    final list = _setsByExercise[exerciseId];
+    if (list != null && index >= 0 && index < list.length) {
+      list.removeAt(index);
+      notifyListeners();
+    }
+  }
+
   void pause() {
     if (!isActive || _isPaused) return;
     _isPaused = true;

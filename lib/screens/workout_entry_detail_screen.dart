@@ -295,6 +295,15 @@ class _ExerciseResultCard extends StatelessWidget {
                 ),
               ],
             ),
+            // Per-Set-Aufschlüsselung (nur bei neuem Format)
+            if (values.containsKey('perSet') && values['perSet'] is List) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              _PerSetBreakdown(perSet: List<Map<String, dynamic>>.from(
+                (values['perSet'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+              )),
+            ],
             // Fallback: Wenn keine bekannten Felder, zeige Rohwerte (auch editierbar)
             if (sets == null &&
                 reps == null &&
@@ -386,6 +395,71 @@ class _MetricChip extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _PerSetBreakdown extends StatelessWidget {
+  final List<Map<String, dynamic>> perSet;
+  const _PerSetBreakdown({required this.perSet});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Einzelne Sätze',
+          style: textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        ...perSet.asMap().entries.map((entry) {
+          final i = entry.key;
+          final s = entry.value;
+          final parts = <String>[];
+          if (s['reps'] != null) parts.add('${s['reps']} Wdh.');
+          if (s['weight'] != null) parts.add('${_formatWeight(s['weight'])} kg');
+          if (s['duration'] != null) {
+            parts.add(DurationFormatter.verbose((s['duration'] as num).toInt()));
+          }
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    '${i + 1}',
+                    style: textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(parts.join(' / '), style: textTheme.bodyMedium),
+            ]),
+          );
+        }),
+      ],
+    );
+  }
+
+  static String _formatWeight(dynamic w) {
+    if (w is int) return '$w';
+    if (w is double) {
+      return w.truncateToDouble() == w ? w.toStringAsFixed(0) : w.toStringAsFixed(1);
+    }
+    return '$w';
   }
 }
 

@@ -95,16 +95,21 @@ class ProgressProvider extends ChangeNotifier {
     try {
       final date = when ?? DateTime.now();
 
-      // Aggregation: letzte Werte & Summen (simple Heuristik)
+      // Aggregation: Per-Set-Modus (kein 'sets'-Key) oder alter Modus
       final Map<int, Map<String, dynamic>> results = {};
       for (final entry in setsByExercise.entries) {
         final int exerciseId = entry.key;
         final List<Map<String, String>> sets = entry.value;
 
+        // Erkennung: hat irgendein Set den 'sets'-Key? → alter Modus
+        final isOldMode = sets.any((s) => s.containsKey('sets'));
+
         int totalDuration = 0;
         int? lastReps;
-        double? lastWeight;
+        double? maxWeight;
         int? lastSets;
+
+        final perSetList = <Map<String, dynamic>>[];
 
         for (final s in sets) {
           final repsStr = s['reps']?.trim();
@@ -112,13 +117,21 @@ class ProgressProvider extends ChangeNotifier {
           final setsStr = s['sets']?.trim();
           final durStr = s['duration']?.trim();
 
+          final setMap = <String, dynamic>{};
+
           if (repsStr?.isNotEmpty == true) {
             final v = int.tryParse(repsStr!);
-            if (v != null) lastReps = v;
+            if (v != null) {
+              lastReps = v;
+              setMap['reps'] = v;
+            }
           }
           if (weightStr?.isNotEmpty == true) {
             final v = double.tryParse(weightStr!);
-            if (v != null) lastWeight = v;
+            if (v != null) {
+              if (maxWeight == null || v > maxWeight) maxWeight = v;
+              setMap['weight'] = v;
+            }
           }
           if (setsStr?.isNotEmpty == true) {
             final v = int.tryParse(setsStr!);
@@ -126,14 +139,30 @@ class ProgressProvider extends ChangeNotifier {
           }
           if (durStr?.isNotEmpty == true) {
             final v = int.tryParse(durStr!);
-            if (v != null) totalDuration += v;
+            if (v != null) {
+              totalDuration += v;
+              setMap['duration'] = v;
+            }
           }
+
+          if (setMap.isNotEmpty) perSetList.add(setMap);
         }
 
         final map = <String, dynamic>{};
-        if (lastSets != null) map['sets'] = lastSets!;
+
+        // Per-Set-Modus: perSet-Array + abgeleitete Aggregate
+        if (!isOldMode && perSetList.isNotEmpty) {
+          map['perSet'] = perSetList;
+          map['sets'] = perSetList.length;
+        }
+
+        // Alter Modus: manueller 'sets'-Wert
+        if (isOldMode && lastSets != null) {
+          map['sets'] = lastSets;
+        }
+
         if (lastReps != null) map['reps'] = lastReps!;
-        if (lastWeight != null) map['weight'] = lastWeight!;
+        if (maxWeight != null) map['weight'] = maxWeight!;
         if (totalDuration > 0) map['duration'] = totalDuration;
 
         results[exerciseId] = map;

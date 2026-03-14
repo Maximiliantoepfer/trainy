@@ -8,6 +8,8 @@ import '../providers/progress_provider.dart';
 import '../widgets/workout_card.dart';
 import 'workout_screen.dart';
 import '../widgets/active_workout_banner.dart';
+import '../widgets/animated_flame_icon.dart';
+import '../widgets/motivational_quote_card.dart';
 import '../providers/active_workout_provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -190,6 +192,12 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
 
+            // Motivational quote
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
+              child: MotivationalQuoteCard(),
+            ),
+
             // Workout list
             Expanded(
               child: provider.isLoading
@@ -199,25 +207,37 @@ class _HomeScreenState extends State<HomeScreen>
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
                           itemCount: workouts.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
                           itemBuilder: (ctx, i) {
                             final w = workouts[i];
                             final selected = w.id == _selectedWorkoutId;
-                            return WorkoutCard(
-                              workout: w,
-                              selected: selected,
-                              onTap: () => _openWorkout(w),
-                              onLongPress: () {
-                                setState(() => _selectedWorkoutId =
-                                    selected ? null : w.id);
-                              },
-                              onPrimaryActionTap: () {
-                                if (selected) {
-                                  _confirmAndDelete(w);
-                                } else {
-                                  _openWorkout(w);
-                                }
-                              },
+                            return TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              duration: Duration(milliseconds: 300 + (i * 50)),
+                              curve: Curves.easeOutCubic,
+                              builder: (_, v, child) => Opacity(
+                                opacity: v,
+                                child: Transform.translate(
+                                  offset: Offset(0, 20 * (1 - v)),
+                                  child: child,
+                                ),
+                              ),
+                              child: WorkoutCard(
+                                workout: w,
+                                selected: selected,
+                                onTap: () => _openWorkout(w),
+                                onLongPress: () {
+                                  setState(() => _selectedWorkoutId =
+                                      selected ? null : w.id);
+                                },
+                                onPrimaryActionTap: () {
+                                  if (selected) {
+                                    _confirmAndDelete(w);
+                                  } else {
+                                    _openWorkout(w);
+                                  }
+                                },
+                              ),
                             );
                           },
                         ),
@@ -356,21 +376,21 @@ class _WeeklyOverviewCard extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Text('Diese Woche',
-                  style: Theme.of(context).textTheme.titleMedium),
+                  style: Theme.of(context).textTheme.titleLarge),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: goalReached
-                        ? scheme.tertiary.withOpacity(0.12)
-                        : scheme.surfaceContainerHighest.withOpacity(0.5),
+                        ? scheme.tertiary.withValues(alpha: 0.12)
+                        : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(
@@ -396,26 +416,31 @@ class _WeeklyOverviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             // Progress bar with optional glow
-            Container(
-              decoration: goalReached
-                  ? BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: scheme.tertiary.withOpacity(0.3),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    )
-                  : null,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 4,
-                  backgroundColor: scheme.surfaceContainerHighest.withOpacity(0.5),
-                  valueColor: AlwaysStoppedAnimation(
-                    goalReached ? scheme.tertiary : scheme.primary,
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: progress),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              builder: (_, animatedProgress, __) => Container(
+                decoration: goalReached
+                    ? BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: scheme.tertiary.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      )
+                    : null,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: animatedProgress,
+                    minHeight: 6,
+                    backgroundColor: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    valueColor: AlwaysStoppedAnimation(
+                      goalReached ? scheme.tertiary : scheme.primary,
+                    ),
                   ),
                 ),
               ),
@@ -439,12 +464,12 @@ class _WeeklyOverviewCard extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Icon(Icons.local_fire_department_rounded, size: 16, color: scheme.tertiary),
-                  const SizedBox(width: 6),
+                  const AnimatedFlameIcon(size: 22),
+                  const SizedBox(width: 8),
                   Text(
                     '$streak-Tage-Streak',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: scheme.tertiary,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: const Color(0xFFFF6D00),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -479,14 +504,14 @@ class _DayDot extends StatelessWidget {
     final Widget? child;
     if (done) {
       bgColor = scheme.tertiary;
-      child = Icon(Icons.check_rounded, color: scheme.onTertiary, size: 18);
+      child = Icon(Icons.check_rounded, color: scheme.onTertiary, size: 20);
     } else if (isTrainingDay) {
-      bgColor = scheme.surfaceContainerHighest.withOpacity(0.5);
+      bgColor = scheme.surfaceContainerHighest.withValues(alpha: 0.5);
       child = null;
     } else {
-      bgColor = scheme.surfaceContainerHighest.withOpacity(0.5);
+      bgColor = scheme.surfaceContainerHighest.withValues(alpha: 0.5);
       child = Icon(Icons.weekend_rounded,
-          color: scheme.onSurfaceVariant.withOpacity(0.4), size: 16);
+          color: scheme.onSurfaceVariant.withValues(alpha: 0.4), size: 18);
     }
 
     return Semantics(
@@ -495,8 +520,8 @@ class _DayDot extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 42,
+            height: 42,
             decoration: isToday
                 ? BoxDecoration(
                     shape: BoxShape.circle,
@@ -507,8 +532,8 @@ class _DayDot extends StatelessWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOut,
-              width: 34,
-              height: 34,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 color: bgColor,
                 shape: BoxShape.circle,
@@ -520,7 +545,7 @@ class _DayDot extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: isToday ? scheme.primary : scheme.onSurfaceVariant,
               fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
             ),

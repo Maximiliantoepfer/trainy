@@ -42,23 +42,23 @@ class WorkoutCard extends StatelessWidget {
           onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
             child: Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
                     Icons.fitness_center_rounded,
-                    size: 20,
+                    size: 24,
                     color: scheme.onPrimaryContainer,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,13 +69,26 @@ class WorkoutCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.titleMedium,
                       ),
-                      if (workout.exerciseIds.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          '${workout.exerciseIds.length} Übungen',
-                          style: textTheme.bodySmall,
-                        ),
-                      ],
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.list_rounded, size: 14,
+                            color: workout.exerciseIds.isNotEmpty
+                                ? scheme.onSurfaceVariant
+                                : scheme.onSurfaceVariant.withValues(alpha: 0.4)),
+                          const SizedBox(width: 4),
+                          Text(
+                            workout.exerciseIds.isNotEmpty
+                                ? '${workout.exerciseIds.length} Übungen'
+                                : 'Keine Übungen',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: workout.exerciseIds.isEmpty
+                                  ? scheme.onSurfaceVariant.withValues(alpha: 0.4)
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
