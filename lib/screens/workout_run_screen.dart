@@ -9,6 +9,7 @@ import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../utils/duration_utils.dart';
+import 'workout_success_screen.dart';
 
 class WorkoutRunScreen extends StatefulWidget {
   final Workout workout;
@@ -98,8 +99,22 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       try { await cloud.backupNow(); } catch (_) {}
     }
 
+    final totalSets = active.setsByExercise.values.fold<int>(0, (s, l) => s + l.length);
+    final exercisesDone = active.setsByExercise.values.where((v) => v.isNotEmpty).length;
+
     active.clear();
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => WorkoutSuccessScreen(
+            workoutName: widget.workout.name,
+            durationSeconds: duration,
+            exerciseCount: exercisesDone,
+            totalSets: totalSets,
+          ),
+        ),
+      );
+    }
   }
 
   Map<String, String> _deriveLastValues(List<Map<String, String>> sets) {
@@ -233,14 +248,24 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                     fontFeatures: [const FontFeature.tabularFigures()],
+                    color: active.isPaused ? scheme.onSurfaceVariant : null,
                   ),
                 ),
               ),
             ),
           ),
-          if (_isRunning)
+          if (_isRunning) ...[
+            IconButton(
+              tooltip: active.isPaused ? 'Fortsetzen' : 'Pausieren',
+              onPressed: () => active.isPaused ? active.resume() : active.pause(),
+              icon: Icon(
+                active.isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                color: scheme.primary,
+              ),
+            ),
             IconButton(tooltip: 'Beenden', onPressed: _stopAndFinish,
               icon: Icon(Icons.stop_circle_outlined, color: scheme.error)),
+          ],
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
@@ -258,9 +283,10 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (_, i) {
           final e = widget.exercises[i];
-          final hasSets = (active.setsByExercise[e.id] ?? const []).isNotEmpty;
+          final sets = active.setsByExercise[e.id] ?? const [];
+          final hasSets = sets.isNotEmpty;
           return Card(
-            color: hasSets ? scheme.primary.withOpacity(0.06) : null,
+            color: hasSets ? scheme.primaryContainer : null,
             child: InkWell(
               onTap: () => _addSet(context, e),
               borderRadius: BorderRadius.circular(16),
@@ -272,16 +298,20 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                     children: [
                       Text(e.name, style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 2),
-                      Text([
-                        if (e.trackSets) 'Sätze', if (e.trackReps) 'Wdh.',
-                        if (e.trackWeight) 'Gewicht', if (e.trackDuration) 'Dauer',
-                      ].join(' · '), style: Theme.of(context).textTheme.bodySmall),
+                      if (hasSets)
+                        Text('${sets.length} Satz${sets.length == 1 ? "" : "e"} erfasst',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.tertiary))
+                      else
+                        Text([
+                          if (e.trackSets) 'Sätze', if (e.trackReps) 'Wdh.',
+                          if (e.trackWeight) 'Gewicht', if (e.trackDuration) 'Dauer',
+                        ].join(' · '), style: Theme.of(context).textTheme.bodySmall),
                     ],
                   )),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
                     child: hasSets
-                        ? Icon(Icons.check_circle_rounded, key: ValueKey('done_${e.id}'), color: const Color(0xFF4CAF50))
+                        ? Icon(Icons.check_circle_rounded, key: ValueKey('done_${e.id}'), color: scheme.tertiary)
                         : Icon(Icons.add_circle_outline_rounded, key: ValueKey('add_${e.id}'), color: scheme.primary),
                   ),
                 ]),
@@ -294,8 +324,8 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
         duration: const Duration(milliseconds: 200),
         child: _isRunning
             ? FloatingActionButton.extended(key: const ValueKey('fab_stop'),
-                onPressed: _stopAndFinish, backgroundColor: scheme.error,
-                foregroundColor: scheme.onError,
+                onPressed: _stopAndFinish, backgroundColor: scheme.tertiary,
+                foregroundColor: scheme.onTertiary,
                 icon: const Icon(Icons.stop_rounded), label: const Text('Beenden'))
             : FloatingActionButton.extended(key: const ValueKey('fab_start'),
                 onPressed: _start,

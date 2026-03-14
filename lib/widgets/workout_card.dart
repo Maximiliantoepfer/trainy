@@ -28,10 +28,10 @@ class WorkoutCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: selected
-            ? scheme.primary.withOpacity(0.08)
+            ? scheme.primaryContainer
             : Theme.of(context).cardColor,
         border: selected
-            ? Border.all(color: scheme.primary.withOpacity(0.3), width: 1.5)
+            ? Border.all(color: scheme.primary, width: 1)
             : null,
       ),
       child: Material(
@@ -49,13 +49,13 @@ class WorkoutCard extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: scheme.primary.withOpacity(0.1),
+                    color: scheme.primaryContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     Icons.fitness_center_rounded,
                     size: 20,
-                    color: scheme.primary,
+                    color: scheme.onPrimaryContainer,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -93,7 +93,7 @@ class WorkoutCard extends StatelessWidget {
                       : Icon(
                           Icons.chevron_right_rounded,
                           key: const ValueKey('chevron'),
-                          color: scheme.onSurfaceVariant.withOpacity(0.4),
+                          color: scheme.outline,
                         ),
                 ),
               ],

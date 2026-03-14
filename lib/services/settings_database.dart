@@ -75,6 +75,44 @@ class SettingsDatabase {
     );
   }
 
+  // ----- Training Days -----
+  Future<String> getTrainingDays() async {
+    final db = await _db;
+    try {
+      final r = await db.query('user_settings', columns: ['training_days'], limit: 1);
+      if (r.isNotEmpty) {
+        return (r.first['training_days'] ?? '') as String;
+      }
+      return '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> setTrainingDays(String value) async {
+    final db = await _db;
+    try {
+      await db.update(
+        'user_settings',
+        {'training_days': value},
+        where: 'id = ?',
+        whereArgs: [0],
+      );
+    } catch (e) {
+      try {
+        await db.execute(
+          "ALTER TABLE user_settings ADD COLUMN training_days TEXT NOT NULL DEFAULT ''",
+        );
+      } catch (_) {}
+      await db.update(
+        'user_settings',
+        {'training_days': value},
+        where: 'id = ?',
+        whereArgs: [0],
+      );
+    }
+  }
+
   // ----- Onboarding Flag -----
   Future<bool> getOnboardingDone() async {
     final db = await _db;

@@ -14,6 +14,7 @@ class ExerciseProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
+      await ExerciseDatabase.instance.seedDefaultExercises();
       _exercises = await ExerciseDatabase.instance.getAllExercises();
     } finally {
       _isLoading = false;

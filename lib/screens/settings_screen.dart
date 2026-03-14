@@ -76,8 +76,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                           color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
                   Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+                    spacing: 4,
+                    runSpacing: 4,
                     children: [
                       for (final c in _quickSwatches)
                         _ColorDot(
@@ -120,6 +120,29 @@ class _SettingsScreenState extends State<SettingsScreen>
                     selected: {weeklyGoal},
                     onSelectionChanged: (v) =>
                         context.read<ProgressProvider>().setWeeklyGoal(v.first.clamp(1, 7)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Trainingstage',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant)),
+                  const SizedBox(height: 12),
+                  _TrainingDaysPicker(
+                    selected: progress.trainingDays.isEmpty
+                        ? progress.effectiveTrainingDays
+                        : progress.trainingDays,
+                    onChanged: (days) =>
+                        context.read<ProgressProvider>().setTrainingDays(days),
                   ),
                 ],
               ),
@@ -196,16 +219,22 @@ class _SettingsScreenState extends State<SettingsScreen>
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          Expanded(child: FilledButton.icon(
-                            onPressed: sync.isBusy ? null : () => _backup(context),
-                            icon: const Icon(Icons.cloud_upload_outlined),
-                            label: const Text('Sichern'),
+                          Expanded(child: SizedBox(
+                            height: 48,
+                            child: FilledButton.icon(
+                              onPressed: sync.isBusy ? null : () => _backup(context),
+                              icon: const Icon(Icons.cloud_upload_outlined),
+                              label: const Text('Sichern'),
+                            ),
                           )),
                           const SizedBox(width: 10),
-                          Expanded(child: OutlinedButton.icon(
-                            onPressed: sync.isBusy ? null : () => _restore(context),
-                            icon: const Icon(Icons.cloud_download_outlined),
-                            label: const Text('Laden'),
+                          Expanded(child: SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed: sync.isBusy ? null : () => _restore(context),
+                              icon: const Icon(Icons.cloud_download_outlined),
+                              label: const Text('Laden'),
+                            ),
                           )),
                         ],
                       ),
@@ -379,29 +408,95 @@ class _ColorDot extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: isCustom ? null : color,
-          gradient: isCustom
-              ? LinearGradient(colors: [
-                  Colors.red, Colors.orange, Colors.yellow,
-                  Colors.green, Colors.blue, Colors.purple,
-                ])
-              : null,
-          shape: BoxShape.circle,
-          border: isSelected
-              ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 2.5)
-              : Border.all(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.4)),
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isCustom ? null : color,
+              gradient: isCustom
+                  ? LinearGradient(colors: [
+                      Colors.red, Colors.orange, Colors.yellow,
+                      Colors.green, Colors.blue, Colors.purple,
+                    ])
+                  : null,
+              shape: BoxShape.circle,
+              border: isSelected
+                  ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 2.5)
+                  : Border.all(color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.4)),
+            ),
+            child: isCustom
+                ? const Icon(Icons.palette_rounded, size: 18, color: Colors.white)
+                : isSelected
+                    ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
+                    : null,
+          ),
         ),
-        child: isCustom
-            ? const Icon(Icons.palette_rounded, size: 18, color: Colors.white)
-            : isSelected
-                ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
-                : null,
       ),
+    );
+  }
+}
+
+class _TrainingDaysPicker extends StatelessWidget {
+  final Set<int> selected;
+  final ValueChanged<Set<int>> onChanged;
+
+  const _TrainingDaysPicker({required this.selected, required this.onChanged});
+
+  static const _labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(7, (i) {
+        final day = i + 1;
+        final isSelected = selected.contains(day);
+        return GestureDetector(
+          onTap: () {
+            final next = Set<int>.from(selected);
+            if (isSelected) {
+              next.remove(day);
+            } else {
+              next.add(day);
+            }
+            onChanged(next);
+          },
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? scheme.primaryContainer
+                      : scheme.surfaceContainerHighest.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                  border: isSelected
+                      ? Border.all(color: scheme.primary, width: 1.5)
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _labels[i],
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }

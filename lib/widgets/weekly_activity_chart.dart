@@ -46,10 +46,7 @@ class WeeklyActivityChart extends StatelessWidget {
     final scheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
-    final bg =
-        theme.brightness == Brightness.dark
-            ? const Color(0xFF151515)
-            : Colors.white;
+    final bg = Colors.transparent;
 
     // Layout-Konstanten (vertikal)
     const double topValueHeight = 28;

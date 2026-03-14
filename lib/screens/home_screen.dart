@@ -149,7 +149,10 @@ class _HomeScreenState extends State<HomeScreen>
     final progress = context.watch<ProgressProvider>();
     final trainedWeekdays = _trainedWeekdaysThisWeek(progress.entries);
     final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
+    final effectiveTrainingDays = progress.effectiveTrainingDays;
     final isProgressLoading = progress.isLoading;
+    final goalReached = trainedWeekdays.length >= weeklyGoal;
+    final streak = _calculateStreak(progress.entries);
 
     return PopScope(
       canPop: _selectedWorkoutId == null,
@@ -160,15 +163,7 @@ class _HomeScreenState extends State<HomeScreen>
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Workouts'),
-          actions: [
-            IconButton(
-              onPressed: () => _createWorkout(context),
-              icon: Icon(Icons.add_rounded,
-                color: Theme.of(context).colorScheme.primary),
-              tooltip: 'Neues Workout',
-            ),
-          ],
+          title: const Text('Trainy'),
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () => _createWorkout(context),
@@ -176,6 +171,9 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         body: Column(
           children: [
+            // Greeting
+            _GreetingSection(goalReached: goalReached),
+
             // Active workout banner
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
@@ -191,15 +189,23 @@ class _HomeScreenState extends State<HomeScreen>
               child: _WeeklyOverviewCard(
                 trainedWeekdays: isProgressLoading ? const {} : trainedWeekdays,
                 weeklyGoal: weeklyGoal,
+                trainingDays: effectiveTrainingDays,
               ),
             ),
+
+            // Quick stats
+            if (!isProgressLoading)
+              _QuickStats(
+                trainedCount: trainedWeekdays.length,
+                streak: streak,
+              ),
 
             // Workout list
             Expanded(
               child: provider.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : workouts.isEmpty
-                      ? const _EmptyState()
+                      ? _EmptyState(onCreateWorkout: () => _createWorkout(context))
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
                           itemCount: workouts.length,
@@ -232,6 +238,36 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  int _calculateStreak(List entries) {
+    if (entries.isEmpty) return 0;
+    final days = <DateTime>{};
+    for (final e in entries) {
+      final DateTime d = e.date;
+      days.add(DateTime(d.year, d.month, d.day));
+    }
+    final sorted = days.toList()..sort((a, b) => b.compareTo(a));
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    int streak = 0;
+    var check = todayDate;
+    // Allow starting from today or yesterday
+    if (sorted.isEmpty) return 0;
+    if (sorted.first != todayDate) {
+      final yesterday = todayDate.subtract(const Duration(days: 1));
+      if (sorted.first != yesterday) return 0;
+      check = yesterday;
+    }
+    for (final d in sorted) {
+      if (d == check) {
+        streak++;
+        check = check.subtract(const Duration(days: 1));
+      } else if (d.isBefore(check)) {
+        break;
+      }
+    }
+    return streak;
+  }
+
   Set<int> _trainedWeekdaysThisWeek(List entries) {
     if (entries.isEmpty) return {};
     final now = DateTime.now();
@@ -251,8 +287,102 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
+class _GreetingSection extends StatelessWidget {
+  final bool goalReached;
+  const _GreetingSection({required this.goalReached});
+
+  @override
+  Widget build(BuildContext context) {
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Guten Morgen'
+        : hour < 18
+            ? 'Guten Tag'
+            : 'Guten Abend';
+    final subtitle = goalReached
+        ? 'Wochenziel erreicht! Weiter so!'
+        : 'Bereit fuer dein Training?';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(greeting, style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickStats extends StatelessWidget {
+  final int trainedCount;
+  final int streak;
+  const _QuickStats({required this.trainedCount, required this.streak});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      child: Row(
+        children: [
+          _StatChip(
+            icon: Icons.fitness_center_rounded,
+            label: '$trainedCount diese Woche',
+            scheme: scheme,
+          ),
+          const SizedBox(width: 8),
+          if (streak > 0)
+            _StatChip(
+              icon: Icons.local_fire_department_rounded,
+              label: '$streak-Tage-Streak',
+              scheme: scheme,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final ColorScheme scheme;
+  const _StatChip({required this.icon, required this.label, required this.scheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          )),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  final VoidCallback onCreateWorkout;
+  const _EmptyState({required this.onCreateWorkout});
 
   @override
   Widget build(BuildContext context) {
@@ -263,26 +393,38 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: scheme.primary.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(20),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.8, end: 1.0),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutBack,
+              builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(Icons.fitness_center_rounded,
+                  size: 32, color: scheme.onPrimaryContainer),
               ),
-              child: Icon(Icons.fitness_center_rounded,
-                size: 32, color: scheme.primary),
             ),
             const SizedBox(height: 20),
             Text('Noch keine Workouts',
               style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              'Erstelle dein erstes Workout\nmit dem Plus-Button.',
+              'Erstelle Workouts, fuege Uebungen hinzu und tracke deinen Fortschritt.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: onCreateWorkout,
+              icon: const Icon(Icons.add),
+              label: const Text('Erstes Workout erstellen'),
             ),
           ],
         ),
@@ -296,9 +438,11 @@ class _EmptyState extends StatelessWidget {
 class _WeeklyOverviewCard extends StatelessWidget {
   final Set<int> trainedWeekdays;
   final int weeklyGoal;
+  final Set<int> trainingDays;
   const _WeeklyOverviewCard({
     required this.trainedWeekdays,
     required this.weeklyGoal,
+    required this.trainingDays,
   });
 
   @override
@@ -306,6 +450,8 @@ class _WeeklyOverviewCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final doneCount = trainedWeekdays.length;
     final progress = weeklyGoal > 0 ? (doneCount / weeklyGoal).clamp(0.0, 1.0) : 0.0;
+    final goalReached = doneCount >= weeklyGoal;
+    final today = DateTime.now().weekday;
 
     const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
@@ -323,35 +469,55 @@ class _WeeklyOverviewCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: doneCount >= weeklyGoal
-                        ? const Color(0xFF4CAF50).withOpacity(0.12)
+                    color: goalReached
+                        ? scheme.tertiary.withOpacity(0.12)
                         : scheme.surfaceContainerHighest.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Text(
-                    '$doneCount / $weeklyGoal',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: doneCount >= weeklyGoal
-                          ? const Color(0xFF4CAF50)
-                          : scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (goalReached) ...[
+                        Icon(Icons.celebration_rounded, size: 16, color: scheme.tertiary),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        '$doneCount / $weeklyGoal',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: goalReached
+                              ? scheme.tertiary
+                              : scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            // Progress bar
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 4,
-                backgroundColor: scheme.surfaceContainerHighest.withOpacity(0.5),
-                valueColor: AlwaysStoppedAnimation(
-                  doneCount >= weeklyGoal
-                      ? const Color(0xFF4CAF50)
-                      : scheme.primary,
+            // Progress bar with optional glow
+            Container(
+              decoration: goalReached
+                  ? BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: scheme.tertiary.withOpacity(0.3),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    )
+                  : null,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 4,
+                  backgroundColor: scheme.surfaceContainerHighest.withOpacity(0.5),
+                  valueColor: AlwaysStoppedAnimation(
+                    goalReached ? scheme.tertiary : scheme.primary,
+                  ),
                 ),
               ),
             ),
@@ -361,7 +527,13 @@ class _WeeklyOverviewCard extends StatelessWidget {
               children: List.generate(7, (i) {
                 final weekday = i + 1;
                 final done = trainedWeekdays.contains(weekday);
-                return _DayDot(label: labels[i], done: done);
+                final isTrainingDay = trainingDays.contains(weekday);
+                return _DayDot(
+                  label: labels[i],
+                  done: done,
+                  isTrainingDay: isTrainingDay,
+                  isToday: weekday == today,
+                );
               }),
             ),
           ],
@@ -374,39 +546,72 @@ class _WeeklyOverviewCard extends StatelessWidget {
 class _DayDot extends StatelessWidget {
   final String label;
   final bool done;
-  const _DayDot({required this.label, required this.done});
+  final bool isTrainingDay;
+  final bool isToday;
+  const _DayDot({
+    required this.label,
+    required this.done,
+    required this.isTrainingDay,
+    required this.isToday,
+  });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    const doneColor = Color(0xFF4CAF50);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: done ? doneColor : scheme.surfaceContainerHighest.withOpacity(0.5),
-            shape: BoxShape.circle,
+    // 3 states: trainingDone, trainingPending, restDay
+    final Color bgColor;
+    final Widget? child;
+    if (done) {
+      bgColor = scheme.tertiary;
+      child = Icon(Icons.check_rounded, color: scheme.onTertiary, size: 18);
+    } else if (isTrainingDay) {
+      bgColor = scheme.surfaceContainerHighest.withOpacity(0.5);
+      child = null;
+    } else {
+      bgColor = scheme.surfaceContainerHighest.withOpacity(0.5);
+      child = Icon(Icons.weekend_rounded,
+          color: scheme.onSurfaceVariant.withOpacity(0.4), size: 16);
+    }
+
+    return Semantics(
+      label: '$label: ${done ? "trainiert" : isTrainingDay ? "geplant" : "Ruhetag"}',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: isToday
+                ? BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: scheme.primary, width: 2),
+                  )
+                : null,
+            padding: isToday ? const EdgeInsets.all(1) : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: bgColor,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: child,
+            ),
           ),
-          alignment: Alignment.center,
-          child: done
-              ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
-              : null,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: isToday ? scheme.primary : scheme.onSurfaceVariant,
+              fontWeight: isToday ? FontWeight.w700 : FontWeight.w600,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

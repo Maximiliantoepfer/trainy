@@ -128,6 +128,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      showDragHandle: true,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setModal) => SafeArea(
@@ -137,8 +138,6 @@ class _ExerciseScreenState extends State<ExerciseScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(height: 12),
-                  _dragHandle(ctx),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                     child: Align(
@@ -183,12 +182,17 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                     child: Row(
                       children: [
-                        Expanded(child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Abbrechen'),
+                        Expanded(child: SizedBox(
+                          height: 48,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Abbrechen'),
+                          ),
                         )),
                         const SizedBox(width: 12),
-                        Expanded(child: FilledButton(
+                        Expanded(child: SizedBox(
+                          height: 48,
+                          child: FilledButton(
                           onPressed: () async {
                             final name = nameCtrl.text.trim();
                             if (name.isEmpty) return;
@@ -206,7 +210,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                             }
                           },
                           child: Text(existing == null ? 'Erstellen' : 'Speichern'),
-                        )),
+                        ))),
                       ],
                     ),
                   ),
@@ -218,13 +222,6 @@ class _ExerciseScreenState extends State<ExerciseScreen>
       },
     );
   }
-
-  Widget _dragHandle(BuildContext ctx) => Center(
-    child: Container(width: 36, height: 4, decoration: BoxDecoration(
-      color: Theme.of(ctx).colorScheme.outlineVariant.withOpacity(0.5),
-      borderRadius: BorderRadius.circular(2),
-    )),
-  );
 
   Widget _toggleRow(BuildContext ctx, String label, bool value, ValueChanged<bool> onChanged) {
     return Padding(
@@ -285,10 +282,10 @@ class _EmptyState extends StatelessWidget {
           Container(
             width: 72, height: 72,
             decoration: BoxDecoration(
-              color: scheme.primary.withOpacity(0.08),
+              color: scheme.primaryContainer,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Icon(Icons.fitness_center_rounded, size: 32, color: scheme.primary),
+            child: Icon(Icons.fitness_center_rounded, size: 32, color: scheme.onPrimaryContainer),
           ),
           const SizedBox(height: 20),
           Text('Noch keine Übungen', style: Theme.of(context).textTheme.titleLarge),

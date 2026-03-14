@@ -29,8 +29,8 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
     final activityMap = _activityByDay(widget.entries);
 
     final bigLabel = TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.w800,
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
       color: Theme.of(context).colorScheme.onSurface,
     );
     final bigMuted = bigLabel.copyWith(
@@ -45,6 +45,7 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
           children: [
             IconButton(
               icon: const Icon(Icons.chevron_left),
+              tooltip: 'Vorheriger Monat',
               onPressed: () {
                 setState(() {
                   _visibleMonthFirstDay = DateTime(
@@ -65,6 +66,7 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right),
+              tooltip: 'Nächster Monat',
               onPressed: () {
                 setState(() {
                   _visibleMonthFirstDay = DateTime(
@@ -98,8 +100,8 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
           itemCount: days.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 7,
-            mainAxisSpacing: 6,
-            crossAxisSpacing: 6,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
           ),
           itemBuilder: (ctx, i) {
             final d = days[i];
@@ -117,9 +119,7 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.outlineVariant,
-                    ),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                   ),
                   child: Stack(
                     children: [
@@ -136,8 +136,8 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                           switchOutCurve: Curves.easeIn,
                           child:
                               cnt > 0
-                                  ? const Center(
-                                    key: ValueKey('done'),
+                                  ? Center(
+                                    key: const ValueKey('done'),
                                     child: _DoneCheck(),
                                   )
                                   : const SizedBox.shrink(
@@ -223,29 +223,29 @@ class _DoneCheck extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color doneFill = Color(0xFF4CAF50); // Green 500
+    final scheme = Theme.of(context).colorScheme;
     return AnimatedScale(
       scale: 1.0,
       duration: const Duration(milliseconds: 180),
       child: Container(
         width: 32,
         height: 32,
-        decoration: const BoxDecoration(
-          color: doneFill, // vollflächig, nicht transparent
+        decoration: BoxDecoration(
+          color: scheme.tertiary,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Color(0x402E7D32), // 25% Alpha für sanfte Tiefe
+              color: scheme.tertiary.withOpacity(0.25),
               blurRadius: 8,
-              offset: Offset(0, 2),
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         alignment: Alignment.center,
-        child: const Icon(
+        child: Icon(
           Icons.check_rounded,
           size: 20,
-          color: Colors.white, // maximaler Kontrast
+          color: scheme.onTertiary,
         ),
       ),
     );

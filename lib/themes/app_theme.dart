@@ -17,18 +17,18 @@ class AppTheme {
 
   static ThemeData light(Color accent) {
     final scheme = _schemeLight(accent);
-    const scaffold = Color(0xFFF8F8FA);
-    const card = Colors.white;
+    final scaffold = scheme.surfaceContainerLowest;
+    final card = scheme.surfaceContainerLow;
 
     return _base(scheme, Brightness.light).copyWith(
       scaffoldBackgroundColor: scaffold,
       appBarTheme: _appBarTheme(scheme, scaffold),
-      cardTheme: _cardTheme(scheme, card),
+      cardTheme: _cardTheme(scheme, card, Brightness.light),
       dialogTheme: _dialogTheme(scheme, Colors.white),
-      navigationBarTheme: _navBarTheme(scheme, scaffold),
+      navigationBarTheme: _navBarTheme(scheme, scheme.surfaceContainer),
       snackBarTheme: _snackBarTheme(scheme),
       dividerTheme: DividerThemeData(
-        color: scheme.outlineVariant.withOpacity(0.5),
+        color: scheme.outlineVariant.withOpacity(0.35),
         thickness: 0.5,
       ),
     );
@@ -36,16 +36,16 @@ class AppTheme {
 
   static ThemeData dark(Color accent) {
     final scheme = _schemeDark(accent);
-    const scaffold = Color(0xFF0E0E10);
-    const card = Color(0xFF1A1A1E);
+    final scaffold = scheme.surfaceContainerLowest;
+    final card = scheme.surfaceContainerLow;
 
     return _base(scheme, Brightness.dark).copyWith(
       applyElevationOverlayColor: false,
       scaffoldBackgroundColor: scaffold,
       appBarTheme: _appBarTheme(scheme, scaffold),
-      cardTheme: _cardTheme(scheme, card),
+      cardTheme: _cardTheme(scheme, card, Brightness.dark),
       dialogTheme: _dialogTheme(scheme, const Color(0xFF1E1E22)),
-      navigationBarTheme: _navBarTheme(scheme, scaffold),
+      navigationBarTheme: _navBarTheme(scheme, scheme.surfaceContainer),
       snackBarTheme: _snackBarTheme(scheme),
       dividerTheme: DividerThemeData(
         color: scheme.outlineVariant.withOpacity(0.3),
@@ -303,13 +303,16 @@ class AppTheme {
         backgroundColor: scheme.surface,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
-        showDragHandle: false,
+        showDragHandle: true,
+        dragHandleColor: scheme.onSurfaceVariant.withOpacity(0.4),
+        dragHandleSize: const Size(32, 4),
       ),
 
       // TabBar
       tabBarTheme: TabBarTheme(
+        dividerColor: Colors.transparent,
         labelColor: scheme.primary,
         unselectedLabelColor: scheme.onSurfaceVariant,
         indicatorColor: scheme.primary,
@@ -348,12 +351,18 @@ class AppTheme {
     ),
   );
 
-  static CardTheme _cardTheme(ColorScheme scheme, Color bg) => CardTheme(
+  static CardTheme _cardTheme(ColorScheme scheme, Color bg, Brightness brightness) => CardTheme(
     color: bg,
-    elevation: 0,
+    elevation: brightness == Brightness.light ? 0.5 : 0,
+    shadowColor: brightness == Brightness.light
+        ? const Color(0x12000000)
+        : Colors.transparent,
     surfaceTintColor: Colors.transparent,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(kRadius),
+      side: brightness == Brightness.dark
+          ? BorderSide(color: scheme.outlineVariant.withOpacity(0.15), width: 0.5)
+          : BorderSide.none,
     ),
     margin: EdgeInsets.zero,
   );
@@ -362,7 +371,7 @@ class AppTheme {
     backgroundColor: bg,
     surfaceTintColor: Colors.transparent,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(kLgRadius),
+      borderRadius: BorderRadius.circular(28),
     ),
     titleTextStyle: TextStyle(
       color: scheme.onSurface,
@@ -379,7 +388,7 @@ class AppTheme {
       backgroundColor: bg,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      indicatorColor: scheme.primary.withOpacity(0.12),
+      indicatorColor: Colors.transparent,
       indicatorShape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kRadiusSm),
       ),
@@ -387,8 +396,8 @@ class AppTheme {
         (states) => IconThemeData(
           color: states.contains(WidgetState.selected)
               ? scheme.primary
-              : scheme.onSurfaceVariant.withOpacity(0.6),
-          size: 24,
+              : scheme.onSurfaceVariant.withOpacity(0.45),
+          size: states.contains(WidgetState.selected) ? 32 : 28,
         ),
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
@@ -399,11 +408,11 @@ class AppTheme {
               : FontWeight.w500,
           color: states.contains(WidgetState.selected)
               ? scheme.primary
-              : scheme.onSurfaceVariant.withOpacity(0.6),
+              : scheme.onSurfaceVariant.withOpacity(0.45),
           letterSpacing: 0.1,
         ),
       ),
-      height: 64,
+      height: 56,
     );
   }
 
@@ -435,7 +444,15 @@ class AppTheme {
       onPrimaryContainer: accent,
       secondaryContainer: accent.withOpacity(0.08),
       onSecondaryContainer: accent,
-      surfaceContainerHighest: const Color(0xFFEEEEF0),
+      tertiary: const Color(0xFF4CAF50),
+      onTertiary: Colors.white,
+      surface: const Color(0xFFFCFBF9),
+      surfaceContainerLowest: const Color(0xFFFAF9F6), // Scaffold — warmes Creme
+      surfaceContainerLow: const Color(0xFFFFFEFC),     // Cards — subtil warmes Weiss
+      surfaceContainer: const Color(0xFFFAF9F6),        // NavBar — nahtlos wie Scaffold
+      surfaceContainerHighest: const Color(0xFFF0EEEB), // Chips, Fills — warm
+      outlineVariant: const Color(0xFFDDD9D4),           // warm grey
+      outline: const Color(0xFF9E9A94),                  // warm mid-grey
     );
   }
 
@@ -451,6 +468,13 @@ class AppTheme {
       onPrimaryContainer: accent,
       secondaryContainer: accent.withOpacity(0.15),
       onSecondaryContainer: accent,
+      tertiary: const Color(0xFF4CAF50),
+      onTertiary: Colors.white,
+      surface: const Color(0xFF121214),
+      surfaceContainerLowest: const Color(0xFF0E0E10),
+      surfaceContainerLow: const Color(0xFF1A1A1E),
+      surfaceContainer: const Color(0xFF1E1E22),
+      surfaceContainerHigh: const Color(0xFF232326),
       surfaceContainerHighest: const Color(0xFF252528),
     );
   }

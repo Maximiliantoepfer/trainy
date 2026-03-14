@@ -10,17 +10,42 @@ class ProgressProvider extends ChangeNotifier {
   int _weeklyGoal = 2;
   bool _isLoading = false;
   bool _isSaving = false;
+  Set<int> _trainingDays = {};
 
   List<WorkoutEntry> get entries => List.unmodifiable(_entries);
   int get weeklyGoal => _weeklyGoal;
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
+  Set<int> get trainingDays => _trainingDays;
+
+  /// Returns explicitly set training days, or a heuristic fallback based on weeklyGoal.
+  Set<int> get effectiveTrainingDays {
+    if (_trainingDays.isNotEmpty) return _trainingDays;
+    return _heuristicDays(_weeklyGoal);
+  }
+
+  static Set<int> _heuristicDays(int goal) {
+    switch (goal.clamp(1, 7)) {
+      case 1: return const {3};
+      case 2: return const {2, 5};
+      case 3: return const {1, 3, 5};
+      case 4: return const {1, 2, 4, 5};
+      case 5: return const {1, 2, 3, 4, 5};
+      case 6: return const {1, 2, 3, 4, 5, 6};
+      case 7: return const {1, 2, 3, 4, 5, 6, 7};
+      default: return const {1, 3, 5};
+    }
+  }
 
   Future<void> loadData() async {
     _isLoading = true;
     notifyListeners();
     try {
       _weeklyGoal = await SettingsDatabase.instance.getWeeklyGoal();
+      final tdStr = await SettingsDatabase.instance.getTrainingDays();
+      _trainingDays = tdStr.isEmpty
+          ? {}
+          : tdStr.split(',').map((s) => int.tryParse(s.trim()) ?? 0).where((d) => d >= 1 && d <= 7).toSet();
       final list = await WorkoutEntryDatabase.instance.getAggregatedEntries();
       _entries
         ..clear()
@@ -42,6 +67,18 @@ class ProgressProvider extends ChangeNotifier {
   Future<void> setWeeklyGoal(int value) async {
     _weeklyGoal = value;
     await SettingsDatabase.instance.setWeeklyGoal(value);
+    notifyListeners();
+  }
+
+  Future<void> setTrainingDays(Set<int> days) async {
+    _trainingDays = days;
+    final str = (days.toList()..sort()).join(',');
+    await SettingsDatabase.instance.setTrainingDays(str);
+    // Sync weeklyGoal to match selected days count
+    if (days.isNotEmpty) {
+      _weeklyGoal = days.length;
+      await SettingsDatabase.instance.setWeeklyGoal(days.length);
+    }
     notifyListeners();
   }
 

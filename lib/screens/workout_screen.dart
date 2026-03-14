@@ -66,10 +66,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (ctx) {
         Future<void> createAndAttach() async {
           final name = nameCtrl.text.trim();
@@ -119,6 +117,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           }
         }
 
+        String searchQuery = '';
         return StatefulBuilder(
           builder: (ctx, modalSetState) {
             return DefaultTabController(
@@ -128,93 +127,120 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 child: LayoutBuilder(
                   builder: (ctx, constraints) {
                     final controller = DefaultTabController.of(ctx)!;
+                    final scheme = Theme.of(ctx).colorScheme;
+                    final filteredAll = searchQuery.isEmpty
+                        ? all
+                        : all.where((e) => e.name.toLowerCase().contains(searchQuery.toLowerCase())).toList();
 
                     return Column(
                       mainAxisSize: MainAxisSize.max,
                       children: [
-                        const SizedBox(height: 12),
-                        Container(
-                          width: 44,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Theme.of(ctx).colorScheme.outlineVariant,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Row(
                             children: [
                               Text(
                                 'Übungen hinzufügen',
-                                style: Theme.of(ctx).textTheme.headlineLarge,
+                                style: Theme.of(ctx).textTheme.titleLarge,
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 8),
 
-                        TabBar(
-                          tabs: const [
-                            Tab(text: 'Vorhandene'),
-                            Tab(text: 'Neu erstellen'),
-                          ],
-                          onTap: (_) => modalSetState(() {}),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerHighest.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: TabBar(
+                              indicator: BoxDecoration(color: scheme.primary, borderRadius: BorderRadius.circular(10)),
+                              indicatorSize: TabBarIndicatorSize.tab,
+                              indicatorPadding: const EdgeInsets.all(3),
+                              dividerColor: Colors.transparent,
+                              labelColor: scheme.onPrimary,
+                              unselectedLabelColor: scheme.onSurfaceVariant,
+                              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                              unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                              tabs: const [Tab(text: 'Vorhandene'), Tab(text: 'Neu erstellen')],
+                              onTap: (_) => modalSetState(() {}),
+                            ),
+                          ),
                         ),
 
                         Expanded(
                           child: TabBarView(
                             children: [
                               // Tab 1: vorhandene Exercises auswählen
-                              ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  16,
-                                  16,
-                                  24,
-                                ),
-                                itemCount: all.length,
-                                itemBuilder: (_, i) {
-                                  final e = all[i];
-                                  final subtitle = <String>[];
-                                  if (e.trackSets) subtitle.add('Sätze');
-                                  if (e.trackReps) subtitle.add('Wdh.');
-                                  if (e.trackWeight) subtitle.add('Gewicht');
-                                  if (e.trackDuration) subtitle.add('Dauer');
-                                  return Card(
-                                    child: CheckboxListTile(
-                                      value: selected.contains(e.id),
-                                      onChanged: (v) {
-                                        modalSetState(() {
-                                          if (v == true) {
-                                            selected.add(e.id);
-                                          } else {
-                                            selected.remove(e.id);
-                                          }
-                                        });
-                                      },
-                                      title: Text(
-                                        e.name,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleMedium?.copyWith(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w800,
-                                        ),
+                              Column(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                                    child: TextField(
+                                      decoration: InputDecoration(
+                                        hintText: 'Uebung suchen...',
+                                        prefixIcon: const Icon(Icons.search_rounded),
+                                        suffixIcon: searchQuery.isNotEmpty
+                                            ? IconButton(
+                                                icon: const Icon(Icons.close),
+                                                onPressed: () => modalSetState(() => searchQuery = ''),
+                                              )
+                                            : null,
                                       ),
-                                      subtitle:
-                                          subtitle.isEmpty
-                                              ? null
-                                              : Text(subtitle.join(' · ')),
-                                      controlAffinity:
-                                          ListTileControlAffinity.leading,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
+                                      onChanged: (v) => modalSetState(() => searchQuery = v),
                                     ),
-                                  );
-                                },
+                                  ),
+                                  Expanded(
+                                    child: ListView.separated(
+                                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                                      itemCount: filteredAll.length,
+                                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                      itemBuilder: (_, i) {
+                                        final e = filteredAll[i];
+                                        final subtitle = <String>[];
+                                        if (e.trackSets) subtitle.add('Sätze');
+                                        if (e.trackReps) subtitle.add('Wdh.');
+                                        if (e.trackWeight) subtitle.add('Gewicht');
+                                        if (e.trackDuration) subtitle.add('Dauer');
+                                        return Card(
+                                          child: CheckboxListTile(
+                                            value: selected.contains(e.id),
+                                            onChanged: (v) {
+                                              modalSetState(() {
+                                                if (v == true) {
+                                                  selected.add(e.id);
+                                                } else {
+                                                  selected.remove(e.id);
+                                                }
+                                              });
+                                            },
+                                            title: Text(
+                                              e.name,
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.titleMedium?.copyWith(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                            subtitle:
+                                                subtitle.isEmpty
+                                                    ? null
+                                                    : Text(subtitle.join(' · ')),
+                                            controlAffinity:
+                                                ListTileControlAffinity.leading,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(14),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
 
                               // Tab 2: neue Exercise erstellen
@@ -318,44 +344,49 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                               child: Row(
                                 children: [
                                   Expanded(
-                                    child: OutlinedButton(
-                                      onPressed: () => Navigator.pop(ctx),
-                                      child: const Text('Abbrechen'),
+                                    child: SizedBox(
+                                      height: 48,
+                                      child: OutlinedButton(
+                                        onPressed: () => Navigator.pop(ctx),
+                                        child: const Text('Abbrechen'),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    child: AnimatedSwitcher(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
-                                      switchInCurve: Curves.easeOut,
-                                      switchOutCurve: Curves.easeIn,
-                                      transitionBuilder:
-                                          (child, anim) => ScaleTransition(
-                                            scale: anim,
-                                            child: child,
-                                          ),
-                                      child:
-                                          isCreateTab
-                                              ? FilledButton.icon(
-                                                key: const ValueKey(
-                                                  'create_and_add',
-                                                ),
-                                                onPressed:
-                                                    canCreate
-                                                        ? () async =>
-                                                            createAndAttach()
-                                                        : null,
-                                                icon: const Icon(Icons.add),
-                                                label: const Text(
-                                                  'Erstellen & hinzufügen',
-                                                ),
-                                              )
-                                              : FilledButton(
-                                                key: const ValueKey(
-                                                  'add_selected',
-                                                ),
+                                    child: SizedBox(
+                                      height: 48,
+                                      child: AnimatedSwitcher(
+                                        duration: const Duration(
+                                          milliseconds: 180,
+                                        ),
+                                        switchInCurve: Curves.easeOut,
+                                        switchOutCurve: Curves.easeIn,
+                                        transitionBuilder:
+                                            (child, anim) => ScaleTransition(
+                                              scale: anim,
+                                              child: child,
+                                            ),
+                                        child:
+                                            isCreateTab
+                                                ? FilledButton.icon(
+                                                  key: const ValueKey(
+                                                    'create_and_add',
+                                                  ),
+                                                  onPressed:
+                                                      canCreate
+                                                          ? () async =>
+                                                              createAndAttach()
+                                                          : null,
+                                                  icon: const Icon(Icons.add),
+                                                  label: const Text(
+                                                    'Erstellen',
+                                                  ),
+                                                )
+                                                : FilledButton(
+                                                  key: const ValueKey(
+                                                    'add_selected',
+                                                  ),
                                                 onPressed: () async {
                                                   final merged = [
                                                     ..._exerciseIds,
@@ -392,6 +423,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                   'Hinzufügen',
                                                 ),
                                               ),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -471,7 +503,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.workout.name),
+        title: GestureDetector(
+          onTap: _rename,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: Text(widget.workout.name, overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 6),
+              Icon(Icons.edit_outlined, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
         bottom:
             active.isActive
                 ? const PreferredSize(
@@ -479,13 +521,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   child: ActiveWorkoutBanner(),
                 )
                 : null,
-        actions: [
-          IconButton(
-            tooltip: 'Umbenennen',
-            onPressed: _rename,
-            icon: const Icon(Icons.edit_outlined),
-          ),
-        ],
       ),
       body: AnimatedSwitcher(
         duration: _kWorkoutAnim,
@@ -520,43 +555,55 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                   itemBuilder: (_, i) {
                     final id = _exerciseIds[i];
                     final e = items[i];
-                    return AnimatedSize(
-                      key: ValueKey('exercise_$id'),
-                      duration: _kWorkoutAnim,
-                      curve: Curves.easeOut,
-                      child: Card(
+                    final scheme = Theme.of(context).colorScheme;
+                    return Dismissible(
+                      key: ValueKey('dismiss_$id'),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
                         margin: const EdgeInsets.symmetric(vertical: 6),
-                        child: ListTile(
-                          leading: ReorderableDragStartListener(
-                            index: i,
-                            child: const Icon(Icons.drag_handle),
-                          ),
-                          title: Text(
-                            e?.name ?? 'Gelöschte Übung ($id)',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.titleMedium?.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
+                        decoration: BoxDecoration(
+                          color: scheme.error,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(Icons.delete_outline_rounded, color: scheme.onError),
+                      ),
+                      onDismissed: (_) async {
+                        setState(() => _exerciseIds.removeAt(i));
+                        await _persistOrder(context);
+                      },
+                      child: AnimatedSize(
+                        key: ValueKey('exercise_$id'),
+                        duration: _kWorkoutAnim,
+                        curve: Curves.easeOut,
+                        child: Card(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          child: ListTile(
+                            leading: ReorderableDragStartListener(
+                              index: i,
+                              child: const Icon(Icons.drag_handle),
                             ),
-                          ),
-                          subtitle:
-                              e == null
-                                  ? const Text('Nicht mehr vorhanden')
-                                  : Text(
-                                    [
-                                      if (e.trackSets) 'Sätze',
-                                      if (e.trackReps) 'Wdh.',
-                                      if (e.trackWeight) 'Gewicht',
-                                      if (e.trackDuration) 'Dauer',
-                                    ].join(' / '),
-                                  ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () async {
-                              setState(() => _exerciseIds.removeAt(i));
-                              await _persistOrder(context);
-                            },
+                            title: Text(
+                              e?.name ?? 'Gelöschte Übung ($id)',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.titleMedium?.copyWith(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            subtitle:
+                                e == null
+                                    ? const Text('Nicht mehr vorhanden')
+                                    : Text(
+                                      [
+                                        if (e.trackSets) 'Sätze',
+                                        if (e.trackReps) 'Wdh.',
+                                        if (e.trackWeight) 'Gewicht',
+                                        if (e.trackDuration) 'Dauer',
+                                      ].join(' / '),
+                                    ),
                           ),
                         ),
                       ),

@@ -14,6 +14,8 @@ class ActiveWorkoutProvider extends ChangeNotifier {
   List<Exercise> _exercises = const [];
   DateTime? _startedAt;
   int _extraElapsed = 0; // Reserve, falls später Pausen etc. hinzukommen
+  DateTime? _pausedAt;
+  bool _isPaused = false;
 
   final Map<int, List<Map<String, String>>> _setsByExercise = {};
 
@@ -21,6 +23,7 @@ class ActiveWorkoutProvider extends ChangeNotifier {
   final ValueNotifier<int> elapsedSeconds = ValueNotifier<int>(0);
 
   bool get isActive => _workout != null && _startedAt != null;
+  bool get isPaused => _isPaused;
   Workout? get workout => _workout;
   List<Exercise> get exercises => _exercises;
   Map<int, List<Map<String, String>>> get setsByExercise => _setsByExercise;
@@ -71,10 +74,31 @@ class ActiveWorkoutProvider extends ChangeNotifier {
     }
   }
 
+  void pause() {
+    if (!isActive || _isPaused) return;
+    _isPaused = true;
+    _pausedAt = DateTime.now();
+    _ticker?.cancel();
+    _ticker = null;
+    notifyListeners();
+  }
+
+  void resume() {
+    if (!isActive || !_isPaused || _pausedAt == null) return;
+    _extraElapsed += _pausedAt!.difference(_startedAt!).inSeconds;
+    _startedAt = DateTime.now();
+    _isPaused = false;
+    _pausedAt = null;
+    _startTicker();
+    notifyListeners();
+  }
+
   int get elapsedTotalSeconds {
     if (_startedAt == null) return 0;
-    final base = DateTime.now().difference(_startedAt!).inSeconds;
-    return base + _extraElapsed;
+    if (_isPaused && _pausedAt != null) {
+      return _pausedAt!.difference(_startedAt!).inSeconds + _extraElapsed;
+    }
+    return DateTime.now().difference(_startedAt!).inSeconds + _extraElapsed;
   }
 
   void _startTicker() {
@@ -97,6 +121,8 @@ class ActiveWorkoutProvider extends ChangeNotifier {
     _exercises = const [];
     _startedAt = null;
     _extraElapsed = 0;
+    _isPaused = false;
+    _pausedAt = null;
     _setsByExercise.clear();
     elapsedSeconds.value = 0;
     notifyListeners();

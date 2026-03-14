@@ -15,11 +15,14 @@ class _MainNavigationState extends State<MainNavigation> {
   int _index = 0;
   late final PageController _pageController;
 
-  final _pages = const [
-    HomeScreen(),
-    ExerciseScreen(),
-    ProgressScreen(),
-    SettingsScreen(),
+  late final _pages = [
+    const HomeScreen(),
+    const ExerciseScreen(),
+    ProgressScreen(
+      onSwipePastStart: () => _pageController.animateToPage(1, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic),
+      onSwipePastEnd: () => _pageController.animateToPage(3, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic),
+    ),
+    const SettingsScreen(),
   ];
 
   @override
@@ -46,8 +49,6 @@ class _MainNavigationState extends State<MainNavigation> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Divider(height: 0.5, thickness: 0.5,
-            color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.3)),
           Theme(
             data: Theme.of(context).copyWith(
               splashFactory: NoSplash.splashFactory,
@@ -57,7 +58,7 @@ class _MainNavigationState extends State<MainNavigation> {
             ),
             child: NavigationBar(
               selectedIndex: _index,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
               onDestinationSelected: (i) {
                 if (i == _index) return;
                 _pageController.animateToPage(

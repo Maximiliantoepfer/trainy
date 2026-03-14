@@ -71,9 +71,6 @@ class _FilteredExerciseProgressChartState
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   color: scheme.surfaceContainerHigh.withValues(alpha: 0.6),
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.7),
-                  ),
                 ),
                 child: Row(
                   children: [
@@ -123,34 +120,47 @@ class _FilteredExerciseProgressChartState
             ),
           ),
           const SizedBox(height: 18),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _MetricButton(
-                  label: 'Wdh.',
-                  active: _metric == 'reps',
-                  onTap: () => setState(() => _metric = 'reps'),
-                ),
-                _MetricButton(
-                  label: 'Gewicht',
-                  active: _metric == 'weight',
-                  onTap: () => setState(() => _metric = 'weight'),
-                ),
-                _MetricButton(
-                  label: 'Dauer',
-                  active: _metric == 'duration',
-                  onTap: () => setState(() => _metric = 'duration'),
-                ),
-                _MetricButton(
-                  label: 'Saetze',
-                  active: _metric == 'sets',
-                  onTap: () => setState(() => _metric = 'sets'),
-                ),
-              ],
-            ),
+          Builder(
+            builder: (context) {
+              final availableMetrics = <({String key, String label})>[
+                if (selectedExercise.trackReps) (key: 'reps', label: 'Wdh.'),
+                if (selectedExercise.trackWeight) (key: 'weight', label: 'Gewicht'),
+                if (selectedExercise.trackDuration) (key: 'duration', label: 'Dauer'),
+                if (selectedExercise.trackSets) (key: 'sets', label: 'Saetze'),
+              ];
+
+              if (availableMetrics.isNotEmpty && !availableMetrics.any((m) => m.key == _metric)) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) setState(() => _metric = availableMetrics.first.key);
+                });
+              }
+
+              if (availableMetrics.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'Keine Felder zum Tracken',
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                );
+              }
+
+              return Row(
+                children: [
+                  for (int i = 0; i < availableMetrics.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    _MetricButton(
+                      label: availableMetrics[i].label,
+                      active: _metric == availableMetrics[i].key,
+                      onTap: () => setState(() => _metric = availableMetrics[i].key),
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: 24),
           if (series.isEmpty)
@@ -454,7 +464,7 @@ class _FilteredExerciseProgressChartState
     final textTheme = Theme.of(context).textTheme;
 
     return Card(
-      elevation: 2.5,
+      elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: Container(
@@ -517,7 +527,7 @@ class _MetricButton extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             color:
@@ -528,7 +538,7 @@ class _MetricButton extends StatelessWidget {
               color:
                   active
                       ? scheme.primary
-                      : scheme.outlineVariant.withValues(alpha: 0.7),
+                      : Colors.transparent,
               width: active ? 1.4 : 1.0,
             ),
             boxShadow:

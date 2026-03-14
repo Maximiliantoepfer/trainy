@@ -93,6 +93,53 @@ class ExerciseDatabase {
 
   // ---- Helpers ----
 
+  Future<void> seedDefaultExercises() async {
+    final db = await _db;
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM exercises'));
+    if (count != null && count > 0) return;
+
+    const seeds = [
+      {'name': 'Bankdruecken',     'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Kniebeugen',       'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Kreuzheben',       'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Schulterdruecken', 'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Langhantelrudern', 'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Klimmzuege',       'sets': true, 'reps': true, 'weight': false,'dur': false},
+      {'name': 'Liegestuetze',     'sets': true, 'reps': true, 'weight': false,'dur': false},
+      {'name': 'Dips',             'sets': true, 'reps': true, 'weight': false,'dur': false},
+      {'name': 'Bizeps-Curls',     'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Trizeps-Druecken', 'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Beinpresse',       'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Ausfallschritte',  'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Wadenheben',       'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Plank',            'sets': true, 'reps': false,'weight': false,'dur': true},
+      {'name': 'Sit-ups',          'sets': true, 'reps': true, 'weight': false,'dur': false},
+      {'name': 'Russian Twist',    'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Latzug',           'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Butterfly',        'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Beinbeuger',       'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Beinstrecker',     'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Seitheben',        'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Facepulls',        'sets': true, 'reps': true, 'weight': true, 'dur': false},
+      {'name': 'Laufen',           'sets': false,'reps': false,'weight': false,'dur': true},
+      {'name': 'Radfahren',        'sets': false,'reps': false,'weight': false,'dur': true},
+      {'name': 'Seilspringen',     'sets': true, 'reps': false,'weight': false,'dur': true},
+    ];
+
+    for (int i = 0; i < seeds.length; i++) {
+      final s = seeds[i];
+      await addOrUpdateExercise(
+        id: i + 1,
+        name: s['name'] as String,
+        trackSets: s['sets'] as bool,
+        trackReps: s['reps'] as bool,
+        trackWeight: s['weight'] as bool,
+        trackDuration: s['dur'] as bool,
+      );
+    }
+  }
+
   Exercise _fromRow(Map<String, Object?> r) {
     Map<String, dynamic> _parseMap(Object? v) {
       if (v == null) return {};

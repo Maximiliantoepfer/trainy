@@ -211,6 +211,8 @@ class _ExerciseResultCard extends StatelessWidget {
     final weight = _asDouble(values['weight']);
     final duration = _asInt(values['duration']);
 
+    final scheme = Theme.of(context).colorScheme;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Padding(
@@ -218,15 +220,26 @@ class _ExerciseResultCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Titel
-            Text(
-              exerciseName,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
+            // Titel with leading icon
+            Row(children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.fitness_center_rounded,
+                  color: scheme.onPrimaryContainer, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(
+                exerciseName,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              )),
+            ]),
             const SizedBox(height: 10),
             // Kennzahlen-Chips (klickbar)
             Wrap(
@@ -362,10 +375,10 @@ class _MetricChip extends StatelessWidget {
 
     // (Ausschnitt) â€“ in _ValuePill.build() den Material-Container anpassen:
     return Material(
-      color: Theme.of(context).colorScheme.surfaceVariant, // neutral
-      borderRadius: BorderRadius.circular(14),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
