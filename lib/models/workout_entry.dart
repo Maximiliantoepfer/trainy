@@ -8,11 +8,15 @@ class WorkoutEntry {
   /// Ergebnisse: exerciseId -> {fieldName: value}
   final Map<int, Map<String, dynamic>> results;
 
+  /// Session-Timer-Dauer in Sekunden (nullable für ältere Einträge).
+  final int? durationSeconds;
+
   const WorkoutEntry({
     required this.id,
     required this.workoutId,
     required this.date,
     required this.results,
+    this.durationSeconds,
   });
 
   @override

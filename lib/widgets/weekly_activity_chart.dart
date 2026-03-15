@@ -31,16 +31,16 @@ class WeeklyActivityChart extends StatelessWidget {
       (i) => DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day + i),
     );
 
-    // Anzahl Workouts pro Tag bestimmen
-    final counts = List<int>.filled(7, 0);
+    // Trainingsminuten pro Tag bestimmen
+    final durations = List<double>.filled(7, 0.0);
     for (final e in entries) {
       final d = DateTime(e.date.year, e.date.month, e.date.day);
       if (d.isBefore(startOfWeek) || d.isAfter(days.last)) continue;
       final idx = d.difference(startOfWeek).inDays;
-      if (idx >= 0 && idx < 7) counts[idx] += 1;
+      if (idx >= 0 && idx < 7) durations[idx] += _effectiveDurationMinutes(e);
     }
     final maxValue =
-        counts.isNotEmpty ? counts.reduce((a, b) => a > b ? a : b) : 0;
+        durations.isNotEmpty ? durations.reduce((a, b) => a > b ? a : b) : 0.0;
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -116,7 +116,7 @@ class WeeklyActivityChart extends StatelessWidget {
                     return SizedBox(
                       width: slotWidth,
                       child: _DayColumn(
-                        value: counts[i],
+                        value: durations[i],
                         maxValue: maxValue,
                         label: _weekdayLabel(i),
                         barColor: scheme.primary,
@@ -148,6 +148,23 @@ class WeeklyActivityChart extends StatelessWidget {
     const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
     return labels[index.clamp(0, 6)];
   }
+
+  /// Effektive Trainingsdauer in Minuten:
+  /// max(Session-Timer, Summe aller Übungsdauern).
+  static double _effectiveDurationMinutes(WorkoutEntry e) {
+    final sessionSec = e.durationSeconds ?? 0;
+    int exerciseSumSec = 0;
+    for (final vals in e.results.values) {
+      final dur = vals['duration'];
+      if (dur is int) {
+        exerciseSumSec += dur;
+      } else if (dur is String) {
+        exerciseSumSec += int.tryParse(dur) ?? 0;
+      }
+    }
+    final effectiveSec = sessionSec > exerciseSumSec ? sessionSec : exerciseSumSec;
+    return effectiveSec / 60.0;
+  }
 }
 
 class _DayColumn extends StatelessWidget {
@@ -164,8 +181,8 @@ class _DayColumn extends StatelessWidget {
     required this.innerGap,
   });
 
-  final int value;
-  final int maxValue;
+  final double value;
+  final double maxValue;
   final String label;
   final Color barColor;
   final TextStyle? valueStyle;
@@ -195,7 +212,7 @@ class _DayColumn extends StatelessWidget {
             SizedBox(
               height: topValueHeight,
               child: Center(
-                child: FittedBox(child: Text('$value', style: valueStyle)),
+                child: FittedBox(child: Text('${value.round()}', style: valueStyle)),
               ),
             ),
             SizedBox(height: innerGap),

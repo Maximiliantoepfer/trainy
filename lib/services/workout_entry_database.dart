@@ -59,9 +59,11 @@ class WorkoutEntryDatabase {
 
       final resultsMap = <int, Map<String, dynamic>>{};
       int? pickId;
+      int? sessionDuration;
 
       for (final r in groupRows) {
         pickId ??= (r['id'] as num).toInt();
+        sessionDuration ??= (r['durationSeconds'] as num?)?.toInt();
         final exerciseId = (r['exerciseId'] as num).toInt();
 
         Map<String, dynamic> values;
@@ -111,6 +113,7 @@ class WorkoutEntryDatabase {
           workoutId: workoutId,
           date: DateTime.fromMillisecondsSinceEpoch(ts),
           results: resultsMap,
+          durationSeconds: sessionDuration,
         ),
       );
     });

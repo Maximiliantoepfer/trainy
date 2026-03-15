@@ -8,6 +8,7 @@ import '../widgets/active_workout_banner.dart';
 import '../widgets/exercise_editor_sheet.dart';
 import '../widgets/app_bar_title.dart';
 import '../widgets/screen_info_dialog.dart';
+import '../widgets/tap_scale.dart';
 import '../utils/goal_utils.dart';
 
 class ExerciseScreen extends StatefulWidget {
@@ -146,14 +147,15 @@ class _ExerciseTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(children: [
-            Expanded(child: Column(
+    return TapScale(
+      child: Card(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(children: [
+              Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -174,6 +176,7 @@ class _ExerciseTile extends StatelessWidget {
             Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant.withOpacity(0.4)),
           ]),
         ),
+      ),
       ),
     );
   }

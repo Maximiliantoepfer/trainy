@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/workout.dart';
+import 'tap_scale.dart';
 
 class WorkoutCard extends StatelessWidget {
   final Workout workout;
@@ -22,10 +23,11 @@ class WorkoutCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-      decoration: BoxDecoration(
+    return TapScale(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: selected
             ? scheme.primaryContainer
@@ -125,6 +127,7 @@ class WorkoutCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

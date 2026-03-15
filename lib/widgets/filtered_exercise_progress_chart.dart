@@ -1,4 +1,5 @@
 // lib/widgets/filtered_exercise_progress_chart.dart
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,6 +7,8 @@ import '../providers/progress_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../models/workout_entry.dart';
 import '../models/exercise.dart';
+import '../utils/goal_utils.dart';
+import 'tap_scale.dart';
 
 /// Zeigt den Verlauf (Reps/Gewicht/Dauer/Sätze) für eine ausgewählte Übung.
 /// Lightweight Line-Chart via CustomPainter (keine zusätzlichen Packages).
@@ -25,9 +28,18 @@ class _FilteredExerciseProgressChartState
   @override
   Widget build(BuildContext context) {
     final entries = context.watch<ProgressProvider>().entries;
-    final exercises = context.watch<ExerciseProvider>().exercises;
+    final allExercises = context.watch<ExerciseProvider>().exercises;
 
-    if (exercises.isEmpty) {
+    // Nur Übungen anzeigen, die tatsächlich Daten haben
+    final exerciseIdsWithData = <int>{};
+    for (final entry in entries) {
+      exerciseIdsWithData.addAll(entry.results.keys);
+    }
+    final exercises = allExercises
+        .where((ex) => exerciseIdsWithData.contains(ex.id))
+        .toList();
+
+    if (allExercises.isEmpty) {
       return _section(
         context,
         title: 'Exercise-Progress',
@@ -38,10 +50,25 @@ class _FilteredExerciseProgressChartState
       );
     }
 
+    if (exercises.isEmpty) {
+      return _section(
+        context,
+        title: 'Exercise-Progress',
+        child: const Padding(
+          padding: EdgeInsets.all(12),
+          child: Text('Absolviere ein Workout, um Fortschrittsdaten zu sehen.'),
+        ),
+      );
+    }
+
+    // Auswahl zurücksetzen falls gewählte Übung keine Daten mehr hat
+    if (_selectedExerciseId != null &&
+        !exerciseIdsWithData.contains(_selectedExerciseId)) {
+      _selectedExerciseId = null;
+    }
     _selectedExerciseId ??= exercises.first.id;
 
     final series = _buildSeries(entries, _selectedExerciseId!, _metric);
-    final unit = _unitForMetric(_metric);
 
     final selectedExercise = exercises.firstWhere(
       (ex) => ex.id == _selectedExerciseId,
@@ -58,12 +85,13 @@ class _FilteredExerciseProgressChartState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => _openExercisePicker(context, exercises),
-              child: Container(
+          TapScale(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => _openExercisePicker(context, exercises),
+                child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 14,
@@ -119,6 +147,7 @@ class _FilteredExerciseProgressChartState
                 ),
               ),
             ),
+          ),
           ),
           const SizedBox(height: 18),
           Builder(
@@ -201,7 +230,6 @@ class _FilteredExerciseProgressChartState
                         lineColor: scheme.primary,
                         gridColor: scheme.outlineVariant,
                         textColor: scheme.onSurfaceVariant,
-                        unit: unit,
                       ),
                     ),
                   ),
@@ -327,7 +355,14 @@ class _FilteredExerciseProgressChartState
                                       final exercise = filtered[index];
                                       final isSelected =
                                           exercise.id == _selectedExerciseId;
-                                      return InkWell(
+                                      final tags = [
+                                        if (exercise.trackReps) 'Wdh.',
+                                        if (exercise.trackWeight) 'Gewicht',
+                                        if (exercise.trackDuration) 'Dauer',
+                                        if (exercise.trackSets) 'Sätze',
+                                      ];
+                                      return TapScale(
+                                        child: InkWell(
                                         borderRadius: BorderRadius.circular(16),
                                         onTap: () {
                                           FocusScope.of(stateContext).unfocus();
@@ -369,25 +404,53 @@ class _FilteredExerciseProgressChartState
                                           child: Row(
                                             children: [
                                               Expanded(
-                                                child: Text(
-                                                  exercise.name,
-                                                  style: textTheme.titleMedium
-                                                      ?.copyWith(
-                                                        fontWeight:
-                                                            isSelected
-                                                                ? FontWeight
-                                                                    .w700
-                                                                : FontWeight
-                                                                    .w500,
-                                                        color:
-                                                            isSelected
-                                                                ? theme
-                                                                    .colorScheme
-                                                                    .primary
-                                                                : theme
-                                                                    .colorScheme
-                                                                    .onSurface,
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Flexible(
+                                                          child: Text(
+                                                            exercise.name,
+                                                            style: textTheme.titleMedium
+                                                                ?.copyWith(
+                                                                  fontWeight:
+                                                                      isSelected
+                                                                          ? FontWeight
+                                                                              .w700
+                                                                          : FontWeight
+                                                                              .w500,
+                                                                  color:
+                                                                      isSelected
+                                                                          ? theme
+                                                                              .colorScheme
+                                                                              .primary
+                                                                          : theme
+                                                                              .colorScheme
+                                                                              .onSurface,
+                                                                ),
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                        if (exercise.goal != null) ...[
+                                                          const SizedBox(width: 8),
+                                                          goalBadge(exercise.goal!, theme.colorScheme),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                    if (tags.isNotEmpty) ...[
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        tags.join(' · '),
+                                                        style: textTheme.bodySmall?.copyWith(
+                                                          color: isSelected
+                                                              ? theme.colorScheme.primary.withValues(alpha: 0.7)
+                                                              : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                                        ),
                                                       ),
+                                                    ],
+                                                  ],
                                                 ),
                                               ),
                                               if (isSelected)
@@ -399,6 +462,7 @@ class _FilteredExerciseProgressChartState
                                             ],
                                           ),
                                         ),
+                                      ),
                                       );
                                     },
                                   ),
@@ -439,21 +503,6 @@ class _FilteredExerciseProgressChartState
     }
     points.sort((a, b) => a.t.compareTo(b.t));
     return points;
-  }
-
-  String _unitForMetric(String metric) {
-    switch (metric) {
-      case 'reps':
-        return 'Wdh.';
-      case 'weight':
-        return 'Gewicht';
-      case 'duration':
-        return 'Sek.';
-      case 'sets':
-        return 'Sätze';
-      default:
-        return '';
-    }
   }
 
   Widget _section(
@@ -520,12 +569,13 @@ class _MetricButton extends StatelessWidget {
         Theme.of(context).textTheme.titleSmall ??
         Theme.of(context).textTheme.bodyMedium;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: AnimatedContainer(
+    return TapScale(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeInOut,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -578,6 +628,7 @@ class _MetricButton extends StatelessWidget {
           ),
         ),
       ),
+      ),
     );
   }
 }
@@ -596,113 +647,88 @@ class _AxisTick {
   final TextPainter painter;
 }
 
-class _LineChart extends StatelessWidget {
-  final List<_Point> series;
-  final String unit;
-  final Color lineColor;
-  final Color gridColor;
-  final Color textColor;
-
-  const _LineChart({
-    super.key,
-    required this.series,
-    required this.unit,
-    required this.lineColor,
-    required this.gridColor,
-    required this.textColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // nicht genutzt (wir zeichnen direkt ueber CustomPaint)
-    return const SizedBox.shrink();
-  }
-}
-
 class _LinePainter extends CustomPainter {
   _LinePainter({
     required this.series,
     required this.lineColor,
     required this.gridColor,
     required this.textColor,
-    required this.unit,
-    this.tickCount = 6,
   });
 
   final List<_Point> series;
   final Color lineColor;
   final Color gridColor;
   final Color textColor;
-  final String unit;
-  final int tickCount;
 
-  static const double _minLeftInset = 52;
+  static const double _minLeftInset = 40;
   static const double _minRightInset = 20;
-  static const double _topInset = 32;
-  static const double _minBottomInset = 56;
-  static const double _labelSpacing = 12;
-  static const double _tickLength = 8;
-  static const double _lineStrokeWidth = 2.6;
-  static const double _pointRadius = 4.0;
+  static const double _topInset = 20;
+  static const double _minBottomInset = 40;
+  static const double _labelSpacing = 10;
+  static const double _lineStrokeWidth = 3.2;
+  static const double _pointRadius = 5.0;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (series.isEmpty) {
-      return;
-    }
+    if (series.isEmpty) return;
 
     double leftInset = _minLeftInset;
     const double rightInset = _minRightInset;
     double bottomInset = _minBottomInset;
     const double topInset = _topInset;
 
-    final baseLabelStyle = TextStyle(
-      color: textColor,
-      fontSize: 15,
-      fontWeight: FontWeight.w600,
-      letterSpacing: 0.15,
+    final labelStyle = TextStyle(
+      color: textColor.withValues(alpha: 0.5),
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      letterSpacing: 0.1,
       height: 1.1,
     );
 
-    final axisLabelStyle = baseLabelStyle;
-    final axisSecondaryStyle = baseLabelStyle.copyWith(
-      fontWeight: FontWeight.w500,
-    );
-
+    // --- X-Bereich ---
     final minX = series.first.t.millisecondsSinceEpoch.toDouble();
     final maxX = series.last.t.millisecondsSinceEpoch.toDouble();
     final dx = maxX - minX;
     final safeDx = dx <= 0 ? 1.0 : dx;
 
-    double minY = series.first.y;
-    double maxY = series.first.y;
+    // --- Y-Bereich ---
+    double dataMinY = series.first.y;
+    double dataMaxY = series.first.y;
     for (final p in series) {
-      if (p.y < minY) minY = p.y;
-      if (p.y > maxY) maxY = p.y;
+      if (p.y < dataMinY) dataMinY = p.y;
+      if (p.y > dataMaxY) dataMaxY = p.y;
     }
 
-    double range = maxY - minY;
+    double range = dataMaxY - dataMinY;
     if (range == 0) {
-      range = maxY.abs() > 1 ? maxY.abs() : 1.0;
+      range = dataMaxY.abs() > 1 ? dataMaxY.abs() : 1.0;
     }
-    final double padding = range * 0.08;
-    minY -= padding;
-    maxY += padding;
-    if (minY == maxY) {
-      minY -= 1;
-      maxY += 1;
+    final double pad = range * 0.10;
+
+    double yMin = 0;
+    double yMax = dataMaxY + pad;
+
+    if (yMax <= 0) yMax = 1;
+
+    // --- Y-Ticks: gleichmäßig von 0 bis yMax ---
+    final step = _niceStep(yMax, 5);
+    final tickValues = <double>[];
+    for (double v = 0; v <= yMax + step * 0.01; v += step) {
+      tickValues.add(double.parse(v.toStringAsFixed(6)));
+    }
+    // yMax auf letzten Tick anpassen
+    if (tickValues.isNotEmpty && tickValues.last > yMax) {
+      yMax = tickValues.last;
     }
 
-    final ticks = _niceTicks(minY, maxY, tickCount);
-    final yMin = ticks.first;
-    final yMax = ticks.last;
     final yRange = (yMax - yMin).abs() < 1e-9 ? 1.0 : yMax - yMin;
 
     final yTickPainters = <_AxisTick>[];
     double maxYLabelWidth = 0;
-    for (final value in ticks) {
+
+    for (final value in tickValues) {
       final painter = TextPainter(
-        text: TextSpan(text: _formatNumber(value), style: axisLabelStyle),
+        text: TextSpan(text: _formatNumber(value), style: labelStyle),
         textDirection: TextDirection.ltr,
         maxLines: 1,
       )..layout();
@@ -712,17 +738,14 @@ class _LinePainter extends CustomPainter {
       yTickPainters.add(_AxisTick(value: value, painter: painter));
     }
 
-    final requiredLeft = maxYLabelWidth + _tickLength + _labelSpacing + 4;
-    if (requiredLeft > leftInset) {
-      leftInset = requiredLeft;
-    }
+    final requiredLeft = maxYLabelWidth + _labelSpacing + 4;
+    if (requiredLeft > leftInset) leftInset = requiredLeft;
 
     double width = size.width - leftInset - rightInset;
     double height = size.height - topInset - bottomInset;
-    if (width <= 0 || height <= 0) {
-      return;
-    }
+    if (width <= 0 || height <= 0) return;
 
+    // --- X-Labels ---
     final startLabel = _formatDate(
       DateTime.fromMillisecondsSinceEpoch(minX.toInt()),
     );
@@ -731,110 +754,83 @@ class _LinePainter extends CustomPainter {
     );
 
     final startTp = TextPainter(
-      text: TextSpan(text: startLabel, style: axisSecondaryStyle),
+      text: TextSpan(text: startLabel, style: labelStyle),
       textDirection: TextDirection.ltr,
       maxLines: 1,
     )..layout(maxWidth: width * 0.5);
 
     final endTp = TextPainter(
-      text: TextSpan(text: endLabel, style: axisSecondaryStyle),
+      text: TextSpan(text: endLabel, style: labelStyle),
       textDirection: TextDirection.ltr,
       maxLines: 1,
     )..layout(maxWidth: width * 0.5);
 
     final xLabelHeight =
         startTp.height > endTp.height ? startTp.height : endTp.height;
-    final requiredBottom = xLabelHeight + _labelSpacing + _tickLength + 6;
+    final requiredBottom = xLabelHeight + _labelSpacing + 6;
     if (requiredBottom > bottomInset) {
       bottomInset = requiredBottom;
       height = size.height - topInset - bottomInset;
-      if (height <= 0) {
-        return;
-      }
+      if (height <= 0) return;
     }
 
     final chartRect = Rect.fromLTWH(leftInset, topInset, width, height);
-    final chartRRect = RRect.fromRectAndRadius(
-      chartRect,
-      const Radius.circular(18),
-    );
 
+    // --- Hintergrund ---
     final backgroundPaint =
         Paint()
           ..shader = LinearGradient(
             colors: [
-              lineColor.withValues(alpha: 0.06),
-              gridColor.withValues(alpha: 0.02),
+              lineColor.withValues(alpha: 0.04),
+              gridColor.withValues(alpha: 0.01),
             ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ).createShader(chartRect);
-    canvas.drawRRect(chartRRect, backgroundPaint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(chartRect, const Radius.circular(18)),
+      backgroundPaint,
+    );
 
-    final horizontalGridPaint =
-        Paint()
-          ..color = gridColor.withValues(alpha: 0.25)
-          ..strokeWidth = 1.0;
-
-    final axisPaint =
-        Paint()
-          ..color = gridColor.withValues(alpha: 0.6)
-          ..strokeWidth = 1.4
-          ..style = PaintingStyle.stroke;
-
+    // --- Y-Labels (nur an Datenpunktwerten, ohne Overlap) ---
+    const minPixelGap = 28.0;
+    double? lastLabelPixelY;
     for (final tick in yTickPainters) {
       final y = topInset + (1 - (tick.value - yMin) / yRange) * height;
+      if (y < topInset || y > topInset + height) continue;
+      if (lastLabelPixelY != null &&
+          (lastLabelPixelY - y).abs() < minPixelGap) {
+        continue;
+      }
+      lastLabelPixelY = y;
+
+      // Subtile horizontale Hilfslinie
       canvas.drawLine(
         Offset(leftInset, y),
         Offset(leftInset + width, y),
-        horizontalGridPaint,
+        Paint()
+          ..color = gridColor.withValues(alpha: 0.08)
+          ..strokeWidth = 0.5,
       );
-      canvas.drawLine(
-        Offset(leftInset - _tickLength, y),
-        Offset(leftInset, y),
-        axisPaint,
-      );
+
       tick.painter.paint(
         canvas,
         Offset(
-          leftInset - _tickLength - _labelSpacing - tick.painter.width,
+          leftInset - _labelSpacing - tick.painter.width,
           y - tick.painter.height / 2,
         ),
       );
     }
 
-    const verticalDivisions = 4;
-    final verticalGridPaint =
-        Paint()
-          ..color = gridColor.withValues(alpha: 0.18)
-          ..strokeWidth = 1.0;
-
-    for (int i = 1; i < verticalDivisions; i++) {
-      final x = leftInset + width * i / verticalDivisions;
-      canvas.drawLine(
-        Offset(x, topInset),
-        Offset(x, topInset + height),
-        verticalGridPaint,
-      );
-    }
-
-    canvas.drawLine(
-      Offset(leftInset, topInset),
-      Offset(leftInset, topInset + height),
-      axisPaint,
-    );
-    canvas.drawLine(
-      Offset(leftInset, topInset + height),
-      Offset(leftInset + width, topInset + height),
-      axisPaint,
-    );
-
+    // --- Datenlinie zeichnen ---
     final linePath = Path();
+    final pixelPoints = <Offset>[];
     for (int i = 0; i < series.length; i++) {
       final p = series[i];
       final x =
           leftInset + ((p.t.millisecondsSinceEpoch - minX) / safeDx) * width;
       final y = topInset + (1 - ((p.y - yMin) / yRange)) * height;
+      pixelPoints.add(Offset(x, y));
       if (i == 0) {
         linePath.moveTo(x, y);
       } else {
@@ -842,24 +838,40 @@ class _LinePainter extends CustomPainter {
       }
     }
 
+    // --- Fläche mit Gradient relativ zur Datenlinie ---
+    final lastPx = pixelPoints.last;
+    final firstPx = pixelPoints.first;
     final areaPath =
         Path.from(linePath)
-          ..lineTo(leftInset + width, topInset + height)
-          ..lineTo(leftInset, topInset + height)
+          ..lineTo(lastPx.dx, topInset + height)
+          ..lineTo(firstPx.dx, topInset + height)
           ..close();
+
+    // Gradient von höchstem Datenpunkt bis X-Achse
+    double dataMinPixelY = topInset + height;
+    for (final pt in pixelPoints) {
+      if (pt.dy < dataMinPixelY) dataMinPixelY = pt.dy;
+    }
+    final dataRect = Rect.fromLTRB(
+      leftInset,
+      dataMinPixelY,
+      leftInset + width,
+      topInset + height,
+    );
 
     final areaPaint =
         Paint()
           ..shader = LinearGradient(
             colors: [
-              lineColor.withValues(alpha: 0.22),
-              lineColor.withValues(alpha: 0.04),
+              lineColor.withValues(alpha: 0.30),
+              lineColor.withValues(alpha: 0.0),
             ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-          ).createShader(chartRect);
+          ).createShader(dataRect);
     canvas.drawPath(areaPath, areaPaint);
 
+    // --- Linie ---
     final linePaint =
         Paint()
           ..color = lineColor
@@ -869,44 +881,25 @@ class _LinePainter extends CustomPainter {
           ..isAntiAlias = true;
     canvas.drawPath(linePath, linePaint);
 
+    // --- Datenpunkte ---
     final haloPaint =
         Paint()
-          ..color = lineColor.withValues(alpha: 0.2)
+          ..color = lineColor.withValues(alpha: 0.15)
           ..style = PaintingStyle.fill;
     final dotPaint =
         Paint()
           ..color = lineColor
           ..style = PaintingStyle.fill;
 
-    for (final p in series) {
-      final x =
-          leftInset + ((p.t.millisecondsSinceEpoch - minX) / safeDx) * width;
-      final y = topInset + (1 - ((p.y - yMin) / yRange)) * height;
-      canvas.drawCircle(Offset(x, y), _pointRadius + 2, haloPaint);
-      canvas.drawCircle(Offset(x, y), _pointRadius, dotPaint);
+    for (final pt in pixelPoints) {
+      canvas.drawCircle(pt, _pointRadius + 2.5, haloPaint);
+      canvas.drawCircle(pt, _pointRadius, dotPaint);
     }
 
+    // --- X-Labels ---
     final xLabelDy = topInset + height + _labelSpacing;
-    startTp.paint(canvas, Offset(leftInset - startTp.width * 0.1, xLabelDy));
+    startTp.paint(canvas, Offset(leftInset, xLabelDy));
     endTp.paint(canvas, Offset(leftInset + width - endTp.width, xLabelDy));
-
-    if (unit.isNotEmpty) {
-      final unitPainter = TextPainter(
-        text: TextSpan(
-          text: unit,
-          style: axisLabelStyle.copyWith(
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-        maxLines: 1,
-      )..layout();
-      unitPainter.paint(
-        canvas,
-        Offset(leftInset, topInset - unitPainter.height - 8),
-      );
-    }
   }
 
   @override
@@ -914,57 +907,25 @@ class _LinePainter extends CustomPainter {
     return old.series != series ||
         old.lineColor != lineColor ||
         old.gridColor != gridColor ||
-        old.textColor != textColor ||
-        old.unit != unit ||
-        old.tickCount != tickCount;
+        old.textColor != textColor;
   }
 
-  List<double> _niceTicks(double min, double max, int desiredCount) {
-    final targetCount = desiredCount < 2 ? 2 : desiredCount;
-    double range = max - min;
-    if (range == 0) {
-      range = max.abs() > 1 ? max.abs() : 1.0;
-    }
-    final step = _niceNum(range / (targetCount - 1), true);
-    final niceMin = (min / step).floor() * step;
-    final niceMax = (max / step).ceil() * step;
-
-    final ticks = <double>[];
-    for (double v = niceMin; v <= niceMax + 0.5 * step; v += step) {
-      ticks.add(double.parse(v.toStringAsFixed(6)));
-    }
-    if (ticks.length < 2) {
-      return [min, max];
-    }
-    return ticks;
-  }
-
-  double _niceNum(double x, bool round) {
-    final expv = (x == 0) ? 0 : (x.abs()).log10().floor();
-    final f = x / MathPow.pow10(expv);
-    double nf;
-    if (round) {
-      if (f < 1.5) {
-        nf = 1;
-      } else if (f < 3) {
-        nf = 2;
-      } else if (f < 7) {
-        nf = 5;
-      } else {
-        nf = 10;
-      }
+  double _niceStep(double maxVal, int desiredTicks) {
+    if (maxVal <= 0) return 1;
+    final rawStep = maxVal / (desiredTicks - 1);
+    final magnitude = pow(10, (log(rawStep) / ln10).floor().toDouble());
+    final residual = rawStep / magnitude;
+    double niceRes;
+    if (residual <= 1.5) {
+      niceRes = 1;
+    } else if (residual <= 3.5) {
+      niceRes = 2;
+    } else if (residual <= 7.5) {
+      niceRes = 5;
     } else {
-      if (f <= 1) {
-        nf = 1;
-      } else if (f <= 2) {
-        nf = 2;
-      } else if (f <= 5) {
-        nf = 5;
-      } else {
-        nf = 10;
-      }
+      niceRes = 10;
     }
-    return nf * MathPow.pow10(expv);
+    return niceRes * magnitude;
   }
 
   String _formatNumber(double v) {
@@ -977,83 +938,5 @@ class _LinePainter extends CustomPainter {
     final dd = d.day.toString().padLeft(2, '0');
     final mm = d.month.toString().padLeft(2, '0');
     return '$dd.$mm.';
-  }
-}
-
-extension _DoubleLog on double {
-  double log10() {
-    // Fallback: ln(x)/ln(10)
-    return (this <= 0) ? 0 : (MathPow.ln(this) / MathPow.ln10);
-  }
-}
-
-class MathPow {
-  static const double ln10 = 2.302585092994046;
-  static double ln(double x) => _ln(x);
-
-  static double pow10(int e) {
-    const List<double> pows = <double>[
-      1e-12,
-      1e-11,
-      1e-10,
-      1e-9,
-      1e-8,
-      1e-7,
-      1e-6,
-      1e-5,
-      1e-4,
-      1e-3,
-      1e-2,
-      1e-1,
-      1.0,
-      1e1,
-      1e2,
-      1e3,
-      1e4,
-      1e5,
-      1e6,
-      1e7,
-      1e8,
-      1e9,
-      1e10,
-      1e11,
-      1e12,
-    ];
-    final idx = e + 12;
-    if (idx >= 0 && idx < pows.length) return pows[idx];
-    return _exp(e * ln10);
-  }
-
-  // Minimal-Implementierungen mit Approximation - ausreichend fuer Axis-Ticks
-  static double _ln(double x) {
-    int k = 0;
-    while (x > 1.5) {
-      x /= 2;
-      k++;
-    }
-    while (x < 0.75 && x > 0) {
-      x *= 2;
-      k--;
-    }
-    final y = (x - 1) / (x + 1);
-    final y2 = y * y;
-    double s = 0;
-    double term = y;
-    for (int n = 1; n < 15; n += 2) {
-      s += term / n;
-      term *= y2;
-    }
-    return 2 * s + k * ln2;
-  }
-
-  static const double ln2 = 0.6931471805599453;
-
-  static double _exp(double x) {
-    double sum = 1.0, term = 1.0;
-    for (int i = 1; i < 20; i++) {
-      term *= x / i;
-      sum += term;
-    }
-    return sum;
   }
 }

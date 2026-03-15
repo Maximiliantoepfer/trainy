@@ -10,6 +10,7 @@ import 'workout_entry_detail_screen.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/trainings_calendar.dart';
 import '../widgets/filtered_exercise_progress_chart.dart';
+import '../widgets/tap_scale.dart';
 import '../utils/duration_utils.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/app_bar_title.dart';
@@ -152,7 +153,7 @@ class _ProgressScreenState extends State<ProgressScreen>
             child: WeeklyActivityChart(
               entries: entries,
               title: 'Aktivität',
-              subtitle: 'Workouts pro Tag',
+              subtitle: 'Minuten pro Tag',
             ),
           ),
         ),
@@ -270,49 +271,51 @@ class _EntryCard extends StatelessWidget {
       }
     });
 
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => WorkoutEntryDetailScreen(entry: entry),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: scheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
+    return TapScale(
+      child: Card(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => WorkoutEntryDetailScreen(entry: entry),
               ),
-              child: ImageIcon(const AssetImage('assets/icons/hantel.png'),
-                color: scheme.onPrimaryContainer, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(workoutName, style: textTheme.titleMedium,
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text(dateStr, style: textTheme.bodySmall),
-                if (totalSets > 0 || totalDuration > 0) ...[
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 8, children: [
-                    if (totalSets > 0) _SmallChip(icon: Icons.layers, label: '$totalSets Sätze'),
-                    if (totalDuration > 0) _SmallChip(icon: Icons.timer_outlined, label: DurationFormatter.verbose(totalDuration)),
-                  ]),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ImageIcon(const AssetImage('assets/icons/hantel.png'),
+                  color: scheme.onPrimaryContainer, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(workoutName, style: textTheme.titleMedium,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text(dateStr, style: textTheme.bodySmall),
+                  if (totalSets > 0 || totalDuration > 0) ...[
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, children: [
+                      if (totalSets > 0) _SmallChip(icon: Icons.layers, label: '$totalSets Sätze'),
+                      if (totalDuration > 0) _SmallChip(icon: Icons.timer_outlined, label: DurationFormatter.verbose(totalDuration)),
+                    ]),
+                  ],
                 ],
-              ],
-            )),
-            Icon(Icons.chevron_right_rounded, color: scheme.outline),
-          ]),
+              )),
+              Icon(Icons.chevron_right_rounded, color: scheme.outline),
+            ]),
+          ),
         ),
       ),
     );
