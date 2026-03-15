@@ -10,10 +10,13 @@ import '../widgets/workout_card.dart';
 import '../widgets/app_bar_title.dart';
 import '../widgets/screen_info_dialog.dart';
 import 'workout_screen.dart';
+import 'backdate_workout_screen.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/animated_flame_icon.dart';
 import '../widgets/motivational_quote_card.dart';
 import '../providers/active_workout_provider.dart';
+import '../providers/exercise_provider.dart';
+import '../models/exercise.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,9 +34,8 @@ class _HomeScreenState extends State<HomeScreen>
   bool get wantKeepAlive => true;
 
   DateTime _dateForWeekday(int weekday) {
-    final now = DateTime.now();
-    final monday = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: now.weekday - 1));
+    final base = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final monday = base.subtract(Duration(days: base.weekday - 1));
     return monday.add(Duration(days: weekday - 1));
   }
 
@@ -140,6 +142,13 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  bool get _isBackdating {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final sel = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    return sel.isBefore(today);
+  }
+
   void _openWorkout(Workout workout) async {
     if (_selectedWorkoutId != null) {
       setState(() => _selectedWorkoutId = null);
@@ -152,6 +161,39 @@ class _HomeScreenState extends State<HomeScreen>
     await context.read<WorkoutProvider>().loadWorkouts();
   }
 
+  Future<void> _openBackdateWorkout(Workout workout) async {
+    final exercises = context.read<ExerciseProvider>().exercises;
+    final list = workout.exerciseIds
+        .map((id) => exercises.where((e) => e.id == id).cast<Exercise?>().firstOrNull)
+        .whereType<Exercise>()
+        .toList();
+
+    if (list.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Keine Übungen im Workout'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => BackdateWorkoutScreen(
+          workout: workout,
+          exercises: list,
+          backdateDate: _selectedDate,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (result == true) {
+      context.read<ProgressProvider>().loadData();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -160,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen>
     final active = context.watch<ActiveWorkoutProvider>();
 
     final progress = context.watch<ProgressProvider>();
-    final trainedWeekdays = _trainedWeekdaysThisWeek(progress.entries);
+    final trainedWeekdays = _trainedWeekdaysForSelectedWeek(progress.entries);
     final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
     final effectiveTrainingDays = progress.effectiveTrainingDays;
     final isProgressLoading = progress.isLoading;
@@ -189,10 +231,34 @@ class _HomeScreenState extends State<HomeScreen>
             Padding(
               padding: const EdgeInsets.only(right: 20),
               child: Center(
-                child: Text(
-                  DateFormat('d. MMMM', 'de_DE').format(_selectedDate),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                child: GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                      locale: const Locale('de', 'DE'),
+                    );
+                    if (picked != null) {
+                      setState(() => _selectedDate = picked);
+                    }
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        DateFormat('d. MMMM', 'de_DE').format(_selectedDate),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.calendar_today_rounded,
+                        size: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -218,18 +284,27 @@ class _HomeScreenState extends State<HomeScreen>
             // Weekly overview
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: _WeeklyOverviewCard(
-                trainedWeekdays: isProgressLoading ? const {} : trainedWeekdays,
-                weeklyGoal: weeklyGoal,
-                trainingDays: effectiveTrainingDays,
-                streak: streak,
-                selectedWeekday: _selectedDate.weekday,
-                onDayTap: (weekday) {
-                  setState(() {
-                    _selectedDate = _dateForWeekday(weekday);
-                  });
-                },
-              ),
+              child: Builder(builder: (_) {
+                final now = DateTime.now();
+                final currentMonday = DateTime(now.year, now.month, now.day)
+                    .subtract(Duration(days: now.weekday - 1));
+                final selectedBase = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+                final selectedMonday = selectedBase.subtract(Duration(days: selectedBase.weekday - 1));
+                final isCurrentWeek = currentMonday == selectedMonday;
+                return _WeeklyOverviewCard(
+                  trainedWeekdays: isProgressLoading ? const {} : trainedWeekdays,
+                  weeklyGoal: weeklyGoal,
+                  trainingDays: effectiveTrainingDays,
+                  streak: streak,
+                  selectedWeekday: _selectedDate.weekday,
+                  isCurrentWeek: isCurrentWeek,
+                  onDayTap: (weekday) {
+                    setState(() {
+                      _selectedDate = _dateForWeekday(weekday);
+                    });
+                  },
+                );
+              }),
             ),
 
             // Motivational quote
@@ -238,10 +313,9 @@ class _HomeScreenState extends State<HomeScreen>
               child: MotivationalQuoteCard(),
             ),
 
-            // Today's workout
+            // Today's workout + backdate card
             Builder(builder: (context) {
               final selectedWorkouts = context.watch<WorkoutProvider>().workoutsForDay(_selectedDate.weekday);
-              if (selectedWorkouts.isEmpty) return const SizedBox.shrink();
               final now = DateTime.now();
               final isToday = _selectedDate.year == now.year &&
                   _selectedDate.month == now.month &&
@@ -249,13 +323,24 @@ class _HomeScreenState extends State<HomeScreen>
               final dayLabel = isToday
                   ? 'Heutiges Training'
                   : '${DateFormat.EEEE('de_DE').format(_selectedDate)}-Training';
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                child: _TodaysWorkoutCard(
-                  workouts: selectedWorkouts,
-                  onStart: (w) => _openWorkout(w),
-                  dayLabel: dayLabel,
-                ),
+
+              return Column(
+                children: [
+                  if (selectedWorkouts.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                      child: _TodaysWorkoutCard(
+                        workouts: selectedWorkouts,
+                        onStart: (w) => _openWorkout(w),
+                        dayLabel: dayLabel,
+                      ),
+                    ),
+                  if (_isBackdating)
+                    _BackdatePickerCard(
+                      dayLabel: dayLabel,
+                      onPickWorkout: (w) => _openBackdateWorkout(w),
+                    ),
+                ],
               );
             }),
 
@@ -339,11 +424,10 @@ class _HomeScreenState extends State<HomeScreen>
     return streak;
   }
 
-  Set<int> _trainedWeekdaysThisWeek(List entries) {
+  Set<int> _trainedWeekdaysForSelectedWeek(List entries) {
     if (entries.isEmpty) return {};
-    final now = DateTime.now();
-    final monday = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: now.weekday - 1));
+    final base = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final monday = base.subtract(Duration(days: base.weekday - 1));
     final start = DateTime(monday.year, monday.month, monday.day);
     final endExclusive = start.add(const Duration(days: 7));
 
@@ -457,7 +541,7 @@ class _TodaysWorkoutCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Heutiges Training',
+              Text(dayLabel,
                 style: textTheme.labelLarge?.copyWith(
                   color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
                 )),
@@ -585,6 +669,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
   final Set<int> trainingDays;
   final int streak;
   final int selectedWeekday;
+  final bool isCurrentWeek;
   final ValueChanged<int>? onDayTap;
   const _WeeklyOverviewCard({
     required this.trainedWeekdays,
@@ -592,6 +677,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
     required this.trainingDays,
     required this.streak,
     required this.selectedWeekday,
+    this.isCurrentWeek = true,
     this.onDayTap,
   });
 
@@ -613,7 +699,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('Diese Woche',
+                Text(isCurrentWeek ? 'Diese Woche' : 'Wochenübersicht',
                   style: Theme.of(context).textTheme.titleLarge),
                 const Spacer(),
                 Container(
@@ -812,6 +898,122 @@ class _DayDot extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BackdatePickerCard extends StatelessWidget {
+  final String dayLabel;
+  final void Function(Workout) onPickWorkout;
+  const _BackdatePickerCard({
+    required this.dayLabel,
+    required this.onPickWorkout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+      child: Card(
+        color: scheme.primaryContainer,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _showWorkoutPicker(context),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Icon(Icons.history_rounded,
+                    color: scheme.onPrimaryContainer),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(dayLabel,
+                        style: textTheme.labelLarge?.copyWith(
+                          color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+                        )),
+                      const SizedBox(height: 4),
+                      Text('Workout nachtragen',
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onPrimaryContainer,
+                        )),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded,
+                    color: scheme.onPrimaryContainer),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showWorkoutPicker(BuildContext context) {
+    final workouts = context.read<WorkoutProvider>().workouts;
+    if (workouts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Keine Workouts vorhanden'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        final scheme = Theme.of(ctx).colorScheme;
+        return SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text('Workout auswählen',
+                    style: Theme.of(ctx).textTheme.titleLarge),
+              ),
+              const SizedBox(height: 16),
+              ...workouts.map((w) => ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 20),
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ImageIcon(
+                    const AssetImage('assets/icons/hantel.png'),
+                    color: scheme.onPrimaryContainer,
+                    size: 18,
+                  ),
+                ),
+                title: Text(w.name),
+                subtitle: Text('${w.exerciseIds.length} Übungen'),
+                trailing: Icon(Icons.chevron_right_rounded,
+                    color: scheme.onSurfaceVariant),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onPickWorkout(w);
+                },
+              )),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
     );
   }
 }
