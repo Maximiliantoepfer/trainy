@@ -146,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen>
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final sel = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    return sel.isBefore(today);
+    return sel != today;
   }
 
   void _openWorkout(Workout workout) async {
@@ -237,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen>
                       context: context,
                       initialDate: _selectedDate,
                       firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
+                      lastDate: DateTime(2030),
                       locale: const Locale('de', 'DE'),
                     );
                     if (picked != null) {
@@ -326,7 +326,7 @@ class _HomeScreenState extends State<HomeScreen>
 
               return Column(
                 children: [
-                  if (selectedWorkouts.isNotEmpty)
+                  if (selectedWorkouts.isNotEmpty && !_isBackdating)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                       child: _TodaysWorkoutCard(

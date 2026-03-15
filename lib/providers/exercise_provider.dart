@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/exercise.dart';
 import '../services/exercise_database.dart';
+import '../services/workout_entry_database.dart';
 
 class ExerciseProvider extends ChangeNotifier {
   List<Exercise> _exercises = [];
@@ -149,6 +150,7 @@ class ExerciseProvider extends ChangeNotifier {
   }
 
   Future<void> deleteExercise(int exerciseId) async {
+    await WorkoutEntryDatabase.instance.deleteEntriesForExercise(exerciseId);
     await ExerciseDatabase.instance.deleteExercise(exerciseId);
     _exercises.removeWhere((x) => x.id == exerciseId);
     notifyListeners();

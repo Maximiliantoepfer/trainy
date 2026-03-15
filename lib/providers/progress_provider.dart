@@ -64,6 +64,19 @@ class ProgressProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Löscht einen Workout-Eintrag aus DB und In-Memory-Liste.
+  Future<void> deleteEntry(WorkoutEntry entry) async {
+    await WorkoutEntryDatabase.instance.deleteEntry(
+      workoutId: entry.workoutId,
+      timestamp: entry.date.millisecondsSinceEpoch,
+    );
+    _entries.removeWhere((e) =>
+      e.workoutId == entry.workoutId &&
+      e.date.millisecondsSinceEpoch == entry.date.millisecondsSinceEpoch,
+    );
+    notifyListeners();
+  }
+
   Future<void> setWeeklyGoal(int value) async {
     _weeklyGoal = value;
     await SettingsDatabase.instance.setWeeklyGoal(value);

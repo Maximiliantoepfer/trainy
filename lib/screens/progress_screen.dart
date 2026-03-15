@@ -15,6 +15,7 @@ import '../utils/duration_utils.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/app_bar_title.dart';
 import '../widgets/screen_info_dialog.dart';
+import '../providers/cloud_sync_provider.dart';
 
 class ProgressScreen extends StatefulWidget {
   final VoidCallback? onSwipePastStart;
@@ -282,6 +283,7 @@ class _EntryCard extends StatelessWidget {
               ),
             );
           },
+          onLongPress: () => _confirmDelete(context),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
@@ -319,6 +321,36 @@ class _EntryCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _confirmDelete(BuildContext context) async {
+    final scheme = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eintrag löschen?'),
+        content: const Text('Dieser Trainingseintrag wird unwiderruflich gelöscht.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFD32F2F),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+    await context.read<ProgressProvider>().deleteEntry(entry);
+    if (!context.mounted) return;
+    try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
   }
 }
 

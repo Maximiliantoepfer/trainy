@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
+import '../providers/progress_provider.dart';
+import '../providers/cloud_sync_provider.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/exercise_editor_sheet.dart';
 import '../widgets/app_bar_title.dart';
@@ -119,6 +121,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                           return _ExerciseTile(
                             exercise: e, tags: tags,
                             onTap: () => _openEditor(context, existing: e),
+                            onLongPress: () => _confirmAndDeleteExercise(e),
                           );
                         },
                       ),
@@ -136,13 +139,61 @@ class _ExerciseScreenState extends State<ExerciseScreen>
   Future<void> _openEditor(BuildContext context, {Exercise? existing}) async {
     await showExerciseEditorSheet(context, existing: existing);
   }
+
+  Future<void> _confirmAndDeleteExercise(Exercise exercise) async {
+    final provider = context.read<ExerciseProvider>();
+    final entryCount = await provider.countEntriesForExercise(exercise.id);
+    if (!mounted) return;
+
+    final scheme = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Übung löschen?'),
+        content: Text(
+          '„${exercise.name}" wird endgültig gelöscht.'
+          '${entryCount > 0 ? '\n\n$entryCount Trainingseinträge mit dieser Übung werden ebenfalls entfernt.' : ''}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFD32F2F),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Endgültig löschen'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    await provider.deleteExercise(exercise.id);
+    if (!mounted) return;
+
+    context.read<ProgressProvider>().refreshEntries();
+    try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('„${exercise.name}" gelöscht'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 }
 
 class _ExerciseTile extends StatelessWidget {
   final Exercise exercise;
   final List<String> tags;
   final VoidCallback onTap;
-  const _ExerciseTile({required this.exercise, required this.tags, required this.onTap});
+  final VoidCallback? onLongPress;
+  const _ExerciseTile({required this.exercise, required this.tags, required this.onTap, this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +202,7 @@ class _ExerciseTile extends StatelessWidget {
       child: Card(
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

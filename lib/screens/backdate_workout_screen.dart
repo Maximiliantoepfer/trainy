@@ -30,14 +30,34 @@ class BackdateWorkoutScreen extends StatefulWidget {
 class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
   final Map<int, List<Map<String, String>>> _setsByExercise = {};
   final TextEditingController _durationCtrl = TextEditingController();
+  late DateTime _backdateDate;
 
   bool get _hasAnySets =>
       _setsByExercise.values.any((list) => list.isNotEmpty);
 
   @override
+  void initState() {
+    super.initState();
+    _backdateDate = widget.backdateDate;
+  }
+
+  @override
   void dispose() {
     _durationCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _backdateDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      locale: const Locale('de', 'DE'),
+    );
+    if (picked != null && picked != _backdateDate) {
+      setState(() => _backdateDate = picked);
+    }
   }
 
   Future<void> _save() async {
@@ -48,9 +68,9 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
 
     // Set backdate to noon to avoid timestamp collisions
     final date = DateTime(
-      widget.backdateDate.year,
-      widget.backdateDate.month,
-      widget.backdateDate.day,
+      _backdateDate.year,
+      _backdateDate.month,
+      _backdateDate.day,
       12,
     );
 
@@ -77,7 +97,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
     }
 
     if (!mounted) return;
-    final dateStr = DateFormat('dd.MM.yyyy', 'de_DE').format(widget.backdateDate);
+    final dateStr = DateFormat('dd.MM.yyyy', 'de_DE').format(_backdateDate);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Workout für $dateStr nachgetragen'),
@@ -300,7 +320,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
     final progress =
         exercises.isEmpty ? 0.0 : doneCount / exercises.length;
     final dateStr = DateFormat('EE, dd.MM.yyyy', 'de_DE')
-        .format(widget.backdateDate);
+        .format(_backdateDate);
 
     return Scaffold(
       appBar: AppBar(
@@ -309,27 +329,30 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 16),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.history_rounded,
-                        size: 16, color: scheme.onPrimaryContainer),
-                    const SizedBox(width: 4),
-                    Text(
-                      dateStr,
-                      style: textTheme.labelMedium?.copyWith(
-                        color: scheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w600,
+              child: GestureDetector(
+                onTap: _pickDate,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.edit_calendar_rounded,
+                          size: 16, color: scheme.onPrimaryContainer),
+                      const SizedBox(width: 4),
+                      Text(
+                        dateStr,
+                        style: textTheme.labelMedium?.copyWith(
+                          color: scheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

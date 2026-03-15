@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/theme_provider.dart';
@@ -59,6 +60,16 @@ class _ThemedApp extends StatelessWidget {
       theme: AppTheme.light(theme.accent),
       darkTheme: AppTheme.dark(theme.accent),
       themeMode: theme.themeMode,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('de', 'DE'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('de', 'DE'),
       home: const OnboardingGate(child: _AppLifecycleReactor(child: MainNavigation())),
     );
   }

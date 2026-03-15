@@ -174,4 +174,27 @@ class WorkoutEntryDatabase {
       orderBy: 'timestamp DESC, id DESC',
     );
   }
+
+  /// Löscht alle Zeilen einer Session (identifiziert durch workoutId + timestamp).
+  Future<int> deleteEntry({
+    required int workoutId,
+    required int timestamp,
+  }) async {
+    final db = await _db;
+    return db.delete(
+      'workout_entries',
+      where: 'workoutId = ? AND timestamp = ?',
+      whereArgs: [workoutId, timestamp],
+    );
+  }
+
+  /// Löscht alle workout_entries-Zeilen für eine bestimmte Übung.
+  Future<int> deleteEntriesForExercise(int exerciseId) async {
+    final db = await _db;
+    return db.delete(
+      'workout_entries',
+      where: 'exerciseId = ?',
+      whereArgs: [exerciseId],
+    );
+  }
 }
