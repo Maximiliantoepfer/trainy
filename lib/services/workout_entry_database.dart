@@ -164,6 +164,39 @@ class WorkoutEntryDatabase {
     );
   }
 
+  /// Ersetzt die kompletten Werte (valuesJson) einer Übungszeile.
+  /// Wird für per-Set-Editing verwendet, wenn das gesamte perSet-Array
+  /// plus neu berechnete Aggregate geschrieben werden müssen.
+  Future<void> updateExerciseValues({
+    required int workoutId,
+    required int exerciseId,
+    required int timestamp,
+    required Map<String, dynamic> values,
+  }) async {
+    final db = await _db;
+    await db.update(
+      'workout_entries',
+      {'valuesJson': jsonEncode(values)},
+      where: 'workoutId = ? AND exerciseId = ? AND timestamp = ?',
+      whereArgs: [workoutId, exerciseId, timestamp],
+    );
+  }
+
+  /// Aktualisiert die Session-Dauer auf allen Zeilen einer Session.
+  Future<void> updateSessionDuration({
+    required int workoutId,
+    required int timestamp,
+    required int durationSeconds,
+  }) async {
+    final db = await _db;
+    await db.update(
+      'workout_entries',
+      {'durationSeconds': durationSeconds},
+      where: 'workoutId = ? AND timestamp = ?',
+      whereArgs: [workoutId, timestamp],
+    );
+  }
+
   /// Rohdaten (alle Zeilen) eines Workouts
   Future<List<Map<String, dynamic>>> getEntriesForWorkout(int workoutId) async {
     final db = await _db;
