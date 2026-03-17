@@ -146,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen>
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final sel = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    return sel != today;
+    return sel.isBefore(today);
   }
 
   void _openWorkout(Workout workout) async {
@@ -860,7 +860,12 @@ class _DayDot extends StatelessWidget {
               decoration: isToday
                   ? BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: scheme.primary, width: 2),
+                      border: Border.all(
+                        color: done
+                            ? const Color(0xFF2E7D32)
+                            : scheme.primary,
+                        width: 2,
+                      ),
                     )
                   : null,
               padding: isToday ? const EdgeInsets.all(1) : null,
