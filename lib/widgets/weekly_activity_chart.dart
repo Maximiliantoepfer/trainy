@@ -211,9 +211,9 @@ class _DayColumn extends StatelessWidget {
           children: [
             SizedBox(
               height: topValueHeight,
-              child: Center(
-                child: FittedBox(child: Text('${value.round()}', style: valueStyle)),
-              ),
+              child: value.round() > 0
+                  ? Center(child: FittedBox(child: Text('${value.round()}', style: valueStyle)))
+                  : const SizedBox.shrink(),
             ),
             SizedBox(height: innerGap),
             Container(

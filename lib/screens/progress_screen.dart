@@ -254,9 +254,8 @@ class _EntryCard extends StatelessWidget {
     }
     final workoutName = w?.name ?? 'Workout';
 
-    // Gesamtsätze/-dauer (aggregiert über Exercises)
+    // Gesamtsätze (aggregiert über Exercises)
     int totalSets = 0;
-    int totalDuration = 0;
     entry.results.forEach((_, v) {
       final sets = v['sets'];
       if (sets is int) totalSets += sets;
@@ -264,13 +263,8 @@ class _EntryCard extends StatelessWidget {
         final s = int.tryParse(sets);
         if (s != null) totalSets += s;
       }
-      final dur = v['duration'];
-      if (dur is int) totalDuration += dur;
-      if (dur is String) {
-        final d = int.tryParse(dur);
-        if (d != null) totalDuration += d;
-      }
     });
+    final sessionDuration = entry.durationSeconds;
 
     return TapScale(
       child: Card(
@@ -306,11 +300,11 @@ class _EntryCard extends StatelessWidget {
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
                   Text(dateStr, style: textTheme.bodySmall),
-                  if (totalSets > 0 || totalDuration > 0) ...[
+                  if (totalSets > 0 || (sessionDuration != null && sessionDuration > 0)) ...[
                     const SizedBox(height: 8),
                     Wrap(spacing: 8, children: [
                       if (totalSets > 0) _SmallChip(icon: Icons.layers, label: '$totalSets Sätze'),
-                      if (totalDuration > 0) _SmallChip(icon: Icons.timer_outlined, label: DurationFormatter.verbose(totalDuration)),
+                      if (sessionDuration != null && sessionDuration > 0) _SmallChip(icon: Icons.timer_outlined, label: DurationFormatter.verbose(sessionDuration)),
                     ]),
                   ],
                 ],
