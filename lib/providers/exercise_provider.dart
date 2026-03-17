@@ -16,6 +16,7 @@ class ExerciseProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await ExerciseDatabase.instance.ensureStandardExercises();
+      await ExerciseDatabase.instance.deduplicateExercises();
       _exercises = await ExerciseDatabase.instance.getAllExercises();
     } finally {
       _isLoading = false;
@@ -52,6 +53,11 @@ class ExerciseProvider extends ChangeNotifier {
       icon: icon,
       goal: goal,
     );
+
+    // Dedup: DB hat bestehende ID zurückgegeben → Übung existiert schon
+    if (id == null && _exercises.any((e) => e.id == exerciseId)) {
+      return exerciseId;
+    }
 
     final newExercise = Exercise(
       id: exerciseId,

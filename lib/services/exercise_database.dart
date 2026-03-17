@@ -27,6 +27,16 @@ class ExerciseDatabase {
     int? icon,
     String? goal,
   }) async {
+    // Dedup: Bei neuer Übung prüfen, ob identische schon existiert
+    if (id == null) {
+      final existingId = await findByIdentity(
+        name: name, goal: goal,
+        trackSets: trackSets, trackReps: trackReps,
+        trackWeight: trackWeight, trackDuration: trackDuration,
+      );
+      if (existingId != null) return existingId;
+    }
+
     final exerciseId = id ?? DateTime.now().millisecondsSinceEpoch;
     final e = Exercise(
       id: exerciseId,
@@ -93,6 +103,73 @@ class ExerciseDatabase {
   Future<void> deleteExercise(int id) async {
     final db = await _db;
     await db.delete('exercises', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ---- Dedup ----
+
+  /// Sucht eine bestehende Übung mit identischer Identität
+  /// (Name case-insensitive + Ziel + Tracking-Felder).
+  Future<int?> findByIdentity({
+    required String name,
+    required String? goal,
+    required bool trackSets,
+    required bool trackReps,
+    required bool trackWeight,
+    required bool trackDuration,
+  }) async {
+    final db = await _db;
+    final trackedJson = jsonEncode({
+      'sets': trackSets,
+      'reps': trackReps,
+      'weight': trackWeight,
+      'duration': trackDuration,
+    });
+    final rows = await db.rawQuery(
+      'SELECT id FROM exercises '
+      'WHERE LOWER(name) = LOWER(?) '
+      'AND trackedFields = ? '
+      'AND (goal = ? OR (goal IS NULL AND ? IS NULL)) '
+      'LIMIT 1',
+      [name, trackedJson, goal, goal],
+    );
+    if (rows.isEmpty) return null;
+    return (rows.first['id'] as num).toInt();
+  }
+
+  /// Bereinigt bestehende Duplikate beim App-Start.
+  /// Gruppiert Übungen nach Identität und mergt Duplikate in die
+  /// Übung mit den meisten Workout-Einträgen.
+  Future<void> deduplicateExercises() async {
+    final exercises = await getAllExercises();
+
+    final groups = <String, List<Exercise>>{};
+    for (final e in exercises) {
+      final key = '${e.name.toLowerCase()}'
+          '|${e.goal}'
+          '|${e.trackSets}|${e.trackReps}|${e.trackWeight}|${e.trackDuration}';
+      groups.putIfAbsent(key, () => []).add(e);
+    }
+
+    for (final group in groups.values) {
+      if (group.length <= 1) continue;
+
+      // Gewinner = Übung mit den meisten Einträgen
+      int winnerId = group.first.id;
+      int maxEntries = 0;
+      for (final e in group) {
+        final count = await countEntriesForExercise(e.id);
+        if (count > maxEntries) {
+          maxEntries = count;
+          winnerId = e.id;
+        }
+      }
+
+      // Alle anderen in den Gewinner mergen
+      for (final e in group) {
+        if (e.id == winnerId) continue;
+        await mergeExercises(e.id, winnerId);
+      }
+    }
   }
 
   // ---- Helpers ----
