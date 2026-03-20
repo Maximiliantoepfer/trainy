@@ -450,17 +450,18 @@ class _FilteredExerciseProgressChartState
       if (c > maxSetsPerDate) maxSetsPerDate = c;
     }
 
-    // Compute offset: fraction of minimum gap between workout dates
+    // Compute offset: use 80% of the gap between workouts, spread across sets
     int setOffsetMs;
     if (uniqueDateMs.length <= 1) {
-      setOffsetMs = 3600000; // 1 hour fallback
+      setOffsetMs = 3600000; // 1 hour fallback for single workout
     } else {
       int minGap = uniqueDateMs[1] - uniqueDateMs[0];
       for (int i = 2; i < uniqueDateMs.length; i++) {
         final gap = uniqueDateMs[i] - uniqueDateMs[i - 1];
         if (gap > 0 && gap < minGap) minGap = gap;
       }
-      setOffsetMs = minGap ~/ (maxSetsPerDate + 2);
+      setOffsetMs = (minGap * 0.8) ~/ maxSetsPerDate;
+      if (setOffsetMs < 1) setOffsetMs = 3600000;
     }
 
     // Apply offsets: within each date, sets get increasing offset
