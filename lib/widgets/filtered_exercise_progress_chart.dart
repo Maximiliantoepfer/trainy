@@ -155,6 +155,7 @@ class _FilteredExerciseProgressChartState
               final availableMetrics = <({String key, String label})>[
                 if (selectedExercise.trackReps) (key: 'reps', label: 'Wdh.'),
                 if (selectedExercise.trackWeight) (key: 'weight', label: 'Gewicht'),
+                if (selectedExercise.trackDistance) (key: 'distance', label: 'Entfernung'),
                 if (selectedExercise.trackDuration) (key: 'duration', label: 'Dauer'),
                 if (selectedExercise.trackSets) (key: 'sets', label: 'Sätze'),
               ];
@@ -358,6 +359,7 @@ class _FilteredExerciseProgressChartState
                                       final tags = [
                                         if (exercise.trackReps) 'Wdh.',
                                         if (exercise.trackWeight) 'Gewicht',
+                                        if (exercise.trackDistance) 'Entfernung',
                                         if (exercise.trackDuration) 'Dauer',
                                         if (exercise.trackSets) 'Sätze',
                                       ];

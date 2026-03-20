@@ -116,6 +116,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                             if (e.trackSets) 'Sätze',
                             if (e.trackReps) 'Wdh.',
                             if (e.trackWeight) 'Gewicht',
+                            if (e.trackDistance) 'Entfernung',
                             if (e.trackDuration) 'Dauer',
                           ];
                           return _ExerciseTile(

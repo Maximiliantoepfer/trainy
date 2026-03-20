@@ -11,6 +11,7 @@ class StandardExercise {
   final bool trackReps;
   final bool trackWeight;
   final bool trackDuration;
+  final bool trackDistance;
 
   const StandardExercise({
     required this.key,
@@ -20,6 +21,7 @@ class StandardExercise {
     required this.trackReps,
     required this.trackWeight,
     required this.trackDuration,
+    this.trackDistance = false,
   });
 }
 
@@ -56,11 +58,11 @@ const List<StandardExercise> standardExercises = [
   StandardExercise(key: 'kraft_pull_ups',      name: 'Pull-ups',     goal: 'Kraft', trackSets: true, trackReps: true, trackWeight: false, trackDuration: false),
 
   // ─── Cardio ───
-  StandardExercise(key: 'cardio_joggen',         name: 'Joggen',         goal: 'Cardio', trackSets: false, trackReps: false, trackWeight: false, trackDuration: true),
-  StandardExercise(key: 'cardio_laufen',         name: 'Laufen',         goal: 'Cardio', trackSets: false, trackReps: false, trackWeight: false, trackDuration: true),
-  StandardExercise(key: 'cardio_radfahren',      name: 'Radfahren',      goal: 'Cardio', trackSets: false, trackReps: false, trackWeight: false, trackDuration: true),
-  StandardExercise(key: 'cardio_intervallaeufe', name: 'Intervallläufe', goal: 'Cardio', trackSets: false, trackReps: false, trackWeight: false, trackDuration: true),
-  StandardExercise(key: 'cardio_schwimmen',      name: 'Schwimmen',      goal: 'Cardio', trackSets: false, trackReps: false, trackWeight: false, trackDuration: true),
+  StandardExercise(key: 'cardio_joggen',         name: 'Joggen',         goal: 'Cardio', trackSets: false, trackReps: false, trackWeight: false, trackDuration: true, trackDistance: true),
+  StandardExercise(key: 'cardio_laufen',         name: 'Laufen',         goal: 'Cardio', trackSets: false, trackReps: false, trackWeight: false, trackDuration: true, trackDistance: true),
+  StandardExercise(key: 'cardio_radfahren',      name: 'Radfahren',      goal: 'Cardio', trackSets: false, trackReps: false, trackWeight: false, trackDuration: true, trackDistance: true),
+  StandardExercise(key: 'cardio_intervallaeufe', name: 'Intervallläufe', goal: 'Cardio', trackSets: false, trackReps: false, trackWeight: false, trackDuration: true, trackDistance: true),
+  StandardExercise(key: 'cardio_schwimmen',      name: 'Schwimmen',      goal: 'Cardio', trackSets: false, trackReps: false, trackWeight: false, trackDuration: true, trackDistance: true),
 
   // ─── Ausdauer ───
   StandardExercise(key: 'ausdauer_plank',        name: 'Plank',        goal: 'Ausdauer', trackSets: true, trackReps: false, trackWeight: false, trackDuration: true),

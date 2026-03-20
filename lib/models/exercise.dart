@@ -8,6 +8,7 @@ class Exercise {
   final bool trackReps;
   final bool trackWeight;
   final bool trackDuration;
+  final bool trackDistance;
 
   /// Vom/der Nutzer:in gesetzte Defaults (Strings, z. B. "10", "50")
   final Map<String, String> defaultValues;
@@ -32,6 +33,7 @@ class Exercise {
     required this.trackReps,
     required this.trackWeight,
     required this.trackDuration,
+    required this.trackDistance,
     required this.defaultValues,
     required this.lastValues,
     required this.units,
@@ -47,6 +49,7 @@ class Exercise {
     bool? trackReps,
     bool? trackWeight,
     bool? trackDuration,
+    bool? trackDistance,
     Map<String, String>? defaultValues,
     Map<String, String>? lastValues,
     Map<String, String>? units,
@@ -61,6 +64,7 @@ class Exercise {
       trackReps: trackReps ?? this.trackReps,
       trackWeight: trackWeight ?? this.trackWeight,
       trackDuration: trackDuration ?? this.trackDuration,
+      trackDistance: trackDistance ?? this.trackDistance,
       defaultValues: defaultValues ?? this.defaultValues,
       lastValues: lastValues ?? this.lastValues,
       units: units ?? this.units,

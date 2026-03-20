@@ -88,7 +88,7 @@ class WorkoutEntryDatabase {
             } else if (v is num) {
               fixed[key] = v.toInt();
             }
-          } else if (key == 'weight') {
+          } else if (key == 'weight' || key == 'distance') {
             if (v is double) return;
             if (v is String) {
               final parsed = double.tryParse(v);
@@ -103,6 +103,7 @@ class WorkoutEntryDatabase {
         _fixNum('reps');
         _fixNum('weight');
         _fixNum('duration');
+        _fixNum('distance');
 
         resultsMap[exerciseId] = fixed;
       }

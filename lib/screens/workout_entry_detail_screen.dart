@@ -128,8 +128,9 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
     required num? current,
   }) async {
     final isWeight = field == 'weight';
+    final isDistance = field == 'distance';
     final isDuration = field == 'duration';
-    final isInt = !isWeight;
+    final isInt = !isWeight && !isDistance;
 
     // Dauer: Std/Min/Sek-Dialog
     if (isDuration) {
@@ -228,7 +229,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
     if (field == 'duration') {
       newValue = await _showDurationEditDialog(current?.toInt() ?? 0);
     } else {
-      final isWeight = field == 'weight';
+      final isWeight = field == 'weight' || field == 'distance';
       final controller = TextEditingController(
         text: current == null ? '' : '$current',
       );
@@ -304,6 +305,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
         final last = perSet.last;
         if (exercise.trackReps && last['reps'] != null) newSet['reps'] = last['reps'];
         if (exercise.trackWeight && last['weight'] != null) newSet['weight'] = last['weight'];
+        if (exercise.trackDistance && last['distance'] != null) newSet['distance'] = last['distance'];
         if (exercise.trackDuration && last['duration'] != null) newSet['duration'] = last['duration'];
       }
       perSet.add(newSet);
@@ -319,6 +321,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
     int? lastReps;
     double? maxWeight;
     int totalDuration = 0;
+    double totalDistance = 0;
 
     for (final s in perSet) {
       final r = _asInt(s['reps']);
@@ -327,6 +330,8 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
       if (w != null && (maxWeight == null || w > maxWeight)) maxWeight = w;
       final d = _asInt(s['duration']);
       if (d != null) totalDuration += d;
+      final dist = _asDouble(s['distance']);
+      if (dist != null) totalDistance += dist;
     }
 
     if (lastReps != null) {
@@ -338,6 +343,11 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
       data['weight'] = maxWeight;
     } else {
       data.remove('weight');
+    }
+    if (totalDistance > 0) {
+      data['distance'] = totalDistance;
+    } else {
+      data.remove('distance');
     }
     if (totalDuration > 0) {
       data['duration'] = totalDuration;
@@ -422,6 +432,8 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
         return 'Wiederholungen bearbeiten';
       case 'weight':
         return 'Gewicht bearbeiten';
+      case 'distance':
+        return 'Entfernung bearbeiten';
       case 'duration':
         return 'Dauer bearbeiten';
       default:
@@ -723,6 +735,12 @@ class _EditableSetRow extends StatelessWidget {
                     value: _formatWeight(_asDouble(setData['weight'])),
                     onTap: () => onEditValue('weight', _asDouble(setData['weight'])),
                   ),
+                if (exercise.trackDistance)
+                  _TappableValue(
+                    label: 'km',
+                    value: _formatWeight(_asDouble(setData['distance'])),
+                    onTap: () => onEditValue('distance', _asDouble(setData['distance'])),
+                  ),
                 if (exercise.trackDuration)
                   _TappableValue(
                     label: '',
@@ -870,6 +888,15 @@ class _SingleExerciseCard extends StatelessWidget {
         label: 'Gewicht',
         value: weight == null ? null : _formatWeight(weight),
         onTap: () => onEdit(exerciseId: exerciseId, field: 'weight', current: weight),
+      ));
+    }
+    if (ex == null || ex.trackDistance) {
+      final distance = _asDouble(values['distance']);
+      chips.add(_MetricChip(
+        icon: Icon(Icons.straighten, size: 18, color: scheme.onSecondaryContainer),
+        label: 'Entfernung',
+        value: distance == null ? null : '${_formatWeight(distance)} km',
+        onTap: () => onEdit(exerciseId: exerciseId, field: 'distance', current: distance),
       ));
     }
     if (ex == null || ex.trackDuration) {

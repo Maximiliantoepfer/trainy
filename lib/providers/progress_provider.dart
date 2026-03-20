@@ -121,6 +121,7 @@ class ProgressProvider extends ChangeNotifier {
         int? lastReps;
         double? maxWeight;
         int? lastSets;
+        double totalDistance = 0;
 
         final perSetList = <Map<String, dynamic>>[];
 
@@ -157,6 +158,14 @@ class ProgressProvider extends ChangeNotifier {
               setMap['duration'] = v;
             }
           }
+          final distStr = s['distance']?.trim();
+          if (distStr?.isNotEmpty == true) {
+            final v = double.tryParse(distStr!);
+            if (v != null) {
+              totalDistance += v;
+              setMap['distance'] = v;
+            }
+          }
 
           if (setMap.isNotEmpty) perSetList.add(setMap);
         }
@@ -177,6 +186,7 @@ class ProgressProvider extends ChangeNotifier {
         if (lastReps != null) map['reps'] = lastReps!;
         if (maxWeight != null) map['weight'] = maxWeight!;
         if (totalDuration > 0) map['duration'] = totalDuration;
+        if (totalDistance > 0) map['distance'] = totalDistance;
 
         results[exerciseId] = map;
       }

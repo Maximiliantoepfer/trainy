@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -6,7 +8,7 @@ class AppDatabase {
   AppDatabase._();
 
   static const _dbName = 'trainy.db';
-  static const _dbVersion = 8; // ⬅️ v8: workout_day_assignments Tabelle
+  static const _dbVersion = 10; // ⬅️ v10: trackDistance für Übungen
 
   Database? _database;
 
@@ -44,7 +46,8 @@ class AppDatabase {
       CREATE TABLE workouts(
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
-        description TEXT NOT NULL
+        description TEXT NOT NULL,
+        isArchived INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -227,5 +230,33 @@ class AppDatabase {
         FOREIGN KEY(workoutId) REFERENCES workouts(id) ON DELETE CASCADE
       )
     ''');
+
+    // v9: Soft-Delete für Workouts
+    try {
+      await db.execute(
+        'ALTER TABLE workouts ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0',
+      );
+    } catch (_) {}
+
+    // v10: trackDistance für bestehende Cardio-Übungen aktivieren
+    if (oldVersion < 10) {
+      try {
+        final exercises = await db.query('exercises',
+            where: "goal = 'Cardio'");
+        for (final row in exercises) {
+          final trackedStr = row['trackedFields'] as String? ?? '{}';
+          final tracked = jsonDecode(trackedStr) as Map<String, dynamic>;
+          if (!tracked.containsKey('distance')) {
+            tracked['distance'] = true;
+            await db.update(
+              'exercises',
+              {'trackedFields': jsonEncode(tracked)},
+              where: 'id = ?',
+              whereArgs: [row['id']],
+            );
+          }
+        }
+      } catch (_) {}
+    }
   }
 }

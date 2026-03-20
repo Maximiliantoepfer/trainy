@@ -35,6 +35,25 @@ class WorkoutProvider extends ChangeNotifier {
   }
 
   Future<Workout> createWorkout({required String name}) async {
+    // Prüfen ob ein archiviertes Workout mit gleichem Namen existiert
+    final archived = await WorkoutDatabase.instance.findArchivedByName(name);
+    if (archived != null) {
+      await WorkoutDatabase.instance.unarchiveWorkout(archived.id);
+      final w = Workout(
+        id: archived.id,
+        name: name,
+        description: '',
+        exerciseIds: const [],
+      );
+      await WorkoutDatabase.instance.upsertWorkout(w);
+      _workouts.add(w);
+      _workouts.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+      notifyListeners();
+      return w;
+    }
+
     final w = Workout(
       id: DateTime.now().millisecondsSinceEpoch,
       name: name,

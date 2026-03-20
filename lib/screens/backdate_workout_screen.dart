@@ -108,28 +108,31 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
   }
 
   Map<String, String> _deriveLastValues(List<Map<String, String>> sets) {
-    String? lastReps, lastWeight, lastSets, lastDuration;
+    String? lastReps, lastWeight, lastSets, lastDuration, lastDistance;
     for (final s in sets) {
       final reps = s['reps']?.trim();
       final weight = s['weight']?.trim();
       final setsVal = s['sets']?.trim();
       final dur = s['duration']?.trim();
+      final dist = s['distance']?.trim();
       if (reps != null && reps.isNotEmpty) lastReps = reps;
       if (weight != null && weight.isNotEmpty) lastWeight = weight;
       if (setsVal != null && setsVal.isNotEmpty) lastSets = setsVal;
       if (dur != null && dur.isNotEmpty) lastDuration = dur;
+      if (dist != null && dist.isNotEmpty) lastDistance = dist;
     }
     final map = <String, String>{};
     if (lastSets != null) map['sets'] = lastSets;
     if (lastReps != null) map['reps'] = lastReps;
     if (lastWeight != null) map['weight'] = lastWeight;
+    if (lastDistance != null) map['distance'] = lastDistance;
     if (lastDuration != null) map['duration'] = lastDuration;
     return map;
   }
 
   Future<void> _addSet(BuildContext context, Exercise e) async {
     final tracksAny =
-        e.trackSets || e.trackReps || e.trackWeight || e.trackDuration;
+        e.trackSets || e.trackReps || e.trackWeight || e.trackDuration || e.trackDistance;
     if (!tracksAny) {
       await showDialog(
         context: context,
@@ -166,6 +169,8 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
         TextEditingController(text: last['reps'] ?? defs['reps'] ?? '');
     final weightCtrl =
         TextEditingController(text: last['weight'] ?? defs['weight'] ?? '');
+    final distanceCtrl =
+        TextEditingController(text: last['distance'] ?? defs['distance'] ?? '');
     final durationParts =
         DurationFormatter.fromRaw(last['duration'] ?? defs['duration']);
     final durHoursCtrl = TextEditingController(
@@ -197,6 +202,17 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration:
                       const InputDecoration(labelText: 'Gewicht (kg)'),
+                ),
+              ),
+            if (e.trackDistance)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: TextField(
+                  controller: distanceCtrl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration:
+                      const InputDecoration(labelText: 'Entfernung (km)'),
                 ),
               ),
             if (e.trackDuration)
@@ -265,6 +281,9 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
               }
               if (e.trackWeight && weightCtrl.text.trim().isNotEmpty) {
                 entry['weight'] = weightCtrl.text.trim();
+              }
+              if (e.trackDistance && distanceCtrl.text.trim().isNotEmpty) {
+                entry['distance'] = distanceCtrl.text.trim();
               }
               if (e.trackDuration) {
                 final secs = DurationFormatter.totalSecondsFromTexts(
@@ -459,6 +478,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                                       if (e.trackSets) 'Sätze',
                                       if (e.trackReps) 'Wdh.',
                                       if (e.trackWeight) 'Gewicht',
+                                      if (e.trackDistance) 'Entfernung',
                                       if (e.trackDuration) 'Dauer',
                                     ].join(' · '),
                                     style: textTheme.bodySmall,
@@ -521,6 +541,7 @@ class _PerSetSheet extends StatefulWidget {
 class _PerSetSheetState extends State<_PerSetSheet> {
   late TextEditingController _repsCtrl;
   late TextEditingController _weightCtrl;
+  late TextEditingController _distanceCtrl;
   late TextEditingController _durHoursCtrl;
   late TextEditingController _durMinutesCtrl;
   late TextEditingController _durSecondsCtrl;
@@ -548,6 +569,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
 
     _repsCtrl = TextEditingController(text: last['reps'] ?? '');
     _weightCtrl = TextEditingController(text: last['weight'] ?? '');
+    _distanceCtrl = TextEditingController(text: last['distance'] ?? '');
     final durParts = DurationFormatter.fromRaw(last['duration']);
     _durHoursCtrl = TextEditingController(
         text: durParts.hours > 0 ? '${durParts.hours}' : '');
@@ -561,6 +583,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
   void dispose() {
     _repsCtrl.dispose();
     _weightCtrl.dispose();
+    _distanceCtrl.dispose();
     _durHoursCtrl.dispose();
     _durMinutesCtrl.dispose();
     _durSecondsCtrl.dispose();
@@ -575,6 +598,9 @@ class _PerSetSheetState extends State<_PerSetSheet> {
     }
     if (e.trackWeight && _weightCtrl.text.trim().isNotEmpty) {
       entry['weight'] = _weightCtrl.text.trim();
+    }
+    if (e.trackDistance && _distanceCtrl.text.trim().isNotEmpty) {
+      entry['distance'] = _distanceCtrl.text.trim();
     }
     if (e.trackDuration) {
       final secs = DurationFormatter.totalSecondsFromTexts(
@@ -684,6 +710,17 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                             labelText: 'Gewicht (kg)'),
                       ),
                     ),
+                  if (e.trackDistance)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: TextField(
+                        controller: _distanceCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: const InputDecoration(
+                            labelText: 'Entfernung (km)'),
+                      ),
+                    ),
                   if (e.trackDuration)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
@@ -784,6 +821,9 @@ class _CompletedSetRow extends StatelessWidget {
     }
     if (exercise.trackWeight && data['weight'] != null) {
       parts.add('${data['weight']} kg');
+    }
+    if (exercise.trackDistance && data['distance'] != null) {
+      parts.add('${data['distance']} km');
     }
     if (exercise.trackDuration && data['duration'] != null) {
       parts.add(

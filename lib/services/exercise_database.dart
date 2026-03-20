@@ -21,6 +21,7 @@ class ExerciseDatabase {
     required bool trackReps,
     required bool trackWeight,
     required bool trackDuration,
+    bool trackDistance = false,
     Map<String, String>? defaultValues,
     Map<String, String>? lastValues,
     Map<String, String>? units,
@@ -33,6 +34,7 @@ class ExerciseDatabase {
         name: name, goal: goal,
         trackSets: trackSets, trackReps: trackReps,
         trackWeight: trackWeight, trackDuration: trackDuration,
+        trackDistance: trackDistance,
       );
       if (existingId != null) return existingId;
     }
@@ -46,6 +48,7 @@ class ExerciseDatabase {
       trackReps: trackReps,
       trackWeight: trackWeight,
       trackDuration: trackDuration,
+      trackDistance: trackDistance,
       defaultValues: defaultValues ?? const {},
       lastValues: lastValues ?? const {},
       units: units ?? const {},
@@ -69,6 +72,7 @@ class ExerciseDatabase {
         'reps': e.trackReps,
         'weight': e.trackWeight,
         'duration': e.trackDuration,
+        'distance': e.trackDistance,
       }),
       'defaultValues': jsonEncode(e.defaultValues),
       'lastValues': jsonEncode(e.lastValues),
@@ -116,6 +120,7 @@ class ExerciseDatabase {
     required bool trackReps,
     required bool trackWeight,
     required bool trackDuration,
+    bool trackDistance = false,
   }) async {
     final db = await _db;
     final trackedJson = jsonEncode({
@@ -123,6 +128,7 @@ class ExerciseDatabase {
       'reps': trackReps,
       'weight': trackWeight,
       'duration': trackDuration,
+      'distance': trackDistance,
     });
     final rows = await db.rawQuery(
       'SELECT id FROM exercises '
@@ -146,7 +152,7 @@ class ExerciseDatabase {
     for (final e in exercises) {
       final key = '${e.name.toLowerCase()}'
           '|${e.goal}'
-          '|${e.trackSets}|${e.trackReps}|${e.trackWeight}|${e.trackDuration}';
+          '|${e.trackSets}|${e.trackReps}|${e.trackWeight}|${e.trackDuration}|${e.trackDistance}';
       groups.putIfAbsent(key, () => []).add(e);
     }
 
@@ -219,6 +225,7 @@ class ExerciseDatabase {
         trackReps: std.trackReps,
         trackWeight: std.trackWeight,
         trackDuration: std.trackDuration,
+        trackDistance: std.trackDistance,
         goal: std.goal,
       );
       await db.insert('seeded_standards', {'key': std.key});
@@ -370,6 +377,7 @@ class ExerciseDatabase {
       trackReps: tf('reps'),
       trackWeight: tf('weight'),
       trackDuration: tf('duration'),
+      trackDistance: tf('distance'),
       defaultValues: _toStrMap(defVals),
       lastValues: _toStrMap(lastVals),
       units: _toStrMap(units),

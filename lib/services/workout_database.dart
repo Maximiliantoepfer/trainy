@@ -44,7 +44,9 @@ class WorkoutDatabase {
 
   Future<List<Workout>> getAllWorkouts() async {
     final db = await _db;
-    final rows = await db.query('workouts', orderBy: 'name COLLATE NOCASE ASC');
+    final rows = await db.query('workouts',
+      where: 'isArchived = 0',
+      orderBy: 'name COLLATE NOCASE ASC');
 
     // Alle Tages-Zuordnungen in einer Query laden
     final dayRows = await db.query('workout_day_assignments');
@@ -105,7 +107,9 @@ class WorkoutDatabase {
 
   Future<void> deleteWorkout(int id) async {
     final db = await _db;
-    await db.delete('workouts', where: 'id = ?', whereArgs: [id]);
+    // Soft-delete: Workout archivieren statt löschen
+    await db.update('workouts', {'isArchived': 1},
+      where: 'id = ?', whereArgs: [id]);
     await db.delete(
       'exercises_in_workouts',
       where: 'workoutId = ?',
@@ -116,5 +120,28 @@ class WorkoutDatabase {
       where: 'workoutId = ?',
       whereArgs: [id],
     );
+  }
+
+  /// Sucht ein archiviertes Workout mit gleichem Namen (case-insensitive).
+  Future<Workout?> findArchivedByName(String name) async {
+    final db = await _db;
+    final rows = await db.query('workouts',
+      where: 'isArchived = 1 AND LOWER(name) = LOWER(?)',
+      whereArgs: [name.trim()],
+      limit: 1);
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    return Workout(
+      id: (row['id'] as num).toInt(),
+      name: (row['name'] ?? '') as String,
+      description: (row['description'] ?? '') as String,
+    );
+  }
+
+  /// Reaktiviert ein archiviertes Workout.
+  Future<void> unarchiveWorkout(int id) async {
+    final db = await _db;
+    await db.update('workouts', {'isArchived': 0},
+      where: 'id = ?', whereArgs: [id]);
   }
 }

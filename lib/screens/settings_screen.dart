@@ -471,6 +471,12 @@ class _WorkoutScheduleCard extends StatelessWidget {
 
     if (workouts.isEmpty) return const SizedBox.shrink();
 
+    // Tage mit mindestens einem zugewiesenen Workout
+    final workoutAssignedDays = <int>{};
+    for (final w in workouts) {
+      workoutAssignedDays.addAll(w.assignedDays);
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -484,6 +490,8 @@ class _WorkoutScheduleCard extends StatelessWidget {
             ...List.generate(7, (i) {
               final day = i + 1;
               final isTrainingDay = trainingDays.contains(day);
+              final hasWorkoutAssigned = workoutAssignedDays.contains(day);
+              final showChips = isTrainingDay || hasWorkoutAssigned;
               final assignedWorkouts = workouts
                   .where((w) => w.assignedDays.contains(day))
                   .toList();
@@ -498,7 +506,7 @@ class _WorkoutScheduleCard extends StatelessWidget {
                         _labels[i],
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: isTrainingDay
+                          color: showChips
                               ? scheme.onSurface
                               : scheme.onSurfaceVariant.withValues(alpha: 0.4),
                         ),
@@ -506,7 +514,7 @@ class _WorkoutScheduleCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: isTrainingDay
+                      child: showChips
                           ? Wrap(
                               spacing: 6,
                               runSpacing: 6,
@@ -521,6 +529,11 @@ class _WorkoutScheduleCard extends StatelessWidget {
                                         current.remove(day);
                                       } else {
                                         current.add(day);
+                                        // Auto-Sync: Tag zu globalen Trainingstagen hinzufügen
+                                        if (!trainingDays.contains(day)) {
+                                          final updatedDays = Set<int>.from(trainingDays)..add(day);
+                                          context.read<ProgressProvider>().setTrainingDays(updatedDays);
+                                        }
                                       }
                                       context.read<WorkoutProvider>().setWorkoutDays(w.id, current);
                                       try {

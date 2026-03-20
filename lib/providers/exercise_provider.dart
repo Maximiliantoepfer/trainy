@@ -33,6 +33,7 @@ class ExerciseProvider extends ChangeNotifier {
     required bool trackReps,
     required bool trackWeight,
     required bool trackDuration,
+    bool trackDistance = false,
     Map<String, String>? defaultValues,
     Map<String, String>? lastValues,
     Map<String, String>? units,
@@ -47,6 +48,7 @@ class ExerciseProvider extends ChangeNotifier {
       trackReps: trackReps,
       trackWeight: trackWeight,
       trackDuration: trackDuration,
+      trackDistance: trackDistance,
       defaultValues: defaultValues,
       lastValues: lastValues,
       units: units,
@@ -67,6 +69,7 @@ class ExerciseProvider extends ChangeNotifier {
       trackReps: trackReps,
       trackWeight: trackWeight,
       trackDuration: trackDuration,
+      trackDistance: trackDistance,
       defaultValues: defaultValues ?? const {},
       lastValues: lastValues ?? const {},
       units: units ?? const {},
@@ -97,6 +100,7 @@ class ExerciseProvider extends ChangeNotifier {
     required bool trackReps,
     required bool trackWeight,
     required bool trackDuration,
+    bool trackDistance = false,
     Map<String, String>? defaultValues,
     Map<String, String>? lastValues,
     Map<String, String>? units,
@@ -111,6 +115,7 @@ class ExerciseProvider extends ChangeNotifier {
       trackReps: trackReps,
       trackWeight: trackWeight,
       trackDuration: trackDuration,
+      trackDistance: trackDistance,
       defaultValues: defaultValues,
       lastValues: lastValues,
       units: units,
@@ -127,6 +132,7 @@ class ExerciseProvider extends ChangeNotifier {
     required bool trackReps,
     required bool trackWeight,
     required bool trackDuration,
+    bool trackDistance = false,
     String? goal,
   }) {
     return addOrUpdateExercise(
@@ -136,6 +142,7 @@ class ExerciseProvider extends ChangeNotifier {
       trackReps: trackReps,
       trackWeight: trackWeight,
       trackDuration: trackDuration,
+      trackDistance: trackDistance,
       goal: goal,
     );
   }

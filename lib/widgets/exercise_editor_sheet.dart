@@ -23,6 +23,7 @@ Future<bool> showExerciseEditorSheet(
   final trackReps = ValueNotifier(existing?.trackReps ?? true);
   final trackWeight = ValueNotifier(existing?.trackWeight ?? true);
   final trackDuration = ValueNotifier(existing?.trackDuration ?? false);
+  final trackDistance = ValueNotifier(existing?.trackDistance ?? false);
   final goal = ValueNotifier<String?>(existing?.goal);
 
   bool saved = false;
@@ -61,6 +62,7 @@ Future<bool> showExerciseEditorSheet(
                     trackReps: trackReps,
                     trackWeight: trackWeight,
                     trackDuration: trackDuration,
+                    trackDistance: trackDistance,
                     goal: goal,
                     autofocusName: existing == null,
                   ),
@@ -119,6 +121,7 @@ Future<bool> showExerciseEditorSheet(
                               trackReps: trackReps.value,
                               trackWeight: trackWeight.value,
                               trackDuration: trackDuration.value,
+                              trackDistance: trackDistance.value,
                               goal: goal.value,
                             );
                             try {
@@ -339,6 +342,7 @@ class _MergePickerSheetState extends State<_MergePickerSheet> {
                       if (e.trackSets) 'Sätze',
                       if (e.trackReps) 'Wdh.',
                       if (e.trackWeight) 'Gewicht',
+                      if (e.trackDistance) 'Entfernung',
                       if (e.trackDuration) 'Dauer',
                     ].join(' · ')),
                     trailing: Icon(Icons.arrow_forward_rounded,

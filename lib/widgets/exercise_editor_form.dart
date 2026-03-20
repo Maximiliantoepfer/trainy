@@ -9,6 +9,7 @@ class ExerciseEditorForm extends StatelessWidget {
   final ValueNotifier<bool> trackReps;
   final ValueNotifier<bool> trackWeight;
   final ValueNotifier<bool> trackDuration;
+  final ValueNotifier<bool> trackDistance;
   final ValueNotifier<String?> goal;
   final VoidCallback? onChanged;
   final bool autofocusName;
@@ -21,16 +22,18 @@ class ExerciseEditorForm extends StatelessWidget {
     required this.trackReps,
     required this.trackWeight,
     required this.trackDuration,
+    required this.trackDistance,
     required this.goal,
     this.onChanged,
     this.autofocusName = false,
   });
 
-  void _applyPreset(bool sets, bool reps, bool weight, bool dur) {
+  void _applyPreset(bool sets, bool reps, bool weight, bool dur, {bool dist = false}) {
     trackSets.value = sets;
     trackReps.value = reps;
     trackWeight.value = weight;
     trackDuration.value = dur;
+    trackDistance.value = dist;
     onChanged?.call();
   }
 
@@ -119,12 +122,18 @@ class ExerciseEditorForm extends StatelessWidget {
               selected: false,
               onSelected: (_) => _applyPreset(true, false, false, true),
             ),
+            ChoiceChip(
+              label: const Text('Cardio'),
+              selected: false,
+              onSelected: (_) => _applyPreset(false, false, false, true, dist: true),
+            ),
           ],
         ),
         const SizedBox(height: 8),
         _toggleRow(context, 'Sätze', trackSets),
         _toggleRow(context, 'Wiederholungen', trackReps),
         _toggleRow(context, 'Gewicht', trackWeight),
+        _toggleRow(context, 'Entfernung', trackDistance),
         _toggleRow(context, 'Dauer', trackDuration),
       ],
     );

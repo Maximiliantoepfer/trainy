@@ -208,6 +208,12 @@ class _HomeScreenState extends State<HomeScreen>
     final isProgressLoading = progress.isLoading;
     final streak = _calculateStreak(progress.entries);
 
+    // Alle Tage, an denen mindestens ein Workout zugewiesen ist
+    final workoutAssignedDays = <int>{};
+    for (final w in workouts) {
+      workoutAssignedDays.addAll(w.assignedDays);
+    }
+
     return PopScope(
       canPop: _selectedWorkoutId == null,
       onPopInvokedWithResult: (didPop, _) {
@@ -295,6 +301,7 @@ class _HomeScreenState extends State<HomeScreen>
                   trainedWeekdays: isProgressLoading ? const {} : trainedWeekdays,
                   weeklyGoal: weeklyGoal,
                   trainingDays: effectiveTrainingDays,
+                  workoutDays: workoutAssignedDays,
                   streak: streak,
                   selectedWeekday: _selectedDate.weekday,
                   isCurrentWeek: isCurrentWeek,
@@ -667,6 +674,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
   final Set<int> trainedWeekdays;
   final int weeklyGoal;
   final Set<int> trainingDays;
+  final Set<int> workoutDays;
   final int streak;
   final int selectedWeekday;
   final bool isCurrentWeek;
@@ -675,6 +683,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
     required this.trainedWeekdays,
     required this.weeklyGoal,
     required this.trainingDays,
+    required this.workoutDays,
     required this.streak,
     required this.selectedWeekday,
     this.isCurrentWeek = true,
@@ -768,7 +777,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
               children: List.generate(7, (i) {
                 final weekday = i + 1;
                 final done = trainedWeekdays.contains(weekday);
-                final isTrainingDay = trainingDays.contains(weekday);
+                final isTrainingDay = trainingDays.contains(weekday) || workoutDays.contains(weekday);
                 return _DayDot(
                   label: labels[i],
                   done: done,

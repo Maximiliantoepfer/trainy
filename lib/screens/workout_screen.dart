@@ -8,6 +8,7 @@ import '../providers/workout_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
+import '../providers/progress_provider.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/exercise_editor_form.dart';
 import '../widgets/exercise_editor_sheet.dart';
@@ -36,17 +37,28 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   void _toggleDay(int day) {
+    final adding = !_assignedDays.contains(day);
     setState(() {
-      if (_assignedDays.contains(day)) {
-        _assignedDays = Set<int>.from(_assignedDays)..remove(day);
-      } else {
+      if (adding) {
         _assignedDays = Set<int>.from(_assignedDays)..add(day);
+      } else {
+        _assignedDays = Set<int>.from(_assignedDays)..remove(day);
       }
     });
     context.read<WorkoutProvider>().setWorkoutDays(
       widget.workout.id,
       _assignedDays,
     );
+    // Auto-Sync: Tag zu globalen Trainingstagen hinzufügen
+    if (adding) {
+      final progress = context.read<ProgressProvider>();
+      final currentDays = progress.trainingDays.isEmpty
+          ? progress.effectiveTrainingDays
+          : progress.trainingDays;
+      if (!currentDays.contains(day)) {
+        progress.setTrainingDays(Set<int>.from(currentDays)..add(day));
+      }
+    }
     try {
       context.read<CloudSyncProvider>().scheduleBackupSoon();
     } catch (_) {}
@@ -93,6 +105,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final trackReps = ValueNotifier<bool>(true);
     final trackWeight = ValueNotifier<bool>(true);
     final trackDuration = ValueNotifier<bool>(false);
+    final trackDistance = ValueNotifier<bool>(false);
     final goal = ValueNotifier<String?>(null);
 
     final rootContext = context;
@@ -131,6 +144,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             trackReps: trackReps.value,
             trackWeight: trackWeight.value,
             trackDuration: trackDuration.value,
+            trackDistance: trackDistance.value,
             goal: goal.value,
           );
 
@@ -240,6 +254,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                         if (e.trackSets) subtitle.add('Sätze');
                                         if (e.trackReps) subtitle.add('Wdh.');
                                         if (e.trackWeight) subtitle.add('Gewicht');
+                                        if (e.trackDistance) subtitle.add('Entfernung');
                                         if (e.trackDuration) subtitle.add('Dauer');
                                         final subtitleText = subtitle.join(' · ');
                                         final cScheme = Theme.of(context).colorScheme;
@@ -297,6 +312,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                     trackReps: trackReps,
                                     trackWeight: trackWeight,
                                     trackDuration: trackDuration,
+                                    trackDistance: trackDistance,
                                     goal: goal,
                                     autofocusName: true,
                                     onChanged: () => modalSetState(() {}),
@@ -631,6 +647,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                             if (e.trackSets) 'Sätze',
                                                             if (e.trackReps) 'Wdh.',
                                                             if (e.trackWeight) 'Gewicht',
+                                                            if (e.trackDistance) 'Entfernung',
                                                             if (e.trackDuration) 'Dauer',
                                                           ].join(' · '),
                                                     style: Theme.of(context).textTheme.bodySmall,
