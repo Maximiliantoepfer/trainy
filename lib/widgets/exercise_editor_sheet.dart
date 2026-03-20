@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/exercise.dart';
@@ -137,44 +138,36 @@ Future<bool> showExerciseEditorSheet(
                   ],
                 ),
               ),
-              // Merge-Verlauf anzeigen (nur bei bestehender Übung)
-              if (existing != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                  child: FutureBuilder<List<String>>(
-                    future: ctx.read<ExerciseProvider>().getMergeHistory(existing.id),
-                    builder: (context, snapshot) {
-                      final names = snapshot.data;
-                      if (names == null || names.isEmpty) {
-                        return const SizedBox.shrink();
-                      }
-                      return Text(
-                        'Zusammengeführt: ${names.join(", ")}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      );
-                    },
-                  ),
-                ),
               // Zusammenführen-Button (nur bei bestehender Übung)
               if (existing != null)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 40,
-                    child: TextButton.icon(
-                      onPressed: () async {
-                        final merged = await _startMerge(ctx, existing);
-                        if (merged) {
-                          saved = true;
-                          if (ctx.mounted) Navigator.pop(ctx);
-                        }
-                      },
-                      icon: const Icon(Icons.merge_rounded, size: 18),
-                      label: const Text('Mit anderer Übung zusammenführen'),
-                    ),
+                  child: FutureBuilder<List<Map<String, dynamic>>>(
+                    future: ctx.read<ExerciseProvider>().getMergeHistoryFull(existing.id),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data?.length ?? 0;
+                      return SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: ctx,
+                              isScrollControlled: true,
+                              useSafeArea: true,
+                              showDragHandle: true,
+                              builder: (_) => _MergeManagementSheet(
+                                exercise: existing,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.merge_rounded, size: 18),
+                          label: Text(
+                            'Übungen zusammenführen${count > 0 ? ' ($count)' : ''}',
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 )
               else
@@ -189,88 +182,247 @@ Future<bool> showExerciseEditorSheet(
   return saved;
 }
 
-/// Startet den Merge-Flow: Picker → Bestätigung → Ausführung.
-/// Gibt `true` zurück wenn der Merge durchgeführt wurde.
-Future<bool> _startMerge(BuildContext context, Exercise source) async {
-  final provider = context.read<ExerciseProvider>();
-  final allExercises = provider.exercises
-      .where((e) => e.id != source.id)
-      .toList();
+/// Management-Sheet: zeigt Merge-Verlauf und ermöglicht neue Zusammenführungen.
+class _MergeManagementSheet extends StatefulWidget {
+  final Exercise exercise;
+  const _MergeManagementSheet({required this.exercise});
 
-  if (allExercises.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Keine andere Übung vorhanden')),
-    );
-    return false;
+  @override
+  State<_MergeManagementSheet> createState() => _MergeManagementSheetState();
+}
+
+class _MergeManagementSheetState extends State<_MergeManagementSheet> {
+  List<Map<String, dynamic>> _entries = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEntries();
   }
 
-  // Picker
-  final target = await showModalBottomSheet<Exercise>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: true,
-    builder: (ctx) => _MergePickerSheet(
-      exercises: allExercises,
-      sourceName: source.name,
-    ),
-  );
+  Future<void> _loadEntries() async {
+    final entries = await context.read<ExerciseProvider>()
+        .getMergeHistoryFull(widget.exercise.id);
+    if (!mounted) return;
+    setState(() { _entries = entries; _isLoading = false; });
+  }
 
-  if (target == null || !context.mounted) return false;
-
-  // Anzahl betroffener Einträge ermitteln
-  final entryCount = await provider.countEntriesForExercise(source.id);
-
-  if (!context.mounted) return false;
-
-  // Bestätigungsdialog
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (dCtx) => AlertDialog(
-      title: const Text('Zusammenführen?'),
-      content: Text(
-        '„${source.name}" wird in „${target.name}" zusammengeführt.\n\n'
-        '${entryCount > 0 ? '$entryCount Fortschrittseinträge werden übertragen.\n' : ''}'
-        '„${source.name}" wird anschließend gelöscht.',
+  Future<void> _deleteEntry(Map<String, dynamic> entry) async {
+    final sourceName = entry['sourceName'] as String;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        title: const Text('Eintrag entfernen?'),
+        content: Text(
+          '„$sourceName" aus dem Zusammenführungsverlauf entfernen?\n\n'
+          'Die übertragenen Trainingseinträge bleiben bei '
+          '„${widget.exercise.name}" erhalten.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFD32F2F),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dCtx, true),
+            child: const Text('Entfernen'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dCtx, false),
-          child: const Text('Abbrechen'),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await context.read<ExerciseProvider>()
+        .deleteMergeHistoryEntry(entry['id'] as int);
+    try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
+    _loadEntries();
+  }
+
+  Future<void> _addMerge() async {
+    final provider = context.read<ExerciseProvider>();
+    final allExercises = provider.exercises
+        .where((e) => e.id != widget.exercise.id)
+        .toList();
+
+    if (allExercises.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Keine andere Übung vorhanden')),
+        );
+      }
+      return;
+    }
+
+    // Picker – User wählt Übung die IN die aktuelle zusammengeführt wird
+    final source = await showModalBottomSheet<Exercise>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (ctx) => _MergePickerSheet(
+        exercises: allExercises,
+        title: 'In „${widget.exercise.name}" zusammenführen:',
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    final entryCount = await provider.countEntriesForExercise(source.id);
+    if (!mounted) return;
+
+    // Bestätigungsdialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dCtx) => AlertDialog(
+        title: const Text('Zusammenführen?'),
+        content: Text(
+          '„${source.name}" wird in „${widget.exercise.name}" zusammengeführt.\n\n'
+          '${entryCount > 0 ? '$entryCount Fortschrittseinträge werden übertragen.\n' : ''}'
+          '„${source.name}" wird anschließend gelöscht.',
         ),
-        FilledButton(
-          onPressed: () => Navigator.pop(dCtx, true),
-          child: const Text('Zusammenführen'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dCtx, true),
+            child: const Text('Zusammenführen'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // Merge: source wird gelöscht, aktuelle Übung ist target
+    await provider.mergeExercise(source.id, widget.exercise.id);
+    try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('„${source.name}" → „${widget.exercise.name}" zusammengeführt'),
+          behavior: SnackBarBehavior.floating,
         ),
-      ],
-    ),
-  );
+      );
+      _loadEntries();
+    }
+  }
 
-  if (confirmed != true || !context.mounted) return false;
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final dateFmt = DateFormat('dd.MM.yyyy');
 
-  // Merge ausführen
-  await provider.mergeExercise(source.id, target.id);
-  try {
-    context.read<CloudSyncProvider>().scheduleBackupSoon();
-  } catch (_) {}
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Zusammenführungen',
+                        style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 4),
+                    Text('„${widget.exercise.name}"',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        )),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
 
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('„${source.name}" → „${target.name}" zusammengeführt'),
-        behavior: SnackBarBehavior.floating,
+          // Liste oder Leer-Zustand
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_entries.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Text(
+                'Noch keine Übungen zusammengeführt.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                itemCount: _entries.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 4),
+                itemBuilder: (_, i) {
+                  final entry = _entries[i];
+                  final name = entry['sourceName'] as String;
+                  final mergedAt = DateTime.tryParse(entry['mergedAt'] as String? ?? '');
+                  return Card(
+                    child: ListTile(
+                      title: Text(name),
+                      subtitle: Text(
+                        mergedAt != null
+                            ? 'Zusammengeführt am ${dateFmt.format(mergedAt.toLocal())}'
+                            : 'Zusammengeführt',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(Icons.delete_outline_rounded,
+                            color: scheme.onSurfaceVariant),
+                        onPressed: () => _deleteEntry(entry),
+                        tooltip: 'Eintrag entfernen',
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+          // Neue Zusammenführung
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: SizedBox(
+              width: double.infinity,
+              height: 40,
+              child: TextButton.icon(
+                onPressed: _addMerge,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Neue Übung zusammenführen'),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
-
-  return true;
 }
 
 /// Picker-Sheet zum Auswählen der Ziel-Übung.
 class _MergePickerSheet extends StatefulWidget {
   final List<Exercise> exercises;
-  final String sourceName;
-  const _MergePickerSheet({required this.exercises, required this.sourceName});
+  final String title;
+  const _MergePickerSheet({required this.exercises, required this.title});
 
   @override
   State<_MergePickerSheet> createState() => _MergePickerSheetState();
@@ -298,7 +450,7 @@ class _MergePickerSheetState extends State<_MergePickerSheet> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '„${widget.sourceName}" zusammenführen mit:',
+                widget.title,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),

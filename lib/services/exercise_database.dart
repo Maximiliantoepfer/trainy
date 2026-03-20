@@ -258,6 +258,32 @@ class ExerciseDatabase {
     return rows.map((r) => r['sourceName'] as String).toList();
   }
 
+  /// Gibt die vollständigen Merge-History-Einträge für [exerciseId] zurück.
+  Future<List<Map<String, dynamic>>> getMergeHistoryFull(int exerciseId) async {
+    final db = await _db;
+    return db.query(
+      'merge_history',
+      where: 'targetId = ?',
+      whereArgs: [exerciseId],
+      orderBy: 'mergedAt DESC',
+    );
+  }
+
+  /// Entfernt einen Merge-History-Eintrag. Falls die Quell-Übung eine
+  /// Standardübung war, wird sie in seeded_standards eingetragen um
+  /// erneutes Seeding zu verhindern.
+  Future<void> deleteMergeHistoryEntry(int id) async {
+    final db = await _db;
+    final rows = await db.query('merge_history', where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return;
+    final sourceKey = rows.first['sourceKey'] as String?;
+    if (sourceKey != null) {
+      await db.insert('seeded_standards', {'key': sourceKey},
+          conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+    await db.delete('merge_history', where: 'id = ?', whereArgs: [id]);
+  }
+
   /// Führt [sourceId] in [targetId] zusammen.
   /// Alle workout_entries und Workout-Zuordnungen werden auf target übertragen,
   /// die Quell-Übung wird gelöscht.

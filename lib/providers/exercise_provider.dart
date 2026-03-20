@@ -187,4 +187,12 @@ class ExerciseProvider extends ChangeNotifier {
   Future<List<String>> getMergeHistory(int exerciseId) async {
     return ExerciseDatabase.instance.getMergeHistory(exerciseId);
   }
+
+  /// Gibt vollständige Merge-History-Einträge zurück.
+  Future<List<Map<String, dynamic>>> getMergeHistoryFull(int exerciseId) =>
+      ExerciseDatabase.instance.getMergeHistoryFull(exerciseId);
+
+  /// Entfernt einen Merge-History-Eintrag.
+  Future<void> deleteMergeHistoryEntry(int id) =>
+      ExerciseDatabase.instance.deleteMergeHistoryEntry(id);
 }
