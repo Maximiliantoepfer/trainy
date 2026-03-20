@@ -12,6 +12,7 @@ import '../widgets/app_bar_title.dart';
 import '../widgets/screen_info_dialog.dart';
 import '../widgets/tap_scale.dart';
 import '../utils/goal_utils.dart';
+import '../utils/utils.dart';
 
 class ExerciseScreen extends StatefulWidget {
   const ExerciseScreen({super.key});
@@ -46,12 +47,13 @@ class _ExerciseScreenState extends State<ExerciseScreen>
     final provider = context.watch<ExerciseProvider>();
     final list = provider.exercises;
     final scheme = Theme.of(context).colorScheme;
+    final q = _query.toLowerCase();
     final filtered = _query.isEmpty
         ? list
         : list.where((e) {
-            final q = _query.toLowerCase();
             return e.name.toLowerCase().contains(q) ||
-                (e.description?.toLowerCase().contains(q) ?? false);
+                (e.description?.toLowerCase().contains(q) ?? false) ||
+                e.mergedAliases.any((a) => a.toLowerCase().contains(q));
           }).toList();
 
     final isActive = context.watch<ActiveWorkoutProvider>().isActive;
@@ -121,6 +123,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                           ];
                           return _ExerciseTile(
                             exercise: e, tags: tags,
+                            aliasHint: matchingAlias(e, _query),
                             onTap: () => _openEditor(context, existing: e),
                             onLongPress: () => _confirmAndDeleteExercise(e),
                           );
@@ -192,9 +195,10 @@ class _ExerciseScreenState extends State<ExerciseScreen>
 class _ExerciseTile extends StatelessWidget {
   final Exercise exercise;
   final List<String> tags;
+  final String? aliasHint;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
-  const _ExerciseTile({required this.exercise, required this.tags, required this.onTap, this.onLongPress});
+  const _ExerciseTile({required this.exercise, required this.tags, this.aliasHint, required this.onTap, this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
@@ -223,6 +227,15 @@ class _ExerciseTile extends StatelessWidget {
                 if (tags.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(tags.join(' · '), style: Theme.of(context).textTheme.bodySmall),
+                ],
+                if (aliasHint != null) ...[
+                  const SizedBox(height: 2),
+                  Text('ehem. $aliasHint',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontStyle: FontStyle.italic,
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
                 ],
               ],
             )),

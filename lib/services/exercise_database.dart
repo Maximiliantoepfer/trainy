@@ -130,16 +130,20 @@ class ExerciseDatabase {
       'duration': trackDuration,
       'distance': trackDistance,
     });
+    // Name-Vergleich in Dart statt SQL (SQLite LOWER() handelt nur ASCII)
     final rows = await db.rawQuery(
-      'SELECT id FROM exercises '
-      'WHERE LOWER(name) = LOWER(?) '
-      'AND trackedFields = ? '
-      'AND (goal = ? OR (goal IS NULL AND ? IS NULL)) '
-      'LIMIT 1',
-      [name, trackedJson, goal, goal],
+      'SELECT id, name FROM exercises '
+      'WHERE trackedFields = ? '
+      'AND (goal = ? OR (goal IS NULL AND ? IS NULL))',
+      [trackedJson, goal, goal],
     );
-    if (rows.isEmpty) return null;
-    return (rows.first['id'] as num).toInt();
+    final nameLower = name.toLowerCase();
+    for (final row in rows) {
+      if ((row['name'] as String).toLowerCase() == nameLower) {
+        return (row['id'] as num).toInt();
+      }
+    }
+    return null;
   }
 
   /// Bereinigt bestehende Duplikate beim App-Start.
@@ -187,6 +191,11 @@ class ExerciseDatabase {
   /// angelegt wird.
   Future<void> ensureStandardExercises() async {
     final db = await _db;
+    // Alle Namen einmal laden für Guard B (Unicode-sicher, SQLite LOWER() handelt nur ASCII)
+    final allNames = (await db.query('exercises', columns: ['name']))
+        .map((r) => (r['name'] as String).toLowerCase())
+        .toSet();
+
     for (final std in standardExercises) {
       final existing = await db.query(
         'seeded_standards',
@@ -208,12 +217,8 @@ class ExerciseDatabase {
         continue;
       }
 
-      // Guard B: Existiert bereits eine Übung mit gleichem Namen?
-      final nameMatch = await db.rawQuery(
-        'SELECT id FROM exercises WHERE LOWER(name) = LOWER(?) LIMIT 1',
-        [std.name],
-      );
-      if (nameMatch.isNotEmpty) {
+      // Guard B: Unicode-sicherer Name-Vergleich in Dart
+      if (allNames.contains(std.name.toLowerCase())) {
         await db.insert('seeded_standards', {'key': std.key},
             conflictAlgorithm: ConflictAlgorithm.ignore);
         continue;
@@ -229,6 +234,7 @@ class ExerciseDatabase {
         goal: std.goal,
       );
       await db.insert('seeded_standards', {'key': std.key});
+      allNames.add(std.name.toLowerCase());
     }
   }
 
@@ -243,6 +249,19 @@ class ExerciseDatabase {
         [exerciseId],
       ),
     ) ?? 0;
+  }
+
+  /// Lädt alle Merge-Aliase (sourceName → targetId) in einem Query.
+  Future<Map<int, List<String>>> getAllMergeAliases() async {
+    final db = await _db;
+    final rows = await db.query('merge_history', columns: ['targetId', 'sourceName']);
+    final map = <int, List<String>>{};
+    for (final r in rows) {
+      final targetId = (r['targetId'] as num).toInt();
+      final sourceName = r['sourceName'] as String;
+      map.putIfAbsent(targetId, () => []).add(sourceName);
+    }
+    return map;
   }
 
   /// Gibt die Namen aller Übungen zurück, die in [exerciseId] zusammengeführt wurden.

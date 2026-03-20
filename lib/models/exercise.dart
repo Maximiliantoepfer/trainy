@@ -25,6 +25,9 @@ class Exercise {
   /// Trainingsziel (z. B. "Kraft", "Ausdauer", "Cardio", "Mobilität")
   final String? goal;
 
+  /// Namen zusammengeführter Übungen (in-memory, aus merge_history geladen).
+  final List<String> mergedAliases;
+
   const Exercise({
     required this.id,
     required this.name,
@@ -39,6 +42,7 @@ class Exercise {
     required this.units,
     required this.icon,
     this.goal,
+    this.mergedAliases = const [],
   });
 
   Exercise copyWith({
@@ -55,6 +59,7 @@ class Exercise {
     Map<String, String>? units,
     int? icon,
     String? goal,
+    List<String>? mergedAliases,
   }) {
     return Exercise(
       id: id ?? this.id,
@@ -70,6 +75,7 @@ class Exercise {
       units: units ?? this.units,
       icon: icon ?? this.icon,
       goal: goal ?? this.goal,
+      mergedAliases: mergedAliases ?? this.mergedAliases,
     );
   }
 }

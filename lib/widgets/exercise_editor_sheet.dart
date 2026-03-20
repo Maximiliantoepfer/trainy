@@ -6,6 +6,7 @@ import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../utils/goal_utils.dart';
+import '../utils/utils.dart';
 import 'exercise_editor_form.dart';
 
 /// Shared BottomSheet zum Erstellen / Bearbeiten einer Übung.
@@ -437,7 +438,8 @@ class _MergePickerSheetState extends State<_MergePickerSheet> {
     final filtered = _query.isEmpty
         ? widget.exercises
         : widget.exercises
-            .where((e) => e.name.toLowerCase().contains(_query.toLowerCase()))
+            .where((e) => e.name.toLowerCase().contains(_query.toLowerCase())
+                || e.mergedAliases.any((a) => a.toLowerCase().contains(_query.toLowerCase())))
             .toList();
 
     return SafeArea(
@@ -479,6 +481,7 @@ class _MergePickerSheetState extends State<_MergePickerSheet> {
               separatorBuilder: (_, __) => const SizedBox(height: 4),
               itemBuilder: (_, i) {
                 final e = filtered[i];
+                final alias = matchingAlias(e, _query);
                 return Card(
                   child: ListTile(
                     title: Row(
@@ -490,13 +493,25 @@ class _MergePickerSheetState extends State<_MergePickerSheet> {
                         ],
                       ],
                     ),
-                    subtitle: Text([
-                      if (e.trackSets) 'Sätze',
-                      if (e.trackReps) 'Wdh.',
-                      if (e.trackWeight) 'Gewicht',
-                      if (e.trackDistance) 'Entfernung',
-                      if (e.trackDuration) 'Dauer',
-                    ].join(' · ')),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text([
+                          if (e.trackSets) 'Sätze',
+                          if (e.trackReps) 'Wdh.',
+                          if (e.trackWeight) 'Gewicht',
+                          if (e.trackDistance) 'Entfernung',
+                          if (e.trackDuration) 'Dauer',
+                        ].join(' · ')),
+                        if (alias != null)
+                          Text('ehem. $alias',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                          ),
+                      ],
+                    ),
                     trailing: Icon(Icons.arrow_forward_rounded,
                         color: scheme.onSurfaceVariant),
                     onTap: () => Navigator.pop(context, e),

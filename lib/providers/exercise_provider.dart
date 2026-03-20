@@ -17,7 +17,12 @@ class ExerciseProvider extends ChangeNotifier {
     try {
       await ExerciseDatabase.instance.ensureStandardExercises();
       await ExerciseDatabase.instance.deduplicateExercises();
-      _exercises = await ExerciseDatabase.instance.getAllExercises();
+      final exercises = await ExerciseDatabase.instance.getAllExercises();
+      final aliasMap = await ExerciseDatabase.instance.getAllMergeAliases();
+      _exercises = exercises.map((e) {
+        final aliases = aliasMap[e.id];
+        return aliases != null ? e.copyWith(mergedAliases: aliases) : e;
+      }).toList();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -172,8 +177,16 @@ class ExerciseProvider extends ChangeNotifier {
   /// Führt sourceId in targetId zusammen.
   /// Alle Fortschrittsdaten und Workout-Zuordnungen werden übertragen.
   Future<MergeResult> mergeExercise(int sourceId, int targetId) async {
+    final sourceName = _exercises.firstWhere((e) => e.id == sourceId).name;
     final result = await ExerciseDatabase.instance.mergeExercises(sourceId, targetId);
     _exercises.removeWhere((e) => e.id == sourceId);
+    final targetIdx = _exercises.indexWhere((e) => e.id == targetId);
+    if (targetIdx >= 0) {
+      final target = _exercises[targetIdx];
+      _exercises[targetIdx] = target.copyWith(
+        mergedAliases: [...target.mergedAliases, sourceName],
+      );
+    }
     notifyListeners();
     return result;
   }

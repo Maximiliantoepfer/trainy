@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +12,7 @@ import '../providers/active_workout_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../utils/duration_utils.dart';
 import '../utils/goal_utils.dart';
+import '../utils/utils.dart';
 import 'workout_success_screen.dart';
 
 class WorkoutRunScreen extends StatefulWidget {
@@ -95,6 +98,18 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     final totalSets = setsByExerciseCopy.values.fold<int>(0, (s, l) => s + l.length);
     final exercisesDone = setsByExerciseCopy.values.where((v) => v.isNotEmpty).length;
 
+    // Ensure displayed duration is at least the sum of exercise durations
+    int sumExerciseDurations = 0;
+    for (final sets in setsByExerciseCopy.values) {
+      for (final s in sets) {
+        final durStr = s['duration']?.trim();
+        if (durStr != null && durStr.isNotEmpty) {
+          sumExerciseDurations += int.tryParse(durStr) ?? 0;
+        }
+      }
+    }
+    final effectiveDuration = max(duration, sumExerciseDurations);
+
     // Update lastValues (fast, in-memory)
     final exerciseProvider = context.read<ExerciseProvider>();
     setsByExerciseCopy.forEach((exerciseId, sets) {
@@ -114,7 +129,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       MaterialPageRoute(
         builder: (_) => WorkoutSuccessScreen(
           workoutName: workoutName,
-          durationSeconds: duration,
+          durationSeconds: effectiveDuration,
           exerciseCount: exercisesDone,
           totalSets: totalSets,
         ),
@@ -125,7 +140,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     if (hasAnySets) {
       progressProvider.saveWorkoutEntries(
         workoutId: workoutId,
-        durationSeconds: duration,
+        durationSeconds: effectiveDuration,
         setsByExercise: setsByExerciseCopy,
       ).then((_) {
         if (cloudProvider.syncEnabled && cloudProvider.isSignedIn) {
@@ -307,7 +322,8 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
             final filtered = searchQuery.isEmpty
                 ? available
                 : available.where((e) =>
-                    e.name.toLowerCase().contains(searchQuery.toLowerCase())).toList();
+                    e.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                    e.mergedAliases.any((a) => a.toLowerCase().contains(searchQuery.toLowerCase()))).toList();
             return SafeArea(
               top: false,
               child: Column(
@@ -342,6 +358,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 4),
                       itemBuilder: (_, i) {
                         final e = filtered[i];
+                        final alias = matchingAlias(e, searchQuery);
                         return Card(
                           child: ListTile(
                             title: Row(children: [
@@ -351,13 +368,25 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                                 goalBadge(e.goal!, scheme),
                               ],
                             ]),
-                            subtitle: Text([
-                              if (e.trackSets) 'Sätze',
-                              if (e.trackReps) 'Wdh.',
-                              if (e.trackWeight) 'Gewicht',
-                              if (e.trackDistance) 'Entfernung',
-                              if (e.trackDuration) 'Dauer',
-                            ].join(' · ')),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text([
+                                  if (e.trackSets) 'Sätze',
+                                  if (e.trackReps) 'Wdh.',
+                                  if (e.trackWeight) 'Gewicht',
+                                  if (e.trackDistance) 'Entfernung',
+                                  if (e.trackDuration) 'Dauer',
+                                ].join(' · ')),
+                                if (alias != null)
+                                  Text('ehem. $alias',
+                                    style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                      color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                              ],
+                            ),
                             trailing: Icon(Icons.add_circle_outline_rounded,
                               color: scheme.primary),
                             shape: RoundedRectangleBorder(

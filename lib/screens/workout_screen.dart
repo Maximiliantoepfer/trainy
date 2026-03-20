@@ -13,6 +13,7 @@ import '../widgets/active_workout_banner.dart';
 import '../widgets/exercise_editor_form.dart';
 import '../widgets/exercise_editor_sheet.dart';
 import '../utils/goal_utils.dart';
+import '../utils/utils.dart';
 import 'workout_run_screen.dart';
 
 const Duration _kWorkoutAnim = Duration(milliseconds: 200);
@@ -180,7 +181,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     final scheme = Theme.of(ctx).colorScheme;
                     final filteredAll = searchQuery.isEmpty
                         ? all
-                        : all.where((e) => e.name.toLowerCase().contains(searchQuery.toLowerCase())).toList();
+                        : all.where((e) => e.name.toLowerCase().contains(searchQuery.toLowerCase())
+                            || e.mergedAliases.any((a) => a.toLowerCase().contains(searchQuery.toLowerCase()))).toList();
 
                     return Column(
                       mainAxisSize: MainAxisSize.max,
@@ -257,6 +259,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                         if (e.trackDistance) subtitle.add('Entfernung');
                                         if (e.trackDuration) subtitle.add('Dauer');
                                         final subtitleText = subtitle.join(' · ');
+                                        final alias = matchingAlias(e, searchQuery);
                                         final cScheme = Theme.of(context).colorScheme;
                                         return Card(
                                           child: CheckboxListTile(
@@ -287,7 +290,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                 ],
                                               ],
                                             ),
-                                            subtitle: subtitleText.isEmpty ? null : Text(subtitleText),
+                                            subtitle: (subtitleText.isEmpty && alias == null) ? null : Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                if (subtitleText.isNotEmpty) Text(subtitleText),
+                                                if (alias != null)
+                                                  Text('ehem. $alias',
+                                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                      fontStyle: FontStyle.italic,
+                                                      color: cScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
                                             controlAffinity:
                                                 ListTileControlAffinity.leading,
                                             shape: RoundedRectangleBorder(

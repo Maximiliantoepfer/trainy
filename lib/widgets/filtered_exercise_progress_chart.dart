@@ -8,6 +8,7 @@ import '../providers/exercise_provider.dart';
 import '../models/workout_entry.dart';
 import '../models/exercise.dart';
 import '../utils/goal_utils.dart';
+import '../utils/utils.dart';
 import 'tap_scale.dart';
 
 /// Zeigt den Verlauf (Reps/Gewicht/Dauer/Sätze) für eine ausgewählte Übung.
@@ -23,7 +24,11 @@ class FilteredExerciseProgressChart extends StatefulWidget {
 class _FilteredExerciseProgressChartState
     extends State<FilteredExerciseProgressChart> {
   int? _selectedExerciseId;
-  String _metric = 'reps'; // 'reps' | 'weight' | 'duration' | 'sets'
+  String _metric = 'reps'; // 'reps' | 'weight' | 'duration' | 'distance' | 'sets'
+  String _timeRange = 'Alle'; // 'Alle' | '1J' | '6M' | '3M' | '1M'
+
+  // Touch state
+  int? _highlightedIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +73,7 @@ class _FilteredExerciseProgressChartState
     }
     _selectedExerciseId ??= exercises.first.id;
 
-    final series = _buildSeries(entries, _selectedExerciseId!, _metric);
+    final seriesPair = _buildSeriesPair(entries, _selectedExerciseId!, _metric);
 
     final selectedExercise = exercises.firstWhere(
       (ex) => ex.id == _selectedExerciseId,
@@ -193,8 +198,25 @@ class _FilteredExerciseProgressChartState
               );
             },
           ),
-          const SizedBox(height: 24),
-          if (series.isEmpty)
+          const SizedBox(height: 12),
+          // --- Zeitbereich-Filter ---
+          Row(
+            children: [
+              for (final range in const ['1M', '3M', '6M', '1J', 'Alle']) ...[
+                if (range != '1M') const SizedBox(width: 6),
+                _RangeButton(
+                  label: range,
+                  active: _timeRange == range,
+                  onTap: () => setState(() {
+                    _timeRange = range;
+                    _highlightedIndex = null;
+                  }),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (seriesPair.aggregated.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
@@ -212,34 +234,306 @@ class _FilteredExerciseProgressChartState
               child: SizedBox(
                 width: double.infinity,
                 height: 260,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          scheme.surfaceContainerHigh.withValues(alpha: 0.55),
-                          scheme.surface,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final chartWidth = constraints.maxWidth;
+                    final usePerSet = _timeRange == '1M' &&
+                        seriesPair.perSet.isNotEmpty &&
+                        (chartWidth / seriesPair.perSet.length) >= 20.0;
+
+                    final activeSeries = usePerSet
+                        ? seriesPair.perSet
+                        : seriesPair.aggregated;
+
+                    // Clamp highlighted index
+                    final safeHighlight = (_highlightedIndex != null &&
+                            _highlightedIndex! < activeSeries.length)
+                        ? _highlightedIndex
+                        : null;
+
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              scheme.surfaceContainerHigh.withValues(alpha: 0.55),
+                              scheme.surface,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: GestureDetector(
+                          onTapUp: (d) {
+                            final idx = _findNearestIndex(
+                                d.localPosition, activeSeries, chartWidth);
+                            setState(() {
+                              // Toggle: tap same point again → dismiss
+                              if (idx == _highlightedIndex) {
+                                _highlightedIndex = null;
+                              } else {
+                                _highlightedIndex = idx;
+                              }
+                            });
+                          },
+                          onLongPressStart: (d) {
+                            final idx = _findNearestIndex(
+                                d.localPosition, activeSeries, chartWidth);
+                            setState(() => _highlightedIndex = idx);
+                          },
+                          onLongPressMoveUpdate: (d) {
+                            final idx = _findNearestIndex(
+                                d.localPosition, activeSeries, chartWidth);
+                            setState(() => _highlightedIndex = idx);
+                          },
+                          onLongPressEnd: (_) {
+                            setState(() => _highlightedIndex = null);
+                          },
+                          child: CustomPaint(
+                            painter: _LinePainter(
+                              series: activeSeries,
+                              highlightedIndex: safeHighlight,
+                              metric: _metric,
+                              lineColor: scheme.primary,
+                              gridColor: scheme.outlineVariant,
+                              textColor: scheme.onSurfaceVariant,
+                              tooltipBgColor: scheme.surfaceContainerHighest,
+                              tooltipTextColor: scheme.onSurface,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    child: CustomPaint(
-                      painter: _LinePainter(
-                        series: series,
-                        lineColor: scheme.primary,
-                        gridColor: scheme.outlineVariant,
-                        textColor: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ),
         ],
       ),
     );
+  }
+
+  // --- Touch Hit-Test ---
+  int? _findNearestIndex(
+      Offset touch, List<_ChartPoint> points, double totalWidth) {
+    if (points.isEmpty) return null;
+
+    // Approximate chart layout (matches painter constants)
+    const double minLeftInset = 40;
+    const double rightInset = 20;
+    const double topInset = 20;
+    const double bottomInset = 40;
+    final leftInset = max(minLeftInset, 50.0);
+    final chartW = totalWidth - leftInset - rightInset;
+    final chartH = 260.0 - topInset - bottomInset;
+    if (chartW <= 0 || chartH <= 0) return null;
+
+    final minX = points.first.t.millisecondsSinceEpoch.toDouble();
+    final maxX = points.last.t.millisecondsSinceEpoch.toDouble();
+    final dx = maxX - minX;
+    final safeDx = dx <= 0 ? 1.0 : dx;
+
+    // Compute Y range (same logic as painter)
+    double dataMaxY = 0;
+    for (final p in points) {
+      if (p.y > dataMaxY) dataMaxY = p.y;
+    }
+    final pad = dataMaxY * 0.10;
+    final yMax = (dataMaxY + pad) <= 0 ? 1.0 : dataMaxY + pad;
+
+    int? bestIdx;
+    double bestDist = double.infinity;
+    for (int i = 0; i < points.length; i++) {
+      final p = points[i];
+      final px =
+          leftInset + ((p.t.millisecondsSinceEpoch - minX) / safeDx) * chartW;
+      final py = topInset + (1 - (p.y / yMax)) * chartH;
+      // Weight X distance more heavily (column-first selection)
+      final distX = (px - touch.dx).abs();
+      final distY = (py - touch.dy).abs();
+      final dist = distX * 2.0 + distY;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }
+
+  // --- Per-Set + Aggregated Series Builder ---
+  ({List<_ChartPoint> perSet, List<_ChartPoint> aggregated}) _buildSeriesPair(
+    List<WorkoutEntry> entries,
+    int exerciseId,
+    String metric,
+  ) {
+    // Time range cutoff
+    final now = DateTime.now();
+    final cutoff = switch (_timeRange) {
+      '1M' => DateTime(now.year, now.month - 1, now.day),
+      '3M' => DateTime(now.year, now.month - 3, now.day),
+      '6M' => DateTime(now.year, now.month - 6, now.day),
+      '1J' => DateTime(now.year - 1, now.month, now.day),
+      _ => null,
+    };
+
+    // Phase 1: Collect raw per-set points (original dates) + aggregated points
+    final rawPerSet = <_ChartPoint>[]; // per-set with original dates
+    final aggregatedPoints = <_ChartPoint>[];
+    final perSetTimestamps = <int>{};
+
+    for (final e in entries) {
+      if (cutoff != null && e.date.isBefore(cutoff)) continue;
+
+      final m = e.results[exerciseId];
+      if (m == null) continue;
+
+      final perSet = m['perSet'];
+      if (metric != 'sets' && perSet is List && perSet.isNotEmpty) {
+        final setValues = <double>[];
+        for (int si = 0; si < perSet.length; si++) {
+          final setMap = perSet[si];
+          if (setMap is! Map) continue;
+          final v = setMap[metric];
+          double? d;
+          if (v is num) d = v.toDouble();
+          if (v is String) d = double.tryParse(v);
+          if (d != null) {
+            setValues.add(d);
+            rawPerSet.add(_ChartPoint(
+              e.date,
+              d,
+              setIndex: si,
+              totalSetsInWorkout: perSet.length,
+              label: _formatLabel(d, metric),
+            ));
+          }
+        }
+        if (setValues.isNotEmpty) {
+          perSetTimestamps.add(e.date.millisecondsSinceEpoch);
+          // Aggregated: average of set values
+          final avg = setValues.reduce((a, b) => a + b) / setValues.length;
+          aggregatedPoints.add(
+              _ChartPoint(e.date, avg, label: _formatLabel(avg, metric)));
+        } else {
+          // perSet exists but metric not found in sets → top-level fallback
+          _addTopLevel(m, metric, e.date, aggregatedPoints);
+        }
+      } else {
+        // No perSet or metric is 'sets' → use top-level value
+        _addTopLevel(m, metric, e.date, aggregatedPoints);
+      }
+    }
+
+    // Phase 2: Compute horizontal offsets for per-set points
+    // Sort raw points by (date, setIndex)
+    rawPerSet.sort((a, b) {
+      final cmp = a.t.compareTo(b.t);
+      if (cmp != 0) return cmp;
+      return (a.setIndex ?? 0).compareTo(b.setIndex ?? 0);
+    });
+
+    // Unique dates and max sets per date
+    final uniqueDateMs = rawPerSet
+        .map((p) => p.t.millisecondsSinceEpoch)
+        .toSet()
+        .toList()
+      ..sort();
+
+    int maxSetsPerDate = 0;
+    final setsCount = <int, int>{};
+    for (final p in rawPerSet) {
+      final ms = p.t.millisecondsSinceEpoch;
+      setsCount[ms] = (setsCount[ms] ?? 0) + 1;
+    }
+    for (final c in setsCount.values) {
+      if (c > maxSetsPerDate) maxSetsPerDate = c;
+    }
+
+    // Compute offset: fraction of minimum gap between workout dates
+    int setOffsetMs;
+    if (uniqueDateMs.length <= 1) {
+      setOffsetMs = 3600000; // 1 hour fallback
+    } else {
+      int minGap = uniqueDateMs[1] - uniqueDateMs[0];
+      for (int i = 2; i < uniqueDateMs.length; i++) {
+        final gap = uniqueDateMs[i] - uniqueDateMs[i - 1];
+        if (gap > 0 && gap < minGap) minGap = gap;
+      }
+      setOffsetMs = minGap ~/ (maxSetsPerDate + 2);
+    }
+
+    // Apply offsets: within each date, sets get increasing offset
+    final dateSetCounter = <int, int>{};
+    final offsetPerSet = <_ChartPoint>[];
+    for (final p in rawPerSet) {
+      final dateMs = p.t.millisecondsSinceEpoch;
+      final idx = dateSetCounter[dateMs] ?? 0;
+      dateSetCounter[dateMs] = idx + 1;
+      offsetPerSet.add(_ChartPoint(
+        DateTime.fromMillisecondsSinceEpoch(dateMs + idx * setOffsetMs),
+        p.y,
+        setIndex: p.setIndex,
+        totalSetsInWorkout: p.totalSetsInWorkout,
+        label: p.label,
+      ));
+    }
+
+    // Combine: offset per-set + standalone aggregated (entries without perSet)
+    final combined = <_ChartPoint>[
+      ...offsetPerSet,
+      ...aggregatedPoints.where(
+        (p) => !perSetTimestamps.contains(p.t.millisecondsSinceEpoch),
+      ),
+    ];
+    combined.sort((a, b) => a.t.compareTo(b.t));
+    aggregatedPoints.sort((a, b) => a.t.compareTo(b.t));
+
+    return (perSet: combined, aggregated: aggregatedPoints);
+  }
+
+  void _addTopLevel(Map<String, dynamic> m, String metric, DateTime date,
+      List<_ChartPoint> out) {
+    final v = m[metric];
+    if (v == null) return;
+    double? d;
+    if (v is num) d = v.toDouble();
+    if (v is String) d = double.tryParse(v);
+    if (d != null) {
+      out.add(_ChartPoint(date, d, label: _formatLabel(d, metric)));
+    }
+  }
+
+  static String _formatLabel(double value, String metric) {
+    switch (metric) {
+      case 'weight':
+        final iv = value.roundToDouble();
+        if ((value - iv).abs() < 0.01) return '${iv.toStringAsFixed(0)} kg';
+        return '${value.toStringAsFixed(1)} kg';
+      case 'reps':
+        return '${value.round()} Wdh.';
+      case 'duration':
+        final total = value.round();
+        if (total >= 3600) {
+          final h = total ~/ 3600;
+          final m = (total % 3600) ~/ 60;
+          return '${h}h ${m}m';
+        }
+        if (total >= 60) {
+          final m = total ~/ 60;
+          final s = total % 60;
+          return s > 0 ? '${m}m ${s}s' : '$m Min.';
+        }
+        return '$total Sek.';
+      case 'distance':
+        final iv = value.roundToDouble();
+        if ((value - iv).abs() < 0.01) return '${iv.toStringAsFixed(0)} km';
+        return '${value.toStringAsFixed(2)} km';
+      case 'sets':
+        return '${value.round()} Sätze';
+      default:
+        return value.toStringAsFixed(1);
+    }
   }
 
   Future<void> _openExercisePicker(
@@ -281,7 +575,8 @@ class _FilteredExerciseProgressChartState
                 search.isEmpty
                     ? exercises
                     : exercises
-                        .where((ex) => ex.name.toLowerCase().contains(search))
+                        .where((ex) => ex.name.toLowerCase().contains(search)
+                            || ex.mergedAliases.any((a) => a.toLowerCase().contains(search)))
                         .toList();
 
             return AnimatedPadding(
@@ -363,6 +658,7 @@ class _FilteredExerciseProgressChartState
                                         if (exercise.trackDuration) 'Dauer',
                                         if (exercise.trackSets) 'Sätze',
                                       ];
+                                      final alias = matchingAlias(exercise, query);
                                       return TapScale(
                                         child: InkWell(
                                         borderRadius: BorderRadius.circular(16),
@@ -452,6 +748,15 @@ class _FilteredExerciseProgressChartState
                                                         ),
                                                       ),
                                                     ],
+                                                    if (alias != null) ...[
+                                                      const SizedBox(height: 2),
+                                                      Text('ehem. $alias',
+                                                        style: textTheme.bodySmall?.copyWith(
+                                                          fontStyle: FontStyle.italic,
+                                                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ],
                                                 ),
                                               ),
@@ -484,27 +789,6 @@ class _FilteredExerciseProgressChartState
       if (!context.mounted) return;
       setState(() => _selectedExerciseId = selectedId);
     }
-  }
-
-  List<_Point> _buildSeries(
-    List<WorkoutEntry> entries,
-    int exerciseId,
-    String metric,
-  ) {
-    final points = <_Point>[];
-    for (final e in entries) {
-      final m = e.results[exerciseId];
-      if (m == null) continue;
-      final v = m[metric];
-      if (v == null) continue;
-      double? d;
-      if (v is num) d = v.toDouble();
-      if (v is String) d = double.tryParse(v);
-      if (d == null) continue;
-      points.add(_Point(e.date, d));
-    }
-    points.sort((a, b) => a.t.compareTo(b.t));
-    return points;
   }
 
   Widget _section(
@@ -635,11 +919,63 @@ class _MetricButton extends StatelessWidget {
   }
 }
 
+// --- UI: Zeitbereich-Button (kompakt) ---
+class _RangeButton extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _RangeButton({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: active
+              ? scheme.primary.withValues(alpha: 0.14)
+              : scheme.surfaceContainerHigh.withValues(alpha: 0.4),
+          border: Border.all(
+            color: active ? scheme.primary : Colors.transparent,
+            width: 1.0,
+          ),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+            color: active ? scheme.primary : scheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // --- Datenmodelle fuer den Painter ---
-class _Point {
+class _ChartPoint {
   final DateTime t;
   final double y;
-  _Point(this.t, this.y);
+  final int? setIndex; // null = aggregiert, 0-basiert = per-set
+  final int totalSetsInWorkout;
+  final String? label; // vorformatiert für Tooltip
+
+  _ChartPoint(
+    this.t,
+    this.y, {
+    this.setIndex,
+    this.totalSetsInWorkout = 1,
+    this.label,
+  });
 }
 
 class _AxisTick {
@@ -652,23 +988,29 @@ class _AxisTick {
 class _LinePainter extends CustomPainter {
   _LinePainter({
     required this.series,
+    required this.highlightedIndex,
+    required this.metric,
     required this.lineColor,
     required this.gridColor,
     required this.textColor,
+    required this.tooltipBgColor,
+    required this.tooltipTextColor,
   });
 
-  final List<_Point> series;
+  final List<_ChartPoint> series;
+  final int? highlightedIndex;
+  final String metric;
   final Color lineColor;
   final Color gridColor;
   final Color textColor;
+  final Color tooltipBgColor;
+  final Color tooltipTextColor;
 
   static const double _minLeftInset = 40;
   static const double _minRightInset = 20;
   static const double _topInset = 20;
   static const double _minBottomInset = 40;
   static const double _labelSpacing = 10;
-  static const double _lineStrokeWidth = 3.2;
-  static const double _pointRadius = 5.0;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -694,31 +1036,25 @@ class _LinePainter extends CustomPainter {
     final safeDx = dx <= 0 ? 1.0 : dx;
 
     // --- Y-Bereich ---
-    double dataMinY = series.first.y;
-    double dataMaxY = series.first.y;
+    double dataMaxY = 0;
     for (final p in series) {
-      if (p.y < dataMinY) dataMinY = p.y;
       if (p.y > dataMaxY) dataMaxY = p.y;
     }
 
-    double range = dataMaxY - dataMinY;
-    if (range == 0) {
-      range = dataMaxY.abs() > 1 ? dataMaxY.abs() : 1.0;
-    }
+    double range = dataMaxY;
+    if (range == 0) range = 1.0;
     final double pad = range * 0.10;
 
     double yMin = 0;
     double yMax = dataMaxY + pad;
-
     if (yMax <= 0) yMax = 1;
 
-    // --- Y-Ticks: gleichmäßig von 0 bis yMax ---
+    // --- Y-Ticks ---
     final step = _niceStep(yMax, 5);
     final tickValues = <double>[];
     for (double v = 0; v <= yMax + step * 0.01; v += step) {
       tickValues.add(double.parse(v.toStringAsFixed(6)));
     }
-    // yMax auf letzten Tick anpassen
     if (tickValues.isNotEmpty && tickValues.last > yMax) {
       yMax = tickValues.last;
     }
@@ -794,7 +1130,7 @@ class _LinePainter extends CustomPainter {
       backgroundPaint,
     );
 
-    // --- Y-Labels (nur an Datenpunktwerten, ohne Overlap) ---
+    // --- Y-Labels + Grid ---
     const minPixelGap = 28.0;
     double? lastLabelPixelY;
     for (final tick in yTickPainters) {
@@ -806,7 +1142,6 @@ class _LinePainter extends CustomPainter {
       }
       lastLabelPixelY = y;
 
-      // Subtile horizontale Hilfslinie
       canvas.drawLine(
         Offset(leftInset, y),
         Offset(leftInset + width, y),
@@ -824,23 +1159,27 @@ class _LinePainter extends CustomPainter {
       );
     }
 
-    // --- Datenlinie zeichnen ---
-    final linePath = Path();
-    final pixelPoints = <Offset>[];
-    for (int i = 0; i < series.length; i++) {
-      final p = series[i];
+    // --- Helper: map data point to pixel ---
+    Offset toPixel(_ChartPoint p) {
       final x =
           leftInset + ((p.t.millisecondsSinceEpoch - minX) / safeDx) * width;
       final y = topInset + (1 - ((p.y - yMin) / yRange)) * height;
-      pixelPoints.add(Offset(x, y));
+      return Offset(x, y);
+    }
+
+    // --- Line + Area through all series points ---
+    final pixelPoints = series.map(toPixel).toList();
+    final linePath = Path();
+    for (int i = 0; i < pixelPoints.length; i++) {
+      final pt = pixelPoints[i];
       if (i == 0) {
-        linePath.moveTo(x, y);
+        linePath.moveTo(pt.dx, pt.dy);
       } else {
-        linePath.lineTo(x, y);
+        linePath.lineTo(pt.dx, pt.dy);
       }
     }
 
-    // --- Fläche mit Gradient relativ zur Datenlinie ---
+    // Gradient fill under the line
     final lastPx = pixelPoints.last;
     final firstPx = pixelPoints.first;
     final areaPath =
@@ -849,7 +1188,6 @@ class _LinePainter extends CustomPainter {
           ..lineTo(firstPx.dx, topInset + height)
           ..close();
 
-    // Gradient von höchstem Datenpunkt bis X-Achse
     double dataMinPixelY = topInset + height;
     for (final pt in pixelPoints) {
       if (pt.dy < dataMinPixelY) dataMinPixelY = pt.dy;
@@ -873,17 +1211,17 @@ class _LinePainter extends CustomPainter {
           ).createShader(dataRect);
     canvas.drawPath(areaPath, areaPaint);
 
-    // --- Linie ---
+    // Line stroke
     final linePaint =
         Paint()
           ..color = lineColor
           ..style = PaintingStyle.stroke
-          ..strokeWidth = _lineStrokeWidth
+          ..strokeWidth = 3.2
           ..strokeCap = StrokeCap.round
           ..isAntiAlias = true;
     canvas.drawPath(linePath, linePaint);
 
-    // --- Datenpunkte ---
+    // --- Dots ---
     final haloPaint =
         Paint()
           ..color = lineColor.withValues(alpha: 0.15)
@@ -893,9 +1231,39 @@ class _LinePainter extends CustomPainter {
           ..color = lineColor
           ..style = PaintingStyle.fill;
 
-    for (final pt in pixelPoints) {
-      canvas.drawCircle(pt, _pointRadius + 2.5, haloPaint);
-      canvas.drawCircle(pt, _pointRadius, dotPaint);
+    for (int i = 0; i < pixelPoints.length; i++) {
+      if (i == highlightedIndex) continue; // draw highlighted separately
+      final pt = pixelPoints[i];
+      canvas.drawCircle(pt, 5.0 + 2.5, haloPaint);
+      canvas.drawCircle(pt, 5.0, dotPaint);
+    }
+
+    // --- Highlight + Tooltip ---
+    if (highlightedIndex != null && highlightedIndex! < pixelPoints.length) {
+      final hp = pixelPoints[highlightedIndex!];
+      final hPoint = series[highlightedIndex!];
+
+      // Vertical indicator line
+      canvas.drawLine(
+        Offset(hp.dx, topInset),
+        Offset(hp.dx, topInset + height),
+        Paint()
+          ..color = lineColor.withValues(alpha: 0.25)
+          ..strokeWidth = 1.0,
+      );
+
+      // Highlighted dot (larger, with glow)
+      canvas.drawCircle(
+        hp,
+        10,
+        Paint()
+          ..color = lineColor.withValues(alpha: 0.12)
+          ..style = PaintingStyle.fill,
+      );
+      canvas.drawCircle(hp, 6, dotPaint);
+
+      // Tooltip
+      _drawTooltip(canvas, hp, hPoint, chartRect);
     }
 
     // --- X-Labels ---
@@ -904,12 +1272,99 @@ class _LinePainter extends CustomPainter {
     endTp.paint(canvas, Offset(leftInset + width - endTp.width, xLabelDy));
   }
 
+  void _drawTooltip(
+      Canvas canvas, Offset pixelPos, _ChartPoint point, Rect chartRect) {
+    final lines = <String>[
+      _formatDateFull(point.t),
+      point.label ?? _formatNumber(point.y),
+    ];
+    if (point.setIndex != null) {
+      lines.add('Satz ${point.setIndex! + 1} von ${point.totalSetsInWorkout}');
+    }
+
+    final tooltipStyle = TextStyle(
+      color: tooltipTextColor,
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      height: 1.3,
+    );
+
+    final painters = lines.map((line) {
+      return TextPainter(
+        text: TextSpan(text: line, style: tooltipStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+    }).toList();
+
+    double maxW = 0;
+    double totalH = 0;
+    for (final tp in painters) {
+      if (tp.width > maxW) maxW = tp.width;
+      totalH += tp.height;
+    }
+    totalH += (painters.length - 1) * 2; // line spacing
+
+    const hPad = 12.0;
+    const vPad = 8.0;
+    final bubbleW = maxW + hPad * 2;
+    final bubbleH = totalH + vPad * 2;
+
+    // Position: above the point, centered
+    double bx = pixelPos.dx - bubbleW / 2;
+    double by = pixelPos.dy - bubbleH - 14;
+
+    // Clamp to chart bounds
+    if (bx < chartRect.left + 4) bx = chartRect.left + 4;
+    if (bx + bubbleW > chartRect.right - 4) {
+      bx = chartRect.right - 4 - bubbleW;
+    }
+
+    // If near top, show below instead
+    if (by < chartRect.top + 4) {
+      by = pixelPos.dy + 14;
+    }
+
+    final bubbleRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(bx, by, bubbleW, bubbleH),
+      const Radius.circular(10),
+    );
+
+    // Shadow
+    canvas.drawRRect(
+      bubbleRect.shift(const Offset(0, 2)),
+      Paint()
+        ..color = const Color(0x1A000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+
+    // Background
+    canvas.drawRRect(bubbleRect, Paint()..color = tooltipBgColor);
+
+    // Border
+    canvas.drawRRect(
+      bubbleRect,
+      Paint()
+        ..color = lineColor.withValues(alpha: 0.25)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+
+    // Text
+    double textY = by + vPad;
+    for (final tp in painters) {
+      tp.paint(canvas, Offset(bx + hPad, textY));
+      textY += tp.height + 2;
+    }
+  }
+
   @override
   bool shouldRepaint(covariant _LinePainter old) {
     return old.series != series ||
+        old.highlightedIndex != highlightedIndex ||
         old.lineColor != lineColor ||
         old.gridColor != gridColor ||
-        old.textColor != textColor;
+        old.textColor != textColor ||
+        old.metric != metric;
   }
 
   double _niceStep(double maxVal, int desiredTicks) {
@@ -940,5 +1395,11 @@ class _LinePainter extends CustomPainter {
     final dd = d.day.toString().padLeft(2, '0');
     final mm = d.month.toString().padLeft(2, '0');
     return '$dd.$mm.';
+  }
+
+  String _formatDateFull(DateTime d) {
+    final dd = d.day.toString().padLeft(2, '0');
+    final mm = d.month.toString().padLeft(2, '0');
+    return '$dd.$mm.${d.year}';
   }
 }

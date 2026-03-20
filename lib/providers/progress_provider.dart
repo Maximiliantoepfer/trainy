@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../models/workout_entry.dart';
@@ -191,6 +193,14 @@ class ProgressProvider extends ChangeNotifier {
         results[exerciseId] = map;
       }
 
+      // Ensure session duration is at least the sum of exercise durations
+      int sumOfExerciseDurations = 0;
+      for (final r in results.values) {
+        final d = r['duration'];
+        if (d is int) sumOfExerciseDurations += d;
+      }
+      final effectiveDuration = max(durationSeconds, sumOfExerciseDurations);
+
       final entry = WorkoutEntry(
         id: DateTime.now().millisecondsSinceEpoch,
         workoutId: workoutId,
@@ -200,7 +210,7 @@ class ProgressProvider extends ChangeNotifier {
 
       await WorkoutEntryDatabase.instance.insertEntry(
         entry,
-        sessionDurationSeconds: durationSeconds,
+        sessionDurationSeconds: effectiveDuration,
       );
       await refreshEntries();
     } finally {
