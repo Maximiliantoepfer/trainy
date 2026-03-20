@@ -827,7 +827,7 @@ class _DayDot extends StatelessWidget {
     final Widget? child;
     if (done) {
       bgColor = scheme.tertiary;
-      child = Icon(Icons.check_rounded, color: scheme.onTertiary, size: 22);
+      child = Icon(Icons.check_rounded, color: scheme.onTertiary, size: 19);
     } else if (isTrainingDay) {
       bgColor = scheme.surfaceContainerHighest.withValues(alpha: 0.65);
       child = ImageIcon(
@@ -845,6 +845,7 @@ class _DayDot extends StatelessWidget {
     }
 
     final highlighted = isSelected || isToday;
+    final double innerSize = (done && !isToday) ? 36 : 38;
 
     return GestureDetector(
       onTap: onTap,
@@ -857,6 +858,7 @@ class _DayDot extends StatelessWidget {
             Container(
               width: 42,
               height: 42,
+              alignment: Alignment.center,
               decoration: isToday
                   ? BoxDecoration(
                       shape: BoxShape.circle,
@@ -872,8 +874,8 @@ class _DayDot extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
-                width: 38,
-                height: 38,
+                width: innerSize,
+                height: innerSize,
                 decoration: BoxDecoration(
                   color: bgColor,
                   shape: BoxShape.circle,
