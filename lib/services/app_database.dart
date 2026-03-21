@@ -8,7 +8,7 @@ class AppDatabase {
   AppDatabase._();
 
   static const _dbName = 'trainy.db';
-  static const _dbVersion = 10; // ⬅️ v10: trackDistance für Übungen
+  static const _dbVersion = 11; // ⬅️ v11: pinned_charts Tabelle
 
   Database? _database;
 
@@ -116,6 +116,17 @@ class AppDatabase {
         dayOfWeek INTEGER NOT NULL,
         PRIMARY KEY(workoutId, dayOfWeek),
         FOREIGN KEY(workoutId) REFERENCES workouts(id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Gepinnte Charts (Übung + Metrik)
+    await db.execute('''
+      CREATE TABLE pinned_charts(
+        id INTEGER PRIMARY KEY,
+        exerciseId INTEGER NOT NULL,
+        metric TEXT NOT NULL,
+        sort INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY(exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
       )
     ''');
   }
@@ -258,5 +269,16 @@ class AppDatabase {
         }
       } catch (_) {}
     }
+
+    // v11: Gepinnte Charts
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pinned_charts(
+        id INTEGER PRIMARY KEY,
+        exerciseId INTEGER NOT NULL,
+        metric TEXT NOT NULL,
+        sort INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY(exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
+      )
+    ''');
   }
 }

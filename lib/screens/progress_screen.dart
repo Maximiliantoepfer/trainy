@@ -10,7 +10,10 @@ import 'workout_entry_detail_screen.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/trainings_calendar.dart';
 import '../widgets/filtered_exercise_progress_chart.dart';
+import '../widgets/pinned_chart_card.dart';
+import '../widgets/chart_data_builder.dart';
 import '../widgets/tap_scale.dart';
+import '../providers/exercise_provider.dart';
 import '../utils/duration_utils.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/app_bar_title.dart';
@@ -174,6 +177,10 @@ class _ProgressScreenState extends State<ProgressScreen>
   }
 
   Widget _buildInsightsTab(List<WorkoutEntry> entries) {
+    final provider = context.watch<ProgressProvider>();
+    final pinnedCharts = provider.pinnedCharts;
+    final allExercises = context.watch<ExerciseProvider>().exercises;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
@@ -184,9 +191,105 @@ class _ProgressScreenState extends State<ProgressScreen>
           ),
         ),
         const SizedBox(height: 12),
+        // Empfehlung immer oben
+        Builder(builder: (context) {
+          final rec = _findRecommendation(entries, allExercises);
+          if (rec == null) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: PinnedChartCard(
+              isRecommendation: true,
+              recommendedExerciseId: rec.$1,
+              recommendedMetric: rec.$2,
+            ),
+          );
+        }),
+        // Gepinnte Charts (Drag & Drop sortierbar)
+        if (pinnedCharts.isNotEmpty)
+          _buildReorderablePinnedCharts(pinnedCharts, provider),
         const FilteredExerciseProgressChart(),
       ],
     );
+  }
+
+  Widget _buildReorderablePinnedCharts(
+    List<dynamic> pinnedCharts,
+    ProgressProvider provider,
+  ) {
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: pinnedCharts.length,
+      proxyDecorator: (child, index, animation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            final t = Curves.easeInOut.transform(animation.value);
+            final elevation = 4.0 * t;
+            final scale = 1.0 + 0.02 * t;
+            return Transform.scale(
+              scale: scale,
+              child: Material(
+                elevation: elevation,
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+                child: child,
+              ),
+            );
+          },
+          child: child,
+        );
+      },
+      onReorder: (oldIndex, newIndex) {
+        provider.reorderPinnedCharts(oldIndex, newIndex);
+      },
+      itemBuilder: (context, index) {
+        final pc = pinnedCharts[index];
+        return Padding(
+          key: ValueKey(pc.id),
+          padding: const EdgeInsets.only(bottom: 8),
+          child: PinnedChartCard(pinnedChart: pc),
+        );
+      },
+    );
+  }
+
+  /// Findet die meisttrainierte Übung + passende Kombimetrik.
+  (int, String)? _findRecommendation(
+    List<WorkoutEntry> entries,
+    List<dynamic> exercises,
+  ) {
+    if (entries.isEmpty || exercises.isEmpty) return null;
+
+    // Zähle Einträge pro Übung
+    final counts = <int, int>{};
+    for (final entry in entries) {
+      for (final exId in entry.results.keys) {
+        counts[exId] = (counts[exId] ?? 0) + 1;
+      }
+    }
+    if (counts.isEmpty) return null;
+
+    // Sortiere nach Häufigkeit
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final topExId = sorted.first.key;
+    final exercise = exercises.cast<dynamic>().firstWhere(
+      (ex) => ex.id == topExId,
+      orElse: () => null,
+    );
+    if (exercise == null) return null;
+
+    final metric = defaultMetricForExercise(
+      trackSets: exercise.trackSets as bool,
+      trackReps: exercise.trackReps as bool,
+      trackWeight: exercise.trackWeight as bool,
+      trackDuration: exercise.trackDuration as bool,
+      trackDistance: exercise.trackDistance as bool,
+    );
+
+    return (topExId, metric);
   }
 }
 

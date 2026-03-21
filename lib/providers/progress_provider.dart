@@ -3,18 +3,22 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../models/workout_entry.dart';
+import '../models/pinned_chart.dart';
 import '../services/workout_entry_database.dart';
 import '../services/settings_database.dart';
+import '../services/pinned_chart_database.dart';
 
 /// Provider für den Progress-Screen (Laden/Speichern von Sessions).
 class ProgressProvider extends ChangeNotifier {
   final List<WorkoutEntry> _entries = [];
+  List<PinnedChart> _pinnedCharts = [];
   int _weeklyGoal = 2;
   bool _isLoading = false;
   bool _isSaving = false;
   Set<int> _trainingDays = {};
 
   List<WorkoutEntry> get entries => List.unmodifiable(_entries);
+  List<PinnedChart> get pinnedCharts => List.unmodifiable(_pinnedCharts);
   int get weeklyGoal => _weeklyGoal;
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
@@ -52,6 +56,7 @@ class ProgressProvider extends ChangeNotifier {
       _entries
         ..clear()
         ..addAll(list);
+      _pinnedCharts = await PinnedChartDatabase.instance.getAll();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -95,6 +100,36 @@ class ProgressProvider extends ChangeNotifier {
       await SettingsDatabase.instance.setWeeklyGoal(days.length);
     }
     notifyListeners();
+  }
+
+  /// Prüft ob eine bestimmte Übung+Metrik-Kombination bereits gepinnt ist.
+  bool isPinned(int exerciseId, String metric) =>
+      _pinnedCharts.any((pc) => pc.exerciseId == exerciseId && pc.metric == metric);
+
+  /// Pinnt eine Übung+Metrik-Kombination.
+  Future<void> pinChart(int exerciseId, String metric) async {
+    if (isPinned(exerciseId, metric)) return;
+    final chart = await PinnedChartDatabase.instance.add(exerciseId, metric);
+    _pinnedCharts = [..._pinnedCharts, chart];
+    notifyListeners();
+  }
+
+  /// Entfernt einen gepinnten Chart.
+  Future<void> unpinChart(int id) async {
+    await PinnedChartDatabase.instance.remove(id);
+    _pinnedCharts = _pinnedCharts.where((pc) => pc.id != id).toList();
+    notifyListeners();
+  }
+
+  /// Sortiert die gepinnten Charts um.
+  Future<void> reorderPinnedCharts(int oldIndex, int newIndex) async {
+    if (oldIndex < newIndex) newIndex--;
+    final list = List<PinnedChart>.from(_pinnedCharts);
+    final item = list.removeAt(oldIndex);
+    list.insert(newIndex, item);
+    _pinnedCharts = list;
+    notifyListeners();
+    await PinnedChartDatabase.instance.reorder(list.map((c) => c.id).toList());
   }
 
   /// Speichert eine Workout-Session (aufgerufen vom `WorkoutRunScreen`).
