@@ -12,6 +12,7 @@ import '../services/pinned_chart_database.dart';
 class ProgressProvider extends ChangeNotifier {
   final List<WorkoutEntry> _entries = [];
   List<PinnedChart> _pinnedCharts = [];
+  List<String> _insightsOrder = [];
   int _weeklyGoal = 2;
   bool _isLoading = false;
   bool _isSaving = false;
@@ -23,6 +24,47 @@ class ProgressProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
   Set<int> get trainingDays => _trainingDays;
+
+  /// Returns the effective insights widget order, validated against current pinned charts.
+  List<String> get effectiveInsightsOrder {
+    final pinnedIds = _pinnedCharts.map((pc) => 'pinned:${pc.id}').toSet();
+
+    if (_insightsOrder.isEmpty) {
+      return [
+        'calendar',
+        'recommendation',
+        ...pinnedIds,
+        'main_chart',
+      ];
+    }
+
+    final result = <String>[];
+    for (final item in _insightsOrder) {
+      if (item.startsWith('pinned:')) {
+        if (pinnedIds.contains(item)) result.add(item);
+      } else {
+        result.add(item);
+      }
+    }
+
+    // Ensure fixed items are present
+    if (!result.contains('calendar')) result.insert(0, 'calendar');
+    if (!result.contains('recommendation')) {
+      final calIdx = result.indexOf('calendar');
+      result.insert(calIdx + 1, 'recommendation');
+    }
+    if (!result.contains('main_chart')) result.add('main_chart');
+
+    // Add any new pinned charts not yet in the order
+    final mainIdx = result.indexOf('main_chart');
+    for (final pid in pinnedIds) {
+      if (!result.contains(pid)) {
+        result.insert(mainIdx, pid);
+      }
+    }
+
+    return result;
+  }
 
   /// Returns explicitly set training days, or a heuristic fallback based on weeklyGoal.
   Set<int> get effectiveTrainingDays {
@@ -57,6 +99,10 @@ class ProgressProvider extends ChangeNotifier {
         ..clear()
         ..addAll(list);
       _pinnedCharts = await PinnedChartDatabase.instance.getAll();
+      final orderStr = await SettingsDatabase.instance.getInsightsOrder();
+      _insightsOrder = orderStr.isEmpty
+          ? []
+          : orderStr.split(',').where((s) => s.isNotEmpty).toList();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -111,25 +157,37 @@ class ProgressProvider extends ChangeNotifier {
     if (isPinned(exerciseId, metric)) return;
     final chart = await PinnedChartDatabase.instance.add(exerciseId, metric);
     _pinnedCharts = [..._pinnedCharts, chart];
+    // Insert into insights order before main_chart
+    final order = List<String>.from(effectiveInsightsOrder);
+    final mainIdx = order.indexOf('main_chart');
+    order.insert(mainIdx >= 0 ? mainIdx : order.length, 'pinned:${chart.id}');
+    _insightsOrder = order;
     notifyListeners();
+    await _persistInsightsOrder();
   }
 
   /// Entfernt einen gepinnten Chart.
   Future<void> unpinChart(int id) async {
     await PinnedChartDatabase.instance.remove(id);
     _pinnedCharts = _pinnedCharts.where((pc) => pc.id != id).toList();
+    _insightsOrder = _insightsOrder.where((item) => item != 'pinned:$id').toList();
     notifyListeners();
+    await _persistInsightsOrder();
   }
 
-  /// Sortiert die gepinnten Charts um.
-  Future<void> reorderPinnedCharts(int oldIndex, int newIndex) async {
+  /// Sortiert die Insights-Widgets um.
+  Future<void> reorderInsights(int oldIndex, int newIndex) async {
     if (oldIndex < newIndex) newIndex--;
-    final list = List<PinnedChart>.from(_pinnedCharts);
+    final list = List<String>.from(effectiveInsightsOrder);
     final item = list.removeAt(oldIndex);
     list.insert(newIndex, item);
-    _pinnedCharts = list;
+    _insightsOrder = list;
     notifyListeners();
-    await PinnedChartDatabase.instance.reorder(list.map((c) => c.id).toList());
+    await _persistInsightsOrder();
+  }
+
+  Future<void> _persistInsightsOrder() async {
+    await SettingsDatabase.instance.setInsightsOrder(_insightsOrder.join(','));
   }
 
   /// Speichert eine Workout-Session (aufgerufen vom `WorkoutRunScreen`).

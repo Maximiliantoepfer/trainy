@@ -94,7 +94,6 @@ lib/
 │   ├── workout_run_screen.dart             # Live-Session: Timer, Set-Eingabe
 │   ├── workout_entry_detail_screen.dart    # Session-Detailansicht
 │   ├── progress_screen.dart                # Fortschritts-Übersicht & Charts
-│   ├── progress_insights_screen.dart       # Detaillierte Analyse
 │   └── settings_screen.dart               # Einstellungen, Theme, Cloud-Sync
 │
 ├── widgets/

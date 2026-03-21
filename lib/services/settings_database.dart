@@ -113,6 +113,44 @@ class SettingsDatabase {
     }
   }
 
+  // ----- Insights Order -----
+  Future<String> getInsightsOrder() async {
+    final db = await _db;
+    try {
+      final r = await db.query('user_settings', columns: ['insights_order'], limit: 1);
+      if (r.isNotEmpty) {
+        return (r.first['insights_order'] ?? '') as String;
+      }
+      return '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> setInsightsOrder(String value) async {
+    final db = await _db;
+    try {
+      await db.update(
+        'user_settings',
+        {'insights_order': value},
+        where: 'id = ?',
+        whereArgs: [0],
+      );
+    } catch (e) {
+      try {
+        await db.execute(
+          "ALTER TABLE user_settings ADD COLUMN insights_order TEXT NOT NULL DEFAULT ''",
+        );
+      } catch (_) {}
+      await db.update(
+        'user_settings',
+        {'insights_order': value},
+        where: 'id = ?',
+        whereArgs: [0],
+      );
+    }
+  }
+
   // ----- Onboarding Flag -----
   Future<bool> getOnboardingDone() async {
     final db = await _db;

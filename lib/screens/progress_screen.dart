@@ -178,59 +178,22 @@ class _ProgressScreenState extends State<ProgressScreen>
 
   Widget _buildInsightsTab(List<WorkoutEntry> entries) {
     final provider = context.watch<ProgressProvider>();
-    final pinnedCharts = provider.pinnedCharts;
     final allExercises = context.watch<ExerciseProvider>().exercises;
+    final order = provider.effectiveInsightsOrder;
+    final rec = _findRecommendation(entries, allExercises);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-            child: TrainingsCalendar(entries: entries),
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Empfehlung immer oben
-        Builder(builder: (context) {
-          final rec = _findRecommendation(entries, allExercises);
-          if (rec == null) return const SizedBox.shrink();
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: PinnedChartCard(
-              isRecommendation: true,
-              recommendedExerciseId: rec.$1,
-              recommendedMetric: rec.$2,
-            ),
-          );
-        }),
-        // Gepinnte Charts (Drag & Drop sortierbar)
-        if (pinnedCharts.isNotEmpty)
-          _buildReorderablePinnedCharts(pinnedCharts, provider),
-        const FilteredExerciseProgressChart(),
-      ],
-    );
-  }
-
-  Widget _buildReorderablePinnedCharts(
-    List<dynamic> pinnedCharts,
-    ProgressProvider provider,
-  ) {
     return ReorderableListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: pinnedCharts.length,
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      itemCount: order.length,
       proxyDecorator: (child, index, animation) {
         return AnimatedBuilder(
           animation: animation,
           builder: (context, child) {
             final t = Curves.easeInOut.transform(animation.value);
-            final elevation = 4.0 * t;
-            final scale = 1.0 + 0.02 * t;
             return Transform.scale(
-              scale: scale,
+              scale: 1.0 + 0.02 * t,
               child: Material(
-                elevation: elevation,
+                elevation: 4.0 * t,
                 color: Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
                 child: child,
@@ -241,15 +204,67 @@ class _ProgressScreenState extends State<ProgressScreen>
         );
       },
       onReorder: (oldIndex, newIndex) {
-        provider.reorderPinnedCharts(oldIndex, newIndex);
+        provider.reorderInsights(oldIndex, newIndex);
       },
       itemBuilder: (context, index) {
-        final pc = pinnedCharts[index];
-        return Padding(
-          key: ValueKey(pc.id),
-          padding: const EdgeInsets.only(bottom: 8),
-          child: PinnedChartCard(pinnedChart: pc),
-        );
+        final item = order[index];
+
+        if (item == 'calendar') {
+          return Padding(
+            key: const ValueKey('calendar'),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                child: TrainingsCalendar(entries: entries),
+              ),
+            ),
+          );
+        }
+
+        if (item == 'recommendation') {
+          if (rec == null) {
+            return SizedBox.shrink(key: const ValueKey('recommendation'));
+          }
+          return Padding(
+            key: const ValueKey('recommendation'),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: PinnedChartCard(
+              isRecommendation: true,
+              recommendedExerciseId: rec.$1,
+              recommendedMetric: rec.$2,
+            ),
+          );
+        }
+
+        if (item == 'main_chart') {
+          return Padding(
+            key: const ValueKey('main_chart'),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: const FilteredExerciseProgressChart(),
+          );
+        }
+
+        // pinned:{id}
+        if (item.startsWith('pinned:')) {
+          final id = int.tryParse(item.substring(7));
+          final pc = id != null
+              ? provider.pinnedCharts.cast<dynamic>().firstWhere(
+                    (c) => c.id == id,
+                    orElse: () => null,
+                  )
+              : null;
+          if (pc == null) {
+            return SizedBox.shrink(key: ValueKey(item));
+          }
+          return Padding(
+            key: ValueKey(item),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: PinnedChartCard(pinnedChart: pc),
+          );
+        }
+
+        return SizedBox.shrink(key: ValueKey(item));
       },
     );
   }
