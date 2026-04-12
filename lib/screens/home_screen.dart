@@ -206,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen>
     final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
     final effectiveTrainingDays = progress.effectiveTrainingDays;
     final isProgressLoading = progress.isLoading;
-    final streak = _calculateStreak(progress.entries);
+    final streak = progress.currentStreak;
 
     // Alle Tage, an denen mindestens ein Workout zugewiesen ist
     final workoutAssignedDays = <int>{};
@@ -399,36 +399,6 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
-  }
-
-  int _calculateStreak(List entries) {
-    if (entries.isEmpty) return 0;
-    final days = <DateTime>{};
-    for (final e in entries) {
-      final DateTime d = e.date;
-      days.add(DateTime(d.year, d.month, d.day));
-    }
-    final sorted = days.toList()..sort((a, b) => b.compareTo(a));
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-    int streak = 0;
-    var check = todayDate;
-    // Allow starting from today or yesterday
-    if (sorted.isEmpty) return 0;
-    if (sorted.first != todayDate) {
-      final yesterday = todayDate.subtract(const Duration(days: 1));
-      if (sorted.first != yesterday) return 0;
-      check = yesterday;
-    }
-    for (final d in sorted) {
-      if (d == check) {
-        streak++;
-        check = check.subtract(const Duration(days: 1));
-      } else if (d.isBefore(check)) {
-        break;
-      }
-    }
-    return streak;
   }
 
   Set<int> _trainedWeekdaysForSelectedWeek(List entries) {
@@ -795,7 +765,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
                   const AnimatedFlameIcon(size: 28),
                   const SizedBox(width: 8),
                   Text(
-                    '$streak-Tage-Streak',
+                    '$streak Trainings in Folge',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: const Color(0xFFFF6D00),
                       fontWeight: FontWeight.w700,

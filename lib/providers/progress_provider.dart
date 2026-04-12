@@ -66,6 +66,67 @@ class ProgressProvider extends ChangeNotifier {
     return result;
   }
 
+  /// Schedule-aware streak: counts consecutive training sessions fulfilled
+  /// per week, going backwards. Rest days don't break the streak, and
+  /// training on a rest day can compensate for a missed training day
+  /// within the same week.
+  int get currentStreak {
+    final trainingDays = effectiveTrainingDays;
+    if (_entries.isEmpty || trainingDays.isEmpty) return 0;
+
+    final workoutDates = <DateTime>{};
+    for (final e in _entries) {
+      final d = e.date;
+      workoutDates.add(DateTime(d.year, d.month, d.day));
+    }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final todayWeekday = today.weekday;
+    final currentMonday = today.subtract(Duration(days: todayWeekday - 1));
+
+    int streak = 0;
+
+    for (int w = 0; w < 52; w++) {
+      final weekStart = currentMonday.subtract(Duration(days: w * 7));
+
+      final scheduledThisWeek = <DateTime>[];
+      int workoutsThisWeek = 0;
+
+      for (int d = 0; d < 7; d++) {
+        final day = weekStart.add(Duration(days: d));
+        if (day.isAfter(today)) break;
+
+        // Grace: skip today if it's a training day not yet completed
+        final isToday = day == today;
+        if (isToday && trainingDays.contains(todayWeekday) &&
+            !workoutDates.contains(today)) {
+          continue;
+        }
+
+        if (trainingDays.contains(day.weekday)) {
+          scheduledThisWeek.add(day);
+        }
+        if (workoutDates.contains(day)) {
+          workoutsThisWeek++;
+        }
+      }
+
+      if (scheduledThisWeek.isEmpty) {
+        if (w == 0) continue; // current week may not have had a training day yet
+        break;
+      }
+
+      if (workoutsThisWeek >= scheduledThisWeek.length) {
+        streak += scheduledThisWeek.length;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  }
+
   /// Returns explicitly set training days, or a heuristic fallback based on weeklyGoal.
   Set<int> get effectiveTrainingDays {
     if (_trainingDays.isNotEmpty) return _trainingDays;
