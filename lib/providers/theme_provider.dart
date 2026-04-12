@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:math';
+
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider extends ChangeNotifier {
@@ -7,10 +9,10 @@ class ThemeProvider extends ChangeNotifier {
 
   Color _accent = const Color.fromARGB(
     255,
-    71,
-    118,
-    248,
-  ); // default accent (hellblau)
+    82,
+    133,
+    250,
+  ); // default accent (#5285FA)
   ThemeMode _themeMode = ThemeMode.system;
 
   Color get accent => _accent;
@@ -36,6 +38,19 @@ class ThemeProvider extends ChangeNotifier {
       ThemeMode.dark => 'dark',
       _ => 'system',
     });
+  }
+
+  /// Returns true if the current accent has poor contrast (< 3.0:1)
+  /// against the background of the given brightness.
+  bool hasContrastProblem(Brightness effectiveBrightness) {
+    final accentLum = _accent.computeLuminance();
+    // Background luminances from app_theme.dart
+    // Light: #FCFBF9 ≈ 0.965, Dark: #121214 ≈ 0.006
+    final bgLum = effectiveBrightness == Brightness.light ? 0.965 : 0.006;
+    final l1 = max(accentLum, bgLum);
+    final l2 = min(accentLum, bgLum);
+    final ratio = (l1 + 0.05) / (l2 + 0.05);
+    return ratio < 3.0;
   }
 
   Future<void> _load() async {

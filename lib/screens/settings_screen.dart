@@ -83,7 +83,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                       ButtonSegment(value: ThemeMode.dark, label: Text('Dunkel')),
                     ],
                     selected: {theme.themeMode},
-                    onSelectionChanged: (v) => theme.setThemeMode(v.first),
+                    onSelectionChanged: (v) {
+                      final newMode = v.first;
+                      theme.setThemeMode(newMode);
+                      final brightness = _effectiveBrightness(context, newMode);
+                      if (theme.hasContrastProblem(brightness)) {
+                        _showContrastWarning(context, theme);
+                      }
+                    },
                   ),
                   const SizedBox(height: 20),
                   Text('Akzentfarbe',
@@ -278,6 +285,12 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _pickAccent(BuildContext context, ThemeProvider theme) async {
     Color temp = theme.accent;
+    final brightness = _effectiveBrightness(context, theme.themeMode);
+    final colors = <Color>[
+      ..._universalColors,
+      if (brightness == Brightness.light) ..._lightOnlyColors,
+      if (brightness == Brightness.dark) ..._darkOnlyColors,
+    ];
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -286,6 +299,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           child: BlockPicker(
             pickerColor: temp,
             onColorChanged: (c) => temp = c,
+            availableColors: colors,
           ),
         ),
         actions: [
@@ -293,6 +307,19 @@ class _SettingsScreenState extends State<SettingsScreen>
           FilledButton(onPressed: () { Navigator.pop(ctx); theme.setAccent(temp); },
               child: const Text('Übernehmen')),
         ],
+      ),
+    );
+  }
+
+  void _showContrastWarning(BuildContext context, ThemeProvider theme) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Deine Akzentfarbe hat wenig Kontrast in diesem Modus.'),
+        action: SnackBarAction(
+          label: 'Ändern',
+          onPressed: () => _pickAccent(context, theme),
+        ),
+        duration: const Duration(seconds: 5),
       ),
     );
   }
@@ -624,7 +651,7 @@ class _TrainingDaysPicker extends StatelessWidget {
 }
 
 const _quickSwatches = <Color>[
-  Color(0xFF4776F8),
+  Color(0xFF5285FA),
   Color(0xFF0EC7FF),
   Color(0xFF4CAF50),
   Color(0xFFFF5722),
@@ -632,3 +659,39 @@ const _quickSwatches = <Color>[
   Color(0xFFE91E63),
   Color(0xFF9C27B0),
 ];
+
+const _universalColors = <Color>[
+  Colors.red,
+  Colors.pink,
+  Colors.purple,
+  Colors.blue,
+  Colors.teal,
+  Colors.deepOrange,
+  Colors.blueGrey,
+];
+
+const _lightOnlyColors = <Color>[
+  Colors.deepPurple,
+  Colors.indigo,
+  Color(0xFF000000),
+];
+
+const _darkOnlyColors = <Color>[
+  Colors.lightBlue,
+  Colors.cyan,
+  Colors.green,
+  Colors.lightGreen,
+  Colors.lime,
+  Colors.yellow,
+  Colors.amber,
+  Colors.orange,
+  Color(0xFFFFFFFF),
+];
+
+Brightness _effectiveBrightness(BuildContext context, ThemeMode mode) {
+  return switch (mode) {
+    ThemeMode.light => Brightness.light,
+    ThemeMode.dark => Brightness.dark,
+    ThemeMode.system => MediaQuery.platformBrightnessOf(context),
+  };
+}
