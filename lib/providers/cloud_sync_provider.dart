@@ -8,6 +8,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 
 import '../services/settings_database.dart';
 import '../services/local_backup_service.dart';
+import '../services/exercise_database.dart';
 
 class CloudSyncProvider extends ChangeNotifier {
   final SettingsDatabase _settings = SettingsDatabase.instance;
@@ -148,6 +149,7 @@ class CloudSyncProvider extends ChangeNotifier {
         throw Exception('Ungültiges Backup-Format.');
       }
       await LocalBackupService.instance.restoreAll(decoded, replace: true);
+      await ExerciseDatabase.instance.ensureStandardExercises();
     } finally {
       _isBusy = false;
       notifyListeners();
@@ -181,6 +183,7 @@ class CloudSyncProvider extends ChangeNotifier {
       final decoded = jsonDecode(utf8.decode(bytes));
       if (decoded is! Map<String, dynamic>) return;
       await LocalBackupService.instance.restoreAll(decoded, replace: false);
+      await ExerciseDatabase.instance.ensureStandardExercises();
     } finally {
       _isBusy = false;
       notifyListeners();

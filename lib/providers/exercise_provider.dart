@@ -44,6 +44,8 @@ class ExerciseProvider extends ChangeNotifier {
     Map<String, String>? units,
     int? icon,
     String? goal,
+    String? standardKey,
+    bool? isNameCustom,
   }) async {
     final exerciseId = await ExerciseDatabase.instance.addOrUpdateExercise(
       id: id,
@@ -59,6 +61,8 @@ class ExerciseProvider extends ChangeNotifier {
       units: units,
       icon: icon,
       goal: goal,
+      standardKey: standardKey,
+      isNameCustom: isNameCustom,
     );
 
     // Dedup: DB hat bestehende ID zurückgegeben → Übung existiert schon
@@ -80,6 +84,8 @@ class ExerciseProvider extends ChangeNotifier {
       units: units ?? const {},
       icon: icon,
       goal: goal,
+      standardKey: standardKey,
+      isNameCustom: isNameCustom ?? true,
     );
 
     final idx = _exercises.indexWhere((e) => e.id == exerciseId);

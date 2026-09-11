@@ -13,6 +13,8 @@ import '../widgets/screen_info_dialog.dart';
 import '../widgets/tap_scale.dart';
 import '../utils/goal_utils.dart';
 import '../utils/utils.dart';
+import '../utils/exercise_localization.dart';
+import '../l10n/l10n.dart';
 
 class ExerciseScreen extends StatefulWidget {
   const ExerciseScreen({super.key});
@@ -45,13 +47,17 @@ class _ExerciseScreenState extends State<ExerciseScreen>
   Widget build(BuildContext context) {
     super.build(context);
     final provider = context.watch<ExerciseProvider>();
-    final list = provider.exercises;
+    final list = [...provider.exercises]
+      ..sort((a, b) => displayExerciseName(context, a)
+          .toLowerCase()
+          .compareTo(displayExerciseName(context, b).toLowerCase()));
     final scheme = Theme.of(context).colorScheme;
     final q = _query.toLowerCase();
     final filtered = _query.isEmpty
         ? list
         : list.where((e) {
-            return e.name.toLowerCase().contains(q) ||
+            return displayExerciseName(context, e).toLowerCase().contains(q) ||
+                e.name.toLowerCase().contains(q) ||
                 (e.description?.toLowerCase().contains(q) ?? false) ||
                 e.mergedAliases.any((a) => a.toLowerCase().contains(q));
           }).toList();
@@ -60,16 +66,16 @@ class _ExerciseScreenState extends State<ExerciseScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const AppBarTitle('Übungen'),
+        title: AppBarTitle(context.l10n.exercises),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline_rounded, size: 20),
             onPressed: () => showScreenInfoDialog(
               context,
-              title: 'Übungen',
-              description: 'Verwalte deine Übungen. Erstelle neue Übungen, bearbeite bestehende und lege fest, welche Metriken du tracken möchtest.',
+              title: context.l10n.exercises,
+              description: context.l10n.exerciseDescription,
             ),
-            tooltip: 'Info',
+              tooltip: context.l10n.info,
           ),
         ],
       ),
@@ -87,7 +93,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
             child: TextField(
               controller: _searchCtrl,
               decoration: InputDecoration(
-                hintText: 'Übung suchen...',
+                hintText: context.l10n.searchExercises,
                 prefixIcon: Icon(Icons.search_rounded,
                     color: scheme.onSurfaceVariant.withOpacity(0.5)),
                 suffixIcon: _query.isNotEmpty
@@ -115,11 +121,11 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                         itemBuilder: (_, i) {
                           final e = filtered[i];
                           final tags = [
-                            if (e.trackSets) 'Sätze',
-                            if (e.trackReps) 'Wdh.',
-                            if (e.trackWeight) 'Gewicht',
-                            if (e.trackDistance) 'Entfernung',
-                            if (e.trackDuration) 'Dauer',
+                            if (e.trackSets) context.l10n.sets,
+                            if (e.trackReps) context.l10n.repetitions,
+                            if (e.trackWeight) context.l10n.weight,
+                            if (e.trackDistance) context.l10n.distance,
+                            if (e.trackDuration) context.l10n.duration,
                           ];
                           return _ExerciseTile(
                             exercise: e, tags: tags,
@@ -135,7 +141,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openEditor(context),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Neue Übung'),
+        label: Text(context.l10n.newExercise),
       ),
     );
   }
@@ -153,15 +159,18 @@ class _ExerciseScreenState extends State<ExerciseScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Übung löschen?'),
+        title: Text(context.l10n.deleteExercise),
         content: Text(
-          '„${exercise.name}" wird endgültig gelöscht.'
-          '${entryCount > 0 ? '\n\n$entryCount Trainingseinträge mit dieser Übung werden ebenfalls entfernt.' : ''}',
+          entryCount > 0
+              ? context.l10n.deleteExerciseWithEntries(
+                  displayExerciseName(context, exercise), entryCount)
+              : context.l10n.deleteExerciseConfirmation(
+                  displayExerciseName(context, exercise)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Abbrechen'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -169,7 +178,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Endgültig löschen'),
+            child: Text(context.l10n.permanentlyDelete),
           ),
         ],
       ),
@@ -185,7 +194,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('„${exercise.name}" gelöscht'),
+        content: Text(context.l10n.exerciseDeleted(displayExerciseName(context, exercise))),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -217,10 +226,10 @@ class _ExerciseTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Flexible(child: Text(exercise.name, style: Theme.of(context).textTheme.titleMedium)),
+                    Flexible(child: Text(displayExerciseName(context, exercise), style: Theme.of(context).textTheme.titleMedium)),
                     if (exercise.goal != null) ...[
                       const SizedBox(width: 8),
-                      goalBadge(exercise.goal!, scheme),
+                      goalBadge(context, exercise.goal!, scheme),
                     ],
                   ],
                 ),
@@ -230,7 +239,7 @@ class _ExerciseTile extends StatelessWidget {
                 ],
                 if (aliasHint != null) ...[
                   const SizedBox(height: 2),
-                  Text('ehem. $aliasHint',
+                  Text(context.l10n.formerName(aliasHint!),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontStyle: FontStyle.italic,
                       color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
@@ -269,9 +278,9 @@ class _EmptyState extends StatelessWidget {
             child: ImageIcon(const AssetImage('assets/icons/hantel.png'), size: 32, color: scheme.onPrimaryContainer),
           ),
           const SizedBox(height: 20),
-          Text('Noch keine Übungen', style: Theme.of(context).textTheme.titleLarge),
+          Text(context.l10n.noExercises, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
-          Text('Lege deine erste Übung an.',
+          Text(context.l10n.noExercisesDescription,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
         ]),
       ),

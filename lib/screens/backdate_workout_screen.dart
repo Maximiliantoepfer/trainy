@@ -10,6 +10,8 @@ import '../providers/exercise_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../utils/duration_utils.dart';
 import '../utils/goal_utils.dart';
+import '../l10n/l10n.dart';
+import '../utils/exercise_localization.dart';
 
 class BackdateWorkoutScreen extends StatefulWidget {
   final Workout workout;
@@ -53,7 +55,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
       initialDate: _backdateDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
-      locale: const Locale('de', 'DE'),
+      locale: Localizations.localeOf(context),
     );
     if (picked != null && picked != _backdateDate) {
       setState(() => _backdateDate = picked);
@@ -97,10 +99,11 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
     }
 
     if (!mounted) return;
-    final dateStr = DateFormat('dd.MM.yyyy', 'de_DE').format(_backdateDate);
+    final dateStr = DateFormat('dd.MM.yyyy', Localizations.localeOf(context).toLanguageTag())
+        .format(_backdateDate);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Workout für $dateStr nachgetragen'),
+        content: Text(context.l10n.workoutBackdated(dateStr)),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -137,12 +140,12 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
       await showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text(e.name),
-          content: const Text('Keine Felder zum Tracken aktiviert.'),
+          title: Text(displayExerciseName(context, e)),
+          content: Text(ctx.l10n.noTrackingFieldsActive),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
+              child: Text(ctx.l10n.ok),
             ),
           ],
         ),
@@ -183,15 +186,14 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(e.name),
+        title: Text(displayExerciseName(context, e)),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             if (e.trackReps)
               TextField(
                 controller: repsCtrl,
                 keyboardType: TextInputType.number,
-                decoration:
-                    const InputDecoration(labelText: 'Wiederholungen'),
+                decoration: InputDecoration(labelText: ctx.l10n.repetitions),
               ),
             if (e.trackWeight)
               Padding(
@@ -200,8 +202,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                   controller: weightCtrl,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  decoration:
-                      const InputDecoration(labelText: 'Gewicht (kg)'),
+                  decoration: InputDecoration(labelText: ctx.l10n.weightKilograms),
                 ),
               ),
             if (e.trackDistance)
@@ -211,8 +212,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                   controller: distanceCtrl,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  decoration:
-                      const InputDecoration(labelText: 'Entfernung (km)'),
+                  decoration: InputDecoration(labelText: ctx.l10n.distanceKilometers),
                 ),
               ),
             if (e.trackDuration)
@@ -221,7 +221,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Dauer',
+                    Text(ctx.l10n.duration,
                         style: Theme.of(ctx).textTheme.labelLarge),
                     const SizedBox(height: 8),
                     Row(children: [
@@ -233,8 +233,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly
                           ],
-                          decoration:
-                              const InputDecoration(labelText: 'Std'),
+                          decoration: InputDecoration(labelText: ctx.l10n.hours),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -246,8 +245,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly
                           ],
-                          decoration:
-                              const InputDecoration(labelText: 'Min'),
+                          decoration: InputDecoration(labelText: ctx.l10n.minutes),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -258,8 +256,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly
                           ],
-                          decoration:
-                              const InputDecoration(labelText: 'Sek'),
+                          decoration: InputDecoration(labelText: ctx.l10n.seconds),
                         ),
                       ),
                     ]),
@@ -271,7 +268,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Abbrechen'),
+            child: Text(ctx.l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -304,7 +301,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('Speichern'),
+            child: Text(ctx.l10n.save),
           ),
         ],
       ),
@@ -338,7 +335,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
         _setsByExercise.values.where((v) => v.isNotEmpty).length;
     final progress =
         exercises.isEmpty ? 0.0 : doneCount / exercises.length;
-    final dateStr = DateFormat('EE, dd.MM.yyyy', 'de_DE')
+    final dateStr = DateFormat('EE, dd.MM.yyyy', Localizations.localeOf(context).toLanguageTag())
         .format(_backdateDate);
 
     return Scaffold(
@@ -412,8 +409,8 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly
                         ],
-                        decoration: const InputDecoration(
-                          labelText: 'Geschätzte Dauer (Minuten)',
+                        decoration: InputDecoration(
+                          labelText: context.l10n.estimatedDurationMinutes,
                           border: InputBorder.none,
                         ),
                       ),
@@ -456,12 +453,12 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                                 Row(
                                   children: [
                                     Flexible(
-                                      child: Text(e.name,
+                                      child: Text(displayExerciseName(context, e),
                                           style: textTheme.titleMedium),
                                     ),
                                     if (e.goal != null) ...[
                                       const SizedBox(width: 8),
-                                      goalBadge(e.goal!, scheme),
+                                      goalBadge(context, e.goal!, scheme),
                                     ],
                                   ],
                                 ),
@@ -513,7 +510,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
         foregroundColor:
             _hasAnySets ? scheme.onPrimary : scheme.onSurfaceVariant,
         icon: const Icon(Icons.save_rounded),
-        label: const Text('Speichern'),
+        label: Text(context.l10n.save),
       ),
     );
   }
@@ -646,12 +643,12 @@ class _PerSetSheetState extends State<_PerSetSheet> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-              child: Text(e.name, style: textTheme.titleLarge),
+              child: Text(displayExerciseName(context, e), style: textTheme.titleLarge),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
               child: Text(
-                '${sets.length} Satz${sets.length == 1 ? "" : "e"} erfasst',
+                context.l10n.recordedSets(sets.length),
                 style: textTheme.bodySmall
                     ?.copyWith(color: scheme.onSurfaceVariant),
               ),
@@ -683,7 +680,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
             // Input for next set
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text('Satz ${sets.length + 1}',
+              child: Text(context.l10n.setNumber(sets.length + 1),
                   style: textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w600)),
             ),
@@ -696,8 +693,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                     TextField(
                       controller: _repsCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                          labelText: 'Wiederholungen'),
+                      decoration: InputDecoration(labelText: context.l10n.repetitions),
                     ),
                   if (e.trackWeight)
                     Padding(
@@ -706,8 +702,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                         controller: _weightCtrl,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
-                        decoration: const InputDecoration(
-                            labelText: 'Gewicht (kg)'),
+                        decoration: InputDecoration(labelText: context.l10n.weightKilograms),
                       ),
                     ),
                   if (e.trackDistance)
@@ -717,8 +712,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                         controller: _distanceCtrl,
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
-                        decoration: const InputDecoration(
-                            labelText: 'Entfernung (km)'),
+                        decoration: InputDecoration(labelText: context.l10n.distanceKilometers),
                       ),
                     ),
                   if (e.trackDuration)
@@ -732,8 +726,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly
                             ],
-                            decoration:
-                                const InputDecoration(labelText: 'Std'),
+                            decoration: InputDecoration(labelText: context.l10n.hours),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -744,8 +737,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly
                             ],
-                            decoration:
-                                const InputDecoration(labelText: 'Min'),
+                            decoration: InputDecoration(labelText: context.l10n.minutes),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -756,8 +748,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly
                             ],
-                            decoration:
-                                const InputDecoration(labelText: 'Sek'),
+                            decoration: InputDecoration(labelText: context.l10n.seconds),
                           ),
                         ),
                       ]),
@@ -775,7 +766,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                     height: 48,
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Fertig'),
+                      child: Text(context.l10n.done),
                     ),
                   ),
                 ),
@@ -785,7 +776,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                     height: 48,
                     child: FilledButton(
                       onPressed: _saveCurrentSet,
-                      child: const Text('Satz speichern'),
+                      child: Text(context.l10n.saveSet),
                     ),
                   ),
                 ),
@@ -827,7 +818,7 @@ class _CompletedSetRow extends StatelessWidget {
     }
     if (exercise.trackDuration && data['duration'] != null) {
       parts.add(
-          DurationFormatter.verbose(int.tryParse(data['duration']!) ?? 0));
+          localizedDuration(context, int.tryParse(data['duration']!) ?? 0));
     }
 
     return Padding(

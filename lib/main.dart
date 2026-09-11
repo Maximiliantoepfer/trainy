@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/theme_provider.dart';
@@ -11,6 +10,7 @@ import 'providers/progress_provider.dart';
 import 'providers/cloud_sync_provider.dart';
 import 'providers/active_workout_provider.dart';
 import 'providers/locale_provider.dart';
+import 'l10n/l10n.dart';
 import 'navigation/main_navigation.dart';
 import 'widgets/onboarding_gate.dart';
 
@@ -21,7 +21,7 @@ import 'firebase_options.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await initializeDateFormatting('de_DE');
+  await initializeDateFormatting();
   runApp(const TrainyApp());
 }
 
@@ -55,21 +55,17 @@ class _ThemedApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.watch<ThemeProvider>();
+    final locale = context.watch<LocaleProvider>();
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      onGenerateTitle: (context) => context.l10n.appName,
       theme: AppTheme.light(theme.accent),
       darkTheme: AppTheme.dark(theme.accent),
       themeMode: theme.themeMode,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('de', 'DE'),
-        Locale('en', 'US'),
-      ],
-      locale: const Locale('de', 'DE'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: locale.localeOverride,
+      localeResolutionCallback: resolveAppLocale,
       home: const OnboardingGate(child: _AppLifecycleReactor(child: MainNavigation())),
     );
   }

@@ -8,6 +8,8 @@ import '../providers/exercise_provider.dart';
 import 'chart_data_builder.dart';
 import 'filtered_exercise_progress_chart.dart';
 import 'tap_scale.dart';
+import '../utils/exercise_localization.dart';
+import '../l10n/l10n.dart';
 
 /// Kompakter Mini-Chart für gepinnte oder empfohlene Übung+Metrik-Kombination.
 class PinnedChartCard extends StatefulWidget {
@@ -55,7 +57,7 @@ class _PinnedChartCardState extends State<PinnedChartCard> {
     final series = buildChartSeries(entries, _exerciseId, _metric, '6M');
     if (series.avg.isEmpty) return const SizedBox.shrink();
 
-    final metricLabel = metricDisplayLabel(_metric);
+    final metricLabel = metricDisplayLabel(context, _metric);
 
     return Card(
       elevation: 0,
@@ -97,7 +99,7 @@ class _PinnedChartCardState extends State<PinnedChartCard> {
                                   color: scheme.primary.withValues(alpha: 0.12),
                                 ),
                                 child: Text(
-                                  'Empfehlung',
+                                  context.l10n.recommendation,
                                   style: textTheme.labelSmall?.copyWith(
                                     color: scheme.primary,
                                     fontWeight: FontWeight.w600,
@@ -109,7 +111,7 @@ class _PinnedChartCardState extends State<PinnedChartCard> {
                             ],
                             Flexible(
                               child: Text(
-                                exercise.name,
+                                displayExerciseName(context, exercise),
                                 style: textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -232,6 +234,12 @@ class _PinnedChartCardState extends State<PinnedChartCard> {
                             textColor: scheme.onSurfaceVariant,
                             tooltipBgColor: scheme.surfaceContainerHighest,
                             tooltipTextColor: scheme.onSurface,
+                            localeTag: Localizations.localeOf(context).toLanguageTag(),
+                            hourUnit: context.l10n.hours,
+                            minuteUnit: context.l10n.minutes,
+                            secondUnit: context.l10n.seconds,
+                            minimumLabel: context.l10n.minimum,
+                            maximumLabel: context.l10n.maximum,
                           ),
                         ),
                       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/workout.dart';
 import 'tap_scale.dart';
+import '../l10n/l10n.dart';
 
 class WorkoutCard extends StatelessWidget {
   final Workout workout;
@@ -82,8 +83,8 @@ class WorkoutCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Text(
                             workout.exerciseIds.isNotEmpty
-                                ? '${workout.exerciseIds.length} Übungen'
-                                : 'Keine Übungen',
+                                ? context.l10n.exercisesCount(workout.exerciseIds.length)
+                                : context.l10n.noExercises,
                             style: textTheme.bodyMedium?.copyWith(
                               color: workout.exerciseIds.isEmpty
                                   ? scheme.onSurfaceVariant.withValues(alpha: 0.4)
@@ -96,7 +97,15 @@ class WorkoutCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           (workout.assignedDays.toList()..sort())
-                              .map((d) => const ['Mo','Di','Mi','Do','Fr','Sa','So'][d - 1])
+                              .map((d) => [
+                                context.l10n.monday,
+                                context.l10n.tuesday,
+                                context.l10n.wednesday,
+                                context.l10n.thursday,
+                                context.l10n.friday,
+                                context.l10n.saturday,
+                                context.l10n.sunday,
+                              ][d - 1])
                               .join(', '),
                           style: textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
@@ -115,7 +124,7 @@ class WorkoutCard extends StatelessWidget {
                           onPressed: onPrimaryActionTap,
                           icon: Icon(Icons.delete_outline_rounded,
                             color: scheme.error),
-                          tooltip: 'Löschen',
+                          tooltip: context.l10n.delete,
                         )
                       : Icon(
                           Icons.chevron_right_rounded,

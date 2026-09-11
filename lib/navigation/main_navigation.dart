@@ -3,6 +3,7 @@ import '../screens/home_screen.dart';
 import '../screens/exercise_screen.dart';
 import '../screens/progress_screen.dart';
 import '../screens/settings_screen.dart';
+import '../l10n/l10n.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -39,6 +40,7 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: PageView(
         controller: _pageController,
@@ -71,22 +73,22 @@ class _MainNavigationState extends State<MainNavigation> {
                 NavigationDestination(
                   icon: ImageIcon(AssetImage('assets/icons/web-house.png'), size: 26),
                   selectedIcon: ImageIcon(AssetImage('assets/icons/web-house.png'), size: 26),
-                  label: 'Home',
+                  label: l10n.home,
                 ),
                 NavigationDestination(
                   icon: ImageIcon(AssetImage('assets/icons/hantel.png'), size: 26),
                   selectedIcon: ImageIcon(AssetImage('assets/icons/hantel.png'), size: 26),
-                  label: 'Übungen',
+                  label: l10n.exercises,
                 ),
                 NavigationDestination(
                   icon: ImageIcon(AssetImage('assets/icons/diagramm.png'), size: 26),
                   selectedIcon: ImageIcon(AssetImage('assets/icons/diagramm.png'), size: 26),
-                  label: 'Fortschritt',
+                  label: l10n.progress,
                 ),
                 NavigationDestination(
                   icon: ImageIcon(AssetImage('assets/icons/die-einstellungen.png'), size: 26),
                   selectedIcon: ImageIcon(AssetImage('assets/icons/die-einstellungen.png'), size: 26),
-                  label: 'Mehr',
+                  label: l10n.more,
                 ),
               ],
             ),

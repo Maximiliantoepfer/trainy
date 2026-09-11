@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
 
@@ -11,6 +12,8 @@ import '../widgets/active_workout_banner.dart';
 import '../widgets/app_bar_title.dart';
 import '../widgets/screen_info_dialog.dart';
 import '../providers/active_workout_provider.dart';
+import '../providers/locale_provider.dart';
+import '../l10n/l10n.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -32,19 +35,21 @@ class _SettingsScreenState extends State<SettingsScreen>
     final progress = context.watch<ProgressProvider>();
     final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
     final active = context.watch<ActiveWorkoutProvider>();
+    final locale = context.watch<LocaleProvider>();
+    final l10n = context.l10n;
 
     return Scaffold(
       appBar: AppBar(
-        title: const AppBarTitle('Einstellungen'),
+        title: AppBarTitle(l10n.settings),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline_rounded, size: 20),
             onPressed: () => showScreenInfoDialog(
               context,
-              title: 'Einstellungen',
-              description: 'Passe Trainy an deine Bedürfnisse an. Wähle dein Design, setze Wochenziele und sichere deine Daten in der Cloud.',
+              title: l10n.settings,
+              description: l10n.settingsDescription,
             ),
-            tooltip: 'Info',
+            tooltip: l10n.info,
           ),
         ],
       ),
@@ -63,7 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
 
           // --- Appearance ---
-          _SectionHeader(title: 'Darstellung'),
+          _SectionHeader(title: l10n.appearance),
           const SizedBox(height: 12),
           Card(
             child: Padding(
@@ -71,16 +76,16 @@ class _SettingsScreenState extends State<SettingsScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Design-Modus',
+                  Text(l10n.designMode,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
                   SegmentedButton<ThemeMode>(
                     showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(value: ThemeMode.system, label: Text('System')),
-                      ButtonSegment(value: ThemeMode.light, label: Text('Hell')),
-                      ButtonSegment(value: ThemeMode.dark, label: Text('Dunkel')),
+                    segments: [
+                      ButtonSegment(value: ThemeMode.system, label: Text(l10n.system)),
+                      ButtonSegment(value: ThemeMode.light, label: Text(l10n.light)),
+                      ButtonSegment(value: ThemeMode.dark, label: Text(l10n.dark)),
                     ],
                     selected: {theme.themeMode},
                     onSelectionChanged: (v) {
@@ -93,7 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     },
                   ),
                   const SizedBox(height: 20),
-                  Text('Akzentfarbe',
+                  Text(l10n.accentColor,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
@@ -119,10 +124,47 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
           ),
 
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.language,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: scheme.onSurfaceVariant)),
+                  const SizedBox(height: 12),
+                  SegmentedButton<AppLanguagePreference>(
+                    showSelectedIcon: false,
+                    segments: [
+                      ButtonSegment(
+                        value: AppLanguagePreference.system,
+                        label: Text(l10n.systemLanguage),
+                      ),
+                      ButtonSegment(
+                        value: AppLanguagePreference.german,
+                        label: Text(l10n.german),
+                      ),
+                      ButtonSegment(
+                        value: AppLanguagePreference.english,
+                        label: Text(l10n.english),
+                      ),
+                    ],
+                    selected: {locale.preference},
+                    onSelectionChanged: (value) => context
+                        .read<LocaleProvider>()
+                        .setPreference(value.first),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           const SizedBox(height: 24),
 
           // --- Goals ---
-          _SectionHeader(title: 'Wochenziel'),
+          _SectionHeader(title: l10n.weeklyGoal),
           const SizedBox(height: 12),
           Card(
             child: Padding(
@@ -130,7 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Trainingstage pro Woche',
+                  Text(l10n.trainingDaysPerWeek,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
@@ -154,7 +196,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Trainingstage',
+                  Text(l10n.trainingDays,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 12),
@@ -176,7 +218,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           const SizedBox(height: 24),
 
           // --- Cloud ---
-          _SectionHeader(title: 'Cloud-Backup'),
+          _SectionHeader(title: l10n.cloudBackup),
           const SizedBox(height: 12),
           Card(
             child: Padding(
@@ -188,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Sichere deine Daten in der Cloud.',
+                          context.l10n.cloudBackupDescription,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: scheme.onSurfaceVariant),
                         ),
@@ -198,14 +240,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                           child: FilledButton.icon(
                             onPressed: sync.isBusy ? null : () => _signIn(context),
                             icon: const Icon(Icons.login_rounded),
-                            label: const Text('Mit Google anmelden'),
+                            label: Text(l10n.signInWithGoogle),
                           ),
                         ),
                       ],
                     );
                   }
 
-                  final email = sync.user?.email ?? 'angemeldet';
+                  final email = sync.user?.email ?? context.l10n.signedIn;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -223,14 +265,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                       if (sync.lastSyncMillis > 0) ...[
                         const SizedBox(height: 4),
                         Text(
-                          'Letzte Sicherung: ${_formatSync(sync.lastSyncMillis)}',
+                          context.l10n.lastBackup(_formatSync(context, sync.lastSyncMillis)),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          Expanded(child: Text('Auto-Backup',
+                          Expanded(child: Text(l10n.automaticBackup,
                               style: Theme.of(context).textTheme.bodyMedium)),
                           Switch(
                             value: sync.syncEnabled,
@@ -248,7 +290,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                             child: FilledButton.icon(
                               onPressed: sync.isBusy ? null : () => _backup(context),
                               icon: const Icon(Icons.cloud_upload_outlined),
-                              label: const Text('Sichern'),
+                              label: Text(l10n.backUp),
                             ),
                           )),
                           const SizedBox(width: 10),
@@ -257,7 +299,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                             child: OutlinedButton.icon(
                               onPressed: sync.isBusy ? null : () => _restore(context),
                               icon: const Icon(Icons.cloud_download_outlined),
-                              label: const Text('Laden'),
+                              label: Text(l10n.load),
                             ),
                           )),
                         ],
@@ -269,7 +311,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                           onPressed: sync.isBusy ? null : () =>
                               context.read<CloudSyncProvider>().signOut(),
                           icon: const Icon(Icons.logout_rounded, size: 18),
-                          label: const Text('Abmelden'),
+                          label: Text(l10n.signOut),
                         ),
                       ),
                     ],
@@ -294,7 +336,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Akzentfarbe'),
+        title: Text(ctx.l10n.accentColor),
         content: SingleChildScrollView(
           child: BlockPicker(
             pickerColor: temp,
@@ -303,9 +345,9 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.l10n.cancel)),
           FilledButton(onPressed: () { Navigator.pop(ctx); theme.setAccent(temp); },
-              child: const Text('Übernehmen')),
+              child: Text(ctx.l10n.apply)),
         ],
       ),
     );
@@ -314,9 +356,9 @@ class _SettingsScreenState extends State<SettingsScreen>
   void _showContrastWarning(BuildContext context, ThemeProvider theme) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Deine Akzentfarbe hat wenig Kontrast in diesem Modus.'),
+        content: Text(context.l10n.lowContrast),
         action: SnackBarAction(
-          label: 'Ändern',
+          label: context.l10n.change,
           onPressed: () => _pickAccent(context, theme),
         ),
         duration: const Duration(seconds: 5),
@@ -335,12 +377,12 @@ class _SettingsScreenState extends State<SettingsScreen>
         final choice = await showDialog<String>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Cloud-Backup gefunden'),
-            content: const Text('Ein vorhandenes Backup wurde gefunden.'),
+            title: Text(ctx.l10n.cloudBackupFound),
+            content: Text(ctx.l10n.cloudBackupFoundDescription),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, 'cancel'), child: const Text('Abbrechen')),
-              FilledButton(onPressed: () => Navigator.pop(ctx, 'merge'), child: const Text('Zusammenführen')),
-              TextButton(onPressed: () => Navigator.pop(ctx, 'load'), child: const Text('Backup laden')),
+              TextButton(onPressed: () => Navigator.pop(ctx, 'cancel'), child: Text(ctx.l10n.cancel)),
+              FilledButton(onPressed: () => Navigator.pop(ctx, 'merge'), child: Text(ctx.l10n.merge)),
+              TextButton(onPressed: () => Navigator.pop(ctx, 'load'), child: Text(ctx.l10n.loadBackup)),
             ],
           ),
         );
@@ -350,34 +392,34 @@ class _SettingsScreenState extends State<SettingsScreen>
             await cloud.restoreNow();
             if (!context.mounted) return;
             await _reloadAll(context);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backup geladen')));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.backupLoaded)));
           } catch (e) {
-            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
           }
         } else if (choice == 'merge') {
           try {
             await cloud.mergeFromCloud();
             if (!context.mounted) return;
             await _reloadAll(context);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Zusammengeführt')));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.merged)));
           } catch (e) {
-            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
           }
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Anmeldung erfolgreich')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.signedInSuccessfully)));
       }
     } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
     }
   }
 
   Future<void> _backup(BuildContext context) async {
     try {
       await context.read<CloudSyncProvider>().backupNow();
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backup hochgeladen')));
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.backupUploaded)));
     } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
     }
   }
 
@@ -385,11 +427,11 @@ class _SettingsScreenState extends State<SettingsScreen>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Wiederherstellen?'),
-        content: const Text('Lokale Daten werden durch das Cloud-Backup ersetzt.'),
+        title: Text(ctx.l10n.restoreBackup),
+        content: Text(ctx.l10n.restoreBackupDescription),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Wiederherstellen')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.restore)),
         ],
       ),
     );
@@ -398,10 +440,10 @@ class _SettingsScreenState extends State<SettingsScreen>
       await context.read<CloudSyncProvider>().restoreNow();
       if (context.mounted) {
         await _reloadAll(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wiederhergestellt')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.backupRestoredSuccess)));
       }
     } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
     }
   }
 
@@ -411,10 +453,11 @@ class _SettingsScreenState extends State<SettingsScreen>
     await context.read<ProgressProvider>().loadData();
   }
 
-  String _formatSync(int millis) {
+  String _formatSync(BuildContext context, int millis) {
     final d = DateTime.fromMillisecondsSinceEpoch(millis).toLocal();
-    return '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year} '
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    return DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag())
+        .add_Hm()
+        .format(d);
   }
 }
 
@@ -485,8 +528,6 @@ class _ColorDot extends StatelessWidget {
 }
 
 class _WorkoutScheduleCard extends StatelessWidget {
-  static const _labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -510,7 +551,7 @@ class _WorkoutScheduleCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Trainingsplan',
+            Text(context.l10n.trainingPlan,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: scheme.onSurfaceVariant)),
             const SizedBox(height: 12),
@@ -530,7 +571,15 @@ class _WorkoutScheduleCard extends StatelessWidget {
                     SizedBox(
                       width: 28,
                       child: Text(
-                        _labels[i],
+                        [
+                          context.l10n.monday,
+                          context.l10n.tuesday,
+                          context.l10n.wednesday,
+                          context.l10n.thursday,
+                          context.l10n.friday,
+                          context.l10n.saturday,
+                          context.l10n.sunday,
+                        ][i],
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: showChips
@@ -573,7 +622,7 @@ class _WorkoutScheduleCard extends StatelessWidget {
                               ],
                             )
                           : Text(
-                              'Ruhetag',
+                              context.l10n.restDay,
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                               ),
@@ -595,8 +644,6 @@ class _TrainingDaysPicker extends StatelessWidget {
   final ValueChanged<Set<int>> onChanged;
 
   const _TrainingDaysPicker({required this.selected, required this.onChanged});
-
-  static const _labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
   @override
   Widget build(BuildContext context) {
@@ -635,7 +682,15 @@ class _TrainingDaysPicker extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  _labels[i],
+                  [
+                    context.l10n.monday,
+                    context.l10n.tuesday,
+                    context.l10n.wednesday,
+                    context.l10n.thursday,
+                    context.l10n.friday,
+                    context.l10n.saturday,
+                    context.l10n.sunday,
+                  ][i],
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,

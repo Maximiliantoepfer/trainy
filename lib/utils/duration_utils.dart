@@ -1,3 +1,7 @@
+import 'package:flutter/widgets.dart';
+
+import '../l10n/l10n.dart';
+
 class DurationParts {
   final int hours;
   final int minutes;
@@ -94,4 +98,25 @@ class DurationFormatter {
     if (parsed == null || parsed < 0) return 0;
     return parsed;
   }
+}
+
+/// Formats durations with units from the active, bundled app locale.
+String localizedDuration(BuildContext context, int seconds) {
+  final l10n = context.l10n;
+  if (seconds <= 0) return '0 ${l10n.seconds}';
+  final parts = DurationFormatter.split(seconds);
+  final values = <String>[];
+  if (parts.hours > 0) values.add('${parts.hours} ${l10n.hours}');
+  if (parts.hours > 0 || parts.minutes > 0) {
+    final minutes = parts.hours > 0
+        ? parts.minutes.toString().padLeft(2, '0')
+        : parts.minutes.toString();
+    values.add('$minutes ${l10n.minutes}');
+  }
+  final shouldPadSeconds = parts.hours > 0 || parts.minutes > 0;
+  final secs = shouldPadSeconds
+      ? parts.seconds.toString().padLeft(2, '0')
+      : parts.seconds.toString();
+  values.add('$secs ${l10n.seconds}');
+  return values.join(' ');
 }

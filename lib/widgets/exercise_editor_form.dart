@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/goal_utils.dart';
+import '../l10n/l10n.dart';
 
 class ExerciseEditorForm extends StatelessWidget {
   final TextEditingController nameCtrl;
@@ -40,15 +41,16 @@ class ExerciseEditorForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
           controller: nameCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Name',
-            hintText: 'z. B. Bankdrücken',
+          decoration: InputDecoration(
+            labelText: l10n.exerciseName,
+            hintText: l10n.standardExerciseName('kraft_bankdruecken'),
           ),
           autofocus: autofocusName,
           onChanged: (_) => onChanged?.call(),
@@ -56,8 +58,8 @@ class ExerciseEditorForm extends StatelessWidget {
         const SizedBox(height: 12),
         TextField(
           controller: descCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Beschreibung (optional)',
+          decoration: InputDecoration(
+            labelText: '${l10n.description} (${l10n.optional})',
           ),
           minLines: 1,
           maxLines: 3,
@@ -66,7 +68,7 @@ class ExerciseEditorForm extends StatelessWidget {
         // Trainingsziel
         const SizedBox(height: 20),
         Text(
-          'Trainingsziel',
+          l10n.exerciseGoal,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
             color: scheme.onSurfaceVariant,
           ),
@@ -80,7 +82,7 @@ class ExerciseEditorForm extends StatelessWidget {
             children: [
               for (final g in exerciseGoals)
                 ChoiceChip(
-                  label: Text(g),
+                  label: Text(goalLabel(context, g)),
                   selected: currentGoal == g,
                   avatar: currentGoal == g
                       ? null
@@ -97,7 +99,7 @@ class ExerciseEditorForm extends StatelessWidget {
         // Tracking
         const SizedBox(height: 20),
         Text(
-          'Tracking',
+          l10n.tracking,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
             color: scheme.onSurfaceVariant,
           ),
@@ -108,33 +110,33 @@ class ExerciseEditorForm extends StatelessWidget {
           runSpacing: 8,
           children: [
             ChoiceChip(
-              label: const Text('Standard'),
+              label: Text(l10n.standard),
               selected: false,
               onSelected: (_) => _applyPreset(true, true, true, false),
             ),
             ChoiceChip(
-              label: const Text('Körpergewicht'),
+              label: Text(l10n.bodyweight),
               selected: false,
               onSelected: (_) => _applyPreset(true, true, false, false),
             ),
             ChoiceChip(
-              label: const Text('Sätze + Dauer'),
+              label: Text(l10n.setsAndDuration),
               selected: false,
               onSelected: (_) => _applyPreset(true, false, false, true),
             ),
             ChoiceChip(
-              label: const Text('Cardio'),
+              label: Text(l10n.goalLabel('cardio')),
               selected: false,
               onSelected: (_) => _applyPreset(false, false, false, true, dist: true),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        _toggleRow(context, 'Sätze', trackSets),
-        _toggleRow(context, 'Wiederholungen', trackReps),
-        _toggleRow(context, 'Gewicht', trackWeight),
-        _toggleRow(context, 'Entfernung', trackDistance),
-        _toggleRow(context, 'Dauer', trackDuration),
+        _toggleRow(context, l10n.sets, trackSets),
+        _toggleRow(context, l10n.repetitions, trackReps),
+        _toggleRow(context, l10n.weight, trackWeight),
+        _toggleRow(context, l10n.distance, trackDistance),
+        _toggleRow(context, l10n.duration, trackDuration),
       ],
     );
   }

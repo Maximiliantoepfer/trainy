@@ -6,6 +6,7 @@ import '../providers/cloud_sync_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/workout_provider.dart';
 import '../providers/progress_provider.dart';
+import '../l10n/l10n.dart';
 
 class OnboardingGate extends StatefulWidget {
   final Widget child;
@@ -42,19 +43,17 @@ class _OnboardingGateState extends State<OnboardingGate> {
       barrierDismissible: true,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Cloud-Backup einrichten?'),
-            content: const Text(
-              'Du kannst dich anmelden, um deine Trainingsdaten sicher in der Cloud zu sichern und zwischen Geräten zu synchronisieren. Das ist optional (Local-First).',
-            ),
+            title: Text(ctx.l10n.setUpCloudBackup),
+            content: Text(ctx.l10n.setUpCloudBackupDescription),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, 'skip'),
-                child: const Text('Ohne Cloud fortfahren'),
+                child: Text(ctx.l10n.continueWithoutCloud),
               ),
               FilledButton.icon(
                 onPressed: () => Navigator.pop(ctx, 'login'),
                 icon: const Icon(Icons.login),
-                label: const Text('Mit Google anmelden'),
+                label: Text(ctx.l10n.signInWithGoogle),
               ),
             ],
           ),
@@ -76,22 +75,20 @@ class _OnboardingGateState extends State<OnboardingGate> {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Cloud-Backup gefunden'),
-            content: const Text(
-              'Es gibt bereits ein Cloud-Backup für diesen Account. Wie möchtest du fortfahren?',
-            ),
+            title: Text(ctx.l10n.cloudBackupFound),
+            content: Text(ctx.l10n.cloudBackupAccountFoundDescription),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, 'skip'),
-                child: const Text('Nicht laden'),
+                child: Text(ctx.l10n.doNotLoad),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, 'load'),
-                child: const Text('Backup laden (ersetzen)'),
+                child: Text(ctx.l10n.loadAndReplace),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, 'merge'),
-                child: const Text('Zusammenführen (empfohlen)'),
+                child: Text(ctx.l10n.mergeRecommended),
               ),
             ],
           ),
@@ -103,13 +100,13 @@ class _OnboardingGateState extends State<OnboardingGate> {
         if (!context.mounted) return;
         await _reloadProviders(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mit Cloud zusammengefhrt')),
+          SnackBar(content: Text(context.l10n.merged)),
         );
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+          ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
         }
       }
     } else if (choice == 'load') {
@@ -119,12 +116,12 @@ class _OnboardingGateState extends State<OnboardingGate> {
         await _reloadProviders(context);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Backup geladen')));
+        ).showSnackBar(SnackBar(content: Text(context.l10n.backupLoaded)));
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+          ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
         }
       }
     } else if (choice == 'skip') {
@@ -133,18 +130,16 @@ class _OnboardingGateState extends State<OnboardingGate> {
         context: context,
         builder:
             (ctx2) => AlertDialog(
-              title: const Text('Cloud berschreiben?'),
-              content: const Text(
-                'Alle alten Daten des Cloud-Backups gehen verloren. Fortfahren?',
-              ),
+              title: Text(ctx2.l10n.cloudOverwrite),
+              content: Text(ctx2.l10n.cloudOverwriteDescription),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx2, false),
-                  child: const Text('Abbrechen'),
+                  child: Text(ctx2.l10n.cancel),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.pop(ctx2, true),
-                  child: const Text('Ja, berschreiben'),
+                  child: Text(ctx2.l10n.overwrite),
                 ),
               ],
             ),
@@ -154,14 +149,14 @@ class _OnboardingGateState extends State<OnboardingGate> {
           await cloud.backupNow();
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Cloud-Backup aktualisiert')),
+              SnackBar(content: Text(context.l10n.cloudBackupUpdated)),
             );
           }
         } catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(
               context,
-            ).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+            ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
           }
         }
       }

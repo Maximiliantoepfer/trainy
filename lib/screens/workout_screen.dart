@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
 import '../models/exercise.dart';
+import '../utils/exercise_localization.dart';
 import '../providers/workout_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../providers/exercise_provider.dart';
@@ -15,6 +16,7 @@ import '../widgets/exercise_editor_sheet.dart';
 import '../utils/goal_utils.dart';
 import '../utils/utils.dart';
 import 'workout_run_screen.dart';
+import '../l10n/l10n.dart';
 
 const Duration _kWorkoutAnim = Duration(milliseconds: 200);
 
@@ -125,12 +127,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               context: ctx,
               builder:
                   (_) => AlertDialog(
-                    title: const Text('Name fehlt'),
-                    content: const Text('Bitte einen Namen eingeben'),
+                    title: Text(ctx.l10n.nameMissing),
+                    content: Text(ctx.l10n.enterName),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx),
-                        child: const Text('OK'),
+                        child: Text(ctx.l10n.ok),
                       ),
                     ],
                   ),
@@ -161,7 +163,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             Navigator.pop(ctx);
             ScaffoldMessenger.of(rootContext).showSnackBar(
               SnackBar(
-                content: Text('„$name" wurde erstellt und hinzugefügt'),
+                content: Text(rootContext.l10n.workoutCreatedAndAdded(name)),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -181,7 +183,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     final scheme = Theme.of(ctx).colorScheme;
                     final filteredAll = searchQuery.isEmpty
                         ? all
-                        : all.where((e) => e.name.toLowerCase().contains(searchQuery.toLowerCase())
+                        : all.where((e) => displayExerciseName(context, e).toLowerCase().contains(searchQuery.toLowerCase())
+                            || e.name.toLowerCase().contains(searchQuery.toLowerCase())
                             || e.mergedAliases.any((a) => a.toLowerCase().contains(searchQuery.toLowerCase()))).toList();
 
                     return Column(
@@ -192,7 +195,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           child: Row(
                             children: [
                               Text(
-                                'Übungen hinzufügen',
+                                ctx.l10n.addExercises,
                                 style: Theme.of(ctx).textTheme.titleLarge,
                               ),
                             ],
@@ -217,7 +220,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                               unselectedLabelColor: scheme.onSurfaceVariant,
                               labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                               unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                              tabs: const [Tab(text: 'Vorhandene'), Tab(text: 'Neu erstellen')],
+                              tabs: [
+                                Tab(text: ctx.l10n.addExistingExercises),
+                                Tab(text: ctx.l10n.createNewExercise),
+                              ],
                               onTap: (_) => modalSetState(() {}),
                             ),
                           ),
@@ -233,7 +239,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                                     child: TextField(
                                       decoration: InputDecoration(
-                                        hintText: 'Übung suchen...',
+                                        hintText: ctx.l10n.searchExercises,
                                         prefixIcon: const Icon(Icons.search_rounded),
                                         suffixIcon: searchQuery.isNotEmpty
                                             ? IconButton(
@@ -253,11 +259,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                       itemBuilder: (_, i) {
                                         final e = filteredAll[i];
                                         final subtitle = <String>[];
-                                        if (e.trackSets) subtitle.add('Sätze');
-                                        if (e.trackReps) subtitle.add('Wdh.');
-                                        if (e.trackWeight) subtitle.add('Gewicht');
-                                        if (e.trackDistance) subtitle.add('Entfernung');
-                                        if (e.trackDuration) subtitle.add('Dauer');
+                                        if (e.trackSets) subtitle.add(ctx.l10n.sets);
+                                        if (e.trackReps) subtitle.add(ctx.l10n.repetitions);
+                                        if (e.trackWeight) subtitle.add(ctx.l10n.weight);
+                                        if (e.trackDistance) subtitle.add(ctx.l10n.distance);
+                                        if (e.trackDuration) subtitle.add(ctx.l10n.duration);
                                         final subtitleText = subtitle.join(' · ');
                                         final alias = matchingAlias(e, searchQuery);
                                         final cScheme = Theme.of(context).colorScheme;
@@ -277,7 +283,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                               children: [
                                                 Flexible(
                                                   child: Text(
-                                                    e.name,
+                                                    displayExerciseName(context, e),
                                                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                                       fontSize: 18,
                                                       fontWeight: FontWeight.w800,
@@ -286,7 +292,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                 ),
                                                 if (e.goal != null) ...[
                                                   const SizedBox(width: 8),
-                                                  goalBadge(e.goal!, cScheme),
+                                                  goalBadge(context, e.goal!, cScheme),
                                                 ],
                                               ],
                                             ),
@@ -295,7 +301,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                               children: [
                                                 if (subtitleText.isNotEmpty) Text(subtitleText),
                                                 if (alias != null)
-                                                  Text('ehem. $alias',
+                                                  Text(ctx.l10n.formerName(alias),
                                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                                       fontStyle: FontStyle.italic,
                                                       color: cScheme.onSurfaceVariant.withValues(alpha: 0.6),
@@ -363,7 +369,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                       height: 48,
                                       child: OutlinedButton(
                                         onPressed: () => Navigator.pop(ctx),
-                                        child: const Text('Abbrechen'),
+                                        child: Text(ctx.l10n.cancel),
                                       ),
                                     ),
                                   ),
@@ -394,9 +400,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                               createAndAttach()
                                                           : null,
                                                   icon: const Icon(Icons.add),
-                                                  label: const Text(
-                                                    'Erstellen',
-                                                  ),
+                                                  label: Text(ctx.l10n.create),
                                                 )
                                                 : FilledButton(
                                                   key: const ValueKey(
@@ -423,9 +427,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                     ScaffoldMessenger.of(
                                                       rootContext,
                                                     ).showSnackBar(
-                                                      const SnackBar(
+                                                      SnackBar(
                                                         content: Text(
-                                                          'Übungen hinzugefügt',
+                                                          rootContext.l10n.exercisesAdded,
                                                         ),
                                                         behavior:
                                                             SnackBarBehavior
@@ -434,9 +438,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                     );
                                                   }
                                                 },
-                                                child: const Text(
-                                                  'Hinzufügen',
-                                                ),
+                                                child: Text(ctx.l10n.add),
                                               ),
                                       ),
                                     ),
@@ -465,16 +467,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Workout umbenennen'),
+            title: Text(ctx.l10n.renameWorkout),
             content: TextField(
               controller: ctrl,
-              decoration: const InputDecoration(labelText: 'Workout-Name'),
+              decoration: InputDecoration(labelText: ctx.l10n.workoutName),
               autofocus: true,
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Abbrechen'),
+                child: Text(ctx.l10n.cancel),
               ),
               FilledButton(
                 onPressed: () {
@@ -484,7 +486,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                           : widget.workout.name;
                   Navigator.pop(ctx);
                 },
-                child: const Text('Speichern'),
+                child: Text(ctx.l10n.save),
               ),
             ],
           ),
@@ -594,7 +596,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('Entfernen', style: TextStyle(
+                            Text(context.l10n.remove, style: TextStyle(
                               color: scheme.onSecondaryContainer,
                               fontWeight: FontWeight.w600,
                             )),
@@ -642,7 +644,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                     children: [
                                                       Flexible(
                                                         child: Text(
-                                                          e?.name ?? 'Gelöschte Übung ($id)',
+                                                          e != null
+                                                              ? displayExerciseName(context, e)
+                                                              : context.l10n.deletedExercise(id),
                                                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                                             fontWeight: FontWeight.w700,
                                                           ),
@@ -650,20 +654,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                       ),
                                                       if (e?.goal != null) ...[
                                                         const SizedBox(width: 8),
-                                                        goalBadge(e!.goal!, scheme),
+                                                        goalBadge(context, e!.goal!, scheme),
                                                       ],
                                                     ],
                                                   ),
                                                   const SizedBox(height: 2),
                                                   Text(
                                                     e == null
-                                                        ? 'Nicht mehr vorhanden'
+                                                        ? context.l10n.notAvailable
                                                         : [
-                                                            if (e.trackSets) 'Sätze',
-                                                            if (e.trackReps) 'Wdh.',
-                                                            if (e.trackWeight) 'Gewicht',
-                                                            if (e.trackDistance) 'Entfernung',
-                                                            if (e.trackDuration) 'Dauer',
+                                                            if (e.trackSets) context.l10n.sets,
+                                                            if (e.trackReps) context.l10n.repetitions,
+                                                            if (e.trackWeight) context.l10n.weight,
+                                                            if (e.trackDistance) context.l10n.distance,
+                                                            if (e.trackDuration) context.l10n.duration,
                                                           ].join(' · '),
                                                     style: Theme.of(context).textTheme.bodySmall,
                                                   ),
@@ -736,7 +740,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               }
             },
             icon: const Icon(Icons.play_arrow_rounded),
-            label: Text(isThisActive ? 'Fortsetzen' : 'Start'),
+            label: Text(isThisActive ? ctx.l10n.continueWorkout : ctx.l10n.start),
           );
         },
       ),
@@ -747,7 +751,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           child: FilledButton.tonalIcon(
             onPressed: _addExercisesBottomSheet,
             icon: const Icon(Icons.add),
-            label: const Text('Weitere Übungen hinzufügen'),
+            label: Text(context.l10n.additionalExercises),
           ),
         ),
       ),
@@ -774,16 +778,16 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Noch keine Übungen',
+              context.l10n.noExercises,
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
-            const Text('Füge Übungen hinzu, um dein Workout zu starten.'),
+            Text(context.l10n.addExercisesToStart),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: onAdd,
               icon: const Icon(Icons.add),
-              label: const Text('Übungen hinzufügen'),
+              label: Text(context.l10n.addExercises),
             ),
           ],
         ),
@@ -797,8 +801,6 @@ class _DayAssignmentRow extends StatelessWidget {
   final Set<int> assignedDays;
   final void Function(int day) onToggle;
   const _DayAssignmentRow({required this.assignedDays, required this.onToggle});
-
-  static const _labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
   @override
   Widget build(BuildContext context) {
@@ -823,7 +825,15 @@ class _DayAssignmentRow extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: Text(
-                _labels[i],
+                [
+                  context.l10n.monday,
+                  context.l10n.tuesday,
+                  context.l10n.wednesday,
+                  context.l10n.thursday,
+                  context.l10n.friday,
+                  context.l10n.saturday,
+                  context.l10n.sunday,
+                ][i],
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,

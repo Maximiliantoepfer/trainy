@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../utils/duration_utils.dart';
 import '../screens/workout_run_screen.dart';
+import '../l10n/l10n.dart';
 
 class ActiveWorkoutBanner extends StatelessWidget {
   const ActiveWorkoutBanner({super.key});
@@ -19,7 +20,7 @@ class ActiveWorkoutBanner extends StatelessWidget {
     final workout = active.workout!;
 
     return Semantics(
-      label: 'Aktives Workout: ${workout.name}. Tippen zum Fortsetzen.',
+      label: context.l10n.activeWorkoutBanner(workout.name),
       button: true,
       child: Material(
         color: scheme.primaryContainer,

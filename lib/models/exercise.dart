@@ -25,6 +25,12 @@ class Exercise {
   /// Trainingsziel (z. B. "Kraft", "Ausdauer", "Cardio", "Mobilität")
   final String? goal;
 
+  /// Stable key for a bundled catalog exercise. Null means user-created.
+  final String? standardKey;
+
+  /// A catalog exercise retains its localized name until the user changes it.
+  final bool isNameCustom;
+
   /// Namen zusammengeführter Übungen (in-memory, aus merge_history geladen).
   final List<String> mergedAliases;
 
@@ -42,6 +48,8 @@ class Exercise {
     required this.units,
     required this.icon,
     this.goal,
+    this.standardKey,
+    this.isNameCustom = true,
     this.mergedAliases = const [],
   });
 
@@ -59,6 +67,8 @@ class Exercise {
     Map<String, String>? units,
     int? icon,
     String? goal,
+    String? standardKey,
+    bool? isNameCustom,
     List<String>? mergedAliases,
   }) {
     return Exercise(
@@ -75,6 +85,8 @@ class Exercise {
       units: units ?? this.units,
       icon: icon ?? this.icon,
       goal: goal ?? this.goal,
+      standardKey: standardKey ?? this.standardKey,
+      isNameCustom: isNameCustom ?? this.isNameCustom,
       mergedAliases: mergedAliases ?? this.mergedAliases,
     );
   }

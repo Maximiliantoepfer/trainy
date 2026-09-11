@@ -27,6 +27,8 @@ class ExerciseDatabase {
     Map<String, String>? units,
     int? icon,
     String? goal,
+    String? standardKey,
+    bool? isNameCustom,
   }) async {
     // Dedup: Bei neuer Übung prüfen, ob identische schon existiert
     if (id == null) {
@@ -39,6 +41,18 @@ class ExerciseDatabase {
       if (existingId != null) return existingId;
     }
 
+    Map<String, Object?>? existing;
+    if (id != null) {
+      final rows = await (await _db).query(
+        'exercises',
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isNotEmpty) existing = rows.first;
+    }
+    final existingStandardKey = existing?['standardKey'] as String?;
+    final existingName = existing?['name'] as String?;
     final exerciseId = id ?? DateTime.now().millisecondsSinceEpoch;
     final e = Exercise(
       id: exerciseId,
@@ -54,6 +68,11 @@ class ExerciseDatabase {
       units: units ?? const {},
       icon: icon,
       goal: goal,
+      standardKey: standardKey ?? existingStandardKey,
+      isNameCustom: isNameCustom ??
+          (existingStandardKey != null && existingName != name
+              ? true
+              : ((existing?['isNameCustom'] as num?)?.toInt() == 1)),
     );
     await upsertExercise(e);
     return exerciseId;
@@ -79,6 +98,8 @@ class ExerciseDatabase {
       'units': jsonEncode(e.units),
       'icon': e.icon,
       'goal': e.goal,
+      'standardKey': e.standardKey,
+      'isNameCustom': e.isNameCustom ? 1 : 0,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -191,6 +212,7 @@ class ExerciseDatabase {
   /// angelegt wird.
   Future<void> ensureStandardExercises() async {
     final db = await _db;
+    await _reconcileLegacyCatalog(db);
     // Alle Namen einmal laden für Guard B (Unicode-sicher, SQLite LOWER() handelt nur ASCII)
     final allNames = (await db.query('exercises', columns: ['name']))
         .map((r) => (r['name'] as String).toLowerCase())
@@ -232,9 +254,34 @@ class ExerciseDatabase {
         trackDuration: std.trackDuration,
         trackDistance: std.trackDistance,
         goal: std.goal,
+        standardKey: std.key,
+        isNameCustom: false,
       );
       await db.insert('seeded_standards', {'key': std.key});
       allNames.add(std.name.toLowerCase());
+    }
+  }
+
+  /// Links old, unmodified German seed data to a stable catalog key. We only
+  /// touch an exact, unambiguous name match. This also covers old backups,
+  /// which did not contain the `seeded_standards` bookkeeping table.
+  /// Renamed and custom exercises retain their own names because they cannot
+  /// match a catalog name exactly.
+  Future<void> _reconcileLegacyCatalog(Database db) async {
+    for (final std in standardExercises) {
+      final matches = await db.query(
+        'exercises',
+        columns: ['id'],
+        where: 'name = ? AND standardKey IS NULL',
+        whereArgs: [std.name],
+      );
+      if (matches.length != 1) continue;
+      await db.update(
+        'exercises',
+        {'standardKey': std.key, 'isNameCustom': 0, 'goal': std.goal},
+        where: 'id = ?',
+        whereArgs: [matches.first['id']],
+      );
     }
   }
 
@@ -428,6 +475,8 @@ class ExerciseDatabase {
       units: _toStrMap(units),
       icon: r['icon'] as int?,
       goal: r['goal'] as String?,
+      standardKey: r['standardKey'] as String?,
+      isNameCustom: ((r['isNameCustom'] as num?)?.toInt() ?? 1) == 1,
     );
   }
 }

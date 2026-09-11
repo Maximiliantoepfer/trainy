@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 
 import '../utils/duration_utils.dart';
+import '../l10n/l10n.dart';
 
 class WorkoutSuccessScreen extends StatefulWidget {
   final String workoutName;
@@ -101,7 +102,7 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'Workout abgeschlossen!',
+                      context.l10n.workoutCompleted,
                       style: textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -131,16 +132,16 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
                           children: [
                             _StatChip(
                               icon: Icon(Icons.timer_outlined, size: 16, color: scheme.onSurfaceVariant),
-                              label: DurationFormatter.verbose(widget.durationSeconds),
+                              label: localizedDuration(context, widget.durationSeconds),
                             ),
                             _StatChip(
                               icon: ImageIcon(const AssetImage('assets/icons/hantel.png'), size: 16, color: scheme.onSurfaceVariant),
-                              label: '${widget.exerciseCount} Übungen',
+                              label: context.l10n.exercisesCount(widget.exerciseCount),
                             ),
                             if (widget.totalSets > 0)
                               _StatChip(
                                 icon: Icon(Icons.layers_rounded, size: 16, color: scheme.onSurfaceVariant),
-                                label: '${widget.totalSets} Sätze',
+                                label: context.l10n.setsCount(widget.totalSets),
                               ),
                           ],
                         ),
@@ -152,7 +153,7 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOut,
                       child: Text(
-                        'Starke Leistung!',
+                        context.l10n.greatWork,
                         style: textTheme.titleMedium?.copyWith(
                           color: scheme.tertiary,
                           fontWeight: FontWeight.w600,
@@ -173,7 +174,7 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
                           height: 48,
                           child: FilledButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('Fertig'),
+                            child: Text(context.l10n.done),
                           ),
                         ),
                       ),

@@ -17,6 +17,7 @@ import '../widgets/motivational_quote_card.dart';
 import '../providers/active_workout_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../models/exercise.dart';
+import '../l10n/l10n.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,17 +57,17 @@ class _HomeScreenState extends State<HomeScreen>
     String? name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Neues Workout'),
+        title: Text(ctx.l10n.newWorkout),
         content: Form(
           key: formKey,
           child: TextFormField(
             controller: controller,
             autofocus: true,
-            decoration: const InputDecoration(
-              hintText: 'Workout-Name',
+            decoration: InputDecoration(
+              hintText: ctx.l10n.workoutName,
             ),
             validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Bitte Namen eingeben';
+              if (v == null || v.trim().isEmpty) return ctx.l10n.nameRequired;
               return null;
             },
             onFieldSubmitted: (_) {
@@ -79,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Abbrechen'),
+            child: Text(ctx.l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -87,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen>
                 Navigator.of(ctx).pop(controller.text.trim());
               }
             },
-            child: const Text('Erstellen'),
+            child: Text(ctx.l10n.create),
           ),
         ],
       ),
@@ -111,12 +112,12 @@ class _HomeScreenState extends State<HomeScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Workout löschen?'),
-        content: Text('„${workout.name}" wird endgültig gelöscht.'),
+        title: Text(ctx.l10n.deleteWorkout),
+        content: Text(ctx.l10n.deleteWorkoutConfirmation(workout.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Abbrechen'),
+            child: Text(ctx.l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -124,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen>
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Löschen'),
+            child: Text(ctx.l10n.delete),
           ),
         ],
       ),
@@ -138,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() => _selectedWorkoutId = null);
     try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('„${workout.name}" gelöscht')),
+      SnackBar(content: Text(context.l10n.workoutDeleted(workout.name))),
     );
   }
 
@@ -170,8 +171,8 @@ class _HomeScreenState extends State<HomeScreen>
 
     if (list.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Keine Übungen im Workout'),
+        SnackBar(
+          content: Text(context.l10n.noExercisesInWorkout),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -229,10 +230,10 @@ class _HomeScreenState extends State<HomeScreen>
               icon: const Icon(Icons.info_outline_rounded, size: 20),
               onPressed: () => showScreenInfoDialog(
                 context,
-                title: 'Trainy',
-                description: 'Dein Dashboard auf einen Blick. Hier siehst du deine Wochenübersicht, geplante Workouts und kannst direkt ein Training starten.',
+                title: context.l10n.appName,
+                description: context.l10n.homeDescription,
               ),
-              tooltip: 'Info',
+              tooltip: context.l10n.info,
             ),
             Padding(
               padding: const EdgeInsets.only(right: 20),
@@ -244,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen>
                       initialDate: _selectedDate,
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2030),
-                      locale: const Locale('de', 'DE'),
+                      locale: Localizations.localeOf(context),
                     );
                     if (picked != null) {
                       setState(() => _selectedDate = picked);
@@ -254,7 +255,8 @@ class _HomeScreenState extends State<HomeScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        DateFormat('d. MMMM', 'de_DE').format(_selectedDate),
+                        DateFormat('d. MMMM', Localizations.localeOf(context).toLanguageTag())
+                            .format(_selectedDate),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -328,8 +330,12 @@ class _HomeScreenState extends State<HomeScreen>
                   _selectedDate.month == now.month &&
                   _selectedDate.day == now.day;
               final dayLabel = isToday
-                  ? 'Heutiges Training'
-                  : '${DateFormat.EEEE('de_DE').format(_selectedDate)}-Training';
+                  ? context.l10n.todayWorkout
+                  : context.l10n.trainingForDay(
+                      DateFormat.EEEE(
+                        Localizations.localeOf(context).toLanguageTag(),
+                      ).format(_selectedDate),
+                    );
 
               return Column(
                 children: [
@@ -474,7 +480,7 @@ class _TodaysWorkoutCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
-                        Text('${w.exerciseIds.length} Übungen',
+                        Text(context.l10n.exercisesCount(w.exerciseIds.length),
                           style: textTheme.bodyMedium?.copyWith(
                             color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
                           )),
@@ -485,7 +491,7 @@ class _TodaysWorkoutCard extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: () => onStart(w),
                     icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text("Los geht's"),
+                    label: Text(context.l10n.getStarted),
                     style: FilledButton.styleFrom(
                       backgroundColor: scheme.primary,
                       foregroundColor: scheme.onPrimary,
@@ -559,7 +565,7 @@ class _TodaysWorkoutCard extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              Text('${w.exerciseIds.length} Übungen',
+                              Text(context.l10n.exercisesCount(w.exerciseIds.length),
                                 style: textTheme.bodySmall?.copyWith(
                                   color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
                                 )),
@@ -615,11 +621,11 @@ class _EmptyState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Text('Noch keine Workouts',
+            Text(context.l10n.noWorkouts,
               style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              'Erstelle Workouts, füge Übungen hinzu und tracke deinen Fortschritt.',
+              context.l10n.createFirstWorkout,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
@@ -629,7 +635,7 @@ class _EmptyState extends StatelessWidget {
             FilledButton.icon(
               onPressed: onCreateWorkout,
               icon: const Icon(Icons.add),
-              label: const Text('Erstes Workout erstellen'),
+              label: Text(context.l10n.firstWorkout),
             ),
           ],
         ),
@@ -668,7 +674,15 @@ class _WeeklyOverviewCard extends StatelessWidget {
     final goalReached = doneCount >= weeklyGoal;
     final today = DateTime.now().weekday;
 
-    const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    final labels = [
+      context.l10n.monday,
+      context.l10n.tuesday,
+      context.l10n.wednesday,
+      context.l10n.thursday,
+      context.l10n.friday,
+      context.l10n.saturday,
+      context.l10n.sunday,
+    ];
 
     return Card(
       child: Padding(
@@ -678,7 +692,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text(isCurrentWeek ? 'Diese Woche' : 'Wochenübersicht',
+                Text(isCurrentWeek ? context.l10n.thisWeek : context.l10n.weekOverview,
                   style: Theme.of(context).textTheme.titleLarge),
                 const Spacer(),
                 Container(
@@ -765,7 +779,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
                   const AnimatedFlameIcon(size: 28),
                   const SizedBox(width: 8),
                   Text(
-                    '$streak Trainings in Folge',
+                    context.l10n.workoutsInARow(streak),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: const Color(0xFFFF6D00),
                       fontWeight: FontWeight.w700,
@@ -830,7 +844,14 @@ class _DayDot extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Semantics(
-        label: '$label: ${done ? "trainiert" : isTrainingDay ? "geplant" : "Ruhetag"}',
+        label: context.l10n.dayStatus(
+          label,
+          done
+              ? context.l10n.trained
+              : isTrainingDay
+                  ? context.l10n.planned
+                  : context.l10n.restDay,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -923,7 +944,7 @@ class _BackdatePickerCard extends StatelessWidget {
                           color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
                         )),
                       const SizedBox(height: 4),
-                      Text('Workout nachtragen',
+                      Text(context.l10n.backdateWorkout,
                         style: textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: scheme.onPrimaryContainer,
@@ -945,8 +966,8 @@ class _BackdatePickerCard extends StatelessWidget {
     final workouts = context.read<WorkoutProvider>().workouts;
     if (workouts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Keine Workouts vorhanden'),
+        SnackBar(
+          content: Text(context.l10n.noWorkoutsAvailable),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -965,7 +986,7 @@ class _BackdatePickerCard extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text('Workout auswählen',
+                child: Text(ctx.l10n.selectWorkout,
                     style: Theme.of(ctx).textTheme.titleLarge),
               ),
               const SizedBox(height: 16),
@@ -987,7 +1008,7 @@ class _BackdatePickerCard extends StatelessWidget {
                   ),
                 ),
                 title: Text(w.name),
-                subtitle: Text('${w.exerciseIds.length} Übungen'),
+                subtitle: Text(ctx.l10n.exercisesCount(w.exerciseIds.length)),
                 trailing: Icon(Icons.chevron_right_rounded,
                     color: scheme.onSurfaceVariant),
                 onTap: () {

@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../models/workout_entry.dart';
+import '../l10n/l10n.dart';
 
 // ── Data Models ──────────────────────────────────────────────────────────────
 
@@ -10,14 +11,12 @@ class ChartPoint {
   final double y;
   final double? yMin; // nur bei avg-Points mit Varianz
   final double? yMax;
-  final String? label; // vorformatiert für Tooltip
 
   const ChartPoint(
     this.t,
     this.y, {
     this.yMin,
     this.yMax,
-    this.label,
   });
 }
 
@@ -87,7 +86,7 @@ ChartSeries buildChartSeries(
     '1M' => DateTime(now.year, now.month - 1, now.day),
     '3M' => DateTime(now.year, now.month - 3, now.day),
     '6M' => DateTime(now.year, now.month - 6, now.day),
-    '1J' => DateTime(now.year - 1, now.month, now.day),
+    '1Y' => DateTime(now.year - 1, now.month, now.day),
     _ => null,
   };
 
@@ -104,12 +103,12 @@ ChartSeries buildChartSeries(
     if (metric == 'volume') {
       final v = _computeVolume(m);
       if (v != null && v > 0) {
-        avgPoints.add(ChartPoint(e.date, v, label: formatLabel(v, metric)));
+        avgPoints.add(ChartPoint(e.date, v));
       }
     } else if (metric == 'speed') {
       final v = _computeSpeed(m);
       if (v != null && v > 0) {
-        avgPoints.add(ChartPoint(e.date, v, label: formatLabel(v, metric)));
+        avgPoints.add(ChartPoint(e.date, v));
       }
     } else {
       // Individual metric: extract per-set values for min/max/avg
@@ -191,13 +190,12 @@ void _addMetricPoints(
         avg,
         yMin: vMin,
         yMax: vMax,
-        label: formatLabel(avg, metric),
       ));
 
       // Only add min/max points if there's variance
       if ((vMin - avg).abs() > 0.01 || (vMax - avg).abs() > 0.01) {
-        minOut.add(ChartPoint(date, vMin, label: formatLabel(vMin, metric)));
-        maxOut.add(ChartPoint(date, vMax, label: formatLabel(vMax, metric)));
+        minOut.add(ChartPoint(date, vMin));
+        maxOut.add(ChartPoint(date, vMax));
       }
       return;
     }
@@ -206,63 +204,20 @@ void _addMetricPoints(
   // Fallback: top-level value
   final v = _toDouble(m[metric]);
   if (v != null) {
-    avgOut.add(ChartPoint(date, v, label: formatLabel(v, metric)));
-  }
-}
-
-// ── Label Formatting ─────────────────────────────────────────────────────────
-
-String formatLabel(double value, String metric) {
-  switch (metric) {
-    case 'weight':
-      final iv = value.roundToDouble();
-      if ((value - iv).abs() < 0.01) return '${iv.toStringAsFixed(0)} kg';
-      return '${value.toStringAsFixed(1)} kg';
-    case 'reps':
-      return '${value.round()} Wdh.';
-    case 'duration':
-      final total = value.round();
-      if (total >= 3600) {
-        final h = total ~/ 3600;
-        final m = (total % 3600) ~/ 60;
-        return '${h}h ${m}m';
-      }
-      if (total >= 60) {
-        final m = total ~/ 60;
-        final s = total % 60;
-        return s > 0 ? '${m}m ${s}s' : '$m Min.';
-      }
-      return '$total Sek.';
-    case 'distance':
-      final iv = value.roundToDouble();
-      if ((value - iv).abs() < 0.01) return '${iv.toStringAsFixed(0)} km';
-      return '${value.toStringAsFixed(2)} km';
-    case 'sets':
-      return '${value.round()} Sätze';
-    case 'volume':
-      if (value >= 1000) {
-        return '${(value / 1000).toStringAsFixed(1)} t';
-      }
-      final iv = value.roundToDouble();
-      if ((value - iv).abs() < 0.01) return '${iv.toStringAsFixed(0)} kg';
-      return '${value.toStringAsFixed(0)} kg';
-    case 'speed':
-      return '${value.toStringAsFixed(1)} km/h';
-    default:
-      return value.toStringAsFixed(1);
+    avgOut.add(ChartPoint(date, v));
   }
 }
 
 /// Returns a human-readable label for metric keys.
-String metricDisplayLabel(String metric) {
+String metricDisplayLabel(BuildContext context, String metric) {
   return switch (metric) {
-    'reps' => 'Wdh.',
-    'weight' => 'Gewicht',
-    'distance' => 'Entfernung',
-    'duration' => 'Dauer',
-    'sets' => 'Sätze',
-    'volume' => 'Volumen',
-    'speed' => 'Geschw.',
+    'reps' => context.l10n.repetitions,
+    'weight' => context.l10n.weight,
+    'distance' => context.l10n.distance,
+    'duration' => context.l10n.duration,
+    'sets' => context.l10n.sets,
+    'volume' => context.l10n.volume,
+    'speed' => context.l10n.speed,
     _ => metric,
   };
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n.dart';
+
 void showScreenInfoDialog(
   BuildContext context, {
   required String title,
@@ -13,7 +15,7 @@ void showScreenInfoDialog(
       actions: [
         FilledButton(
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('Verstanden'),
+          child: Text(ctx.l10n.understood),
         ),
       ],
     ),

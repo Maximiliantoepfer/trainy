@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../data/motivational_quotes.dart';
+import '../l10n/l10n.dart';
 
 class MotivationalQuoteCard extends StatelessWidget {
   const MotivationalQuoteCard({super.key});
 
-  MotivationalQuote get _todaysQuote {
+  String get _todaysQuoteKey {
     final now = DateTime.now();
-    final index = (now.day + now.month * 31) % motivationalQuotes.length;
-    return motivationalQuotes[index];
+    final index = (now.day + now.month * 31) % motivationalQuoteKeys.length;
+    return motivationalQuoteKeys[index];
   }
 
   @override
   Widget build(BuildContext context) {
-    final quote = _todaysQuote;
+    final quote = context.l10n.motivationalQuote(_todaysQuoteKey);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -33,7 +34,7 @@ class MotivationalQuoteCard extends StatelessWidget {
                   Icon(Icons.format_quote_rounded,
                       size: 20, color: scheme.onSurfaceVariant),
                   const SizedBox(width: 8),
-                  Text('Spruch des Tages',
+                  Text(context.l10n.quoteOfTheDay,
                       style: textTheme.labelLarge?.copyWith(
                         color: scheme.onSurfaceVariant,
                       )),
@@ -41,23 +42,11 @@ class MotivationalQuoteCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '„${quote.text}"',
+                '„$quote"',
                 style: textTheme.bodyLarge?.copyWith(
                   fontStyle: FontStyle.italic,
                 ),
               ),
-              if (quote.author != null) ...[
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    '— ${quote.author}',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),

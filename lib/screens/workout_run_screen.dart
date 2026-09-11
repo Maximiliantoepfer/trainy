@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
 import '../models/exercise.dart';
+import '../utils/exercise_localization.dart';
 import '../providers/progress_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
@@ -14,6 +15,7 @@ import '../utils/duration_utils.dart';
 import '../utils/goal_utils.dart';
 import '../utils/utils.dart';
 import 'workout_success_screen.dart';
+import '../l10n/l10n.dart';
 
 class WorkoutRunScreen extends StatefulWidget {
   final Workout workout;
@@ -71,13 +73,13 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     final save = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Workout beenden'),
+        title: Text(ctx.l10n.endWorkout),
         content: Text(hasAnySets
-            ? 'Die erfassten Sätze werden gespeichert.'
-            : 'Keine Sätze erfasst. Trotzdem beenden?'),
+            ? ctx.l10n.saveRecordedSets
+            : ctx.l10n.endWithoutSets),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Beenden')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.l10n.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.l10n.endWorkout)),
         ],
       ),
     );
@@ -177,9 +179,9 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     final tracksAny = e.trackSets || e.trackReps || e.trackWeight || e.trackDuration || e.trackDistance;
     if (!tracksAny) {
       await showDialog(context: context, builder: (ctx) => AlertDialog(
-        title: Text(e.name),
-        content: const Text('Keine Felder zum Tracken aktiviert.'),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+        title: Text(displayExerciseName(context, e)),
+        content: Text(ctx.l10n.noTrackingFieldsActive),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.l10n.ok))],
       ));
       return;
     }
@@ -210,48 +212,48 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     final durSecondsCtrl = TextEditingController(text: durationParts.seconds > 0 ? '${durationParts.seconds}' : '');
 
     await showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: Text(e.name),
+      title: Text(displayExerciseName(context, e)),
       content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
         if (e.trackReps)
           TextField(controller: repsCtrl, keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Wiederholungen')),
+            decoration: InputDecoration(labelText: ctx.l10n.repetitions)),
         if (e.trackWeight)
           Padding(padding: const EdgeInsets.only(top: 12),
             child: TextField(controller: weightCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Gewicht (kg)'))),
+              decoration: InputDecoration(labelText: ctx.l10n.weightKilograms))),
         if (e.trackDistance)
           Padding(padding: const EdgeInsets.only(top: 12),
             child: TextField(controller: distanceCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Entfernung (km)'))),
+              decoration: InputDecoration(labelText: ctx.l10n.distanceKilometers))),
         if (e.trackDuration)
           Padding(padding: const EdgeInsets.only(top: 12), child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Dauer', style: Theme.of(ctx).textTheme.labelLarge),
+              Text(ctx.l10n.duration, style: Theme.of(ctx).textTheme.labelLarge),
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(child: TextField(controller: durHoursCtrl,
                   keyboardType: TextInputType.number, textInputAction: TextInputAction.next,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(labelText: 'Std'))),
+                  decoration: InputDecoration(labelText: ctx.l10n.hours))),
                 const SizedBox(width: 8),
                 Expanded(child: TextField(controller: durMinutesCtrl,
                   keyboardType: TextInputType.number, textInputAction: TextInputAction.next,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(labelText: 'Min'))),
+                  decoration: InputDecoration(labelText: ctx.l10n.minutes))),
                 const SizedBox(width: 8),
                 Expanded(child: TextField(controller: durSecondsCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(labelText: 'Sek'))),
+                  decoration: InputDecoration(labelText: ctx.l10n.seconds))),
               ]),
             ],
           )),
       ])),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.l10n.cancel)),
         FilledButton(onPressed: () {
           final entry = <String, String>{};
           if (e.trackReps && repsCtrl.text.trim().isNotEmpty) entry['reps'] = repsCtrl.text.trim();
@@ -267,7 +269,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
             setState(() {});
           }
           Navigator.pop(ctx);
-        }, child: const Text('Speichern')),
+        }, child: Text(ctx.l10n.save)),
       ],
     ));
   }
@@ -299,8 +301,8 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     if (available.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Alle Übungen sind bereits im Workout'),
+        SnackBar(
+          content: Text(context.l10n.allExercisesAlreadyInWorkout),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -322,6 +324,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
             final filtered = searchQuery.isEmpty
                 ? available
                 : available.where((e) =>
+                    displayExerciseName(context, e).toLowerCase().contains(searchQuery.toLowerCase()) ||
                     e.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
                     e.mergedAliases.any((a) => a.toLowerCase().contains(searchQuery.toLowerCase()))).toList();
             return SafeArea(
@@ -331,14 +334,14 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text('Übung hinzufügen',
+                    child: Text(ctx.l10n.addExercise,
                       style: Theme.of(ctx).textTheme.titleLarge),
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: 'Übung suchen...',
+                        hintText: ctx.l10n.searchExercises,
                         prefixIcon: const Icon(Icons.search_rounded),
                         suffixIcon: searchQuery.isNotEmpty
                             ? IconButton(
@@ -362,24 +365,24 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                         return Card(
                           child: ListTile(
                             title: Row(children: [
-                              Flexible(child: Text(e.name)),
+                              Flexible(child: Text(displayExerciseName(context, e))),
                               if (e.goal != null) ...[
                                 const SizedBox(width: 8),
-                                goalBadge(e.goal!, scheme),
+                                goalBadge(context, e.goal!, scheme),
                               ],
                             ]),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text([
-                                  if (e.trackSets) 'Sätze',
-                                  if (e.trackReps) 'Wdh.',
-                                  if (e.trackWeight) 'Gewicht',
-                                  if (e.trackDistance) 'Entfernung',
-                                  if (e.trackDuration) 'Dauer',
+                                  if (e.trackSets) ctx.l10n.sets,
+                                  if (e.trackReps) ctx.l10n.repetitions,
+                                  if (e.trackWeight) ctx.l10n.weight,
+                                  if (e.trackDistance) ctx.l10n.distance,
+                                  if (e.trackDuration) ctx.l10n.duration,
                                 ].join(' · ')),
                                 if (alias != null)
-                                  Text('ehem. $alias',
+                                  Text(ctx.l10n.formerName(alias),
                                     style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                                       fontStyle: FontStyle.italic,
                                       color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
@@ -440,7 +443,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
           ),
           if (_isRunning)
             IconButton(
-              tooltip: active.isPaused ? 'Fortsetzen' : 'Pausieren',
+              tooltip: active.isPaused ? context.l10n.continueWorkout : context.l10n.pause,
               onPressed: () => active.isPaused ? active.resume() : active.pause(),
               icon: Icon(
                 active.isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
@@ -477,7 +480,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                       children: [
                         Icon(Icons.add_rounded, color: scheme.primary),
                         const SizedBox(width: 12),
-                        Text('Übung hinzufügen',
+                        Text(context.l10n.addExercise,
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: scheme.onSurfaceVariant,
                           )),
@@ -514,22 +517,24 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                             children: [
                               Row(
                                 children: [
-                                  Flexible(child: Text(e.name, style: Theme.of(context).textTheme.titleMedium)),
+                                  Flexible(child: Text(displayExerciseName(context, e), style: Theme.of(context).textTheme.titleMedium)),
                                   if (e.goal != null) ...[
                                     const SizedBox(width: 8),
-                                    goalBadge(e.goal!, scheme),
+                                    goalBadge(context, e.goal!, scheme),
                                   ],
                                 ],
                               ),
                               const SizedBox(height: 2),
                               if (hasSets)
-                                Text('${sets.length} Satz${sets.length == 1 ? "" : "e"} erfasst',
+                                Text(context.l10n.recordedSets(sets.length),
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.tertiary))
                               else
                                 Text([
-                                  if (e.trackSets) 'Sätze', if (e.trackReps) 'Wdh.',
-                                  if (e.trackWeight) 'Gewicht', if (e.trackDistance) 'Entfernung',
-                                  if (e.trackDuration) 'Dauer',
+                                  if (e.trackSets) context.l10n.sets,
+                                  if (e.trackReps) context.l10n.repetitions,
+                                  if (e.trackWeight) context.l10n.weight,
+                                  if (e.trackDistance) context.l10n.distance,
+                                  if (e.trackDuration) context.l10n.duration,
                                 ].join(' · '), style: Theme.of(context).textTheme.bodySmall),
                             ],
                           )),
@@ -555,10 +560,10 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
             ? FloatingActionButton.extended(key: const ValueKey('fab_stop'),
                 onPressed: _stopAndFinish, backgroundColor: scheme.primary,
                 foregroundColor: scheme.onPrimary,
-                icon: const Icon(Icons.stop_rounded), label: const Text('Beenden'))
+                icon: const Icon(Icons.stop_rounded), label: Text(context.l10n.endWorkout))
             : FloatingActionButton.extended(key: const ValueKey('fab_start'),
                 onPressed: _start,
-                icon: const Icon(Icons.play_arrow_rounded), label: const Text('Start')),
+                icon: const Icon(Icons.play_arrow_rounded), label: Text(context.l10n.start)),
       ),
     );
   }
@@ -683,12 +688,12 @@ class _PerSetSheetState extends State<_PerSetSheet> {
             // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-              child: Text(e.name, style: textTheme.titleLarge),
+              child: Text(displayExerciseName(context, e), style: textTheme.titleLarge),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
               child: Text(
-                '${sets.length} Satz${sets.length == 1 ? "" : "e"} erfasst',
+                context.l10n.recordedSets(sets.length),
                 style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ),
@@ -719,7 +724,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
             // Input for next set
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text('Satz ${sets.length + 1}',
+              child: Text(context.l10n.setNumber(sets.length + 1),
                 style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
             ),
             const SizedBox(height: 12),
@@ -731,7 +736,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                     TextField(
                       controller: _repsCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Wiederholungen'),
+                      decoration: InputDecoration(labelText: context.l10n.repetitions),
                     ),
                   if (e.trackWeight)
                     Padding(
@@ -739,7 +744,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                       child: TextField(
                         controller: _weightCtrl,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Gewicht (kg)'),
+                        decoration: InputDecoration(labelText: context.l10n.weightKilograms),
                       ),
                     ),
                   if (e.trackDistance)
@@ -748,7 +753,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                       child: TextField(
                         controller: _distanceCtrl,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Entfernung (km)'),
+                        decoration: InputDecoration(labelText: context.l10n.distanceKilometers),
                       ),
                     ),
                   if (e.trackDuration)
@@ -759,21 +764,21 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                           controller: _durHoursCtrl,
                           keyboardType: TextInputType.number,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          decoration: const InputDecoration(labelText: 'Std'),
+                          decoration: InputDecoration(labelText: context.l10n.hours),
                         )),
                         const SizedBox(width: 8),
                         Expanded(child: TextField(
                           controller: _durMinutesCtrl,
                           keyboardType: TextInputType.number,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          decoration: const InputDecoration(labelText: 'Min'),
+                          decoration: InputDecoration(labelText: context.l10n.minutes),
                         )),
                         const SizedBox(width: 8),
                         Expanded(child: TextField(
                           controller: _durSecondsCtrl,
                           keyboardType: TextInputType.number,
                           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          decoration: const InputDecoration(labelText: 'Sek'),
+                          decoration: InputDecoration(labelText: context.l10n.seconds),
                         )),
                       ]),
                     ),
@@ -790,7 +795,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                     height: 48,
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Fertig'),
+                      child: Text(context.l10n.done),
                     ),
                   ),
                 ),
@@ -800,7 +805,7 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                     height: 48,
                     child: FilledButton(
                       onPressed: _saveCurrentSet,
-                      child: const Text('Satz speichern'),
+                      child: Text(context.l10n.saveSet),
                     ),
                   ),
                 ),
@@ -835,7 +840,7 @@ class _CompletedSetRow extends StatelessWidget {
     if (exercise.trackWeight && data['weight'] != null) parts.add('${data['weight']} kg');
     if (exercise.trackDistance && data['distance'] != null) parts.add('${data['distance']} km');
     if (exercise.trackDuration && data['duration'] != null) {
-      parts.add(DurationFormatter.verbose(int.tryParse(data['duration']!) ?? 0));
+      parts.add(localizedDuration(context, int.tryParse(data['duration']!) ?? 0));
     }
 
     return Padding(

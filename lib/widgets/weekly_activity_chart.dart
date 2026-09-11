@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/workout_entry.dart';
+import '../l10n/l10n.dart';
 
 /// Wochen-Aktivitätschart (Mo–So) für die **aktuelle Woche**.
 /// - Woche ist horizontal **zentriert** (nutzt die komplette Breite gleichmäßig).
@@ -118,7 +119,7 @@ class WeeklyActivityChart extends StatelessWidget {
                       child: _DayColumn(
                         value: durations[i],
                         maxValue: maxValue,
-                        label: _weekdayLabel(i),
+                        label: _weekdayLabel(context, i),
                         barColor: scheme.primary,
                         valueStyle: valueStyle,
                         dayStyle: dayStyle,
@@ -144,8 +145,16 @@ class WeeklyActivityChart extends StatelessWidget {
     return DateTime(d.year, d.month, d.day - (weekday - 1));
   }
 
-  static String _weekdayLabel(int index) {
-    const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  static String _weekdayLabel(BuildContext context, int index) {
+    final labels = [
+      context.l10n.monday,
+      context.l10n.tuesday,
+      context.l10n.wednesday,
+      context.l10n.thursday,
+      context.l10n.friday,
+      context.l10n.saturday,
+      context.l10n.sunday,
+    ];
     return labels[index.clamp(0, 6)];
   }
 

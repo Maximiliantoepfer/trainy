@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/progress_provider.dart';
@@ -19,6 +20,7 @@ import '../providers/active_workout_provider.dart';
 import '../widgets/app_bar_title.dart';
 import '../widgets/screen_info_dialog.dart';
 import '../providers/cloud_sync_provider.dart';
+import '../l10n/l10n.dart';
 
 class ProgressScreen extends StatefulWidget {
   final VoidCallback? onSwipePastStart;
@@ -73,16 +75,16 @@ class _ProgressScreenState extends State<ProgressScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const AppBarTitle('Fortschritt'),
+        title: AppBarTitle(context.l10n.progress),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline_rounded, size: 20),
             onPressed: () => showScreenInfoDialog(
               context,
-              title: 'Fortschritt',
-              description: 'Verfolge deinen Trainingsfortschritt. Im Verlauf siehst du alle absolvierten Workouts, in Insights findest du Kalender und Übungsdiagramme.',
+              title: context.l10n.progress,
+              description: context.l10n.progressDescription,
             ),
-            tooltip: 'Info',
+            tooltip: context.l10n.info,
           ),
         ],
         bottom: PreferredSize(
@@ -113,7 +115,10 @@ class _ProgressScreenState extends State<ProgressScreen>
                     unselectedLabelColor: scheme.onSurfaceVariant,
                     labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                     unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                    tabs: const [Tab(text: 'Verlauf'), Tab(text: 'Insights')],
+                    tabs: [
+                      Tab(text: context.l10n.history),
+                      Tab(text: context.l10n.insights),
+                    ],
                   ),
                 ),
               ),
@@ -156,8 +161,8 @@ class _ProgressScreenState extends State<ProgressScreen>
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
             child: WeeklyActivityChart(
               entries: entries,
-              title: 'Aktivität',
-              subtitle: 'Minuten pro Tag',
+              title: context.l10n.activity,
+              subtitle: context.l10n.minutesPerDay,
             ),
           ),
         ),
@@ -331,12 +336,12 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Noch keine Einträge',
+              context.l10n.noEntries,
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Starte ein Workout und erfasse Sätze, dann erscheinen sie hier.',
+            Text(
+              context.l10n.startWorkoutToSeeEntries,
               textAlign: TextAlign.center,
             ),
           ],
@@ -355,12 +360,9 @@ class _EntryCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final date = entry.date;
-    final dateStr =
-        '${date.day.toString().padLeft(2, '0')}.'
-        '${date.month.toString().padLeft(2, '0')}.'
-        '${date.year} • '
-        '${date.hour.toString().padLeft(2, '0')}:'
-        '${date.minute.toString().padLeft(2, '0')}';
+    final dateStr = DateFormat.yMMMd(
+      Localizations.localeOf(context).toLanguageTag(),
+    ).add_Hm().format(date);
 
     // Workout-Name via Provider
     final workouts = context.watch<WorkoutProvider>().workouts;
@@ -370,7 +372,7 @@ class _EntryCard extends StatelessWidget {
     } catch (_) {
       w = null;
     }
-    final workoutName = w?.name ?? 'Workout';
+    final workoutName = w?.name ?? context.l10n.workout;
 
     // Gesamtsätze (aggregiert über Exercises)
     int totalSets = 0;
@@ -421,8 +423,13 @@ class _EntryCard extends StatelessWidget {
                   if (totalSets > 0 || (sessionDuration != null && sessionDuration > 0)) ...[
                     const SizedBox(height: 8),
                     Wrap(spacing: 8, children: [
-                      if (totalSets > 0) _SmallChip(icon: Icons.layers, label: '$totalSets Sätze'),
-                      if (sessionDuration != null && sessionDuration > 0) _SmallChip(icon: Icons.timer_outlined, label: DurationFormatter.verbose(sessionDuration)),
+                      if (totalSets > 0)
+                        _SmallChip(icon: Icons.layers, label: context.l10n.setsCount(totalSets)),
+                      if (sessionDuration != null && sessionDuration > 0)
+                        _SmallChip(
+                          icon: Icons.timer_outlined,
+                          label: localizedDuration(context, sessionDuration),
+                        ),
                     ]),
                   ],
                 ],
@@ -440,12 +447,12 @@ class _EntryCard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eintrag löschen?'),
-        content: const Text('Dieser Trainingseintrag wird unwiderruflich gelöscht.'),
+        title: Text(context.l10n.deleteEntry),
+        content: Text(context.l10n.deleteEntryDescription),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Abbrechen'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -453,7 +460,7 @@ class _EntryCard extends StatelessWidget {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Löschen'),
+            child: Text(context.l10n.delete),
           ),
         ],
       ),

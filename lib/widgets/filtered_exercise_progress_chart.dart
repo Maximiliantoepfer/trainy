@@ -1,14 +1,17 @@
 // lib/widgets/filtered_exercise_progress_chart.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:provider/provider.dart';
 
 import '../providers/progress_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../models/exercise.dart';
 import '../models/workout_entry.dart';
+import '../utils/exercise_localization.dart';
 import '../utils/goal_utils.dart';
 import '../utils/utils.dart';
+import '../l10n/l10n.dart';
 import 'chart_data_builder.dart';
 import 'tap_scale.dart';
 
@@ -26,7 +29,7 @@ class _FilteredExerciseProgressChartState
     extends State<FilteredExerciseProgressChart> {
   int? _selectedExerciseId;
   String _metric = 'reps';
-  String _timeRange = 'Alle';
+  String _timeRange = 'all';
   int? _highlightedIndex;
   bool _didPickDefault = false;
 
@@ -48,10 +51,10 @@ class _FilteredExerciseProgressChartState
     if (allExercises.isEmpty) {
       return _section(
         context,
-        title: 'Exercise-Progress',
-        child: const Padding(
+        title: context.l10n.exerciseProgress,
+        child: Padding(
           padding: EdgeInsets.all(12),
-          child: Text('Lege zuerst Übungen an, um Fortschritt zu sehen.'),
+          child: Text(context.l10n.addExercisesForProgress),
         ),
       );
     }
@@ -59,10 +62,10 @@ class _FilteredExerciseProgressChartState
     if (exercises.isEmpty) {
       return _section(
         context,
-        title: 'Exercise-Progress',
-        child: const Padding(
+        title: context.l10n.exerciseProgress,
+        child: Padding(
           padding: EdgeInsets.all(12),
-          child: Text('Absolviere ein Workout, um Fortschrittsdaten zu sehen.'),
+          child: Text(context.l10n.completeWorkoutForProgress),
         ),
       );
     }
@@ -103,7 +106,7 @@ class _FilteredExerciseProgressChartState
 
     return _section(
       context,
-      title: 'Exercise-Progress',
+      title: context.l10n.exerciseProgress,
       trailing: TapScale(
         child: GestureDetector(
           onTap: () {
@@ -169,7 +172,7 @@ class _FilteredExerciseProgressChartState
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Übung',
+                            context.l10n.exerciseLabel,
                             style: textTheme.labelMedium?.copyWith(
                               color: scheme.onSurfaceVariant,
                               letterSpacing: 0.2,
@@ -177,7 +180,7 @@ class _FilteredExerciseProgressChartState
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            selectedExercise.name,
+                            displayExerciseName(context, selectedExercise),
                             style: textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: scheme.onSurface,
@@ -211,14 +214,14 @@ class _FilteredExerciseProgressChartState
 
               final availableMetrics = <({String key, String label})>[
                 // Kombimetriken zuerst
-                if (isCardio) (key: 'speed', label: 'Geschw.'),
-                if (isStrength) (key: 'volume', label: 'Volumen'),
+                if (isCardio) (key: 'speed', label: context.l10n.speed),
+                if (isStrength) (key: 'volume', label: context.l10n.volume),
                 // Einzelmetriken
-                if (selectedExercise.trackReps) (key: 'reps', label: 'Wdh.'),
-                if (selectedExercise.trackWeight) (key: 'weight', label: 'Gewicht'),
-                if (selectedExercise.trackDistance) (key: 'distance', label: 'Entfernung'),
-                if (selectedExercise.trackDuration) (key: 'duration', label: 'Dauer'),
-                if (selectedExercise.trackSets) (key: 'sets', label: 'Sätze'),
+                if (selectedExercise.trackReps) (key: 'reps', label: context.l10n.repetitions),
+                if (selectedExercise.trackWeight) (key: 'weight', label: context.l10n.weight),
+                if (selectedExercise.trackDistance) (key: 'distance', label: context.l10n.distance),
+                if (selectedExercise.trackDuration) (key: 'duration', label: context.l10n.duration),
+                if (selectedExercise.trackSets) (key: 'sets', label: context.l10n.sets),
               ];
 
               if (availableMetrics.isNotEmpty && !availableMetrics.any((m) => m.key == _metric)) {
@@ -231,7 +234,7 @@ class _FilteredExerciseProgressChartState
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
                   child: Text(
-                    'Keine Felder zum Tracken',
+                    context.l10n.noTrackingFields,
                     style: textTheme.bodyLarge?.copyWith(
                       color: scheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
@@ -261,10 +264,16 @@ class _FilteredExerciseProgressChartState
           // --- Zeitbereich-Filter ---
           Row(
             children: [
-              for (final range in const ['1M', '3M', '6M', '1J', 'Alle']) ...[
+              for (final range in const ['1M', '3M', '6M', '1Y', 'all']) ...[
                 if (range != '1M') const SizedBox(width: 6),
                 _RangeButton(
-                  label: range,
+                  label: switch (range) {
+                    '1M' => context.l10n.month1,
+                    '3M' => context.l10n.month3,
+                    '6M' => context.l10n.month6,
+                    '1Y' => context.l10n.year1,
+                    _ => context.l10n.allTime,
+                  },
                   active: _timeRange == range,
                   onTap: () => setState(() {
                     _timeRange = range;
@@ -280,7 +289,7 @@ class _FilteredExerciseProgressChartState
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
-                'Noch keine Daten für diese Übung.',
+                context.l10n.noDataForExercise,
                 style: textTheme.bodyLarge?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
@@ -363,6 +372,12 @@ class _FilteredExerciseProgressChartState
                   textColor: scheme.onSurfaceVariant,
                   tooltipBgColor: scheme.surfaceContainerHighest,
                   tooltipTextColor: scheme.onSurface,
+                  localeTag: Localizations.localeOf(context).toLanguageTag(),
+                  hourUnit: context.l10n.hours,
+                  minuteUnit: context.l10n.minutes,
+                  secondUnit: context.l10n.seconds,
+                  minimumLabel: context.l10n.minimum,
+                  maximumLabel: context.l10n.maximum,
                 ),
               ),
             ),
@@ -429,7 +444,8 @@ class _FilteredExerciseProgressChartState
                 search.isEmpty
                     ? exercises
                     : exercises
-                        .where((ex) => ex.name.toLowerCase().contains(search)
+                        .where((ex) => displayExerciseName(context, ex).toLowerCase().contains(search)
+                            || ex.name.toLowerCase().contains(search)
                             || ex.mergedAliases.any((a) => a.toLowerCase().contains(search)))
                         .toList();
 
@@ -449,7 +465,7 @@ class _FilteredExerciseProgressChartState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Übung auswählen',
+                          context.l10n.selectExercise,
                           style: textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.2,
@@ -461,7 +477,7 @@ class _FilteredExerciseProgressChartState
                           textInputAction: TextInputAction.search,
                           decoration: InputDecoration(
                             prefixIcon: const Icon(Icons.search_rounded),
-                            hintText: 'Nach Übung suchen',
+                            hintText: context.l10n.searchExercise,
                             filled: true,
                             fillColor: theme.colorScheme.surfaceContainerHigh
                                 .withValues(alpha: 0.6),
@@ -485,7 +501,7 @@ class _FilteredExerciseProgressChartState
                               filtered.isEmpty
                                   ? Center(
                                     child: Text(
-                                      'Keine Treffer',
+                                      context.l10n.noMatches,
                                       style: textTheme.bodyLarge?.copyWith(
                                         color: theme
                                             .colorScheme
@@ -506,11 +522,11 @@ class _FilteredExerciseProgressChartState
                                       final isSelected =
                                           exercise.id == _selectedExerciseId;
                                       final tags = [
-                                        if (exercise.trackReps) 'Wdh.',
-                                        if (exercise.trackWeight) 'Gewicht',
-                                        if (exercise.trackDistance) 'Entfernung',
-                                        if (exercise.trackDuration) 'Dauer',
-                                        if (exercise.trackSets) 'Sätze',
+                                        if (exercise.trackReps) context.l10n.repetitions,
+                                        if (exercise.trackWeight) context.l10n.weight,
+                                        if (exercise.trackDistance) context.l10n.distance,
+                                        if (exercise.trackDuration) context.l10n.duration,
+                                        if (exercise.trackSets) context.l10n.sets,
                                       ];
                                       final alias = matchingAlias(exercise, query);
                                       return TapScale(
@@ -564,7 +580,7 @@ class _FilteredExerciseProgressChartState
                                                       children: [
                                                         Flexible(
                                                           child: Text(
-                                                            exercise.name,
+                                                            displayExerciseName(context, exercise),
                                                             style: textTheme.titleMedium
                                                                 ?.copyWith(
                                                                   fontWeight:
@@ -587,7 +603,7 @@ class _FilteredExerciseProgressChartState
                                                         ),
                                                         if (exercise.goal != null) ...[
                                                           const SizedBox(width: 8),
-                                                          goalBadge(exercise.goal!, theme.colorScheme),
+                                                          goalBadge(context, exercise.goal!, theme.colorScheme),
                                                         ],
                                                       ],
                                                     ),
@@ -604,7 +620,7 @@ class _FilteredExerciseProgressChartState
                                                     ],
                                                     if (alias != null) ...[
                                                       const SizedBox(height: 2),
-                                                      Text('ehem. $alias',
+                                                      Text(context.l10n.formerName(alias),
                                                         style: textTheme.bodySmall?.copyWith(
                                                           fontStyle: FontStyle.italic,
                                                           color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
@@ -893,6 +909,12 @@ class ProgressLinePainter extends CustomPainter {
     required this.textColor,
     required this.tooltipBgColor,
     required this.tooltipTextColor,
+    required this.localeTag,
+    required this.hourUnit,
+    required this.minuteUnit,
+    required this.secondUnit,
+    required this.minimumLabel,
+    required this.maximumLabel,
     this.minPoints = const [],
     this.maxPoints = const [],
   });
@@ -907,6 +929,12 @@ class ProgressLinePainter extends CustomPainter {
   final Color textColor;
   final Color tooltipBgColor;
   final Color tooltipTextColor;
+  final String localeTag;
+  final String hourUnit;
+  final String minuteUnit;
+  final String secondUnit;
+  final String minimumLabel;
+  final String maximumLabel;
 
   static const double _minLeftInset = 40;
   static const double _minRightInset = 20;
@@ -1207,12 +1235,15 @@ class ProgressLinePainter extends CustomPainter {
       Canvas canvas, Offset pixelPos, ChartPoint point, Rect chartRect) {
     final lines = <String>[
       _formatDateFull(point.t),
-      point.label ?? _formatYLabel(point.y),
+      _formatYLabel(point.y),
     ];
     // Show min/max info if available
     if (point.yMin != null && point.yMax != null &&
         ((point.yMin! - point.y).abs() > 0.01 || (point.yMax! - point.y).abs() > 0.01)) {
-      lines.add('Min ${formatLabel(point.yMin!, metric)} · Max ${formatLabel(point.yMax!, metric)}');
+      lines.add(
+        '$minimumLabel ${_formatYLabel(point.yMin!)} · '
+        '$maximumLabel ${_formatYLabel(point.yMax!)}',
+      );
     }
 
     final tooltipStyle = TextStyle(
@@ -1294,6 +1325,12 @@ class ProgressLinePainter extends CustomPainter {
         old.gridColor != gridColor ||
         old.textColor != textColor ||
         old.metric != metric ||
+        old.localeTag != localeTag ||
+        old.hourUnit != hourUnit ||
+        old.minuteUnit != minuteUnit ||
+        old.secondUnit != secondUnit ||
+        old.minimumLabel != minimumLabel ||
+        old.maximumLabel != maximumLabel ||
         old.minPoints != minPoints ||
         old.maxPoints != maxPoints;
   }
@@ -1333,29 +1370,23 @@ class ProgressLinePainter extends CustomPainter {
         return '${_fmtNum(v)} km';
       case 'duration':
         final total = v.round();
-        if (total >= 3600) return '${total ~/ 3600}h';
-        if (total >= 60) return '${total ~/ 60}m';
-        return '${total}s';
+        if (total >= 3600) return '${total ~/ 3600}$hourUnit';
+        if (total >= 60) return '${total ~/ 60}$minuteUnit';
+        return '$total$secondUnit';
       default:
         return _fmtNum(v);
     }
   }
 
   String _fmtNum(double v) {
-    final iv = v.roundToDouble();
-    if ((v - iv).abs() < 1e-6) return iv.toStringAsFixed(0);
-    return v.toStringAsFixed(1);
+    return NumberFormat('0.#', localeTag).format(v);
   }
 
   String _formatDate(DateTime d) {
-    final dd = d.day.toString().padLeft(2, '0');
-    final mm = d.month.toString().padLeft(2, '0');
-    return '$dd.$mm.';
+    return DateFormat.MMMd(localeTag).format(d);
   }
 
   String _formatDateFull(DateTime d) {
-    final dd = d.day.toString().padLeft(2, '0');
-    final mm = d.month.toString().padLeft(2, '0');
-    return '$dd.$mm.${d.year}';
+    return DateFormat.yMMMd(localeTag).format(d);
   }
 }

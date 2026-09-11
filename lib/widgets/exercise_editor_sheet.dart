@@ -7,6 +7,8 @@ import '../providers/exercise_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../utils/goal_utils.dart';
 import '../utils/utils.dart';
+import '../utils/exercise_localization.dart';
+import '../l10n/l10n.dart';
 import 'exercise_editor_form.dart';
 
 /// Shared BottomSheet zum Erstellen / Bearbeiten einer Übung.
@@ -19,7 +21,9 @@ Future<bool> showExerciseEditorSheet(
   Exercise? existing,
   bool warnOnEdit = false,
 }) async {
-  final nameCtrl = TextEditingController(text: existing?.name ?? '');
+  final nameCtrl = TextEditingController(
+    text: existing == null ? '' : displayExerciseName(context, existing),
+  );
   final descCtrl = TextEditingController(text: existing?.description ?? '');
   final trackSets = ValueNotifier(existing?.trackSets ?? true);
   final trackReps = ValueNotifier(existing?.trackReps ?? true);
@@ -48,7 +52,7 @@ Future<bool> showExerciseEditorSheet(
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    existing == null ? 'Übung erstellen' : 'Übung bearbeiten',
+                    existing == null ? ctx.l10n.newExercise : ctx.l10n.editExercise,
                     style: Theme.of(ctx).textTheme.titleLarge,
                   ),
                 ),
@@ -79,7 +83,7 @@ Future<bool> showExerciseEditorSheet(
                         height: 48,
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Abbrechen'),
+                          child: Text(ctx.l10n.cancel),
                         ),
                       ),
                     ),
@@ -96,18 +100,16 @@ Future<bool> showExerciseEditorSheet(
                               final confirmed = await showDialog<bool>(
                                 context: ctx,
                                 builder: (dCtx) => AlertDialog(
-                                  title: const Text('Übung bearbeiten?'),
-                                  content: const Text(
-                                    'Änderungen wirken sich auf alle Workouts aus, die diese Übung verwenden.',
-                                  ),
+                                  title: Text(dCtx.l10n.editExerciseConfirmationTitle),
+                                  content: Text(dCtx.l10n.editExerciseConfirmation),
                                   actions: [
                                     TextButton(
                                       onPressed: () => Navigator.pop(dCtx, false),
-                                      child: const Text('Abbrechen'),
+                                      child: Text(dCtx.l10n.cancel),
                                     ),
                                     FilledButton(
                                       onPressed: () => Navigator.pop(dCtx, true),
-                                      child: const Text('Speichern'),
+                                      child: Text(dCtx.l10n.save),
                                     ),
                                   ],
                                 ),
@@ -125,6 +127,11 @@ Future<bool> showExerciseEditorSheet(
                               trackDuration: trackDuration.value,
                               trackDistance: trackDistance.value,
                               goal: goal.value,
+                              standardKey: existing?.standardKey,
+                              isNameCustom: existing?.standardKey != null &&
+                                      name == displayExerciseName(ctx, existing!)
+                                  ? false
+                                  : existing?.isNameCustom,
                             );
                             try {
                               ctx.read<CloudSyncProvider>().scheduleBackupSoon();
@@ -132,7 +139,7 @@ Future<bool> showExerciseEditorSheet(
                             saved = true;
                             if (ctx.mounted) Navigator.pop(ctx);
                           },
-                          child: Text(existing == null ? 'Erstellen' : 'Speichern'),
+                          child: Text(existing == null ? ctx.l10n.create : ctx.l10n.save),
                         ),
                       ),
                     ),
@@ -164,7 +171,7 @@ Future<bool> showExerciseEditorSheet(
                           },
                           icon: const Icon(Icons.merge_rounded, size: 18),
                           label: Text(
-                            'Übungen zusammenführen${count > 0 ? ' ($count)' : ''}',
+                            ctx.l10n.mergeExercises(count),
                           ),
                         ),
                       );
@@ -214,16 +221,15 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dCtx) => AlertDialog(
-        title: const Text('Eintrag entfernen?'),
-        content: Text(
-          '„$sourceName" aus dem Zusammenführungsverlauf entfernen?\n\n'
-          'Die übertragenen Trainingseinträge bleiben bei '
-          '„${widget.exercise.name}" erhalten.',
-        ),
+        title: Text(dCtx.l10n.removeEntry),
+        content: Text(dCtx.l10n.removeMergeEntryDescription(
+          sourceName,
+          displayExerciseName(dCtx, widget.exercise),
+        )),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dCtx, false),
-            child: const Text('Abbrechen'),
+            child: Text(dCtx.l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -231,7 +237,7 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(dCtx, true),
-            child: const Text('Entfernen'),
+            child: Text(dCtx.l10n.remove),
           ),
         ],
       ),
@@ -253,7 +259,7 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
     if (allExercises.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Keine andere Übung vorhanden')),
+          SnackBar(content: Text(context.l10n.noOtherExercise)),
         );
       }
       return;
@@ -267,7 +273,7 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
       showDragHandle: true,
       builder: (ctx) => _MergePickerSheet(
         exercises: allExercises,
-        title: 'In „${widget.exercise.name}" zusammenführen:',
+        title: context.l10n.mergeInto(displayExerciseName(context, widget.exercise)),
       ),
     );
 
@@ -280,20 +286,20 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dCtx) => AlertDialog(
-        title: const Text('Zusammenführen?'),
-        content: Text(
-          '„${source.name}" wird in „${widget.exercise.name}" zusammengeführt.\n\n'
-          '${entryCount > 0 ? '$entryCount Fortschrittseinträge werden übertragen.\n' : ''}'
-          '„${source.name}" wird anschließend gelöscht.',
-        ),
+        title: Text(dCtx.l10n.confirmMerge),
+        content: Text(dCtx.l10n.mergeDescription(
+          displayExerciseName(dCtx, source),
+          displayExerciseName(dCtx, widget.exercise),
+          entryCount,
+        )),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dCtx, false),
-            child: const Text('Abbrechen'),
+            child: Text(dCtx.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dCtx, true),
-            child: const Text('Zusammenführen'),
+            child: Text(dCtx.l10n.merge),
           ),
         ],
       ),
@@ -308,7 +314,10 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('„${source.name}" → „${widget.exercise.name}" zusammengeführt'),
+          content: Text(context.l10n.mergedResult(
+            displayExerciseName(context, source),
+            displayExerciseName(context, widget.exercise),
+          )),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -319,7 +328,7 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final dateFmt = DateFormat('dd.MM.yyyy');
+    final dateFmt = DateFormat.yMMMd(Localizations.localeOf(context).toLanguageTag());
 
     return SafeArea(
       top: false,
@@ -334,10 +343,10 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Zusammenführungen',
+                    Text(context.l10n.mergeHistory,
                         style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 4),
-                    Text('„${widget.exercise.name}"',
+                    Text('„${displayExerciseName(context, widget.exercise)}"',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                         )),
@@ -357,7 +366,7 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Text(
-                'Noch keine Übungen zusammengeführt.',
+                context.l10n.noMergedExercises,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -379,8 +388,8 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
                       title: Text(name),
                       subtitle: Text(
                         mergedAt != null
-                            ? 'Zusammengeführt am ${dateFmt.format(mergedAt.toLocal())}'
-                            : 'Zusammengeführt',
+                            ? context.l10n.mergedOn(dateFmt.format(mergedAt.toLocal()))
+                            : context.l10n.merged,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -389,7 +398,7 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
                         icon: Icon(Icons.delete_outline_rounded,
                             color: scheme.onSurfaceVariant),
                         onPressed: () => _deleteEntry(entry),
-                        tooltip: 'Eintrag entfernen',
+                        tooltip: context.l10n.remove,
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -409,7 +418,7 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
               child: TextButton.icon(
                 onPressed: _addMerge,
                 icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('Neue Übung zusammenführen'),
+                label: Text(context.l10n.newMerge),
               ),
             ),
           ),
@@ -461,7 +470,7 @@ class _MergePickerSheetState extends State<_MergePickerSheet> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'Übung suchen...',
+                hintText: context.l10n.searchExercises,
                 prefixIcon: const Icon(Icons.search_rounded),
                 suffixIcon: _query.isNotEmpty
                     ? IconButton(
@@ -486,10 +495,10 @@ class _MergePickerSheetState extends State<_MergePickerSheet> {
                   child: ListTile(
                     title: Row(
                       children: [
-                        Flexible(child: Text(e.name)),
+                        Flexible(child: Text(displayExerciseName(context, e))),
                         if (e.goal != null) ...[
                           const SizedBox(width: 8),
-                          goalBadge(e.goal!, scheme),
+                          goalBadge(context, e.goal!, scheme),
                         ],
                       ],
                     ),
@@ -497,14 +506,14 @@ class _MergePickerSheetState extends State<_MergePickerSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text([
-                          if (e.trackSets) 'Sätze',
-                          if (e.trackReps) 'Wdh.',
-                          if (e.trackWeight) 'Gewicht',
-                          if (e.trackDistance) 'Entfernung',
-                          if (e.trackDuration) 'Dauer',
+                          if (e.trackSets) context.l10n.sets,
+                          if (e.trackReps) context.l10n.repetitions,
+                          if (e.trackWeight) context.l10n.weight,
+                          if (e.trackDistance) context.l10n.distance,
+                          if (e.trackDuration) context.l10n.duration,
                         ].join(' · ')),
                         if (alias != null)
-                          Text('ehem. $alias',
+                          Text(context.l10n.formerName(alias),
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontStyle: FontStyle.italic,
                               color: scheme.onSurfaceVariant.withValues(alpha: 0.6),

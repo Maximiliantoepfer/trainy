@@ -8,7 +8,7 @@ class AppDatabase {
   AppDatabase._();
 
   static const _dbName = 'trainy.db';
-  static const _dbVersion = 11; // ⬅️ v11: pinned_charts Tabelle
+  static const _dbVersion = 12; // v12: language-neutral exercise catalog keys
 
   Database? _database;
 
@@ -37,7 +37,9 @@ class AppDatabase {
         lastValues TEXT NOT NULL,      -- json map
         units TEXT NOT NULL,           -- json map
         icon INTEGER,
-        goal TEXT
+        goal TEXT,
+        standardKey TEXT,
+        isNameCustom INTEGER NOT NULL DEFAULT 1
       )
     ''');
 
@@ -280,5 +282,26 @@ class AppDatabase {
         FOREIGN KEY(exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
       )
     ''');
+
+    // v12: Stable catalog identity and language-neutral goal values. Existing
+    // user-entered names are deliberately kept untouched.
+    try {
+      await db.execute('ALTER TABLE exercises ADD COLUMN standardKey TEXT');
+    } catch (_) {}
+    try {
+      await db.execute(
+        'ALTER TABLE exercises ADD COLUMN isNameCustom INTEGER NOT NULL DEFAULT 1',
+      );
+    } catch (_) {}
+    const legacyGoals = {
+      'Kraft': 'strength',
+      'Ausdauer': 'endurance',
+      'Cardio': 'cardio',
+      'Mobilität': 'mobility',
+    };
+    for (final item in legacyGoals.entries) {
+      await db.update('exercises', {'goal': item.value},
+          where: 'goal = ?', whereArgs: [item.key]);
+    }
   }
 }

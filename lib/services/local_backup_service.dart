@@ -13,7 +13,7 @@ class LocalBackupService {
     Future<List<Map<String, Object?>>> q(String table) async =>
         await db.query(table);
 
-    result['version'] = 1;
+    result['version'] = 2;
     result['exportedAt'] = DateTime.now().toIso8601String();
     result['exercises'] = await q('exercises');
     result['workouts'] = await q('workouts');
@@ -46,6 +46,20 @@ class LocalBackupService {
         if (rows == null) return;
         for (final row in rows) {
           final map = Map<String, Object?>.from(row as Map);
+          if (table == 'exercises') {
+            const oldGoals = {
+              'Kraft': 'strength',
+              'Ausdauer': 'endurance',
+              'Cardio': 'cardio',
+              'Mobilität': 'mobility',
+            };
+            final oldGoal = map['goal'];
+            if (oldGoal is String && oldGoals.containsKey(oldGoal)) {
+              map['goal'] = oldGoals[oldGoal];
+            }
+            // Older backups predate these fields; SQLite supplies the schema
+            // defaults, which preserve user content until catalog reconciliation.
+          }
           await txn.insert(
             table,
             map,

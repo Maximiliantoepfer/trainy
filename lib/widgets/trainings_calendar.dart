@@ -1,6 +1,8 @@
 // lib/widgets/trainings_calendar.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/workout_entry.dart';
+import '../l10n/l10n.dart';
 
 /// Simpler Monatskalender mit Markierungen für Tage, an denen Workouts getrackt wurden.
 /// Design-Update: Statt Zahl nun ein kräftiger, gefüllter grüner Haken.
@@ -45,7 +47,7 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
           children: [
             IconButton(
               icon: const Icon(Icons.chevron_left),
-              tooltip: 'Vorheriger Monat',
+              tooltip: context.l10n.previousMonth,
               onPressed: () {
                 setState(() {
                   _visibleMonthFirstDay = DateTime(
@@ -66,7 +68,7 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right),
-              tooltip: 'Nächster Monat',
+              tooltip: context.l10n.nextMonth,
               onPressed: () {
                 setState(() {
                   _visibleMonthFirstDay = DateTime(
@@ -83,13 +85,13 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
         // Wochentags-Header
         Row(
           children: [
-            _WeekdayHead('Mo', style: bigMuted),
-            _WeekdayHead('Di', style: bigMuted),
-            _WeekdayHead('Mi', style: bigMuted),
-            _WeekdayHead('Do', style: bigMuted),
-            _WeekdayHead('Fr', style: bigMuted),
-            _WeekdayHead('Sa', style: bigMuted),
-            _WeekdayHead('So', style: bigMuted),
+            _WeekdayHead(context.l10n.monday, style: bigMuted),
+            _WeekdayHead(context.l10n.tuesday, style: bigMuted),
+            _WeekdayHead(context.l10n.wednesday, style: bigMuted),
+            _WeekdayHead(context.l10n.thursday, style: bigMuted),
+            _WeekdayHead(context.l10n.friday, style: bigMuted),
+            _WeekdayHead(context.l10n.saturday, style: bigMuted),
+            _WeekdayHead(context.l10n.sunday, style: bigMuted),
           ],
         ),
         const SizedBox(height: 8),
@@ -114,8 +116,8 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
               child: Semantics(
                 label:
                     cnt > 0
-                        ? '${d.day}.: $cnt Workouts aufgezeichnet'
-                        : '${d.day}.: keine Workouts',
+                        ? '${d.day}: ${context.l10n.workoutsRecordedOnDay(cnt)}'
+                        : '${d.day}: ${context.l10n.workoutsRecordedOnDay(0)}',
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
@@ -187,21 +189,9 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
   }
 
   String _monthName(DateTime d) {
-    const names = [
-      'Januar',
-      'Februar',
-      'März',
-      'April',
-      'Mai',
-      'Juni',
-      'Juli',
-      'August',
-      'September',
-      'Oktober',
-      'November',
-      'Dezember',
-    ];
-    return '${names[d.month - 1]} ${d.year}';
+    return DateFormat.yMMMM(
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(d);
   }
 }
 
