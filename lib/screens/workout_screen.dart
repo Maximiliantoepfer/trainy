@@ -14,13 +14,13 @@ import '../widgets/active_workout_banner.dart';
 import '../widgets/exercise_editor_form.dart';
 import '../widgets/exercise_editor_sheet.dart';
 import '../utils/goal_utils.dart';
-import '../utils/utils.dart';
 import '../services/workout_plan_database.dart';
 import '../models/workout_plan.dart';
 import 'workout_launch_options.dart';
 import 'workout_plan_editor_screen.dart';
 import 'workout_run_screen.dart';
 import '../l10n/l10n.dart';
+import '../widgets/modal_form_dialogs.dart';
 
 const Duration _kWorkoutAnim = Duration(milliseconds: 200);
 
@@ -46,44 +46,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _editWorkoutGoals() async {
-    var selected = List<String>.from(_goalCodes);
     final result = await showDialog<List<String>>(
       context: context,
-      builder:
-          (ctx) => StatefulBuilder(
-            builder:
-                (ctx, setDialogState) => AlertDialog(
-                  title: Text(ctx.l10n.goals),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final goal in exerciseGoals)
-                        CheckboxListTile(
-                          value: selected.contains(goal),
-                          title: Text(goalLabel(ctx, goal)),
-                          onChanged:
-                              (checked) => setDialogState(() {
-                                if (checked == true && selected.length < 2) {
-                                  selected.add(goal);
-                                } else if (checked != true) {
-                                  selected.remove(goal);
-                                }
-                              }),
-                        ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: Text(ctx.l10n.cancel),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(ctx, selected),
-                      child: Text(ctx.l10n.save),
-                    ),
-                  ],
-                ),
-          ),
+      builder: (_) => _GoalSelectionDialog(initialGoals: _goalCodes),
     );
     if (result == null || !mounted) return;
     await context.read<WorkoutProvider>().setWorkoutGoalCodes(
@@ -276,7 +241,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final profiles = await database.profiles();
     final variants = await database.variantsForWorkout(widget.workout.id);
     if (!mounted) return null;
-    int? profileId = profiles.isEmpty ? null : profiles.first.id;
     int? variantId;
     for (final variant in variants) {
       if (variant.isDefault) {
@@ -285,12 +249,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       }
     }
     variantId ??= variants.isEmpty ? null : variants.first.id;
-    var slots =
-        variantId == null
-            ? <WorkoutSlot>[]
-            : await database.slotsForVariant(variantId);
-    var includedOptionalSlotIds =
-        slots.where((slot) => slot.isOptional).map((slot) => slot.id).toSet();
+    final slotsByVariant = <int, List<WorkoutSlot>>{};
+    for (final variant in variants) {
+      slotsByVariant[variant.id] = await database.slotsForVariant(variant.id);
+    }
+    if (!mounted) return null;
     final exerciseNames = {
       for (final exercise in context.read<ExerciseProvider>().exercises)
         exercise.id: displayExerciseName(context, exercise),
@@ -299,147 +262,26 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       context: context,
       showDragHandle: true,
       builder:
-          (ctx) => StatefulBuilder(
-            builder:
-                (ctx, setSheetState) => SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            ctx.l10n.start,
-                            style: Theme.of(ctx).textTheme.titleLarge,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (profiles.isNotEmpty) ...[
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(ctx.l10n.trainingProfile),
-                          ),
-                          for (final profile in profiles)
-                            RadioListTile<int>(
-                              value: profile.id,
-                              groupValue: profileId,
-                              title: Text(profile.name),
-                              onChanged:
-                                  (value) =>
-                                      setSheetState(() => profileId = value),
-                            ),
-                        ] else
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(ctx.l10n.noProfiles),
-                          ),
-                        if (variants.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(ctx.l10n.workoutVariant),
-                          ),
-                          for (final variant in variants)
-                            RadioListTile<int>(
-                              value: variant.id,
-                              groupValue: variantId,
-                              title: Text(variant.name),
-                              onChanged: (value) async {
-                                if (value == null) return;
-                                final nextSlots = await database
-                                    .slotsForVariant(value);
-                                if (!ctx.mounted) return;
-                                setSheetState(() {
-                                  variantId = value;
-                                  slots = nextSlots;
-                                  includedOptionalSlotIds =
-                                      nextSlots
-                                          .where((slot) => slot.isOptional)
-                                          .map((slot) => slot.id)
-                                          .toSet();
-                                });
-                              },
-                            ),
-                        ],
-                        if (slots.any((slot) => slot.isOptional)) ...[
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(ctx.l10n.optional),
-                          ),
-                          for (final slot in slots.where(
-                            (slot) => slot.isOptional,
-                          ))
-                            CheckboxListTile(
-                              value: includedOptionalSlotIds.contains(slot.id),
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                exerciseNames[slot.exerciseId] ??
-                                    ctx.l10n.notAvailable,
-                              ),
-                              onChanged:
-                                  (selected) => setSheetState(() {
-                                    if (selected == true) {
-                                      includedOptionalSlotIds.add(slot.id);
-                                    } else {
-                                      includedOptionalSlotIds.remove(slot.id);
-                                    }
-                                  }),
-                            ),
-                        ],
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed:
-                                () => Navigator.pop(
-                                  ctx,
-                                  WorkoutLaunchOptions(
-                                    profileId: profileId,
-                                    variantId: variantId,
-                                    includedOptionalSlotIds: Set<int>.from(
-                                      includedOptionalSlotIds,
-                                    ),
-                                  ),
-                                ),
-                            icon: const Icon(Icons.play_arrow_rounded),
-                            label: Text(ctx.l10n.start),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+          (_) => _WorkoutLaunchOptionsSheet(
+            profiles: profiles,
+            variants: variants,
+            slotsByVariant: slotsByVariant,
+            exerciseNames: exerciseNames,
+            initialVariantId: variantId,
           ),
     );
   }
 
   Future<void> _createVariant() async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
+    final name = await showTextPromptDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(ctx.l10n.createVariant),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: InputDecoration(labelText: ctx.l10n.variantName),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(ctx.l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-                child: Text(ctx.l10n.create),
-              ),
-            ],
-          ),
+      title: context.l10n.createVariant,
+      label: context.l10n.variantName,
+      submitLabel: context.l10n.create,
+      cancelLabel: context.l10n.cancel,
+      requiredMessage: context.l10n.nameRequired,
     );
-    if (name == null || name.isEmpty) return;
+    if (!mounted || name == null) return;
     final database = WorkoutPlanDatabase.instance;
     await database.bootstrapLegacyPlan(
       workoutId: widget.workout.id,
@@ -493,14 +335,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     } catch (_) {}
   }
 
-  Future<void> _persistOrder(BuildContext context) async {
-    await context.read<WorkoutProvider>().setWorkoutExercises(
-      widget.workout.id,
-      _exerciseIds,
-    );
+  Future<void> _persistOrder() async {
+    final workoutProvider = context.read<WorkoutProvider>();
+    CloudSyncProvider? cloudProvider;
+    try {
+      cloudProvider = context.read<CloudSyncProvider>();
+    } catch (_) {}
+    await workoutProvider.setWorkoutExercises(widget.workout.id, _exerciseIds);
     // trigger cloud backup soon (debounced)
     try {
-      context.read<CloudSyncProvider>().scheduleBackupSoon();
+      cloudProvider?.scheduleBackupSoon();
     } catch (_) {}
   }
 
@@ -510,7 +354,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       final id = _exerciseIds.removeAt(oldIndex);
       _exerciseIds.insert(newIndex, id);
     });
-    _persistOrder(context);
+    _persistOrder();
   }
 
   Future<void> _openExerciseEditor(Exercise exercise) async {
@@ -525,504 +369,75 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _addExercisesBottomSheet() async {
-    final all = context.read<ExerciseProvider>().exercises;
-    final selected = Set<int>.from(_exerciseIds);
-
-    final nameCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    final trackSets = ValueNotifier<bool>(true);
-    final trackReps = ValueNotifier<bool>(true);
-    final trackWeight = ValueNotifier<bool>(true);
-    final trackDuration = ValueNotifier<bool>(false);
-    final trackDistance = ValueNotifier<bool>(false);
-    final goal = ValueNotifier<String?>(null);
-
-    final rootContext = context;
-
-    await showModalBottomSheet(
+    final provider = context.read<ExerciseProvider>();
+    final result = await showModalBottomSheet<_AddExercisesResult>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      builder: (ctx) {
-        Future<void> createAndAttach() async {
-          final name = nameCtrl.text.trim();
-          if (name.isEmpty) {
-            await showDialog(
-              context: ctx,
-              builder:
-                  (_) => AlertDialog(
-                    title: Text(ctx.l10n.nameMissing),
-                    content: Text(ctx.l10n.enterName),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: Text(ctx.l10n.ok),
-                      ),
-                    ],
-                  ),
-            );
-            return;
-          }
+      builder:
+          (_) => _AddExercisesSheet(
+            exercises: provider.exercises,
+            selectedIds: _exerciseIds.toSet(),
+          ),
+    );
+    if (!mounted || result == null) return;
 
-          final newId = await ctx.read<ExerciseProvider>().addExercise(
-            name: name,
-            description: descCtrl.text.trim(),
-            trackSets: trackSets.value,
-            trackReps: trackReps.value,
-            trackWeight: trackWeight.value,
-            trackDuration: trackDuration.value,
-            trackDistance: trackDistance.value,
-            goal: goal.value,
-          );
+    var createdName = '';
+    final selectedIds = result.selectedIds;
+    if (result.draft case final draft?) {
+      final newId = await provider.addExercise(
+        name: draft.name,
+        description: draft.description,
+        trackSets: draft.trackSets,
+        trackReps: draft.trackReps,
+        trackWeight: draft.trackWeight,
+        trackDuration: draft.trackDuration,
+        trackDistance: draft.trackDistance,
+        goal: draft.goal,
+      );
+      if (!mounted) return;
+      selectedIds.add(newId);
+      createdName = draft.name;
+    }
 
-          final merged = [
-            ..._exerciseIds,
-            if (!_exerciseIds.contains(newId)) newId,
-          ];
-
-          setState(() => _exerciseIds = merged);
-          await _persistOrder(rootContext);
-
-          if (rootContext.mounted) {
-            Navigator.pop(ctx);
-            ScaffoldMessenger.of(rootContext).showSnackBar(
-              SnackBar(
-                content: Text(rootContext.l10n.workoutCreatedAndAdded(name)),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-        }
-
-        String searchQuery = '';
-        return StatefulBuilder(
-          builder: (ctx, modalSetState) {
-            return DefaultTabController(
-              length: 2,
-              child: SafeArea(
-                top: false,
-                child: LayoutBuilder(
-                  builder: (ctx, constraints) {
-                    final controller = DefaultTabController.of(ctx);
-                    final scheme = Theme.of(ctx).colorScheme;
-                    final filteredAll =
-                        searchQuery.isEmpty
-                            ? all
-                            : all
-                                .where(
-                                  (e) =>
-                                      displayExerciseName(
-                                        context,
-                                        e,
-                                      ).toLowerCase().contains(
-                                        searchQuery.toLowerCase(),
-                                      ) ||
-                                      e.name.toLowerCase().contains(
-                                        searchQuery.toLowerCase(),
-                                      ) ||
-                                      e.mergedAliases.any(
-                                        (a) => a.toLowerCase().contains(
-                                          searchQuery.toLowerCase(),
-                                        ),
-                                      ),
-                                )
-                                .toList();
-
-                    return Column(
-                      mainAxisSize: MainAxisSize.max,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
-                            children: [
-                              Text(
-                                ctx.l10n.addExercises,
-                                style: Theme.of(ctx).textTheme.titleLarge,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Container(
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: scheme.surfaceContainerHighest.withOpacity(
-                                0.5,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: TabBar(
-                              indicator: BoxDecoration(
-                                color: scheme.primary,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              indicatorSize: TabBarIndicatorSize.tab,
-                              indicatorPadding: const EdgeInsets.all(3),
-                              dividerColor: Colors.transparent,
-                              labelColor: scheme.onPrimary,
-                              unselectedLabelColor: scheme.onSurfaceVariant,
-                              labelStyle: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              unselectedLabelStyle: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              tabs: [
-                                Tab(text: ctx.l10n.addExistingExercises),
-                                Tab(text: ctx.l10n.createNewExercise),
-                              ],
-                              onTap: (_) => modalSetState(() {}),
-                            ),
-                          ),
-                        ),
-
-                        Expanded(
-                          child: TabBarView(
-                            children: [
-                              // Tab 1: vorhandene Exercises auswählen
-                              Column(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      16,
-                                      16,
-                                      8,
-                                    ),
-                                    child: TextField(
-                                      decoration: InputDecoration(
-                                        hintText: ctx.l10n.searchExercises,
-                                        prefixIcon: const Icon(
-                                          Icons.search_rounded,
-                                        ),
-                                        suffixIcon:
-                                            searchQuery.isNotEmpty
-                                                ? IconButton(
-                                                  icon: const Icon(Icons.close),
-                                                  onPressed:
-                                                      () => modalSetState(
-                                                        () => searchQuery = '',
-                                                      ),
-                                                )
-                                                : null,
-                                      ),
-                                      onChanged:
-                                          (v) => modalSetState(
-                                            () => searchQuery = v,
-                                          ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: ListView.separated(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        16,
-                                        8,
-                                        16,
-                                        24,
-                                      ),
-                                      itemCount: filteredAll.length,
-                                      separatorBuilder:
-                                          (_, __) => const SizedBox(height: 8),
-                                      itemBuilder: (_, i) {
-                                        final e = filteredAll[i];
-                                        final subtitle = <String>[];
-                                        if (e.trackSets)
-                                          subtitle.add(ctx.l10n.sets);
-                                        if (e.trackReps)
-                                          subtitle.add(ctx.l10n.repetitions);
-                                        if (e.trackWeight)
-                                          subtitle.add(ctx.l10n.weight);
-                                        if (e.trackDistance)
-                                          subtitle.add(ctx.l10n.distance);
-                                        if (e.trackDuration)
-                                          subtitle.add(ctx.l10n.duration);
-                                        final subtitleText = subtitle.join(
-                                          ' · ',
-                                        );
-                                        final alias = matchingAlias(
-                                          e,
-                                          searchQuery,
-                                        );
-                                        final cScheme =
-                                            Theme.of(context).colorScheme;
-                                        return Card(
-                                          child: CheckboxListTile(
-                                            value: selected.contains(e.id),
-                                            onChanged: (v) {
-                                              modalSetState(() {
-                                                if (v == true) {
-                                                  selected.add(e.id);
-                                                } else {
-                                                  selected.remove(e.id);
-                                                }
-                                              });
-                                            },
-                                            title: Row(
-                                              children: [
-                                                Flexible(
-                                                  child: Text(
-                                                    displayExerciseName(
-                                                      context,
-                                                      e,
-                                                    ),
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .titleMedium
-                                                        ?.copyWith(
-                                                          fontSize: 18,
-                                                          fontWeight:
-                                                              FontWeight.w800,
-                                                        ),
-                                                  ),
-                                                ),
-                                                if (e.goal != null) ...[
-                                                  const SizedBox(width: 8),
-                                                  goalBadge(
-                                                    context,
-                                                    e.goal!,
-                                                    cScheme,
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                            subtitle:
-                                                (subtitleText.isEmpty &&
-                                                        alias == null)
-                                                    ? null
-                                                    : Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        if (subtitleText
-                                                            .isNotEmpty)
-                                                          Text(subtitleText),
-                                                        if (alias != null)
-                                                          Text(
-                                                            ctx.l10n.formerName(
-                                                              alias,
-                                                            ),
-                                                            style: Theme.of(
-                                                                  context,
-                                                                )
-                                                                .textTheme
-                                                                .bodySmall
-                                                                ?.copyWith(
-                                                                  fontStyle:
-                                                                      FontStyle
-                                                                          .italic,
-                                                                  color: cScheme
-                                                                      .onSurfaceVariant
-                                                                      .withValues(
-                                                                        alpha:
-                                                                            0.6,
-                                                                      ),
-                                                                ),
-                                                          ),
-                                                      ],
-                                                    ),
-                                            controlAffinity:
-                                                ListTileControlAffinity.leading,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(14),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              // Tab 2: neue Exercise erstellen
-                              ListView(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  16,
-                                  16,
-                                  24,
-                                ),
-                                children: [
-                                  ExerciseEditorForm(
-                                    nameCtrl: nameCtrl,
-                                    descCtrl: descCtrl,
-                                    trackSets: trackSets,
-                                    trackReps: trackReps,
-                                    trackWeight: trackWeight,
-                                    trackDuration: trackDuration,
-                                    trackDistance: trackDistance,
-                                    goal: goal,
-                                    autofocusName: true,
-                                    onChanged: () => modalSetState(() {}),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Dynamische Bottom-CTA (achtet auf Keyboard)
-                        AnimatedBuilder(
-                          animation: controller.animation ?? controller,
-                          builder: (_, __) {
-                            final isCreateTab = controller.index == 1;
-                            final canCreate = nameCtrl.text.trim().isNotEmpty;
-                            final bottomInset =
-                                MediaQuery.of(ctx).viewInsets.bottom;
-
-                            return AnimatedPadding(
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOut,
-                              padding: EdgeInsets.fromLTRB(
-                                16,
-                                0,
-                                16,
-                                16 + bottomInset,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: 48,
-                                      child: OutlinedButton(
-                                        onPressed: () => Navigator.pop(ctx),
-                                        child: Text(ctx.l10n.cancel),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: 48,
-                                      child: AnimatedSwitcher(
-                                        duration: const Duration(
-                                          milliseconds: 180,
-                                        ),
-                                        switchInCurve: Curves.easeOut,
-                                        switchOutCurve: Curves.easeIn,
-                                        transitionBuilder:
-                                            (child, anim) => FadeTransition(
-                                              opacity: anim,
-                                              child: child,
-                                            ),
-                                        child:
-                                            isCreateTab
-                                                ? FilledButton.icon(
-                                                  key: const ValueKey(
-                                                    'create_and_add',
-                                                  ),
-                                                  onPressed:
-                                                      canCreate
-                                                          ? () async =>
-                                                              createAndAttach()
-                                                          : null,
-                                                  icon: const Icon(Icons.add),
-                                                  label: Text(ctx.l10n.create),
-                                                )
-                                                : FilledButton(
-                                                  key: const ValueKey(
-                                                    'add_selected',
-                                                  ),
-                                                  onPressed: () async {
-                                                    final merged = [
-                                                      ..._exerciseIds,
-                                                      ...selected.where(
-                                                        (id) =>
-                                                            !_exerciseIds
-                                                                .contains(id),
-                                                      ),
-                                                    ];
-                                                    setState(
-                                                      () =>
-                                                          _exerciseIds = merged,
-                                                    );
-                                                    await _persistOrder(
-                                                      rootContext,
-                                                    );
-
-                                                    if (rootContext.mounted) {
-                                                      Navigator.pop(ctx);
-                                                      ScaffoldMessenger.of(
-                                                        rootContext,
-                                                      ).showSnackBar(
-                                                        SnackBar(
-                                                          content: Text(
-                                                            rootContext
-                                                                .l10n
-                                                                .exercisesAdded,
-                                                          ),
-                                                          behavior:
-                                                              SnackBarBehavior
-                                                                  .floating,
-                                                        ),
-                                                      );
-                                                    }
-                                                  },
-                                                  child: Text(ctx.l10n.add),
-                                                ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            );
-          },
-        );
-      },
+    setState(() {
+      _exerciseIds = [
+        ..._exerciseIds,
+        ...selectedIds.where((id) => !_exerciseIds.contains(id)),
+      ];
+    });
+    await _persistOrder();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          createdName.isEmpty
+              ? context.l10n.exercisesAdded
+              : context.l10n.workoutCreatedAndAdded(createdName),
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
   Future<void> _rename() async {
-    String newName = widget.workout.name;
-    final ctrl = TextEditingController(text: widget.workout.name);
-    await showDialog(
+    final newName = await showTextPromptDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(ctx.l10n.renameWorkout),
-            content: TextField(
-              controller: ctrl,
-              decoration: InputDecoration(labelText: ctx.l10n.workoutName),
-              autofocus: true,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(ctx.l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () {
-                  newName =
-                      ctrl.text.trim().isNotEmpty
-                          ? ctrl.text.trim()
-                          : widget.workout.name;
-                  Navigator.pop(ctx);
-                },
-                child: Text(ctx.l10n.save),
-              ),
-            ],
-          ),
+      title: context.l10n.renameWorkout,
+      label: context.l10n.workoutName,
+      submitLabel: context.l10n.save,
+      cancelLabel: context.l10n.cancel,
+      requiredMessage: context.l10n.nameRequired,
+      initialValue: widget.workout.name,
     );
+    if (!mounted || newName == null || newName == widget.workout.name) return;
     await context.read<WorkoutProvider>().updateWorkoutName(
       widget.workout.id,
       newName,
     );
+    if (!mounted) return;
     setState(() => widget.workout.name = newName);
     try {
       context.read<CloudSyncProvider>().scheduleBackupSoon();
@@ -1174,7 +589,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       ),
                       onDismissed: (_) async {
                         setState(() => _exerciseIds.removeAt(i));
-                        await _persistOrder(context);
+                        await _persistOrder();
                       },
                       child: ReorderableDelayedDragStartListener(
                         index: i,
@@ -1326,6 +741,573 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             icon: const Icon(Icons.add),
             label: Text(context.l10n.additionalExercises),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkoutLaunchOptionsSheet extends StatefulWidget {
+  const _WorkoutLaunchOptionsSheet({
+    required this.profiles,
+    required this.variants,
+    required this.slotsByVariant,
+    required this.exerciseNames,
+    required this.initialVariantId,
+  });
+
+  final List<TrainingProfile> profiles;
+  final List<WorkoutVariant> variants;
+  final Map<int, List<WorkoutSlot>> slotsByVariant;
+  final Map<int, String> exerciseNames;
+  final int? initialVariantId;
+
+  @override
+  State<_WorkoutLaunchOptionsSheet> createState() =>
+      _WorkoutLaunchOptionsSheetState();
+}
+
+class _WorkoutLaunchOptionsSheetState
+    extends State<_WorkoutLaunchOptionsSheet> {
+  int? _profileId;
+  int? _variantId;
+  late Set<int> _includedOptionalSlotIds;
+
+  List<WorkoutSlot> get _slots =>
+      _variantId == null
+          ? const []
+          : widget.slotsByVariant[_variantId] ?? const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _profileId = widget.profiles.isEmpty ? null : widget.profiles.first.id;
+    _variantId = widget.initialVariantId;
+    _includedOptionalSlotIds =
+        _slots.where((slot) => slot.isOptional).map((slot) => slot.id).toSet();
+  }
+
+  void _selectVariant(int value) {
+    setState(() {
+      _variantId = value;
+      _includedOptionalSlotIds =
+          _slots
+              .where((slot) => slot.isOptional)
+              .map((slot) => slot.id)
+              .toSet();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final optionalSlots = _slots.where((slot) => slot.isOptional).toList();
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  context.l10n.start,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (widget.profiles.isNotEmpty) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(context.l10n.trainingProfile),
+                ),
+                for (final profile in widget.profiles)
+                  RadioListTile<int>(
+                    value: profile.id,
+                    groupValue: _profileId,
+                    title: Text(profile.name),
+                    onChanged: (value) => setState(() => _profileId = value),
+                  ),
+              ] else
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(context.l10n.noProfiles),
+                ),
+              if (widget.variants.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(context.l10n.workoutVariant),
+                ),
+                for (final variant in widget.variants)
+                  RadioListTile<int>(
+                    value: variant.id,
+                    groupValue: _variantId,
+                    title: Text(variant.name),
+                    onChanged:
+                        (value) => value == null ? null : _selectVariant(value),
+                  ),
+              ],
+              if (optionalSlots.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(context.l10n.optional),
+                ),
+                for (final slot in optionalSlots)
+                  CheckboxListTile(
+                    value: _includedOptionalSlotIds.contains(slot.id),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      widget.exerciseNames[slot.exerciseId] ??
+                          context.l10n.notAvailable,
+                    ),
+                    onChanged: (selected) {
+                      setState(() {
+                        if (selected == true) {
+                          _includedOptionalSlotIds.add(slot.id);
+                        } else {
+                          _includedOptionalSlotIds.remove(slot.id);
+                        }
+                      });
+                    },
+                  ),
+              ],
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed:
+                      () => Navigator.of(context).pop(
+                        WorkoutLaunchOptions(
+                          profileId: _profileId,
+                          variantId: _variantId,
+                          includedOptionalSlotIds: Set<int>.from(
+                            _includedOptionalSlotIds,
+                          ),
+                        ),
+                      ),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: Text(context.l10n.start),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GoalSelectionDialog extends StatefulWidget {
+  const _GoalSelectionDialog({required this.initialGoals});
+
+  final List<String> initialGoals;
+
+  @override
+  State<_GoalSelectionDialog> createState() => _GoalSelectionDialogState();
+}
+
+class _GoalSelectionDialogState extends State<_GoalSelectionDialog> {
+  late final Set<String> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initialGoals.toSet();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(context.l10n.goals),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final goal in exerciseGoals)
+            CheckboxListTile(
+              value: _selected.contains(goal),
+              title: Text(goalLabel(context, goal)),
+              onChanged: (checked) {
+                setState(() {
+                  if (checked == true && _selected.length < 2) {
+                    _selected.add(goal);
+                  } else if (checked != true) {
+                    _selected.remove(goal);
+                  }
+                });
+              },
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(context.l10n.cancel),
+        ),
+        FilledButton(
+          onPressed:
+              () =>
+                  Navigator.of(context).pop(_selected.toList(growable: false)),
+          child: Text(context.l10n.save),
+        ),
+      ],
+    );
+  }
+}
+
+@immutable
+class _QuickExerciseDraft {
+  const _QuickExerciseDraft({
+    required this.name,
+    required this.description,
+    required this.trackSets,
+    required this.trackReps,
+    required this.trackWeight,
+    required this.trackDuration,
+    required this.trackDistance,
+    required this.goal,
+  });
+
+  final String name;
+  final String description;
+  final bool trackSets;
+  final bool trackReps;
+  final bool trackWeight;
+  final bool trackDuration;
+  final bool trackDistance;
+  final String? goal;
+}
+
+@immutable
+class _AddExercisesResult {
+  const _AddExercisesResult({required this.selectedIds, this.draft});
+
+  final Set<int> selectedIds;
+  final _QuickExerciseDraft? draft;
+}
+
+class _AddExercisesSheet extends StatefulWidget {
+  const _AddExercisesSheet({
+    required this.exercises,
+    required this.selectedIds,
+  });
+
+  final List<Exercise> exercises;
+  final Set<int> selectedIds;
+
+  @override
+  State<_AddExercisesSheet> createState() => _AddExercisesSheetState();
+}
+
+class _AddExercisesSheetState extends State<_AddExercisesSheet>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  late final TextEditingController _searchController;
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+  late final ValueNotifier<bool> _trackSets;
+  late final ValueNotifier<bool> _trackReps;
+  late final ValueNotifier<bool> _trackWeight;
+  late final ValueNotifier<bool> _trackDuration;
+  late final ValueNotifier<bool> _trackDistance;
+  late final ValueNotifier<String?> _goal;
+  late final Set<int> _selectedIds;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this)
+      ..addListener(_handleTabChanged);
+    _searchController = TextEditingController();
+    _nameController = TextEditingController()..addListener(_handleFormChanged);
+    _descriptionController = TextEditingController();
+    _trackSets = ValueNotifier(true);
+    _trackReps = ValueNotifier(true);
+    _trackWeight = ValueNotifier(true);
+    _trackDuration = ValueNotifier(false);
+    _trackDistance = ValueNotifier(false);
+    _goal = ValueNotifier(null);
+    _selectedIds = Set<int>.from(widget.selectedIds);
+  }
+
+  @override
+  void dispose() {
+    _tabController
+      ..removeListener(_handleTabChanged)
+      ..dispose();
+    _searchController.dispose();
+    _nameController
+      ..removeListener(_handleFormChanged)
+      ..dispose();
+    _descriptionController.dispose();
+    _trackSets.dispose();
+    _trackReps.dispose();
+    _trackWeight.dispose();
+    _trackDuration.dispose();
+    _trackDistance.dispose();
+    _goal.dispose();
+    super.dispose();
+  }
+
+  void _handleTabChanged() {
+    if (!_tabController.indexIsChanging && mounted) setState(() {});
+  }
+
+  void _handleFormChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _submitExisting() {
+    Navigator.of(
+      context,
+    ).pop(_AddExercisesResult(selectedIds: Set.unmodifiable(_selectedIds)));
+  }
+
+  void _submitNew() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+    Navigator.of(context).pop(
+      _AddExercisesResult(
+        selectedIds: Set<int>.from(_selectedIds),
+        draft: _QuickExerciseDraft(
+          name: name,
+          description: _descriptionController.text.trim(),
+          trackSets: _trackSets.value,
+          trackReps: _trackReps.value,
+          trackWeight: _trackWeight.value,
+          trackDuration: _trackDuration.value,
+          trackDistance: _trackDistance.value,
+          goal: _goal.value,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final query = _query.toLowerCase();
+    final filtered =
+        query.isEmpty
+            ? widget.exercises
+            : widget.exercises
+                .where(
+                  (exercise) =>
+                      displayExerciseName(
+                        context,
+                        exercise,
+                      ).toLowerCase().contains(query) ||
+                      exercise.name.toLowerCase().contains(query) ||
+                      exercise.mergedAliases.any(
+                        (alias) => alias.toLowerCase().contains(query),
+                      ),
+                )
+                .toList();
+    final isCreateTab = _tabController.index == 1;
+
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * .82,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  context.l10n.addExercises,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: .5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  indicator: BoxDecoration(
+                    color: scheme.primary,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicatorPadding: const EdgeInsets.all(3),
+                  dividerColor: Colors.transparent,
+                  labelColor: scheme.onPrimary,
+                  unselectedLabelColor: scheme.onSurfaceVariant,
+                  tabs: [
+                    Tab(text: context.l10n.addExistingExercises),
+                    Tab(text: context.l10n.createNewExercise),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: context.l10n.searchExercises,
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            suffixIcon:
+                                _query.isEmpty
+                                    ? null
+                                    : IconButton(
+                                      icon: const Icon(Icons.close),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _query = '');
+                                      },
+                                    ),
+                          ),
+                          onChanged: (value) => setState(() => _query = value),
+                        ),
+                      ),
+                      Expanded(
+                        child: ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                          itemCount: filtered.length,
+                          separatorBuilder:
+                              (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final exercise = filtered[index];
+                            final metrics = <String>[
+                              if (exercise.trackSets) context.l10n.sets,
+                              if (exercise.trackReps) context.l10n.repetitions,
+                              if (exercise.trackWeight) context.l10n.weight,
+                              if (exercise.trackDistance) context.l10n.distance,
+                              if (exercise.trackDuration) context.l10n.duration,
+                            ];
+                            return Card(
+                              child: CheckboxListTile(
+                                value: _selectedIds.contains(exercise.id),
+                                onChanged: (selected) {
+                                  setState(() {
+                                    if (selected == true) {
+                                      _selectedIds.add(exercise.id);
+                                    } else {
+                                      _selectedIds.remove(exercise.id);
+                                    }
+                                  });
+                                },
+                                title: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        displayExerciseName(context, exercise),
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium?.copyWith(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    if (exercise.goal != null) ...[
+                                      const SizedBox(width: 8),
+                                      goalBadge(
+                                        context,
+                                        exercise.goal!,
+                                        scheme,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                subtitle:
+                                    metrics.isEmpty
+                                        ? null
+                                        : Text(metrics.join(' · ')),
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    children: [
+                      ExerciseEditorForm(
+                        nameCtrl: _nameController,
+                        descCtrl: _descriptionController,
+                        trackSets: _trackSets,
+                        trackReps: _trackReps,
+                        trackWeight: _trackWeight,
+                        trackDuration: _trackDuration,
+                        trackDistance: _trackDistance,
+                        goal: _goal,
+                        autofocusName: true,
+                        onChanged: _handleFormChanged,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                16 + MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(context.l10n.cancel),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child:
+                          isCreateTab
+                              ? FilledButton.icon(
+                                key: const ValueKey('create_and_add'),
+                                onPressed:
+                                    _nameController.text.trim().isEmpty
+                                        ? null
+                                        : _submitNew,
+                                icon: const Icon(Icons.add),
+                                label: Text(context.l10n.create),
+                              )
+                              : FilledButton(
+                                key: const ValueKey('add_selected'),
+                                onPressed: _submitExisting,
+                                child: Text(context.l10n.add),
+                              ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

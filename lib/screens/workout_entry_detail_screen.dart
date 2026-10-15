@@ -1,7 +1,6 @@
 // lib/screens/workout_entry_detail_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -14,6 +13,7 @@ import '../models/exercise.dart';
 import '../utils/duration_utils.dart';
 import '../utils/exercise_localization.dart';
 import '../l10n/l10n.dart';
+import '../widgets/modal_form_dialogs.dart';
 
 class WorkoutEntryDetailScreen extends StatefulWidget {
   final WorkoutEntry entry;
@@ -57,73 +57,12 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
 
   Future<void> _editWorkoutDuration() async {
     final current = _durationSeconds ?? 0;
-    final parts = DurationFormatter.split(current);
-    final hCtrl = TextEditingController(
-      text: parts.hours > 0 ? '${parts.hours}' : '',
-    );
-    final mCtrl = TextEditingController(
-      text: parts.minutes > 0 ? '${parts.minutes}' : '',
-    );
-    final sCtrl = TextEditingController(
-      text: parts.seconds > 0 ? '${parts.seconds}' : '',
-    );
-
-    final newDuration = await showDialog<int?>(
+    final newDuration = await showDurationInputDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(ctx.l10n.editWorkoutDuration),
-            content: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: hCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    autofocus: true,
-                    decoration: InputDecoration(labelText: ctx.l10n.hours),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: mCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: InputDecoration(labelText: ctx.l10n.minutes),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: sCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: InputDecoration(labelText: ctx.l10n.seconds),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(null),
-                child: Text(ctx.l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final secs = DurationFormatter.totalSecondsFromTexts(
-                    hCtrl.text,
-                    mCtrl.text,
-                    sCtrl.text,
-                  );
-                  Navigator.of(ctx).pop(secs);
-                },
-                child: Text(ctx.l10n.save),
-              ),
-            ],
-          ),
+      title: context.l10n.editWorkoutDuration,
+      initialSeconds: current,
     );
-
+    if (!mounted) return;
     if (newDuration == null) return;
 
     await WorkoutEntryDatabase.instance.updateSessionDuration(
@@ -152,6 +91,7 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
     // Dauer: Std/Min/Sek-Dialog
     if (isDuration) {
       final newSecs = await _showDurationEditDialog(current?.toInt() ?? 0);
+      if (!mounted) return;
       if (newSecs == null) return;
 
       await WorkoutEntryDatabase.instance.updateMetric(
@@ -172,52 +112,14 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
       return;
     }
 
-    final controller = TextEditingController(
-      text: current == null ? '' : '$current',
-    );
-
-    final newValue = await showDialog<num?>(
+    final newValue = await showNumberInputDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(_dialogTitleFor(field)),
-            content: TextField(
-              controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText:
-                    isInt ? ctx.l10n.exampleInteger : ctx.l10n.exampleDecimal,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(null),
-                child: Text(ctx.l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final txt = controller.text.trim().replaceAll(',', '.');
-                  if (txt.isEmpty) {
-                    Navigator.of(ctx).pop(null);
-                    return;
-                  }
-                  num? parsed;
-                  if (isInt) {
-                    parsed = int.tryParse(txt);
-                  } else {
-                    parsed = double.tryParse(txt);
-                  }
-                  Navigator.of(ctx).pop(parsed);
-                },
-                child: Text(ctx.l10n.save),
-              ),
-            ],
-          ),
+      title: _dialogTitleFor(field),
+      label: isInt ? context.l10n.exampleInteger : context.l10n.exampleDecimal,
+      initialValue: current ?? 0,
+      integer: isInt,
     );
-
+    if (!mounted) return;
     if (newValue == null) return;
 
     await WorkoutEntryDatabase.instance.updateMetric(
@@ -251,55 +153,18 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
       newValue = await _showDurationEditDialog(current?.toInt() ?? 0);
     } else {
       final isWeight = field == 'weight' || field == 'distance';
-      final controller = TextEditingController(
-        text: current == null ? '' : '$current',
-      );
-
-      newValue = await showDialog<num?>(
+      newValue = await showNumberInputDialog(
         context: context,
-        builder:
-            (ctx) => AlertDialog(
-              title: Text(_dialogTitleFor(field)),
-              content: TextField(
-                controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText:
-                      isWeight
-                          ? ctx.l10n.exampleDecimal
-                          : ctx.l10n.exampleInteger,
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(null),
-                  child: Text(ctx.l10n.cancel),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    final txt = controller.text.trim().replaceAll(',', '.');
-                    if (txt.isEmpty) {
-                      Navigator.of(ctx).pop(null);
-                      return;
-                    }
-                    num? parsed;
-                    if (isWeight) {
-                      parsed = double.tryParse(txt);
-                    } else {
-                      parsed = int.tryParse(txt);
-                    }
-                    Navigator.of(ctx).pop(parsed);
-                  },
-                  child: Text(ctx.l10n.save),
-                ),
-              ],
-            ),
+        title: _dialogTitleFor(field),
+        label:
+            isWeight
+                ? context.l10n.exampleDecimal
+                : context.l10n.exampleInteger,
+        initialValue: current ?? 0,
+        integer: !isWeight,
       );
     }
-
+    if (!mounted) return;
     if (newValue == null) return;
 
     setState(() {
@@ -405,71 +270,10 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
   // ---- Hilfsmethoden ----
 
   Future<int?> _showDurationEditDialog(int currentSeconds) async {
-    final parts = DurationFormatter.split(currentSeconds);
-    final hCtrl = TextEditingController(
-      text: parts.hours > 0 ? '${parts.hours}' : '',
-    );
-    final mCtrl = TextEditingController(
-      text: parts.minutes > 0 ? '${parts.minutes}' : '',
-    );
-    final sCtrl = TextEditingController(
-      text: parts.seconds > 0 ? '${parts.seconds}' : '',
-    );
-
-    return showDialog<int?>(
+    return showDurationInputDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(ctx.l10n.editDuration),
-            content: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: hCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    autofocus: true,
-                    decoration: InputDecoration(labelText: ctx.l10n.hours),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: mCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: InputDecoration(labelText: ctx.l10n.minutes),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: sCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: InputDecoration(labelText: ctx.l10n.seconds),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(null),
-                child: Text(ctx.l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final secs = DurationFormatter.totalSecondsFromTexts(
-                    hCtrl.text,
-                    mCtrl.text,
-                    sCtrl.text,
-                  );
-                  Navigator.of(ctx).pop(secs);
-                },
-                child: Text(ctx.l10n.save),
-              ),
-            ],
-          ),
+      title: context.l10n.editDuration,
+      initialSeconds: currentSeconds,
     );
   }
 

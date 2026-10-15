@@ -12,6 +12,7 @@ import '../utils/duration_utils.dart';
 import '../utils/goal_utils.dart';
 import '../l10n/l10n.dart';
 import '../utils/exercise_localization.dart';
+import '../widgets/modal_form_dialogs.dart';
 
 class BackdateWorkoutScreen extends StatefulWidget {
   final Workout workout;
@@ -174,174 +175,20 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
     final last = sessionLast ?? e.lastValues;
     final defs = e.defaultValues;
 
-    final repsCtrl = TextEditingController(
-      text: last['reps'] ?? defs['reps'] ?? '',
-    );
-    final weightCtrl = TextEditingController(
-      text: last['weight'] ?? defs['weight'] ?? '',
-    );
-    final distanceCtrl = TextEditingController(
-      text: last['distance'] ?? defs['distance'] ?? '',
-    );
-    final durationParts = DurationFormatter.fromRaw(
-      last['duration'] ?? defs['duration'],
-    );
-    final durHoursCtrl = TextEditingController(
-      text: durationParts.hours > 0 ? '${durationParts.hours}' : '',
-    );
-    final durMinutesCtrl = TextEditingController(
-      text: durationParts.minutes > 0 ? '${durationParts.minutes}' : '',
-    );
-    final durSecondsCtrl = TextEditingController(
-      text: durationParts.seconds > 0 ? '${durationParts.seconds}' : '',
-    );
-
-    await showDialog(
+    final entry = await showExerciseValueDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(displayExerciseName(context, e)),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (e.trackReps)
-                    TextField(
-                      controller: repsCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: ctx.l10n.repetitions,
-                      ),
-                    ),
-                  if (e.trackWeight)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: TextField(
-                        controller: weightCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: ctx.l10n.weightKilograms,
-                        ),
-                      ),
-                    ),
-                  if (e.trackDistance)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: TextField(
-                        controller: distanceCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: ctx.l10n.distanceKilometers,
-                        ),
-                      ),
-                    ),
-                  if (e.trackDuration)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            ctx.l10n.duration,
-                            style: Theme.of(ctx).textTheme.labelLarge,
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: durHoursCtrl,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: InputDecoration(
-                                    labelText: ctx.l10n.hours,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextField(
-                                  controller: durMinutesCtrl,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: InputDecoration(
-                                    labelText: ctx.l10n.minutes,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextField(
-                                  controller: durSecondsCtrl,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: InputDecoration(
-                                    labelText: ctx.l10n.seconds,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(ctx.l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final entry = <String, String>{};
-                  if (e.trackReps && repsCtrl.text.trim().isNotEmpty) {
-                    entry['reps'] = repsCtrl.text.trim();
-                  }
-                  if (e.trackWeight && weightCtrl.text.trim().isNotEmpty) {
-                    entry['weight'] = weightCtrl.text.trim();
-                  }
-                  if (e.trackDistance && distanceCtrl.text.trim().isNotEmpty) {
-                    entry['distance'] = distanceCtrl.text.trim();
-                  }
-                  if (e.trackDuration) {
-                    final secs = DurationFormatter.totalSecondsFromTexts(
-                      durHoursCtrl.text,
-                      durMinutesCtrl.text,
-                      durSecondsCtrl.text,
-                    );
-                    if (secs > 0) entry['duration'] = '$secs';
-                  }
-                  if (entry.isNotEmpty) {
-                    _setsByExercise.putIfAbsent(e.id, () => []);
-                    // Single mode: replace last entry
-                    if (_setsByExercise[e.id]!.isNotEmpty) {
-                      _setsByExercise[e.id]!.last = entry;
-                    } else {
-                      _setsByExercise[e.id]!.add(entry);
-                    }
-                    setState(() {});
-                  }
-                  Navigator.pop(ctx);
-                },
-                child: Text(ctx.l10n.save),
-              ),
-            ],
-          ),
+      exercise: e,
+      title: displayExerciseName(context, e),
+      initialValues: {...defs, ...last},
     );
+    if (!mounted || entry == null || entry.isEmpty) return;
+    _setsByExercise.putIfAbsent(e.id, () => []);
+    if (_setsByExercise[e.id]!.isNotEmpty) {
+      _setsByExercise[e.id]!.last = entry;
+    } else {
+      _setsByExercise[e.id]!.add(entry);
+    }
+    setState(() {});
   }
 
   Future<void> _addSetPerSet(BuildContext context, Exercise e) async {

@@ -14,9 +14,9 @@ import '../widgets/screen_info_dialog.dart';
 import '../providers/active_workout_provider.dart';
 import '../providers/locale_provider.dart';
 import '../widgets/language_preference_picker.dart';
-import '../models/workout_plan.dart';
 import '../services/workout_plan_database.dart';
 import '../l10n/l10n.dart';
+import '../widgets/training_profile_settings_card.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -25,126 +25,10 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-const _profileEquipmentCodes = <String>[
-  'bodyweight',
-  'dumbbell',
-  'barbell',
-  'machine',
-  'cable',
-  'kettlebell',
-  'bands',
-];
-
-class _NewTrainingProfile {
-  const _NewTrainingProfile(this.name, this.equipmentCodes);
-
-  final String name;
-  final Set<String> equipmentCodes;
-}
-
 class _SettingsScreenState extends State<SettingsScreen>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-
-  Future<void> _addTrainingProfile() async {
-    final controller = TextEditingController();
-    final selectedEquipment = <String>{};
-    final result = await showDialog<_NewTrainingProfile>(
-      context: context,
-      builder:
-          (ctx) => StatefulBuilder(
-            builder:
-                (ctx, setDialogState) => AlertDialog(
-                  title: Text(ctx.l10n.trainingProfile),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          controller: controller,
-                          autofocus: true,
-                          decoration: InputDecoration(
-                            labelText: ctx.l10n.profileName,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          ctx.l10n.equipment,
-                          style: Theme.of(ctx).textTheme.labelLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final code in _profileEquipmentCodes)
-                              FilterChip(
-                                label: Text(_equipmentLabel(ctx, code)),
-                                selected: selectedEquipment.contains(code),
-                                onSelected:
-                                    (selected) => setDialogState(() {
-                                      if (selected) {
-                                        selectedEquipment.add(code);
-                                      } else {
-                                        selectedEquipment.remove(code);
-                                      }
-                                    }),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: Text(ctx.l10n.cancel),
-                    ),
-                    FilledButton(
-                      onPressed: () {
-                        final name = controller.text.trim();
-                        if (name.isNotEmpty) {
-                          Navigator.pop(
-                            ctx,
-                            _NewTrainingProfile(
-                              name,
-                              Set<String>.from(selectedEquipment),
-                            ),
-                          );
-                        }
-                      },
-                      child: Text(ctx.l10n.add),
-                    ),
-                  ],
-                ),
-          ),
-    );
-    controller.dispose();
-    if (result == null) return;
-    final current = await WorkoutPlanDatabase.instance.profiles();
-    await WorkoutPlanDatabase.instance.saveProfile(
-      TrainingProfile(
-        id: DateTime.now().microsecondsSinceEpoch,
-        name: result.name,
-        equipmentCodes: result.equipmentCodes.toList(),
-        sort: current.length,
-      ),
-    );
-    if (mounted) setState(() {});
-  }
-
-  String _equipmentLabel(BuildContext context, String code) => switch (code) {
-    'bodyweight' => context.l10n.equipmentBodyweight,
-    'dumbbell' => context.l10n.equipmentDumbbell,
-    'barbell' => context.l10n.equipmentBarbell,
-    'machine' => context.l10n.equipmentMachine,
-    'cable' => context.l10n.equipmentCable,
-    'kettlebell' => context.l10n.equipmentKettlebell,
-    'bands' => context.l10n.equipmentBands,
-    _ => code,
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -287,27 +171,9 @@ class _SettingsScreenState extends State<SettingsScreen>
 
           _SectionHeader(title: l10n.trainingProfile),
           const SizedBox(height: 12),
-          Card(
-            child: FutureBuilder<List<TrainingProfile>>(
-              future: WorkoutPlanDatabase.instance.profiles(),
-              builder:
-                  (context, snapshot) => ListTile(
-                    leading: const Icon(Icons.fitness_center_rounded),
-                    title: Text(l10n.trainingProfile),
-                    subtitle: Text(
-                      snapshot.hasData && snapshot.data!.isNotEmpty
-                          ? snapshot.data!
-                              .map((profile) => profile.name)
-                              .join(' · ')
-                          : l10n.noProfiles,
-                    ),
-                    trailing: IconButton(
-                      tooltip: l10n.add,
-                      onPressed: _addTrainingProfile,
-                      icon: const Icon(Icons.add_rounded),
-                    ),
-                  ),
-            ),
+          TrainingProfileSettingsCard(
+            loadProfiles: WorkoutPlanDatabase.instance.profiles,
+            saveProfile: WorkoutPlanDatabase.instance.saveProfile,
           ),
 
           const SizedBox(height: 24),

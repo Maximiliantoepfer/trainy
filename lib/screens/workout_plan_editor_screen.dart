@@ -6,6 +6,7 @@ import '../models/workout.dart';
 import '../models/workout_plan.dart';
 import '../services/workout_plan_database.dart';
 import '../utils/exercise_localization.dart';
+import '../widgets/modal_form_dialogs.dart';
 
 /// Local editor for reusable workout groups, their variations and direct
 /// exercise alternatives. It changes plan data only; completed sessions keep
@@ -85,38 +86,15 @@ class _WorkoutPlanEditorScreenState extends State<WorkoutPlanEditorScreen> {
     });
   }
 
-  Future<String?> _askForName({
-    required String title,
-    required String label,
-  }) async {
-    final controller = TextEditingController();
-    final result = await showDialog<String>(
+  Future<String?> _askForName({required String title, required String label}) {
+    return showTextPromptDialog(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: Text(title),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: InputDecoration(labelText: label),
-              onSubmitted:
-                  (value) => Navigator.pop(dialogContext, value.trim()),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: Text(dialogContext.l10n.cancel),
-              ),
-              FilledButton(
-                onPressed:
-                    () => Navigator.pop(dialogContext, controller.text.trim()),
-                child: Text(dialogContext.l10n.create),
-              ),
-            ],
-          ),
+      title: title,
+      label: label,
+      submitLabel: context.l10n.create,
+      cancelLabel: context.l10n.cancel,
+      requiredMessage: context.l10n.nameRequired,
     );
-    controller.dispose();
-    return result?.trim().isEmpty ?? true ? null : result!.trim();
   }
 
   Future<void> _addWorkoutVariant() async {
@@ -124,11 +102,13 @@ class _WorkoutPlanEditorScreenState extends State<WorkoutPlanEditorScreen> {
       title: context.l10n.createVariant,
       label: context.l10n.variantName,
     );
+    if (!mounted) return;
     if (name == null) return;
     final result = await _database.createVariantFromDefault(
       workoutId: widget.workout.id,
       name: name,
     );
+    if (!mounted) return;
     await _load(selectWorkoutVariantId: result.id);
   }
 
@@ -137,8 +117,10 @@ class _WorkoutPlanEditorScreenState extends State<WorkoutPlanEditorScreen> {
       title: context.l10n.addGroup,
       label: context.l10n.groupName,
     );
+    if (!mounted) return;
     if (name == null) return;
     await _database.createGroup(workoutId: widget.workout.id, name: name);
+    if (!mounted) return;
     await _load();
   }
 
@@ -146,74 +128,15 @@ class _WorkoutPlanEditorScreenState extends State<WorkoutPlanEditorScreen> {
     WorkoutGroup group,
     WorkoutGroupVariant source,
   ) async {
-    final controller = TextEditingController();
-    int? profileId = source.profileId;
     final value = await showDialog<_NewGroupVariant>(
       context: context,
       builder:
-          (dialogContext) => StatefulBuilder(
-            builder:
-                (dialogContext, setDialogState) => AlertDialog(
-                  title: Text(dialogContext.l10n.addGroupVariant),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: controller,
-                        autofocus: true,
-                        decoration: InputDecoration(
-                          labelText: dialogContext.l10n.variantName,
-                        ),
-                      ),
-                      if (_profiles.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<int?>(
-                          value: profileId,
-                          isExpanded: true,
-                          decoration: InputDecoration(
-                            labelText: dialogContext.l10n.trainingProfile,
-                          ),
-                          items: [
-                            DropdownMenuItem<int?>(
-                              value: null,
-                              child: Text(dialogContext.l10n.system),
-                            ),
-                            ..._profiles.map(
-                              (profile) => DropdownMenuItem<int?>(
-                                value: profile.id,
-                                child: Text(profile.name),
-                              ),
-                            ),
-                          ],
-                          onChanged:
-                              (value) =>
-                                  setDialogState(() => profileId = value),
-                        ),
-                      ],
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      child: Text(dialogContext.l10n.cancel),
-                    ),
-                    FilledButton(
-                      onPressed: () {
-                        final name = controller.text.trim();
-                        if (name.isNotEmpty) {
-                          Navigator.pop(
-                            dialogContext,
-                            _NewGroupVariant(name, profileId),
-                          );
-                        }
-                      },
-                      child: Text(dialogContext.l10n.create),
-                    ),
-                  ],
-                ),
+          (_) => _GroupVariantDialog(
+            profiles: _profiles,
+            initialProfileId: source.profileId,
           ),
     );
-    controller.dispose();
+    if (!mounted) return;
     if (value == null || _selectedWorkoutVariantId == null) return;
     final created = await _database.createGroupVariant(
       groupId: group.id,
@@ -226,6 +149,7 @@ class _WorkoutPlanEditorScreenState extends State<WorkoutPlanEditorScreen> {
       workoutGroupId: group.id,
       groupVariantId: created.id,
     );
+    if (!mounted) return;
     await _load();
   }
 
@@ -251,67 +175,14 @@ class _WorkoutPlanEditorScreenState extends State<WorkoutPlanEditorScreen> {
       isScrollControlled: true,
       showDragHandle: true,
       builder:
-          (sheetContext) => StatefulBuilder(
-            builder:
-                (sheetContext, setSheetState) => SafeArea(
-                  child: SizedBox(
-                    height: MediaQuery.of(sheetContext).size.height * .78,
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              sheetContext.l10n.planExercises,
-                              style:
-                                  Theme.of(sheetContext).textTheme.titleLarge,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: widget.exercises.length,
-                            itemBuilder: (context, index) {
-                              final exercise = widget.exercises[index];
-                              return CheckboxListTile(
-                                value: selected.contains(exercise.id),
-                                title: Text(
-                                  displayExerciseName(sheetContext, exercise),
-                                ),
-                                onChanged:
-                                    (checked) => setSheetState(() {
-                                      if (checked == true) {
-                                        selected.add(exercise.id);
-                                      } else {
-                                        selected.remove(exercise.id);
-                                      }
-                                    }),
-                              );
-                            },
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: FilledButton(
-                              onPressed:
-                                  () => Navigator.pop(
-                                    sheetContext,
-                                    Set<int>.from(selected),
-                                  ),
-                              child: Text(sheetContext.l10n.save),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+          (_) => _ExerciseSelectionSheet(
+            title: context.l10n.planExercises,
+            exercises: widget.exercises,
+            initiallySelected: selected,
+            heightFactor: .78,
           ),
     );
-    if (result == null) return;
+    if (!mounted || result == null) return;
     final existingByExercise = {
       for (final slot in existing) slot.exerciseId: slot,
     };
@@ -336,6 +207,7 @@ class _WorkoutPlanEditorScreenState extends State<WorkoutPlanEditorScreen> {
       groupVariantId: groupVariant.id,
       slots: values,
     );
+    if (!mounted) return;
     await _load();
   }
 
@@ -362,76 +234,22 @@ class _WorkoutPlanEditorScreenState extends State<WorkoutPlanEditorScreen> {
 
   Future<void> _editAlternatives(WorkoutSlot slot) async {
     final existing = await _database.alternativesForSlot(slot.id);
+    if (!mounted) return;
     final selected = existing.map((item) => item.exerciseId).toSet();
     final result = await showModalBottomSheet<Set<int>>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder:
-          (sheetContext) => StatefulBuilder(
-            builder:
-                (sheetContext, setSheetState) => SafeArea(
-                  child: SizedBox(
-                    height: MediaQuery.of(sheetContext).size.height * .7,
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              sheetContext.l10n.alternatives,
-                              style:
-                                  Theme.of(sheetContext).textTheme.titleLarge,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: widget.exercises.length,
-                            itemBuilder: (context, index) {
-                              final exercise = widget.exercises[index];
-                              if (exercise.id == slot.exerciseId) {
-                                return const SizedBox.shrink();
-                              }
-                              return CheckboxListTile(
-                                value: selected.contains(exercise.id),
-                                title: Text(
-                                  displayExerciseName(sheetContext, exercise),
-                                ),
-                                onChanged:
-                                    (checked) => setSheetState(() {
-                                      if (checked == true) {
-                                        selected.add(exercise.id);
-                                      } else {
-                                        selected.remove(exercise.id);
-                                      }
-                                    }),
-                              );
-                            },
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: FilledButton(
-                              onPressed:
-                                  () => Navigator.pop(
-                                    sheetContext,
-                                    Set<int>.from(selected),
-                                  ),
-                              child: Text(sheetContext.l10n.save),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+          (_) => _ExerciseSelectionSheet(
+            title: context.l10n.alternatives,
+            exercises: widget.exercises,
+            initiallySelected: selected,
+            excludedExerciseId: slot.exerciseId,
+            heightFactor: .7,
           ),
     );
-    if (result == null) return;
+    if (!mounted || result == null) return;
     await _database.replaceSlotAlternatives(
       workoutSlotId: slot.id,
       exerciseIds:
@@ -529,6 +347,195 @@ class _NewGroupVariant {
   const _NewGroupVariant(this.name, this.profileId);
   final String name;
   final int? profileId;
+}
+
+class _GroupVariantDialog extends StatefulWidget {
+  const _GroupVariantDialog({
+    required this.profiles,
+    required this.initialProfileId,
+  });
+
+  final List<TrainingProfile> profiles;
+  final int? initialProfileId;
+
+  @override
+  State<_GroupVariantDialog> createState() => _GroupVariantDialogState();
+}
+
+class _GroupVariantDialogState extends State<_GroupVariantDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  int? _profileId;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _profileId = widget.initialProfileId;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    Navigator.of(
+      context,
+    ).pop(_NewGroupVariant(_nameController.text.trim(), _profileId));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(context.l10n.addGroupVariant),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              key: const ValueKey('groupVariantName'),
+              controller: _nameController,
+              autofocus: true,
+              decoration: InputDecoration(labelText: context.l10n.variantName),
+              validator:
+                  (value) =>
+                      (value?.trim().isEmpty ?? true)
+                          ? context.l10n.nameRequired
+                          : null,
+              onFieldSubmitted: (_) => _submit(),
+            ),
+            if (widget.profiles.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int?>(
+                value: _profileId,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: context.l10n.trainingProfile,
+                ),
+                items: [
+                  DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text(context.l10n.system),
+                  ),
+                  ...widget.profiles.map(
+                    (profile) => DropdownMenuItem<int?>(
+                      value: profile.id,
+                      child: Text(profile.name),
+                    ),
+                  ),
+                ],
+                onChanged: (value) => setState(() => _profileId = value),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(context.l10n.cancel),
+        ),
+        FilledButton(
+          key: const ValueKey('groupVariantSubmit'),
+          onPressed: _submit,
+          child: Text(context.l10n.create),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExerciseSelectionSheet extends StatefulWidget {
+  const _ExerciseSelectionSheet({
+    required this.title,
+    required this.exercises,
+    required this.initiallySelected,
+    required this.heightFactor,
+    this.excludedExerciseId,
+  });
+
+  final String title;
+  final List<Exercise> exercises;
+  final Set<int> initiallySelected;
+  final double heightFactor;
+  final int? excludedExerciseId;
+
+  @override
+  State<_ExerciseSelectionSheet> createState() =>
+      _ExerciseSelectionSheetState();
+}
+
+class _ExerciseSelectionSheetState extends State<_ExerciseSelectionSheet> {
+  late final Set<int> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set<int>.from(widget.initiallySelected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final exercises =
+        widget.exercises
+            .where((item) => item.id != widget.excludedExerciseId)
+            .toList();
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * widget.heightFactor,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  widget.title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: exercises.length,
+                itemBuilder: (context, index) {
+                  final exercise = exercises[index];
+                  return CheckboxListTile(
+                    value: _selected.contains(exercise.id),
+                    title: Text(displayExerciseName(context, exercise)),
+                    onChanged: (checked) {
+                      setState(() {
+                        if (checked == true) {
+                          _selected.add(exercise.id);
+                        } else {
+                          _selected.remove(exercise.id);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed:
+                      () => Navigator.of(context).pop(Set<int>.from(_selected)),
+                  child: Text(context.l10n.save),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _GroupCard extends StatelessWidget {

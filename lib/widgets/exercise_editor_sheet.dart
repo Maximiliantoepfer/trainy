@@ -24,227 +24,315 @@ Future<bool> showExerciseEditorSheet(
   Exercise? existing,
   bool warnOnEdit = false,
 }) async {
-  final nameCtrl = TextEditingController(
-    text: existing == null ? '' : displayExerciseName(context, existing),
-  );
-  final descCtrl = TextEditingController(text: existing?.description ?? '');
-  final trackSets = ValueNotifier(existing?.trackSets ?? true);
-  final trackReps = ValueNotifier(existing?.trackReps ?? true);
-  final trackWeight = ValueNotifier(existing?.trackWeight ?? true);
-  final trackDuration = ValueNotifier(existing?.trackDuration ?? false);
-  final trackDistance = ValueNotifier(existing?.trackDistance ?? false);
-  final goal = ValueNotifier<String?>(existing?.goal);
-  final goalCodes = ValueNotifier<List<String>>(
-    existing?.goalCodes.isNotEmpty == true
-        ? List<String>.from(existing!.goalCodes)
-        : (existing?.goal == null ? [] : [existing!.goal!]),
-  );
-  final imagePaths = ValueNotifier<List<String>>(
-    List<String>.from(existing?.imagePaths ?? const []),
-  );
-
-  bool saved = false;
-
-  await showModalBottomSheet(
+  final initialName =
+      existing == null ? '' : displayExerciseName(context, existing);
+  final result = await showModalBottomSheet<_ExerciseEditorResult>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    builder: (ctx) {
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+    builder:
+        (_) =>
+            _ExerciseEditorSheet(existing: existing, initialName: initialName),
+  );
+  if (!context.mounted || result == null) return false;
+
+  if (warnOnEdit && existing != null) {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text(dialogContext.l10n.editExerciseConfirmationTitle),
+            content: Text(dialogContext.l10n.editExerciseConfirmation),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(dialogContext.l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(dialogContext.l10n.save),
+              ),
+            ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    existing == null
-                        ? ctx.l10n.newExercise
-                        : ctx.l10n.editExercise,
-                    style: Theme.of(ctx).textTheme.titleLarge,
-                  ),
+    );
+    if (!context.mounted || confirmed != true) return false;
+  }
+
+  await context.read<ExerciseProvider>().addOrUpdateExercise(
+    id: existing?.id,
+    name: result.name,
+    description: result.description,
+    trackSets: result.trackSets,
+    trackReps: result.trackReps,
+    trackWeight: result.trackWeight,
+    trackDuration: result.trackDuration,
+    trackDistance: result.trackDistance,
+    goal: result.goal,
+    standardKey: existing?.standardKey,
+    catalogId: existing?.catalogId,
+    alias: existing?.alias,
+    notes: existing?.notes ?? '',
+    goalCodes: result.goalCodes,
+    imagePaths: result.imagePaths,
+    isNameCustom:
+        existing?.catalogId != null && result.name == initialName
+            ? false
+            : existing?.isNameCustom,
+  );
+  if (!context.mounted) return true;
+  try {
+    context.read<CloudSyncProvider>().scheduleBackupSoon();
+  } catch (_) {}
+  return true;
+}
+
+@immutable
+class _ExerciseEditorResult {
+  const _ExerciseEditorResult({
+    required this.name,
+    required this.description,
+    required this.trackSets,
+    required this.trackReps,
+    required this.trackWeight,
+    required this.trackDuration,
+    required this.trackDistance,
+    required this.goal,
+    required this.goalCodes,
+    required this.imagePaths,
+  });
+
+  final String name;
+  final String description;
+  final bool trackSets;
+  final bool trackReps;
+  final bool trackWeight;
+  final bool trackDuration;
+  final bool trackDistance;
+  final String? goal;
+  final List<String> goalCodes;
+  final List<String> imagePaths;
+}
+
+class _ExerciseEditorSheet extends StatefulWidget {
+  const _ExerciseEditorSheet({
+    required this.existing,
+    required this.initialName,
+  });
+
+  final Exercise? existing;
+  final String initialName;
+
+  @override
+  State<_ExerciseEditorSheet> createState() => _ExerciseEditorSheetState();
+}
+
+class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+  late final ValueNotifier<bool> _trackSets;
+  late final ValueNotifier<bool> _trackReps;
+  late final ValueNotifier<bool> _trackWeight;
+  late final ValueNotifier<bool> _trackDuration;
+  late final ValueNotifier<bool> _trackDistance;
+  late final ValueNotifier<String?> _goal;
+  late final ValueNotifier<List<String>> _goalCodes;
+  late final ValueNotifier<List<String>> _imagePaths;
+  late final Future<List<Map<String, dynamic>>>? _mergeHistory;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existing;
+    _nameController = TextEditingController(text: widget.initialName);
+    _descriptionController = TextEditingController(
+      text: existing?.description ?? '',
+    );
+    _trackSets = ValueNotifier(existing?.trackSets ?? true);
+    _trackReps = ValueNotifier(existing?.trackReps ?? true);
+    _trackWeight = ValueNotifier(existing?.trackWeight ?? true);
+    _trackDuration = ValueNotifier(existing?.trackDuration ?? false);
+    _trackDistance = ValueNotifier(existing?.trackDistance ?? false);
+    _goal = ValueNotifier(existing?.goal);
+    _goalCodes = ValueNotifier(
+      existing?.goalCodes.isNotEmpty == true
+          ? List<String>.from(existing!.goalCodes)
+          : (existing?.goal == null ? <String>[] : [existing!.goal!]),
+    );
+    _imagePaths = ValueNotifier(
+      List<String>.from(existing?.imagePaths ?? const []),
+    );
+    _mergeHistory =
+        existing == null
+            ? null
+            : context.read<ExerciseProvider>().getMergeHistoryFull(existing.id);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _trackSets.dispose();
+    _trackReps.dispose();
+    _trackWeight.dispose();
+    _trackDuration.dispose();
+    _trackDistance.dispose();
+    _goal.dispose();
+    _goalCodes.dispose();
+    _imagePaths.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final existing = widget.existing;
+    if (existing == null) return;
+    final path = await ExerciseImageService.instance.pickAndStoreCover(
+      exerciseId: existing.id,
+    );
+    if (!mounted || path == null) return;
+    _imagePaths.value = [path, ..._imagePaths.value];
+  }
+
+  void _submit() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+    Navigator.of(context).pop(
+      _ExerciseEditorResult(
+        name: name,
+        description: _descriptionController.text.trim(),
+        trackSets: _trackSets.value,
+        trackReps: _trackReps.value,
+        trackWeight: _trackWeight.value,
+        trackDuration: _trackDuration.value,
+        trackDistance: _trackDistance.value,
+        goal: _goal.value,
+        goalCodes: List.unmodifiable(_goalCodes.value),
+        imagePaths: List.unmodifiable(_imagePaths.value),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final existing = widget.existing;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  existing == null
+                      ? context.l10n.newExercise
+                      : context.l10n.editExercise,
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
-              const SizedBox(height: 16),
-              if (existing != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: ValueListenableBuilder<List<String>>(
-                    valueListenable: imagePaths,
-                    builder:
-                        (ctx, paths, _) => OutlinedButton.icon(
-                          onPressed: () async {
-                            final path = await ExerciseImageService.instance
-                                .pickAndStoreCover(exerciseId: existing.id);
-                            if (path != null)
-                              imagePaths.value = [path, ...paths];
-                          },
-                          icon: const Icon(Icons.add_photo_alternate_outlined),
-                          label: Text('${ctx.l10n.add} (${paths.length})'),
-                        ),
-                  ),
-                ),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  child: ExerciseEditorForm(
-                    nameCtrl: nameCtrl,
-                    descCtrl: descCtrl,
-                    trackSets: trackSets,
-                    trackReps: trackReps,
-                    trackWeight: trackWeight,
-                    trackDuration: trackDuration,
-                    trackDistance: trackDistance,
-                    goal: goal,
-                    goalCodes: goalCodes,
-                    autofocusName: existing == null,
-                  ),
+            ),
+            const SizedBox(height: 16),
+            if (existing != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: ValueListenableBuilder<List<String>>(
+                  valueListenable: _imagePaths,
+                  builder:
+                      (context, paths, _) => OutlinedButton.icon(
+                        onPressed: _pickImage,
+                        icon: const Icon(Icons.add_photo_alternate_outlined),
+                        label: Text('${context.l10n.add} (${paths.length})'),
+                      ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 48,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: Text(ctx.l10n.cancel),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: ExerciseEditorForm(
+                  nameCtrl: _nameController,
+                  descCtrl: _descriptionController,
+                  trackSets: _trackSets,
+                  trackReps: _trackReps,
+                  trackWeight: _trackWeight,
+                  trackDuration: _trackDuration,
+                  trackDistance: _trackDistance,
+                  goal: _goal,
+                  goalCodes: _goalCodes,
+                  autofocusName: existing == null,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(context.l10n.cancel),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: FilledButton(
+                        key: const ValueKey('exerciseEditorSubmit'),
+                        onPressed: _submit,
+                        child: Text(
+                          existing == null
+                              ? context.l10n.create
+                              : context.l10n.save,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SizedBox(
-                        height: 48,
-                        child: FilledButton(
-                          onPressed: () async {
-                            final name = nameCtrl.text.trim();
-                            if (name.isEmpty) return;
-
-                            if (warnOnEdit && existing != null) {
-                              final confirmed = await showDialog<bool>(
-                                context: ctx,
-                                builder:
-                                    (dCtx) => AlertDialog(
-                                      title: Text(
-                                        dCtx.l10n.editExerciseConfirmationTitle,
-                                      ),
-                                      content: Text(
-                                        dCtx.l10n.editExerciseConfirmation,
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed:
-                                              () => Navigator.pop(dCtx, false),
-                                          child: Text(dCtx.l10n.cancel),
-                                        ),
-                                        FilledButton(
-                                          onPressed:
-                                              () => Navigator.pop(dCtx, true),
-                                          child: Text(dCtx.l10n.save),
-                                        ),
-                                      ],
-                                    ),
-                              );
-                              if (confirmed != true) return;
-                            }
-
-                            await ctx
-                                .read<ExerciseProvider>()
-                                .addOrUpdateExercise(
-                                  id: existing?.id,
-                                  name: name,
-                                  description: descCtrl.text.trim(),
-                                  trackSets: trackSets.value,
-                                  trackReps: trackReps.value,
-                                  trackWeight: trackWeight.value,
-                                  trackDuration: trackDuration.value,
-                                  trackDistance: trackDistance.value,
-                                  goal: goal.value,
-                                  standardKey: existing?.standardKey,
-                                  catalogId: existing?.catalogId,
-                                  alias: existing?.alias,
-                                  notes: existing?.notes ?? '',
-                                  goalCodes: goalCodes.value,
-                                  imagePaths: imagePaths.value,
-                                  isNameCustom:
-                                      existing?.catalogId != null &&
-                                              name ==
-                                                  displayExerciseName(
-                                                    ctx,
-                                                    existing!,
-                                                  )
-                                          ? false
-                                          : existing?.isNameCustom,
-                                );
-                            try {
-                              ctx
-                                  .read<CloudSyncProvider>()
-                                  .scheduleBackupSoon();
-                            } catch (_) {}
-                            saved = true;
-                            if (ctx.mounted) Navigator.pop(ctx);
-                          },
-                          child: Text(
-                            existing == null ? ctx.l10n.create : ctx.l10n.save,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              // Zusammenführen-Button (nur bei bestehender Übung)
-              if (existing != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                  child: FutureBuilder<List<Map<String, dynamic>>>(
-                    future: ctx.read<ExerciseProvider>().getMergeHistoryFull(
-                      existing.id,
-                    ),
-                    builder: (context, snapshot) {
-                      final count = snapshot.data?.length ?? 0;
-                      return SizedBox(
-                        width: double.infinity,
-                        height: 40,
-                        child: TextButton.icon(
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: ctx,
+            ),
+            if (existing != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: FutureBuilder<List<Map<String, dynamic>>>(
+                  future: _mergeHistory,
+                  builder: (context, snapshot) {
+                    final count = snapshot.data?.length ?? 0;
+                    return SizedBox(
+                      width: double.infinity,
+                      height: 40,
+                      child: TextButton.icon(
+                        onPressed:
+                            () => showModalBottomSheet<void>(
+                              context: context,
                               isScrollControlled: true,
                               useSafeArea: true,
                               showDragHandle: true,
                               builder:
                                   (_) =>
                                       _MergeManagementSheet(exercise: existing),
-                            );
-                          },
-                          icon: const Icon(Icons.merge_rounded, size: 18),
-                          label: Text(ctx.l10n.mergeExercises(count)),
-                        ),
-                      );
-                    },
-                  ),
-                )
-              else
-                const SizedBox(height: 16),
-            ],
-          ),
+                            ),
+                        icon: const Icon(Icons.merge_rounded, size: 18),
+                        label: Text(context.l10n.mergeExercises(count)),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              const SizedBox(height: 16),
+          ],
         ),
-      );
-    },
-  );
-
-  return saved;
+      ),
+    );
+  }
 }
 
 /// Management-Sheet: zeigt Merge-Verlauf und ermöglicht neue Zusammenführungen.

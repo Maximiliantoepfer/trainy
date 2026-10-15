@@ -19,6 +19,7 @@ import '../providers/exercise_provider.dart';
 import '../models/exercise.dart';
 import '../utils/goal_utils.dart';
 import '../l10n/l10n.dart';
+import '../widgets/modal_form_dialogs.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -54,51 +55,17 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  Future<void> _createWorkout(BuildContext context) async {
-    final controller = TextEditingController();
-    final formKey = GlobalKey<FormState>();
+  Future<void> _createWorkout() async {
     final provider = context.read<WorkoutProvider>();
-
-    String? name = await showDialog<String>(
+    final name = await showTextPromptDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(ctx.l10n.newWorkout),
-            content: Form(
-              key: formKey,
-              child: TextFormField(
-                controller: controller,
-                autofocus: true,
-                decoration: InputDecoration(hintText: ctx.l10n.workoutName),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty)
-                    return ctx.l10n.nameRequired;
-                  return null;
-                },
-                onFieldSubmitted: (_) {
-                  if (formKey.currentState?.validate() ?? false) {
-                    Navigator.of(ctx).pop(controller.text.trim());
-                  }
-                },
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: Text(ctx.l10n.cancel),
-              ),
-              FilledButton(
-                onPressed: () {
-                  if (formKey.currentState?.validate() ?? false) {
-                    Navigator.of(ctx).pop(controller.text.trim());
-                  }
-                },
-                child: Text(ctx.l10n.create),
-              ),
-            ],
-          ),
+      title: context.l10n.newWorkout,
+      label: context.l10n.workoutName,
+      submitLabel: context.l10n.create,
+      cancelLabel: context.l10n.cancel,
+      requiredMessage: context.l10n.nameRequired,
     );
-
+    if (!mounted) return;
     if (name == null) return;
 
     final w = await provider.createWorkout(name: name);
@@ -107,7 +74,9 @@ class _HomeScreenState extends State<HomeScreen>
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => WorkoutScreen(workout: w)));
+    if (!mounted) return;
     await provider.loadWorkouts();
+    if (!mounted) return;
     try {
       context.read<CloudSyncProvider>().scheduleBackupSoon();
     } catch (_) {}
@@ -309,7 +278,7 @@ class _HomeScreenState extends State<HomeScreen>
           ],
         ),
         floatingActionButton: FloatingActionButton(
-          onPressed: () => _createWorkout(context),
+          onPressed: _createWorkout,
           child: const Icon(Icons.add_rounded),
         ),
         body: ListView(
@@ -419,7 +388,7 @@ class _HomeScreenState extends State<HomeScreen>
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (workouts.isEmpty)
-              _EmptyState(onCreateWorkout: () => _createWorkout(context))
+              _EmptyState(onCreateWorkout: _createWorkout)
             else
               ...List.generate(workouts.length, (i) {
                 final w = workouts[i];
