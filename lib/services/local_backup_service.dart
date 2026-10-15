@@ -73,12 +73,14 @@ class LocalBackupService {
 
   Future<void> restoreZip(Uint8List bytes, {bool replace = true}) async {
     final archive = ZipDecoder().decodeBytes(bytes, verify: true);
-    if (archive.length > 5000)
+    if (archive.length > 5000) {
       throw const FormatException('Archive contains too many files.');
+    }
     final databaseFile = archive.find('database.json');
     final databaseBytes = databaseFile?.readBytes();
-    if (databaseBytes == null)
+    if (databaseBytes == null) {
       throw const FormatException('Archive database is missing.');
+    }
     final data = Map<String, dynamic>.from(
       jsonDecode(utf8.decode(databaseBytes)) as Map,
     );
@@ -87,8 +89,9 @@ class LocalBackupService {
       final name = item.name.replaceAll('\\', '/');
       if (!name.startsWith('images/') ||
           name.contains('..') ||
-          item.isDirectory)
+          item.isDirectory) {
         continue;
+      }
       final relative = name.substring('images/'.length);
       final content = item.readBytes();
       if (content == null || content.length > 12 * 1024 * 1024) continue;

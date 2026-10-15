@@ -356,12 +356,11 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
   }
 
   Future<void> _loadEntries() async {
-    final entries = await context.read<ExerciseProvider>().getMergeHistoryFull(
+    final provider = context.read<ExerciseProvider>();
+    final entries = await provider.getMergeHistoryFull(widget.exercise.id);
+    final redirects = await provider.activeRedirectsForTarget(
       widget.exercise.id,
     );
-    final redirects = await context
-        .read<ExerciseProvider>()
-        .activeRedirectsForTarget(widget.exercise.id);
     if (!mounted) return;
     setState(() {
       _entries = entries;
@@ -371,14 +370,18 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
   }
 
   Future<void> _undoRedirect(int id) async {
-    await context.read<ExerciseProvider>().undoMerge(id);
+    final provider = context.read<ExerciseProvider>();
+    final cloud = context.read<CloudSyncProvider>();
+    await provider.undoMerge(id);
     try {
-      context.read<CloudSyncProvider>().scheduleBackupSoon();
+      cloud.scheduleBackupSoon();
     } catch (_) {}
     if (mounted) _loadEntries();
   }
 
   Future<void> _deleteEntry(Map<String, dynamic> entry) async {
+    final provider = context.read<ExerciseProvider>();
+    final cloud = context.read<CloudSyncProvider>();
     final sourceName = entry['sourceName'] as String;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -409,17 +412,16 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
     );
     if (confirmed != true || !mounted) return;
 
-    await context.read<ExerciseProvider>().deleteMergeHistoryEntry(
-      entry['id'] as int,
-    );
+    await provider.deleteMergeHistoryEntry(entry['id'] as int);
     try {
-      context.read<CloudSyncProvider>().scheduleBackupSoon();
+      cloud.scheduleBackupSoon();
     } catch (_) {}
     _loadEntries();
   }
 
   Future<void> _addMerge() async {
     final provider = context.read<ExerciseProvider>();
+    final cloud = context.read<CloudSyncProvider>();
     final allExercises =
         provider.exercises.where((e) => e.id != widget.exercise.id).toList();
 
@@ -483,7 +485,7 @@ class _MergeManagementSheetState extends State<_MergeManagementSheet> {
     // Merge: source wird gelöscht, aktuelle Übung ist target
     await provider.mergeExercise(source.id, widget.exercise.id);
     try {
-      context.read<CloudSyncProvider>().scheduleBackupSoon();
+      cloud.scheduleBackupSoon();
     } catch (_) {}
 
     if (mounted) {

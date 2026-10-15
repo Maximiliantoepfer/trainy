@@ -242,8 +242,9 @@ class _FilteredExerciseProgressChartState
               if (availableMetrics.isNotEmpty &&
                   !availableMetrics.any((m) => m.key == _metric)) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted)
+                  if (mounted) {
                     setState(() => _metric = availableMetrics.first.key);
+                  }
                 });
               }
 

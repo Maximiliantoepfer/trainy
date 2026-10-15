@@ -21,8 +21,9 @@ class ExerciseImageService {
     );
     if (selected == null) return null;
     final decoded = image.decodeImage(await selected.readAsBytes());
-    if (decoded == null)
+    if (decoded == null) {
       throw const FormatException('Selected image cannot be read.');
+    }
     final normalized = image.bakeOrientation(decoded);
     final compressed =
         normalized.width > 1440

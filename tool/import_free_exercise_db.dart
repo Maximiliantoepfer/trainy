@@ -9,6 +9,8 @@
 /// Usage:
 ///   dart run tool/import_free_exercise_db.dart C:\\src\\free-exercise-db \
 ///     tool/catalog_translations_de.json --replace
+library;
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -89,8 +91,9 @@ Future<void> main(List<String> args) async {
         final input = File(
           _join(sourceRoot.path, 'exercises', imagePaths.first),
         );
-        if (!await input.exists())
+        if (!await input.exists()) {
           throw StateError('Missing source image for $upstreamId');
+        }
         await _encodeWebP(input, File(_join(imageDirectory.path, imageFile)));
       }
       final name = item['name'] as String;
@@ -194,8 +197,9 @@ Trainy's bundled neutral fallback image.
 
 Map<String, Map<String, dynamic>> _readTranslations(String raw) {
   final root = Map<String, dynamic>.from(jsonDecode(raw) as Map);
-  if (root['locale'] != 'de')
+  if (root['locale'] != 'de') {
     throw StateError('Translation file locale must be de.');
+  }
   return Map<String, dynamic>.from(
     root['exercises'] as Map? ?? const {},
   ).map((key, value) => MapEntry(key, Map<String, dynamic>.from(value as Map)));
@@ -233,7 +237,9 @@ Future<void> _requireCwebp() async {
   try {
     final result = await Process.run('cwebp', const ['-version']);
     if (result.exitCode == 0) return;
-  } on ProcessException {}
+  } on ProcessException {
+    // The actionable error below also covers a missing executable.
+  }
   throw StateError(
     'cwebp is required to produce WebP covers. Install libwebp and retry.',
   );
@@ -244,8 +250,9 @@ Future<String> _gitCommit(Directory source) async {
     'rev-parse',
     'HEAD',
   ], workingDirectory: source.path);
-  if (result.exitCode != 0)
+  if (result.exitCode != 0) {
     throw StateError('Cannot resolve upstream source commit.');
+  }
   return (result.stdout as String).trim();
 }
 
@@ -298,7 +305,7 @@ String _safeFileName(String id) =>
 
 Map<String, bool> _tracking(String category, String equipment, String name) {
   final lower = name.toLowerCase();
-  if (category == 'cardio')
+  if (category == 'cardio') {
     return const {
       'sets': false,
       'reps': false,
@@ -306,7 +313,8 @@ Map<String, bool> _tracking(String category, String equipment, String name) {
       'duration': true,
       'distance': true,
     };
-  if (lower.contains('stretch') || lower.contains('yoga'))
+  }
+  if (lower.contains('stretch') || lower.contains('yoga')) {
     return const {
       'sets': false,
       'reps': false,
@@ -314,6 +322,7 @@ Map<String, bool> _tracking(String category, String equipment, String name) {
       'duration': true,
       'distance': false,
     };
+  }
   return {
     'sets': true,
     'reps': true,
@@ -326,9 +335,11 @@ Map<String, bool> _tracking(String category, String equipment, String name) {
 List<String> _goals(String category, String name) {
   final lower = name.toLowerCase();
   if (category == 'cardio') return const ['cardio'];
-  if (lower.contains('stretch') || lower.contains('yoga'))
+  if (lower.contains('stretch') || lower.contains('yoga')) {
     return const ['mobility'];
-  if (lower.contains('plank') || lower.contains('jump rope'))
+  }
+  if (lower.contains('plank') || lower.contains('jump rope')) {
     return const ['endurance'];
+  }
   return const ['strength'];
 }

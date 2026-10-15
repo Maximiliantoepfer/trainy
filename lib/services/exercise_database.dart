@@ -436,8 +436,9 @@ class ExerciseDatabase {
         whereArgs: [sourceId],
         limit: 1,
       );
-      if (sourceRows.isEmpty)
+      if (sourceRows.isEmpty) {
         throw StateError('Source exercise no longer exists.');
+      }
       final source = Map<String, Object?>.from(sourceRows.single);
       final sourceLinks = await txn.query(
         'exercises_in_workouts',
@@ -566,7 +567,7 @@ class ExerciseDatabase {
     Map<int, List<String>> labels,
     Map<int, List<String>> images,
   ) {
-    Map<String, dynamic> _parseMap(Object? v) {
+    Map<String, dynamic> parseMap(Object? v) {
       if (v == null) return {};
       try {
         final d = jsonDecode(v as String);
@@ -579,14 +580,14 @@ class ExerciseDatabase {
       }
     }
 
-    final tracked = _parseMap(r['trackedFields']);
-    final defVals = _parseMap(r['defaultValues']);
-    final lastVals = _parseMap(r['lastValues']);
-    final units = _parseMap(r['units']);
+    final tracked = parseMap(r['trackedFields']);
+    final defVals = parseMap(r['defaultValues']);
+    final lastVals = parseMap(r['lastValues']);
+    final units = parseMap(r['units']);
 
     bool tf(String key) => (tracked[key] ?? false) == true;
 
-    Map<String, String> _toStrMap(Map<String, dynamic> m) =>
+    Map<String, String> toStrMap(Map<String, dynamic> m) =>
         m.map((k, v) => MapEntry(k, v?.toString() ?? ''));
 
     final id = (r['id'] as num).toInt();
@@ -599,9 +600,9 @@ class ExerciseDatabase {
       trackWeight: tf('weight'),
       trackDuration: tf('duration'),
       trackDistance: tf('distance'),
-      defaultValues: _toStrMap(defVals),
-      lastValues: _toStrMap(lastVals),
-      units: _toStrMap(units),
+      defaultValues: toStrMap(defVals),
+      lastValues: toStrMap(lastVals),
+      units: toStrMap(units),
       icon: r['icon'] as int?,
       goal: r['goal'] as String?,
       standardKey: r['standardKey'] as String?,

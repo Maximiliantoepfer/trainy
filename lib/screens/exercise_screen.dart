@@ -41,7 +41,9 @@ class _ExerciseScreenState extends State<ExerciseScreen>
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => context.read<ExerciseProvider>().loadExercises());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<ExerciseProvider>().loadExercises();
+    });
   }
 
   @override
@@ -117,7 +119,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                 hintText: context.l10n.searchExercises,
                 prefixIcon: Icon(
                   Icons.search_rounded,
-                  color: scheme.onSurfaceVariant.withOpacity(0.5),
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
                 suffixIcon:
                     _query.isNotEmpty
@@ -312,8 +314,9 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                             await provider.dismissDuplicateSuggestion(
                               suggestion.id,
                             );
-                            if (sheetContext.mounted)
+                            if (sheetContext.mounted) {
                               Navigator.pop(sheetContext);
+                            }
                           },
                           child: Text(sheetContext.l10n.keepOwnExercise),
                         ),
@@ -322,8 +325,9 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                             await provider.acceptCatalogDuplicateSuggestion(
                               suggestion,
                             );
-                            if (sheetContext.mounted)
+                            if (sheetContext.mounted) {
                               Navigator.pop(sheetContext);
+                            }
                           },
                           child: Text(sheetContext.l10n.adoptStandardExercise),
                         ),
@@ -415,7 +419,7 @@ class _ExerciseTile extends StatelessWidget {
                 ),
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: scheme.onSurfaceVariant.withOpacity(0.4),
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
               ],
             ),

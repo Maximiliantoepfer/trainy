@@ -308,9 +308,9 @@ users/{uid}/backup/
 ## Hinweise zum Projekt
 
 - **Offline-first:** Die App funktioniert vollständig ohne Cloud-Verbindung
-- **Sprache:** Vollständig Deutsch (hardcoded Strings, kein i18n-Framework)
+- **Sprache:** Deutsch und Englisch über lokale ARB-Dateien und Flutter `gen-l10n`; die Auswahl kann dem System folgen
 - **IDs:** Timestamp-basiert (`DateTime.now().millisecondsSinceEpoch`)
-- **Kein Test-Setup:** Bisher keine Unit- oder Widget-Tests
+- **Tests:** Unit- und Widget-Tests für Lokalisierung, Katalog-/Zielregeln, Icons und kritische Modal-Flows
 - **Keine CI/CD:** Kein automatisierter Build-Prozess
 
 ---
@@ -321,8 +321,22 @@ users/{uid}/backup/
 # Abhängigkeiten installieren
 flutter pub get
 
+# Lokalisierungscode erzeugen
+flutter gen-l10n
+
+# Statische Analyse und vollständige Tests
+flutter analyze
+flutter test
+
 # App starten (bei genau einem angeschlossenen Zielgerät)
 flutter run
+
+# App auf einem konkreten Gerät starten
+flutter devices
+flutter run -d <device-id>
+
+# Debug-Build als lokales Abschluss-Gate
+flutter build apk --debug
 
 # Release-Build (Android)
 flutter build apk --release
@@ -331,27 +345,38 @@ flutter build apk --release
 flutter build ipa --release
 ```
 
-### Android-Debug-Emulator
+### Android-Debug-Gerät
 
-Für Android-Entwicklung wird ausschließlich der AVD **Trainy_API_36_Clean**
-verwendet. Der ältere Emulator `emulator-5554` ist nicht als Debug-Ziel
-geeignet und wird bewusst nicht verändert. In Android Studio zuerst im Device
-Manager `Trainy_API_36_Clean` starten und ihn anschließend im Geräte-Dropdown
-auswählen.
-
-Im Terminal immer eine konkrete Geräte-ID verwenden. Der Port kann nach einem
-Emulator-Neustart abweichen; deshalb zuerst die aktuelle ID prüfen und dann den
-AVD-Namen bestätigen:
+Trainy ist nicht an ein bestimmtes Emulator- oder Pixel-Modell gebunden. In
+Android Studio wird das gewünschte laufende Gerät im Geräte-Dropdown gewählt.
+Wenn mehrere Ziele verbunden sind, sollte im Terminal eine konkrete Geräte-ID
+angegeben werden. Emulator-Ports können sich nach einem Neustart ändern:
 
 ```powershell
 adb devices -l
-adb -s emulator-5556 shell getprop ro.boot.qemu.avd_name
-.\tool\verify_android_launch.ps1 -DeviceId emulator-5556 -ExpectedAvdName Trainy_API_36_Clean
-C:\flutter\bin\flutter.bat run -d emulator-5556
+adb -s <device-id> shell getprop ro.boot.qemu.avd_name
+C:\flutter\bin\flutter.bat run -d <device-id>
 ```
 
-Die Smoke-Prüfung validiert APK-Paket, Launcher-Activity und DEX-Klasse,
-installiert das APK und startet die Activity direkt. Sie bricht ab, bevor ein
-Build oder eine Installation auf dem falschen Emulator erfolgt.
+Bei Android-Startproblemen kann die optionale Smoke-Prüfung zusätzlich APK-
+Paket, Launcher-Activity und DEX-Klasse validieren, das APK installieren und
+die Activity direkt starten. `ExpectedAvdName` ist dabei eine gezielte
+Diagnosehilfe und keine Produktbeschränkung:
 
-Firebase-Konfiguration: `google-services.json` (Android) und `GoogleService-Info.plist` (iOS) müssen im jeweiligen Plattformordner liegen (nicht im Repo enthalten).
+```powershell
+.\tool\verify_android_launch.ps1 -DeviceId <device-id> -ExpectedAvdName <avd-name>
+```
+
+### Versionskontrolle
+
+- ARB-Dateien, `lib/l10n/generated`, `pubspec.lock`, Flutter-
+  Plugin-Registranten und benötigte Tool-Assets werden versioniert.
+- Build-, Cache-, Recovery- und temporäre Importausgaben bleiben ignoriert.
+- Neue oder lokal geänderte Schlüssel, `.env`-Dateien und Signing-Dateien
+  dürfen nicht committed werden.
+- Zeilenenden werden über `.gitattributes` festgelegt; bestehende Dateien
+  werden nicht massenhaft renormalisiert.
+
+Firebase-Konfiguration: `google-services.json` (Android) und
+`GoogleService-Info.plist` (iOS) müssen im jeweiligen Plattformordner liegen.
+Private Signing-Schlüssel und lokale Umgebungsdateien werden nicht versioniert.

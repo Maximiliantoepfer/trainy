@@ -98,7 +98,9 @@ class _ProgressScreenState extends State<ProgressScreen>
                 child: Container(
                   height: 40,
                   decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest.withOpacity(0.5),
+                    color: scheme.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
+                    ),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TabBar(
@@ -480,7 +482,6 @@ class _EntryCard extends StatelessWidget {
   }
 
   void _confirmDelete(BuildContext context) async {
-    final scheme = Theme.of(context).colorScheme;
     final confirmed = await showDialog<bool>(
       context: context,
       builder:

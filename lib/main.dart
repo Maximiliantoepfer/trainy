@@ -54,7 +54,7 @@ class TrainyApp extends StatelessWidget {
 }
 
 class _ThemedApp extends StatelessWidget {
-  const _ThemedApp({super.key});
+  const _ThemedApp();
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +80,7 @@ class _ThemedApp extends StatelessWidget {
 /// Reagiert auf App-Start & -Resume und triggert ggf. Auto-Backup.
 class _AppLifecycleReactor extends StatefulWidget {
   final Widget child;
-  const _AppLifecycleReactor({super.key, required this.child});
+  const _AppLifecycleReactor({required this.child});
 
   @override
   State<_AppLifecycleReactor> createState() => _AppLifecycleReactorState();

@@ -26,7 +26,7 @@ class ThemeProvider extends ChangeNotifier {
     _accent = color;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_kAccentKey, color.value);
+    await prefs.setInt(_kAccentKey, color.toARGB32());
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {

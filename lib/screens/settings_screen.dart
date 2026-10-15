@@ -128,7 +128,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                       for (final c in _quickSwatches)
                         _ColorDot(
                           color: c,
-                          isSelected: c.value == theme.accent.value,
+                          isSelected: c.toARGB32() == theme.accent.toARGB32(),
                           onTap: () => theme.setAccent(c),
                         ),
                       _ColorDot(
@@ -267,8 +267,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed:
-                                sync.isBusy ? null : () => _signIn(context),
+                            onPressed: sync.isBusy ? null : _signIn,
                             icon: const Icon(Icons.login_rounded),
                             label: Text(l10n.signInWithGoogle),
                           ),
@@ -332,8 +331,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                             child: SizedBox(
                               height: 48,
                               child: FilledButton.icon(
-                                onPressed:
-                                    sync.isBusy ? null : () => _backup(context),
+                                onPressed: sync.isBusy ? null : _backup,
                                 icon: const Icon(Icons.cloud_upload_outlined),
                                 label: Text(l10n.backUp),
                               ),
@@ -344,10 +342,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                             child: SizedBox(
                               height: 48,
                               child: OutlinedButton.icon(
-                                onPressed:
-                                    sync.isBusy
-                                        ? null
-                                        : () => _restore(context),
+                                onPressed: sync.isBusy ? null : _restore,
                                 icon: const Icon(Icons.cloud_download_outlined),
                                 label: Text(l10n.load),
                               ),
@@ -431,13 +426,14 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  Future<void> _signIn(BuildContext context) async {
+  Future<void> _signIn() async {
     try {
       final cloud = context.read<CloudSyncProvider>();
       await cloud.signInWithGoogle();
       if (!context.mounted) return;
 
       final exists = await cloud.remoteBackupExists();
+      if (!mounted) return;
       if (exists) {
         final choice = await showDialog<String>(
           context: context,
@@ -461,34 +457,39 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ],
               ),
         );
+        if (!mounted) return;
 
         if (choice == 'load') {
           try {
             await cloud.restoreNow();
-            if (!context.mounted) return;
-            await _reloadAll(context);
+            if (!mounted) return;
+            await _reloadAll();
+            if (!mounted) return;
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text(context.l10n.backupLoaded)));
           } catch (e) {
-            if (context.mounted)
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(context.l10n.genericError)),
               );
+            }
           }
         } else if (choice == 'merge') {
           try {
             await cloud.mergeFromCloud();
-            if (!context.mounted) return;
-            await _reloadAll(context);
+            if (!mounted) return;
+            await _reloadAll();
+            if (!mounted) return;
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text(context.l10n.merged)));
           } catch (e) {
-            if (context.mounted)
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(context.l10n.genericError)),
               );
+            }
           }
         }
       } else {
@@ -497,29 +498,33 @@ class _SettingsScreenState extends State<SettingsScreen>
         );
       }
     } catch (e) {
-      if (context.mounted)
+      if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
+      }
     }
   }
 
-  Future<void> _backup(BuildContext context) async {
+  Future<void> _backup() async {
+    final cloud = context.read<CloudSyncProvider>();
     try {
-      await context.read<CloudSyncProvider>().backupNow();
-      if (context.mounted)
+      await cloud.backupNow();
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.l10n.backupUploaded)));
+      }
     } catch (e) {
-      if (context.mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
+      }
     }
   }
 
-  Future<void> _restore(BuildContext context) async {
+  Future<void> _restore() async {
     final ok = await showDialog<bool>(
       context: context,
       builder:
@@ -538,27 +543,34 @@ class _SettingsScreenState extends State<SettingsScreen>
             ],
           ),
     );
+    if (!mounted) return;
     if (ok != true) return;
+    final cloud = context.read<CloudSyncProvider>();
     try {
-      await context.read<CloudSyncProvider>().restoreNow();
-      if (context.mounted) {
-        await _reloadAll(context);
+      await cloud.restoreNow();
+      if (mounted) {
+        await _reloadAll();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.backupRestoredSuccess)),
         );
       }
     } catch (e) {
-      if (context.mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
+      }
     }
   }
 
-  Future<void> _reloadAll(BuildContext context) async {
-    await context.read<ExerciseProvider>().loadExercises();
-    await context.read<WorkoutProvider>().loadWorkouts();
-    await context.read<ProgressProvider>().loadData();
+  Future<void> _reloadAll() async {
+    final exercises = context.read<ExerciseProvider>();
+    final workouts = context.read<WorkoutProvider>();
+    final progress = context.read<ProgressProvider>();
+    await exercises.loadExercises();
+    await workouts.loadWorkouts();
+    await progress.loadData();
   }
 
   String _formatSync(BuildContext context, int millis) {
@@ -637,7 +649,7 @@ class _ColorDot extends StatelessWidget {
                       : Border.all(
                         color: Theme.of(
                           context,
-                        ).colorScheme.outlineVariant.withOpacity(0.4),
+                        ).colorScheme.outlineVariant.withValues(alpha: 0.4),
                       ),
             ),
             child:
@@ -833,7 +845,9 @@ class _TrainingDaysPicker extends StatelessWidget {
                   color:
                       isSelected
                           ? scheme.primaryContainer
-                          : scheme.surfaceContainerHighest.withOpacity(0.5),
+                          : scheme.surfaceContainerHighest.withValues(
+                            alpha: 0.5,
+                          ),
                   shape: BoxShape.circle,
                   border:
                       isSelected

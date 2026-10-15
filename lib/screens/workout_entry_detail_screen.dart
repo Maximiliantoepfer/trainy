@@ -195,14 +195,18 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
       final newSet = <String, dynamic>{};
       if (perSet.isNotEmpty) {
         final last = perSet.last;
-        if (exercise.trackReps && last['reps'] != null)
+        if (exercise.trackReps && last['reps'] != null) {
           newSet['reps'] = last['reps'];
-        if (exercise.trackWeight && last['weight'] != null)
+        }
+        if (exercise.trackWeight && last['weight'] != null) {
           newSet['weight'] = last['weight'];
-        if (exercise.trackDistance && last['distance'] != null)
+        }
+        if (exercise.trackDistance && last['distance'] != null) {
           newSet['distance'] = last['distance'];
-        if (exercise.trackDuration && last['duration'] != null)
+        }
+        if (exercise.trackDuration && last['duration'] != null) {
           newSet['duration'] = last['duration'];
+        }
       }
       perSet.add(newSet);
       _recalcAggregates(data, perSet);

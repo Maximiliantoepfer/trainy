@@ -109,8 +109,9 @@ class ProgressProvider extends ChangeNotifier {
       }
 
       if (scheduledThisWeek.isEmpty) {
-        if (w == 0)
+        if (w == 0) {
           continue; // current week may not have had a training day yet
+        }
         break;
       }
 
@@ -354,8 +355,8 @@ class ProgressProvider extends ChangeNotifier {
           map['sets'] = lastSets;
         }
 
-        if (lastReps != null) map['reps'] = lastReps!;
-        if (maxWeight != null) map['weight'] = maxWeight!;
+        if (lastReps != null) map['reps'] = lastReps;
+        if (maxWeight != null) map['weight'] = maxWeight;
         if (totalDuration > 0) map['duration'] = totalDuration;
         if (totalDistance > 0) map['distance'] = totalDistance;
 

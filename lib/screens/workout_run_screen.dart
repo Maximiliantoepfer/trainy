@@ -341,7 +341,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
           ),
     );
 
-    if (save != true) return;
+    if (save != true || !mounted) return;
     setState(() => _isRunning = false);
 
     // Snapshot data before clearing
@@ -1543,12 +1543,15 @@ class _CompletedSetRow extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final parts = <String>[];
-    if (exercise.trackReps && data['reps'] != null)
+    if (exercise.trackReps && data['reps'] != null) {
       parts.add('${data['reps']} Wdh.');
-    if (exercise.trackWeight && data['weight'] != null)
+    }
+    if (exercise.trackWeight && data['weight'] != null) {
       parts.add('${data['weight']} kg');
-    if (exercise.trackDistance && data['distance'] != null)
+    }
+    if (exercise.trackDistance && data['distance'] != null) {
       parts.add('${data['distance']} km');
+    }
     if (exercise.trackDuration && data['duration'] != null) {
       parts.add(
         localizedDuration(context, int.tryParse(data['duration']!) ?? 0),

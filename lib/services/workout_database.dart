@@ -171,8 +171,9 @@ class WorkoutDatabase {
     const allowed = {'strength', 'endurance', 'cardio', 'mobility'};
     final normalized = <String>[];
     for (final code in goalCodes) {
-      if (allowed.contains(code) && !normalized.contains(code))
+      if (allowed.contains(code) && !normalized.contains(code)) {
         normalized.add(code);
+      }
       if (normalized.length == 2) break;
     }
     await (await _db).update(

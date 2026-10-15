@@ -62,7 +62,7 @@ class WeeklyActivityChart extends StatelessWidget {
     final dayStyle = textTheme.labelMedium?.copyWith(
       fontWeight: FontWeight.w700,
       fontSize: (textTheme.labelMedium?.fontSize ?? 12) + 1,
-      color: textTheme.labelMedium?.color?.withOpacity(0.85),
+      color: textTheme.labelMedium?.color?.withValues(alpha: 0.85),
     );
 
     return Container(
@@ -94,7 +94,9 @@ class WeeklyActivityChart extends StatelessWidget {
                     Text(
                       subtitle!,
                       style: textTheme.bodySmall?.copyWith(
-                        color: textTheme.bodySmall?.color?.withOpacity(0.7),
+                        color: textTheme.bodySmall?.color?.withValues(
+                          alpha: 0.7,
+                        ),
                       ),
                     ),
                 ],

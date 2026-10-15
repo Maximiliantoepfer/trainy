@@ -28,7 +28,7 @@ class AppTheme {
       navigationBarTheme: _navBarTheme(scheme, scheme.surfaceContainer),
       snackBarTheme: _snackBarTheme(scheme),
       dividerTheme: DividerThemeData(
-        color: scheme.outlineVariant.withOpacity(0.35),
+        color: scheme.outlineVariant.withValues(alpha: 0.35),
         thickness: 0.5,
       ),
     );
@@ -48,7 +48,7 @@ class AppTheme {
       navigationBarTheme: _navBarTheme(scheme, scheme.surfaceContainer),
       snackBarTheme: _snackBarTheme(scheme),
       dividerTheme: DividerThemeData(
-        color: scheme.outlineVariant.withOpacity(0.3),
+        color: scheme.outlineVariant.withValues(alpha: 0.3),
         thickness: 0.5,
       ),
     );
@@ -185,8 +185,8 @@ class AppTheme {
 
       // Chips: neutral, Pill-Form
       chipTheme: ChipThemeData(
-        backgroundColor: scheme.surfaceContainerHighest.withOpacity(0.5),
-        selectedColor: scheme.primary.withOpacity(0.12),
+        backgroundColor: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        selectedColor: scheme.primary.withValues(alpha: 0.12),
         side: BorderSide.none,
         labelStyle: TextStyle(
           color: scheme.onSurface,
@@ -205,7 +205,7 @@ class AppTheme {
           backgroundColor: WidgetStateProperty.resolveWith(
             (states) =>
                 states.contains(WidgetState.selected)
-                    ? scheme.primary.withOpacity(0.12)
+                    ? scheme.primary.withValues(alpha: 0.12)
                     : Colors.transparent,
           ),
           foregroundColor: WidgetStateProperty.resolveWith(
@@ -215,7 +215,7 @@ class AppTheme {
                     : scheme.onSurfaceVariant,
           ),
           side: WidgetStatePropertyAll(
-            BorderSide(color: scheme.outlineVariant.withOpacity(0.6)),
+            BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
           ),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(
@@ -231,7 +231,7 @@ class AppTheme {
       // Textfelder: sauber, minimalistisch
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerHighest.withOpacity(0.4),
+        fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -253,7 +253,7 @@ class AppTheme {
           borderSide: BorderSide(color: scheme.error),
         ),
         hintStyle: TextStyle(
-          color: scheme.onSurfaceVariant.withOpacity(0.5),
+          color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
           fontWeight: FontWeight.w400,
         ),
         labelStyle: TextStyle(
@@ -280,7 +280,7 @@ class AppTheme {
           (states) =>
               states.contains(WidgetState.selected)
                   ? Colors.transparent
-                  : scheme.outline.withOpacity(0.3),
+                  : scheme.outline.withValues(alpha: 0.3),
         ),
       ),
 
@@ -302,7 +302,7 @@ class AppTheme {
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         showDragHandle: true,
-        dragHandleColor: scheme.onSurfaceVariant.withOpacity(0.4),
+        dragHandleColor: scheme.onSurfaceVariant.withValues(alpha: 0.4),
         dragHandleSize: const Size(32, 4),
       ),
 
@@ -324,7 +324,7 @@ class AppTheme {
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: scheme.primary,
         linearMinHeight: 3,
-        linearTrackColor: scheme.primary.withOpacity(0.1),
+        linearTrackColor: scheme.primary.withValues(alpha: 0.1),
       ),
     );
   }
@@ -362,7 +362,7 @@ class AppTheme {
       side:
           brightness == Brightness.dark
               ? BorderSide(
-                color: scheme.outlineVariant.withOpacity(0.15),
+                color: scheme.outlineVariant.withValues(alpha: 0.15),
                 width: 0.5,
               )
               : BorderSide.none,
@@ -398,7 +398,7 @@ class AppTheme {
           color:
               states.contains(WidgetState.selected)
                   ? scheme.primary
-                  : scheme.onSurfaceVariant.withOpacity(0.45),
+                  : scheme.onSurfaceVariant.withValues(alpha: 0.45),
           size: states.contains(WidgetState.selected) ? 32 : 28,
         ),
       ),
@@ -412,7 +412,7 @@ class AppTheme {
           color:
               states.contains(WidgetState.selected)
                   ? scheme.primary
-                  : scheme.onSurfaceVariant.withOpacity(0.45),
+                  : scheme.onSurfaceVariant.withValues(alpha: 0.45),
           letterSpacing: 0.1,
         ),
       ),
@@ -444,9 +444,9 @@ class AppTheme {
       onPrimary: onAccent,
       secondary: accent,
       onSecondary: onAccent,
-      primaryContainer: accent.withOpacity(0.08),
+      primaryContainer: accent.withValues(alpha: 0.08),
       onPrimaryContainer: accent,
-      secondaryContainer: accent.withOpacity(0.08),
+      secondaryContainer: accent.withValues(alpha: 0.08),
       onSecondaryContainer: accent,
       tertiary: const Color(0xFF4CAF50),
       onTertiary: Colors.white,
@@ -474,9 +474,9 @@ class AppTheme {
       onPrimary: onAccent,
       secondary: accent,
       onSecondary: onAccent,
-      primaryContainer: accent.withOpacity(0.15),
+      primaryContainer: accent.withValues(alpha: 0.15),
       onPrimaryContainer: accent,
-      secondaryContainer: accent.withOpacity(0.15),
+      secondaryContainer: accent.withValues(alpha: 0.15),
       onSecondaryContainer: accent,
       tertiary: const Color(0xFF4CAF50),
       onTertiary: Colors.white,

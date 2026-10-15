@@ -699,7 +699,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                             Icon(
                                               Icons.chevron_right_rounded,
                                               color: scheme.onSurfaceVariant
-                                                  .withOpacity(0.4),
+                                                  .withValues(alpha: 0.4),
                                             ),
                                           ],
                                         ),
@@ -721,8 +721,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           final active = ctx.watch<ActiveWorkoutProvider>();
           final isThisActive =
               active.isActive && active.workout?.id == widget.workout.id;
-          if (_exerciseIds.isEmpty && !isThisActive)
+          if (_exerciseIds.isEmpty && !isThisActive) {
             return const SizedBox.shrink();
+          }
           return FloatingActionButton.extended(
             onPressed: _launchWorkout,
             icon: const Icon(Icons.play_arrow_rounded),

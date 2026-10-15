@@ -95,9 +95,7 @@ class ExerciseEditorForm extends StatelessWidget {
                           label: Text(goalLabel(context, g)),
                           selected: currentGoal == g,
                           avatar:
-                              currentGoal == g
-                                  ? null
-                                  : GoalIcon(g, size: 16),
+                              currentGoal == g ? null : GoalIcon(g, size: 16),
                           onSelected: (sel) {
                             goal.value = sel ? g : null;
                             onChanged?.call();

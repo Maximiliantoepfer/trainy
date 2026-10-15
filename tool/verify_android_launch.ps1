@@ -2,7 +2,7 @@
 param(
   [Parameter(Mandatory = $true)]
   [string]$DeviceId,
-  [string]$ExpectedAvdName = 'Trainy_API_36_Clean',
+  [string]$ExpectedAvdName,
   [switch]$SkipBuild,
   [switch]$SkipInstall
 )
@@ -27,8 +27,8 @@ if (-not (Test-Path -LiteralPath $adb)) {
   throw "adb.exe was not found: $adb"
 }
 
-if ($DeviceId -notmatch '^emulator-\d+$') {
-  throw "DeviceId must identify an Android emulator, for example emulator-5556. Received: $DeviceId"
+if ([string]::IsNullOrWhiteSpace($DeviceId)) {
+  throw 'DeviceId must identify a connected Android emulator or physical device.'
 }
 
 & $adb -s $DeviceId wait-for-device
@@ -36,16 +36,21 @@ if ($LASTEXITCODE -ne 0) {
   throw "Android emulator '$DeviceId' is not available."
 }
 
-$avdLines = @(& $adb -s $DeviceId shell getprop ro.boot.qemu.avd_name 2>&1)
-if ($LASTEXITCODE -ne 0) {
-  throw "Could not determine the AVD name for '$DeviceId'."
-}
-$actualAvdName = $avdLines |
-  ForEach-Object { $_.Trim() } |
-  Where-Object { $_ -and $_ -ne 'OK' } |
-  Select-Object -Last 1
-if ($actualAvdName -cne $ExpectedAvdName) {
-  throw "Refusing to use '$DeviceId': expected AVD '$ExpectedAvdName', found '$actualAvdName'. Start Trainy_API_36_Clean and pass its current emulator ID."
+if (-not [string]::IsNullOrWhiteSpace($ExpectedAvdName)) {
+  if ($DeviceId -notmatch '^emulator-\d+$') {
+    throw 'ExpectedAvdName can only be verified for an Android emulator.'
+  }
+  $avdLines = @(& $adb -s $DeviceId shell getprop ro.boot.qemu.avd_name 2>&1)
+  if ($LASTEXITCODE -ne 0) {
+    throw "Could not determine the AVD name for '$DeviceId'."
+  }
+  $actualAvdName = $avdLines |
+    ForEach-Object { $_.Trim() } |
+    Where-Object { $_ -and $_ -ne 'OK' } |
+    Select-Object -Last 1
+  if ($actualAvdName -cne $ExpectedAvdName) {
+    throw "Refusing to use '$DeviceId': expected AVD '$ExpectedAvdName', found '$actualAvdName'."
+  }
 }
 
 $buildToolsRoot = Join-Path $androidSdk 'build-tools'

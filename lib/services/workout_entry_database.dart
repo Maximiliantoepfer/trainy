@@ -80,7 +80,7 @@ class WorkoutEntryDatabase {
 
         // Typ-Normalisierung
         Map<String, dynamic> fixed = Map<String, dynamic>.from(values);
-        void _fixNum(String key) {
+        void fixNum(String key) {
           final v = fixed[key];
           if (v == null) return;
           if (key == 'sets' || key == 'reps' || key == 'duration') {
@@ -102,11 +102,11 @@ class WorkoutEntryDatabase {
           }
         }
 
-        _fixNum('sets');
-        _fixNum('reps');
-        _fixNum('weight');
-        _fixNum('duration');
-        _fixNum('distance');
+        fixNum('sets');
+        fixNum('reps');
+        fixNum('weight');
+        fixNum('duration');
+        fixNum('distance');
 
         resultsMap[exerciseId] = fixed;
       }

@@ -29,13 +29,13 @@ class _OnboardingGateState extends State<OnboardingGate> {
     if (!mounted || _checked) return;
     _checked = true;
     final done = await SettingsDatabase.instance.getOnboardingDone();
-    if (done) return;
+    if (done || !mounted) return;
 
-    await _runOnboarding(context);
+    await _runOnboarding();
     await SettingsDatabase.instance.setOnboardingDone(true);
   }
 
-  Future<void> _runOnboarding(BuildContext context) async {
+  Future<void> _runOnboarding() async {
     final cloud = context.read<CloudSyncProvider>();
 
     final result = await showDialog<String>(
@@ -58,6 +58,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
             ],
           ),
     );
+    if (!mounted) return;
 
     if (result != 'login') return;
 
@@ -67,9 +68,10 @@ class _OnboardingGateState extends State<OnboardingGate> {
       return; // Abbruch, Nutzer kann später in den Einstellungen anmelden
     }
 
-    if (!context.mounted) return;
+    if (!mounted) return;
     final exists = await cloud.remoteBackupExists();
     if (!exists) return; // kein Backup vorhanden, fertig
+    if (!mounted) return;
 
     final choice = await showDialog<String>(
       context: context,
@@ -93,12 +95,14 @@ class _OnboardingGateState extends State<OnboardingGate> {
             ],
           ),
     );
+    if (!mounted) return;
 
     if (choice == 'merge') {
       try {
         await cloud.mergeFromCloud();
-        if (!context.mounted) return;
-        await _reloadProviders(context);
+        if (!mounted) return;
+        await _reloadProviders();
+        if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.l10n.merged)));
@@ -112,8 +116,9 @@ class _OnboardingGateState extends State<OnboardingGate> {
     } else if (choice == 'load') {
       try {
         await cloud.restoreNow();
-        if (!context.mounted) return;
-        await _reloadProviders(context);
+        if (!mounted) return;
+        await _reloadProviders();
+        if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(context.l10n.backupLoaded)));
@@ -144,16 +149,17 @@ class _OnboardingGateState extends State<OnboardingGate> {
               ],
             ),
       );
+      if (!mounted) return;
       if (overwrite == true) {
         try {
           await cloud.backupNow();
-          if (context.mounted) {
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(context.l10n.cloudBackupUpdated)),
             );
           }
         } catch (e) {
-          if (context.mounted) {
+          if (mounted) {
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
@@ -163,10 +169,13 @@ class _OnboardingGateState extends State<OnboardingGate> {
     }
   }
 
-  Future<void> _reloadProviders(BuildContext context) async {
-    await context.read<ExerciseProvider>().loadExercises();
-    await context.read<WorkoutProvider>().loadWorkouts();
-    await context.read<ProgressProvider>().loadData();
+  Future<void> _reloadProviders() async {
+    final exercises = context.read<ExerciseProvider>();
+    final workouts = context.read<WorkoutProvider>();
+    final progress = context.read<ProgressProvider>();
+    await exercises.loadExercises();
+    await workouts.loadWorkouts();
+    await progress.loadData();
   }
 
   @override

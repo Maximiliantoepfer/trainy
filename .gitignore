@@ -12,6 +12,21 @@
 .swiftpm/
 migrate_working_dir/
 
+# Local configuration, credentials and recovery data
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.pem
+Trainy-Recovery/
+recovery/
+
+# Temporary catalog import output (published catalog assets remain tracked)
+tool/.tmp/
+tool/tmp/
+assets/catalog/.tmp/
+
 # IntelliJ related
 *.iml
 *.ipr
