@@ -168,7 +168,9 @@ class _PinnedChartCardState extends State<PinnedChartCard> {
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
-                            color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
+                            color: scheme.surfaceContainerHigh.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                           child: Icon(
                             Icons.close_rounded,
@@ -190,17 +192,22 @@ class _PinnedChartCardState extends State<PinnedChartCard> {
                     final chartWidth = constraints.maxWidth;
                     const chartHeight = 120.0;
 
-                    final safeHighlight = (_highlightedIndex != null &&
-                            _highlightedIndex! < series.avg.length)
-                        ? _highlightedIndex
-                        : null;
+                    final safeHighlight =
+                        (_highlightedIndex != null &&
+                                _highlightedIndex! < series.avg.length)
+                            ? _highlightedIndex
+                            : null;
 
                     return ClipRRect(
                       borderRadius: BorderRadius.circular(14),
                       child: GestureDetector(
                         onTapUp: (d) {
                           final idx = findNearestIndex(
-                              d.localPosition, series.avg, chartWidth, chartHeight);
+                            d.localPosition,
+                            series.avg,
+                            chartWidth,
+                            chartHeight,
+                          );
                           setState(() {
                             if (idx == _highlightedIndex) {
                               _highlightedIndex = null;
@@ -211,12 +218,20 @@ class _PinnedChartCardState extends State<PinnedChartCard> {
                         },
                         onLongPressStart: (d) {
                           final idx = findNearestIndex(
-                              d.localPosition, series.avg, chartWidth, chartHeight);
+                            d.localPosition,
+                            series.avg,
+                            chartWidth,
+                            chartHeight,
+                          );
                           setState(() => _highlightedIndex = idx);
                         },
                         onLongPressMoveUpdate: (d) {
                           final idx = findNearestIndex(
-                              d.localPosition, series.avg, chartWidth, chartHeight);
+                            d.localPosition,
+                            series.avg,
+                            chartWidth,
+                            chartHeight,
+                          );
                           setState(() => _highlightedIndex = idx);
                         },
                         onLongPressEnd: (_) {
@@ -234,7 +249,8 @@ class _PinnedChartCardState extends State<PinnedChartCard> {
                             textColor: scheme.onSurfaceVariant,
                             tooltipBgColor: scheme.surfaceContainerHighest,
                             tooltipTextColor: scheme.onSurface,
-                            localeTag: Localizations.localeOf(context).toLanguageTag(),
+                            localeTag:
+                                Localizations.localeOf(context).toLanguageTag(),
                             hourUnit: context.l10n.hours,
                             minuteUnit: context.l10n.minutes,
                             secondUnit: context.l10n.seconds,

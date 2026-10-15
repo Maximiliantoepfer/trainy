@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/exercise.dart';
 import '../services/exercise_database.dart';
-import '../services/workout_entry_database.dart';
+import '../services/catalog_repository.dart';
+import '../models/catalog_exercise.dart';
 
 class ExerciseProvider extends ChangeNotifier {
   List<Exercise> _exercises = [];
@@ -16,13 +17,26 @@ class ExerciseProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await ExerciseDatabase.instance.ensureStandardExercises();
-      await ExerciseDatabase.instance.deduplicateExercises();
       final exercises = await ExerciseDatabase.instance.getAllExercises();
       final aliasMap = await ExerciseDatabase.instance.getAllMergeAliases();
-      _exercises = exercises.map((e) {
-        final aliases = aliasMap[e.id];
-        return aliases != null ? e.copyWith(mergedAliases: aliases) : e;
-      }).toList();
+      _exercises =
+          exercises.map((e) {
+            final aliases = aliasMap[e.id];
+            return aliases != null ? e.copyWith(mergedAliases: aliases) : e;
+          }).toList();
+      final catalog = CatalogRepository.instance;
+      if (catalog.isLoaded) {
+        await ExerciseDatabase.instance.refreshDuplicateSuggestions({
+          for (final item in catalog.definitions)
+            item.id: [
+              catalog.content(item.id, 'de')!.name,
+              catalog.content(item.id, 'en')!.name,
+              ...item.aliases,
+              ...catalog.content(item.id, 'de')!.searchTerms,
+              ...catalog.content(item.id, 'en')!.searchTerms,
+            ],
+        });
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -46,6 +60,11 @@ class ExerciseProvider extends ChangeNotifier {
     String? goal,
     String? standardKey,
     bool? isNameCustom,
+    String? catalogId,
+    String? alias,
+    String notes = '',
+    List<String>? goalCodes,
+    List<String>? imagePaths,
   }) async {
     final exerciseId = await ExerciseDatabase.instance.addOrUpdateExercise(
       id: id,
@@ -63,6 +82,11 @@ class ExerciseProvider extends ChangeNotifier {
       goal: goal,
       standardKey: standardKey,
       isNameCustom: isNameCustom,
+      catalogId: catalogId,
+      alias: alias,
+      notes: notes,
+      goalCodes: goalCodes,
+      imagePaths: imagePaths,
     );
 
     // Dedup: DB hat bestehende ID zurückgegeben → Übung existiert schon
@@ -85,6 +109,11 @@ class ExerciseProvider extends ChangeNotifier {
       icon: icon,
       goal: goal,
       standardKey: standardKey,
+      catalogId: catalogId,
+      alias: alias,
+      notes: notes,
+      goalCodes: goalCodes ?? const [],
+      imagePaths: imagePaths ?? const [],
       isNameCustom: isNameCustom ?? true,
     );
 
@@ -100,6 +129,61 @@ class ExerciseProvider extends ChangeNotifier {
     notifyListeners();
 
     return exerciseId;
+  }
+
+  /// Materializes a catalog item only when the user actually selects it for
+  /// tracking. The 876 bundled items are never seeded into SQLite.
+  Future<int> addCatalogExercise(LocalizedCatalogExercise item) async {
+    final existing = await ExerciseDatabase.instance.findExerciseIdByCatalogId(
+      item.definition.id,
+    );
+    if (existing != null) return existing;
+    final tracking = item.definition.tracking;
+    return addOrUpdateExercise(
+      name: item.content.name,
+      description: item.content.description,
+      trackSets: tracking.sets,
+      trackReps: tracking.reps,
+      trackWeight: tracking.weight,
+      trackDuration: tracking.duration,
+      trackDistance: tracking.distance,
+      goal:
+          item.definition.goalCodes.isEmpty
+              ? null
+              : item.definition.goalCodes.first,
+      goalCodes: item.definition.goalCodes,
+      catalogId: item.definition.id,
+      isNameCustom: false,
+    );
+  }
+
+  Future<List<DuplicateSuggestion>> duplicateSuggestions() =>
+      ExerciseDatabase.instance.getOpenDuplicateSuggestions();
+
+  Future<void> dismissDuplicateSuggestion(int id) async {
+    await ExerciseDatabase.instance.setDuplicateSuggestionStatus(
+      id,
+      'dismissed',
+    );
+  }
+
+  Future<void> acceptCatalogDuplicateSuggestion(
+    DuplicateSuggestion suggestion,
+  ) async {
+    final catalogId = suggestion.targetCatalogId;
+    if (catalogId == null) return;
+    final item = CatalogRepository.instance.localized(catalogId, 'en');
+    if (item == null) return;
+    final targetId = await addCatalogExercise(item);
+    await ExerciseDatabase.instance.mergeExercises(
+      suggestion.sourceExerciseId,
+      targetId,
+    );
+    await ExerciseDatabase.instance.setDuplicateSuggestionStatus(
+      suggestion.id,
+      'accepted',
+    );
+    await loadExercises();
   }
 
   /// Alias für ältere Aufrufer
@@ -174,7 +258,6 @@ class ExerciseProvider extends ChangeNotifier {
   }
 
   Future<void> deleteExercise(int exerciseId) async {
-    await WorkoutEntryDatabase.instance.deleteEntriesForExercise(exerciseId);
     await ExerciseDatabase.instance.deleteExercise(exerciseId);
     _exercises.removeWhere((x) => x.id == exerciseId);
     notifyListeners();
@@ -184,7 +267,10 @@ class ExerciseProvider extends ChangeNotifier {
   /// Alle Fortschrittsdaten und Workout-Zuordnungen werden übertragen.
   Future<MergeResult> mergeExercise(int sourceId, int targetId) async {
     final sourceName = _exercises.firstWhere((e) => e.id == sourceId).name;
-    final result = await ExerciseDatabase.instance.mergeExercises(sourceId, targetId);
+    final result = await ExerciseDatabase.instance.mergeExercises(
+      sourceId,
+      targetId,
+    );
     _exercises.removeWhere((e) => e.id == sourceId);
     final targetIdx = _exercises.indexWhere((e) => e.id == targetId);
     if (targetIdx >= 0) {
@@ -210,6 +296,14 @@ class ExerciseProvider extends ChangeNotifier {
   /// Gibt vollständige Merge-History-Einträge zurück.
   Future<List<Map<String, dynamic>>> getMergeHistoryFull(int exerciseId) =>
       ExerciseDatabase.instance.getMergeHistoryFull(exerciseId);
+
+  Future<List<Map<String, dynamic>>> activeRedirectsForTarget(int exerciseId) =>
+      ExerciseDatabase.instance.getActiveRedirectsForTarget(exerciseId);
+
+  Future<void> undoMerge(int redirectId) async {
+    await ExerciseDatabase.instance.undoMerge(redirectId);
+    await loadExercises();
+  }
 
   /// Entfernt einen Merge-History-Eintrag.
   Future<void> deleteMergeHistoryEntry(int id) =>

@@ -108,15 +108,17 @@ String localizedDuration(BuildContext context, int seconds) {
   final values = <String>[];
   if (parts.hours > 0) values.add('${parts.hours} ${l10n.hours}');
   if (parts.hours > 0 || parts.minutes > 0) {
-    final minutes = parts.hours > 0
-        ? parts.minutes.toString().padLeft(2, '0')
-        : parts.minutes.toString();
+    final minutes =
+        parts.hours > 0
+            ? parts.minutes.toString().padLeft(2, '0')
+            : parts.minutes.toString();
     values.add('$minutes ${l10n.minutes}');
   }
   final shouldPadSeconds = parts.hours > 0 || parts.minutes > 0;
-  final secs = shouldPadSeconds
-      ? parts.seconds.toString().padLeft(2, '0')
-      : parts.seconds.toString();
+  final secs =
+      shouldPadSeconds
+          ? parts.seconds.toString().padLeft(2, '0')
+          : parts.seconds.toString();
   values.add('$secs ${l10n.seconds}');
   return values.join(' ');
 }

@@ -17,11 +17,15 @@ import 'widgets/onboarding_gate.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'firebase_options.dart';
+import 'services/catalog_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initializeDateFormatting();
+  // Catalog loading is local-only and intentionally non-fatal while the
+  // editorial German catalog is not bundled yet.
+  await CatalogRepository.instance.load();
   runApp(const TrainyApp());
 }
 
@@ -66,7 +70,9 @@ class _ThemedApp extends StatelessWidget {
       supportedLocales: AppLocalizations.supportedLocales,
       locale: locale.localeOverride,
       localeResolutionCallback: resolveAppLocale,
-      home: const OnboardingGate(child: _AppLifecycleReactor(child: MainNavigation())),
+      home: const OnboardingGate(
+        child: _AppLifecycleReactor(child: MainNavigation()),
+      ),
     );
   }
 }

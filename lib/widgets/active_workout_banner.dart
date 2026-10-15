@@ -28,11 +28,12 @@ class ActiveWorkoutBanner extends StatelessWidget {
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => WorkoutRunScreen(
-                  workout: workout,
-                  exercises: active.exercises,
-                  autoStart: false,
-                ),
+                builder:
+                    (_) => WorkoutRunScreen(
+                      workout: workout,
+                      exercises: active.exercises,
+                      autoStart: false,
+                    ),
               ),
             );
           },
@@ -40,7 +41,11 @@ class ActiveWorkoutBanner extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Row(
               children: [
-                Icon(Icons.timer_rounded, color: scheme.onPrimaryContainer, size: 20),
+                Icon(
+                  Icons.timer_rounded,
+                  color: scheme.onPrimaryContainer,
+                  size: 20,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -55,18 +60,22 @@ class ActiveWorkoutBanner extends StatelessWidget {
                 const SizedBox(width: 8),
                 ValueListenableBuilder<int>(
                   valueListenable: active.elapsedSeconds,
-                  builder: (_, sec, __) => Text(
-                    DurationFormatter.digital(sec),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: scheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: [const FontFeature.tabularFigures()],
-                    ),
-                  ),
+                  builder:
+                      (_, sec, __) => Text(
+                        DurationFormatter.digital(sec),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: scheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: [const FontFeature.tabularFigures()],
+                        ),
+                      ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.chevron_right_rounded,
-                    color: scheme.onPrimaryContainer, size: 20),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: scheme.onPrimaryContainer,
+                  size: 20,
+                ),
               ],
             ),
           ),

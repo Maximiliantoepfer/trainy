@@ -93,6 +93,18 @@ class WorkoutProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> setWorkoutGoalCodes(
+    int workoutId,
+    List<String> goalCodes,
+  ) async {
+    await WorkoutDatabase.instance.setWorkoutGoalCodes(workoutId, goalCodes);
+    final index = _workouts.indexWhere((workout) => workout.id == workoutId);
+    if (index >= 0) {
+      _workouts[index] = _workouts[index].copyWith(goalCodes: goalCodes);
+      notifyListeners();
+    }
+  }
+
   List<Workout> workoutsForDay(int dayOfWeek) {
     return _workouts.where((w) => w.assignedDays.contains(dayOfWeek)).toList();
   }

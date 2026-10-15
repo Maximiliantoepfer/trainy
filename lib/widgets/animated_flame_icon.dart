@@ -24,12 +24,14 @@ class _AnimatedFlameIconState extends State<AnimatedFlameIcon>
       duration: const Duration(milliseconds: 800),
     )..repeat(reverse: true);
 
-    _scale = Tween<double>(begin: 1.0, end: 1.12).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-    _rotation = Tween<double>(begin: -0.04, end: 0.04).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 1.12,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _rotation = Tween<double>(
+      begin: -0.04,
+      end: 0.04,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -55,10 +57,7 @@ class _AnimatedFlameIconState extends State<AnimatedFlameIcon>
           ),
           child: Transform.scale(
             scale: _scale.value,
-            child: Transform.rotate(
-              angle: _rotation.value,
-              child: child,
-            ),
+            child: Transform.rotate(angle: _rotation.value, child: child),
           ),
         );
       },

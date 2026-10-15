@@ -134,10 +134,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(kRadius),
           ),
-          textStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
 
@@ -169,10 +166,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(kRadiusSm),
           ),
-          textStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
 
@@ -185,10 +179,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(kRadius),
           ),
-          textStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
 
@@ -212,14 +203,16 @@ class AppTheme {
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
           backgroundColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.selected)
-                ? scheme.primary.withOpacity(0.12)
-                : Colors.transparent,
+            (states) =>
+                states.contains(WidgetState.selected)
+                    ? scheme.primary.withOpacity(0.12)
+                    : Colors.transparent,
           ),
           foregroundColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.selected)
-                ? scheme.primary
-                : scheme.onSurfaceVariant,
+            (states) =>
+                states.contains(WidgetState.selected)
+                    ? scheme.primary
+                    : scheme.onSurfaceVariant,
           ),
           side: WidgetStatePropertyAll(
             BorderSide(color: scheme.outlineVariant.withOpacity(0.6)),
@@ -272,19 +265,22 @@ class AppTheme {
       // SwitchListTile
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? scheme.onPrimary
-              : scheme.outline,
+          (states) =>
+              states.contains(WidgetState.selected)
+                  ? scheme.onPrimary
+                  : scheme.outline,
         ),
         trackColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? scheme.primary
-              : scheme.surfaceContainerHighest,
+          (states) =>
+              states.contains(WidgetState.selected)
+                  ? scheme.primary
+                  : scheme.surfaceContainerHighest,
         ),
         trackOutlineColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? Colors.transparent
-              : scheme.outline.withOpacity(0.3),
+          (states) =>
+              states.contains(WidgetState.selected)
+                  ? Colors.transparent
+                  : scheme.outline.withOpacity(0.3),
         ),
       ),
 
@@ -317,10 +313,7 @@ class AppTheme {
         unselectedLabelColor: scheme.onSurfaceVariant,
         indicatorColor: scheme.primary,
         indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
+        labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         unselectedLabelStyle: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
@@ -352,18 +345,27 @@ class AppTheme {
     ),
   );
 
-  static CardTheme _cardTheme(ColorScheme scheme, Color bg, Brightness brightness) => CardTheme(
+  static CardTheme _cardTheme(
+    ColorScheme scheme,
+    Color bg,
+    Brightness brightness,
+  ) => CardTheme(
     color: bg,
     elevation: brightness == Brightness.light ? 0.5 : 0,
-    shadowColor: brightness == Brightness.light
-        ? const Color(0x12000000)
-        : Colors.transparent,
+    shadowColor:
+        brightness == Brightness.light
+            ? const Color(0x12000000)
+            : Colors.transparent,
     surfaceTintColor: Colors.transparent,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(kRadius),
-      side: brightness == Brightness.dark
-          ? BorderSide(color: scheme.outlineVariant.withOpacity(0.15), width: 0.5)
-          : BorderSide.none,
+      side:
+          brightness == Brightness.dark
+              ? BorderSide(
+                color: scheme.outlineVariant.withOpacity(0.15),
+                width: 0.5,
+              )
+              : BorderSide.none,
     ),
     margin: EdgeInsets.zero,
   );
@@ -371,9 +373,7 @@ class AppTheme {
   static DialogTheme _dialogTheme(ColorScheme scheme, Color bg) => DialogTheme(
     backgroundColor: bg,
     surfaceTintColor: Colors.transparent,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(28),
-    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
     titleTextStyle: TextStyle(
       color: scheme.onSurface,
       fontSize: 18,
@@ -395,21 +395,24 @@ class AppTheme {
       ),
       iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
-          color: states.contains(WidgetState.selected)
-              ? scheme.primary
-              : scheme.onSurfaceVariant.withOpacity(0.45),
+          color:
+              states.contains(WidgetState.selected)
+                  ? scheme.primary
+                  : scheme.onSurfaceVariant.withOpacity(0.45),
           size: states.contains(WidgetState.selected) ? 32 : 28,
         ),
       ),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           fontSize: 11,
-          fontWeight: states.contains(WidgetState.selected)
-              ? FontWeight.w600
-              : FontWeight.w500,
-          color: states.contains(WidgetState.selected)
-              ? scheme.primary
-              : scheme.onSurfaceVariant.withOpacity(0.45),
+          fontWeight:
+              states.contains(WidgetState.selected)
+                  ? FontWeight.w600
+                  : FontWeight.w500,
+          color:
+              states.contains(WidgetState.selected)
+                  ? scheme.primary
+                  : scheme.onSurfaceVariant.withOpacity(0.45),
           letterSpacing: 0.1,
         ),
       ),
@@ -448,12 +451,18 @@ class AppTheme {
       tertiary: const Color(0xFF4CAF50),
       onTertiary: Colors.white,
       surface: const Color(0xFFFCFBF9),
-      surfaceContainerLowest: const Color(0xFFFAF9F6), // Scaffold — warmes Creme
-      surfaceContainerLow: const Color(0xFFFFFEFC),     // Cards — subtil warmes Weiss
-      surfaceContainer: const Color(0xFFFAF9F6),        // NavBar — nahtlos wie Scaffold
+      surfaceContainerLowest: const Color(
+        0xFFFAF9F6,
+      ), // Scaffold — warmes Creme
+      surfaceContainerLow: const Color(
+        0xFFFFFEFC,
+      ), // Cards — subtil warmes Weiss
+      surfaceContainer: const Color(
+        0xFFFAF9F6,
+      ), // NavBar — nahtlos wie Scaffold
       surfaceContainerHighest: const Color(0xFFF0EEEB), // Chips, Fills — warm
-      outlineVariant: const Color(0xFFDDD9D4),           // warm grey
-      outline: const Color(0xFF9E9A94),                  // warm mid-grey
+      outlineVariant: const Color(0xFFDDD9D4), // warm grey
+      outline: const Color(0xFF9E9A94), // warm mid-grey
     );
   }
 

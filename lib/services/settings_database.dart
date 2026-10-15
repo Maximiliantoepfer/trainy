@@ -79,7 +79,11 @@ class SettingsDatabase {
   Future<String> getTrainingDays() async {
     final db = await _db;
     try {
-      final r = await db.query('user_settings', columns: ['training_days'], limit: 1);
+      final r = await db.query(
+        'user_settings',
+        columns: ['training_days'],
+        limit: 1,
+      );
       if (r.isNotEmpty) {
         return (r.first['training_days'] ?? '') as String;
       }
@@ -117,7 +121,11 @@ class SettingsDatabase {
   Future<String> getInsightsOrder() async {
     final db = await _db;
     try {
-      final r = await db.query('user_settings', columns: ['insights_order'], limit: 1);
+      final r = await db.query(
+        'user_settings',
+        columns: ['insights_order'],
+        limit: 1,
+      );
       if (r.isNotEmpty) {
         return (r.first['insights_order'] ?? '') as String;
       }
@@ -155,7 +163,11 @@ class SettingsDatabase {
   Future<bool> getOnboardingDone() async {
     final db = await _db;
     try {
-      final r = await db.query('user_settings', columns: ['onboarding_done'], limit: 1);
+      final r = await db.query(
+        'user_settings',
+        columns: ['onboarding_done'],
+        limit: 1,
+      );
       if (r.isNotEmpty) {
         final v = (r.first['onboarding_done'] ?? 0) as int;
         return v == 1;

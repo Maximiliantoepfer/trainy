@@ -6,6 +6,7 @@ class Workout {
   String description;
   List<int> exerciseIds;
   Set<int> assignedDays; // 1=Mo ... 7=So
+  List<String> goalCodes;
 
   Workout({
     required this.id,
@@ -13,6 +14,7 @@ class Workout {
     this.description = '',
     this.exerciseIds = const [],
     this.assignedDays = const {},
+    this.goalCodes = const [],
   });
 
   Workout copyWith({
@@ -21,6 +23,7 @@ class Workout {
     String? description,
     List<int>? exerciseIds,
     Set<int>? assignedDays,
+    List<String>? goalCodes,
   }) {
     return Workout(
       id: id ?? this.id,
@@ -28,6 +31,7 @@ class Workout {
       description: description ?? this.description,
       exerciseIds: exerciseIds ?? List<int>.from(this.exerciseIds),
       assignedDays: assignedDays ?? Set<int>.from(this.assignedDays),
+      goalCodes: goalCodes ?? List<String>.from(this.goalCodes),
     );
   }
 }

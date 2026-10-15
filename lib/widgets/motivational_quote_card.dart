@@ -31,13 +31,18 @@ class MotivationalQuoteCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.format_quote_rounded,
-                      size: 20, color: scheme.onSurfaceVariant),
+                  Icon(
+                    Icons.format_quote_rounded,
+                    size: 20,
+                    color: scheme.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 8),
-                  Text(context.l10n.quoteOfTheDay,
-                      style: textTheme.labelLarge?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      )),
+                  Text(
+                    context.l10n.quoteOfTheDay,
+                    style: textTheme.labelLarge?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),

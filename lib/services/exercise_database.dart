@@ -5,6 +5,17 @@ import 'app_database.dart';
 import '../models/exercise.dart';
 import '../data/standard_exercises.dart';
 
+const _legacyCatalogIds = <String, String>{
+  'kraft_bankdruecken': 'free:Barbell_Bench_Press_-_Medium_Grip',
+  'kraft_kniebeugen': 'free:Barbell_Squat',
+  'kraft_kreuzheben': 'free:Barbell_Deadlift',
+  'kraft_schulterdruecken': 'free:Barbell_Shoulder_Press',
+  'kraft_langhantelrudern': 'free:Bent_Over_Barbell_Row',
+  'kraft_liegestuetze': 'free:Pushups',
+  'kraft_push_ups': 'free:Pushups',
+  'kraft_pull_ups': 'free:Pullups',
+};
+
 class ExerciseDatabase {
   static final ExerciseDatabase instance = ExerciseDatabase._init();
   ExerciseDatabase._init();
@@ -29,18 +40,13 @@ class ExerciseDatabase {
     String? goal,
     String? standardKey,
     bool? isNameCustom,
+    String? catalogId,
+    String? alias,
+    String notes = '',
+    List<String>? goalCodes,
+    List<String>? imagePaths,
+    bool isArchived = false,
   }) async {
-    // Dedup: Bei neuer Übung prüfen, ob identische schon existiert
-    if (id == null) {
-      final existingId = await findByIdentity(
-        name: name, goal: goal,
-        trackSets: trackSets, trackReps: trackReps,
-        trackWeight: trackWeight, trackDuration: trackDuration,
-        trackDistance: trackDistance,
-      );
-      if (existingId != null) return existingId;
-    }
-
     Map<String, Object?>? existing;
     if (id != null) {
       final rows = await (await _db).query(
@@ -69,7 +75,14 @@ class ExerciseDatabase {
       icon: icon,
       goal: goal,
       standardKey: standardKey ?? existingStandardKey,
-      isNameCustom: isNameCustom ??
+      catalogId: catalogId ?? existing?['catalogId'] as String?,
+      alias: alias ?? existing?['alias'] as String?,
+      notes: notes,
+      goalCodes: _validatedGoals(goalCodes ?? _legacyGoalList(goal)),
+      imagePaths: imagePaths ?? const [],
+      isArchived: isArchived,
+      isNameCustom:
+          isNameCustom ??
           (existingStandardKey != null && existingName != name
               ? true
               : ((existing?['isNameCustom'] as num?)?.toInt() == 1)),
@@ -99,8 +112,38 @@ class ExerciseDatabase {
       'icon': e.icon,
       'goal': e.goal,
       'standardKey': e.standardKey,
+      'catalogId': e.catalogId,
+      'origin': e.catalogId == null ? 'custom' : 'catalog',
+      'alias': e.alias,
+      'notes': e.notes,
+      'isArchived': e.isArchived ? 1 : 0,
       'isNameCustom': e.isNameCustom ? 1 : 0,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.delete(
+      'exercise_goal_labels',
+      where: 'exerciseId = ?',
+      whereArgs: [e.id],
+    );
+    for (final goalCode in _validatedGoals(e.goalCodes)) {
+      await db.insert('exercise_goal_labels', {
+        'exerciseId': e.id,
+        'goalCode': goalCode,
+      });
+    }
+    await db.delete(
+      'exercise_images',
+      where: 'exerciseId = ?',
+      whereArgs: [e.id],
+    );
+    for (var index = 0; index < e.imagePaths.length; index++) {
+      await db.insert('exercise_images', {
+        'id': DateTime.now().microsecondsSinceEpoch + index,
+        'exerciseId': e.id,
+        'relativePath': e.imagePaths[index],
+        'isCover': index == 0 ? 1 : 0,
+        'sort': index,
+      });
+    }
   }
 
   Future<void> updateLastValues(
@@ -120,14 +163,45 @@ class ExerciseDatabase {
     final db = await _db;
     final rows = await db.query(
       'exercises',
+      where: 'isArchived = 0',
       orderBy: 'name COLLATE NOCASE ASC',
     );
-    return rows.map(_fromRow).toList();
+    final labelRows = await db.query('exercise_goal_labels');
+    final labels = <int, List<String>>{};
+    for (final row in labelRows) {
+      labels
+          .putIfAbsent((row['exerciseId'] as num).toInt(), () => [])
+          .add(row['goalCode'] as String);
+    }
+    final imageRows = await db.query('exercise_images', orderBy: 'sort ASC');
+    final images = <int, List<String>>{};
+    for (final row in imageRows) {
+      images
+          .putIfAbsent((row['exerciseId'] as num).toInt(), () => [])
+          .add(row['relativePath'] as String);
+    }
+    return rows.map((row) => _fromRow(row, labels, images)).toList();
+  }
+
+  Future<int?> findExerciseIdByCatalogId(String catalogId) async {
+    final rows = await (await _db).query(
+      'exercises',
+      columns: ['id'],
+      where: 'catalogId = ?',
+      whereArgs: [catalogId],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : (rows.single['id'] as num).toInt();
   }
 
   Future<void> deleteExercise(int id) async {
     final db = await _db;
-    await db.delete('exercises', where: 'id = ?', whereArgs: [id]);
+    await db.update(
+      'exercises',
+      {'isArchived': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ---- Dedup ----
@@ -167,99 +241,84 @@ class ExerciseDatabase {
     return null;
   }
 
-  /// Bereinigt bestehende Duplikate beim App-Start.
-  /// Gruppiert Übungen nach Identität und mergt Duplikate in die
-  /// Übung mit den meisten Workout-Einträgen.
+  /// Kept for source compatibility. Duplicates are now only suggestions and
+  /// are never merged automatically.
   Future<void> deduplicateExercises() async {
+    return;
+  }
+
+  Future<void> refreshDuplicateSuggestions(
+    Map<String, Iterable<String>> catalogNames,
+  ) async {
+    final db = await _db;
     final exercises = await getAllExercises();
-
-    final groups = <String, List<Exercise>>{};
-    for (final e in exercises) {
-      final key = '${e.name.toLowerCase()}'
-          '|${e.goal}'
-          '|${e.trackSets}|${e.trackReps}|${e.trackWeight}|${e.trackDuration}|${e.trackDistance}';
-      groups.putIfAbsent(key, () => []).add(e);
-    }
-
-    for (final group in groups.values) {
-      if (group.length <= 1) continue;
-
-      // Gewinner = Übung mit den meisten Einträgen
-      int winnerId = group.first.id;
-      int maxEntries = 0;
-      for (final e in group) {
-        final count = await countEntriesForExercise(e.id);
-        if (count > maxEntries) {
-          maxEntries = count;
-          winnerId = e.id;
-        }
-      }
-
-      // Alle anderen in den Gewinner mergen
-      for (final e in group) {
-        if (e.id == winnerId) continue;
-        await mergeExercises(e.id, winnerId);
+    final catalogByName = <String, Set<String>>{};
+    for (final entry in catalogNames.entries) {
+      for (final name in entry.value) {
+        final normalized = _normalizedName(name);
+        if (normalized.isEmpty) continue;
+        catalogByName.putIfAbsent(normalized, () => <String>{}).add(entry.key);
       }
     }
+    await db.delete('duplicate_suggestions', where: "status = 'open'");
+    for (final exercise in exercises.where((item) => item.catalogId == null)) {
+      final matches = <String>{};
+      for (final value in [exercise.name, exercise.alias]) {
+        if (value == null || value.trim().isEmpty) continue;
+        matches.addAll(
+          catalogByName[_normalizedName(value)] ?? const <String>{},
+        );
+      }
+      // An ambiguous label can describe different catalog exercises.  It is
+      // safer to show no automatic proposal than to point at the wrong one.
+      if (matches.length != 1) continue;
+      final targetCatalogId = matches.single;
+      await db.insert('duplicate_suggestions', {
+        'id': DateTime.now().microsecondsSinceEpoch + exercise.id,
+        'sourceExerciseId': exercise.id,
+        'targetCatalogId': targetCatalogId,
+        'confidence': 'exact_name_or_alias',
+        'status': 'open',
+        'createdAt': DateTime.now().millisecondsSinceEpoch,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+  }
+
+  Future<List<DuplicateSuggestion>> getOpenDuplicateSuggestions() async {
+    final rows = await (await _db).query(
+      'duplicate_suggestions',
+      where: "status = 'open'",
+      orderBy: 'createdAt DESC',
+    );
+    return rows
+        .map(
+          (row) => DuplicateSuggestion(
+            id: (row['id'] as num).toInt(),
+            sourceExerciseId: (row['sourceExerciseId'] as num).toInt(),
+            targetExerciseId: row['targetExerciseId'] as int?,
+            targetCatalogId: row['targetCatalogId'] as String?,
+            confidence: row['confidence'] as String,
+          ),
+        )
+        .toList();
+  }
+
+  Future<void> setDuplicateSuggestionStatus(int id, String status) async {
+    await (await _db).update(
+      'duplicate_suggestions',
+      {'status': status},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ---- Helpers ----
 
-  /// Stellt sicher, dass alle Standardübungen in der DB vorhanden sind.
-  /// Neue Übungen werden nur eingefügt, wenn ihr Key noch nicht in
-  /// `seeded_standards` eingetragen ist. Dadurch bleibt eine vom User
-  /// umbenannte Standardübung erhalten, ohne dass das Original erneut
-  /// angelegt wird.
+  /// Reconciles old 36-item seed rows only. The full catalog is asset-backed,
+  /// so no database rows are seeded anymore.
   Future<void> ensureStandardExercises() async {
     final db = await _db;
     await _reconcileLegacyCatalog(db);
-    // Alle Namen einmal laden für Guard B (Unicode-sicher, SQLite LOWER() handelt nur ASCII)
-    final allNames = (await db.query('exercises', columns: ['name']))
-        .map((r) => (r['name'] as String).toLowerCase())
-        .toSet();
-
-    for (final std in standardExercises) {
-      final existing = await db.query(
-        'seeded_standards',
-        where: 'key = ?',
-        whereArgs: [std.key],
-      );
-      if (existing.isNotEmpty) continue;
-
-      // Guard A: War diese Standardübung schon mal gemergt?
-      final mergedAway = await db.query(
-        'merge_history',
-        where: 'sourceKey = ?',
-        whereArgs: [std.key],
-        limit: 1,
-      );
-      if (mergedAway.isNotEmpty) {
-        await db.insert('seeded_standards', {'key': std.key},
-            conflictAlgorithm: ConflictAlgorithm.ignore);
-        continue;
-      }
-
-      // Guard B: Unicode-sicherer Name-Vergleich in Dart
-      if (allNames.contains(std.name.toLowerCase())) {
-        await db.insert('seeded_standards', {'key': std.key},
-            conflictAlgorithm: ConflictAlgorithm.ignore);
-        continue;
-      }
-
-      await addOrUpdateExercise(
-        name: std.name,
-        trackSets: std.trackSets,
-        trackReps: std.trackReps,
-        trackWeight: std.trackWeight,
-        trackDuration: std.trackDuration,
-        trackDistance: std.trackDistance,
-        goal: std.goal,
-        standardKey: std.key,
-        isNameCustom: false,
-      );
-      await db.insert('seeded_standards', {'key': std.key});
-      allNames.add(std.name.toLowerCase());
-    }
   }
 
   /// Links old, unmodified German seed data to a stable catalog key. We only
@@ -272,13 +331,20 @@ class ExerciseDatabase {
       final matches = await db.query(
         'exercises',
         columns: ['id'],
-        where: 'name = ? AND standardKey IS NULL',
+        where: 'name = ? AND catalogId IS NULL AND isNameCustom = 0',
         whereArgs: [std.name],
       );
       if (matches.length != 1) continue;
       await db.update(
         'exercises',
-        {'standardKey': std.key, 'isNameCustom': 0, 'goal': std.goal},
+        {
+          'standardKey': std.key,
+          'catalogId': _legacyCatalogIds[std.key],
+          'origin':
+              _legacyCatalogIds.containsKey(std.key) ? 'catalog' : 'custom',
+          'isNameCustom': _legacyCatalogIds.containsKey(std.key) ? 0 : 1,
+          'goal': std.goal,
+        },
         where: 'id = ?',
         whereArgs: [matches.first['id']],
       );
@@ -291,17 +357,21 @@ class ExerciseDatabase {
   Future<int> countEntriesForExercise(int exerciseId) async {
     final db = await _db;
     return Sqflite.firstIntValue(
-      await db.rawQuery(
-        'SELECT COUNT(*) FROM workout_entries WHERE exerciseId = ?',
-        [exerciseId],
-      ),
-    ) ?? 0;
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM workout_entries WHERE exerciseId = ?',
+            [exerciseId],
+          ),
+        ) ??
+        0;
   }
 
   /// Lädt alle Merge-Aliase (sourceName → targetId) in einem Query.
   Future<Map<int, List<String>>> getAllMergeAliases() async {
     final db = await _db;
-    final rows = await db.query('merge_history', columns: ['targetId', 'sourceName']);
+    final rows = await db.query(
+      'merge_history',
+      columns: ['targetId', 'sourceName'],
+    );
     final map = <int, List<String>>{};
     for (final r in rows) {
       final targetId = (r['targetId'] as num).toInt();
@@ -340,35 +410,41 @@ class ExerciseDatabase {
   /// erneutes Seeding zu verhindern.
   Future<void> deleteMergeHistoryEntry(int id) async {
     final db = await _db;
-    final rows = await db.query('merge_history', where: 'id = ?', whereArgs: [id]);
+    final rows = await db.query(
+      'merge_history',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
     if (rows.isEmpty) return;
     final sourceKey = rows.first['sourceKey'] as String?;
     if (sourceKey != null) {
-      await db.insert('seeded_standards', {'key': sourceKey},
-          conflictAlgorithm: ConflictAlgorithm.ignore);
+      await db.insert('seeded_standards', {
+        'key': sourceKey,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
     }
     await db.delete('merge_history', where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Führt [sourceId] in [targetId] zusammen.
-  /// Alle workout_entries und Workout-Zuordnungen werden auf target übertragen,
-  /// die Quell-Übung wird gelöscht.
+  /// Redirects a personal exercise to a target without touching completed
+  /// entries. The source is archived and can be restored with [undoMerge].
   Future<MergeResult> mergeExercises(int sourceId, int targetId) async {
     final db = await _db;
     return db.transaction((txn) async {
-      // 1. workout_entries: sourceId → targetId
-      final movedEntries = await txn.rawUpdate(
-        'UPDATE workout_entries SET exerciseId = ? WHERE exerciseId = ?',
-        [targetId, sourceId],
+      final sourceRows = await txn.query(
+        'exercises',
+        where: 'id = ?',
+        whereArgs: [sourceId],
+        limit: 1,
       );
-
-      // 2. exercises_in_workouts: sourceId → targetId
-      //    Wenn target schon im selben Workout → source-Eintrag löschen
+      if (sourceRows.isEmpty)
+        throw StateError('Source exercise no longer exists.');
+      final source = Map<String, Object?>.from(sourceRows.single);
       final sourceLinks = await txn.query(
         'exercises_in_workouts',
         where: 'exerciseId = ?',
         whereArgs: [sourceId],
       );
+      final changedLinks = <Map<String, Object?>>[];
       int movedWorkouts = 0;
       for (final link in sourceLinks) {
         final workoutId = link['workoutId'] as int;
@@ -383,6 +459,7 @@ class ExerciseDatabase {
             where: 'id = ?',
             whereArgs: [link['id']],
           );
+          changedLinks.add({...link, 'redirectAction': 'deleted_source_link'});
         } else {
           await txn.update(
             'exercises_in_workouts',
@@ -391,53 +468,104 @@ class ExerciseDatabase {
             whereArgs: [link['id']],
           );
           movedWorkouts++;
+          changedLinks.add({...link, 'redirectAction': 'retargeted_link'});
         }
       }
-
-      // 3. Source-Name nachschlagen (vor Löschung)
-      final sourceRows = await txn.query(
+      final sourceName = source['name'] as String? ?? 'Unknown';
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await txn.update(
         'exercises',
-        columns: ['name'],
+        {'isArchived': 1},
         where: 'id = ?',
         whereArgs: [sourceId],
       );
-      final sourceName = sourceRows.isNotEmpty
-          ? sourceRows.first['name'] as String
-          : 'Unbekannt';
-
-      // 4. Prüfen ob Source eine Standardübung war (Name → Key)
-      String? sourceKey;
-      for (final std in standardExercises) {
-        if (std.name.toLowerCase() == sourceName.toLowerCase()) {
-          sourceKey = std.key;
-          break;
-        }
-      }
-
-      // 5. Ketten-Handling: A→B, dann B→C ⇒ A→C + B→C
-      await txn.rawUpdate(
-        'UPDATE merge_history SET targetId = ? WHERE targetId = ?',
-        [targetId, sourceId],
-      );
-
-      // 6. Merge protokollieren
+      await txn.insert('exercise_redirects', {
+        'id': DateTime.now().microsecondsSinceEpoch,
+        'sourceExerciseId': sourceId,
+        'targetExerciseId': targetId,
+        'sourceSnapshotJson': jsonEncode(source),
+        'changedWorkoutMappingsJson': jsonEncode(changedLinks),
+        'createdAt': now,
+      });
+      // Preserve compatibility with the old history screen; no entries are
+      // migrated and the source row is retained as an archived record.
       await txn.insert('merge_history', {
         'sourceName': sourceName,
-        'sourceKey': sourceKey,
+        'sourceKey': source['standardKey'],
         'targetId': targetId,
         'mergedAt': DateTime.now().toUtc().toIso8601String(),
       });
-
-      // 7. Quell-Übung löschen
-      await txn.delete('exercises', where: 'id = ?', whereArgs: [sourceId]);
-
-      return MergeResult(movedEntries: movedEntries, movedWorkouts: movedWorkouts);
+      return MergeResult(movedEntries: 0, movedWorkouts: movedWorkouts);
     });
+  }
+
+  Future<void> undoMerge(int redirectId) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'exercise_redirects',
+        where: 'id = ? AND undoneAt IS NULL',
+        whereArgs: [redirectId],
+        limit: 1,
+      );
+      if (rows.isEmpty) return;
+      final redirect = rows.single;
+      final sourceId = (redirect['sourceExerciseId'] as num).toInt();
+      final originalLinks = List<dynamic>.from(
+        jsonDecode(redirect['changedWorkoutMappingsJson'] as String) as List,
+      );
+      await txn.update(
+        'exercises',
+        {'isArchived': 0},
+        where: 'id = ?',
+        whereArgs: [sourceId],
+      );
+      for (final rawLink in originalLinks) {
+        final link = Map<String, dynamic>.from(rawLink as Map);
+        final action = link.remove('redirectAction');
+        if (action == 'retargeted_link') {
+          await txn.update(
+            'exercises_in_workouts',
+            {'exerciseId': sourceId},
+            where: 'id = ?',
+            whereArgs: [link['id']],
+          );
+        } else {
+          await txn.insert(
+            'exercises_in_workouts',
+            link,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+      await txn.update(
+        'exercise_redirects',
+        {'undoneAt': DateTime.now().millisecondsSinceEpoch},
+        where: 'id = ?',
+        whereArgs: [redirectId],
+      );
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getActiveRedirectsForTarget(
+    int targetId,
+  ) async {
+    final rows = await (await _db).query(
+      'exercise_redirects',
+      where: 'targetExerciseId = ? AND undoneAt IS NULL',
+      whereArgs: [targetId],
+      orderBy: 'createdAt DESC',
+    );
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
   }
 
   // ---- Helpers ----
 
-  Exercise _fromRow(Map<String, Object?> r) {
+  Exercise _fromRow(
+    Map<String, Object?> r,
+    Map<int, List<String>> labels,
+    Map<int, List<String>> images,
+  ) {
     Map<String, dynamic> _parseMap(Object? v) {
       if (v == null) return {};
       try {
@@ -461,8 +589,9 @@ class ExerciseDatabase {
     Map<String, String> _toStrMap(Map<String, dynamic> m) =>
         m.map((k, v) => MapEntry(k, v?.toString() ?? ''));
 
+    final id = (r['id'] as num).toInt();
     return Exercise(
-      id: (r['id'] as num).toInt(),
+      id: id,
       name: (r['name'] ?? '') as String,
       description: (r['description'] ?? '') as String,
       trackSets: tf('sets'),
@@ -476,9 +605,38 @@ class ExerciseDatabase {
       icon: r['icon'] as int?,
       goal: r['goal'] as String?,
       standardKey: r['standardKey'] as String?,
+      catalogId: r['catalogId'] as String?,
+      alias: r['alias'] as String?,
+      notes: r['notes'] as String? ?? '',
+      goalCodes: labels[id] ?? _legacyGoalList(r['goal'] as String?),
+      imagePaths: images[id] ?? const [],
+      isArchived: ((r['isArchived'] as num?)?.toInt() ?? 0) == 1,
       isNameCustom: ((r['isNameCustom'] as num?)?.toInt() ?? 1) == 1,
     );
   }
+
+  static List<String> _legacyGoalList(String? goal) {
+    const allowed = {'strength', 'endurance', 'cardio', 'mobility'};
+    return goal != null && allowed.contains(goal) ? [goal] : const [];
+  }
+
+  static List<String> _validatedGoals(Iterable<String> values) {
+    const allowed = {'strength', 'endurance', 'cardio', 'mobility'};
+    final result = <String>[];
+    for (final value in values) {
+      if (allowed.contains(value) && !result.contains(value)) result.add(value);
+      if (result.length == 2) break;
+    }
+    return result;
+  }
+
+  static String _normalizedName(String value) => value
+      .toLowerCase()
+      .replaceAll('ä', 'a')
+      .replaceAll('ö', 'o')
+      .replaceAll('ü', 'u')
+      .replaceAll('ß', 'ss')
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }
 
 class MergeResult {

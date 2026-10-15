@@ -1,7 +1,8 @@
 class PinnedChart {
   final int id;
   final int exerciseId;
-  final String metric; // 'volume', 'speed', 'reps', 'weight', 'duration', 'distance', 'sets'
+  final String
+  metric; // 'volume', 'speed', 'reps', 'weight', 'duration', 'distance', 'sets'
   final int sort;
 
   const PinnedChart({
@@ -12,16 +13,16 @@ class PinnedChart {
   });
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'exerciseId': exerciseId,
-        'metric': metric,
-        'sort': sort,
-      };
+    'id': id,
+    'exerciseId': exerciseId,
+    'metric': metric,
+    'sort': sort,
+  };
 
   factory PinnedChart.fromMap(Map<String, dynamic> map) => PinnedChart(
-        id: map['id'] as int,
-        exerciseId: map['exerciseId'] as int,
-        metric: map['metric'] as String,
-        sort: (map['sort'] as int?) ?? 0,
-      );
+    id: map['id'] as int,
+    exerciseId: map['exerciseId'] as int,
+    metric: map['metric'] as String,
+    sort: (map['sort'] as int?) ?? 0,
+  );
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/workout.dart';
 import '../models/exercise.dart';
+import '../models/workout_plan.dart';
 
 /// Hält eine aktuell laufende Workout-Session unabhängig vom Screen am Leben.
 ///
@@ -16,6 +17,14 @@ class ActiveWorkoutProvider extends ChangeNotifier {
   int _extraElapsed = 0; // Reserve, falls später Pausen etc. hinzukommen
   DateTime? _pausedAt;
   bool _isPaused = false;
+  int? _sessionId;
+  int? _profileId;
+  int? _workoutVariantId;
+  final Map<int, int> _groupVariantSelections = {};
+  final Map<int, int> _slotExerciseSelections = {};
+  List<WorkoutSessionPlanGroup> _sessionPlanGroups = const [];
+  List<Exercise> _planExercisePool = const [];
+  Set<int> _enabledOptionalSlotIds = <int>{};
 
   final Map<int, List<Map<String, String>>> _setsByExercise = {};
 
@@ -27,14 +36,49 @@ class ActiveWorkoutProvider extends ChangeNotifier {
   Workout? get workout => _workout;
   List<Exercise> get exercises => _exercises;
   Map<int, List<Map<String, String>>> get setsByExercise => _setsByExercise;
+  int? get sessionId => _sessionId;
+  int? get profileId => _profileId;
+  int? get workoutVariantId => _workoutVariantId;
+  Map<int, int> get groupVariantSelections =>
+      Map.unmodifiable(_groupVariantSelections);
+  Map<int, int> get slotExerciseSelections =>
+      Map.unmodifiable(_slotExerciseSelections);
+  List<WorkoutSessionPlanGroup> get sessionPlanGroups =>
+      List.unmodifiable(_sessionPlanGroups);
+  List<Exercise> get planExercisePool => List.unmodifiable(_planExercisePool);
+  Set<int> get enabledOptionalSlotIds =>
+      Set.unmodifiable(_enabledOptionalSlotIds);
 
   /// Startet eine neue Session (überschreibt ggf. die alte nach Rückfrage durch UI).
-  void start({required Workout workout, required List<Exercise> exercises}) {
+  void start({
+    required Workout workout,
+    required List<Exercise> exercises,
+    int? sessionId,
+    int? profileId,
+    int? workoutVariantId,
+    Map<int, int> groupSelections = const {},
+    Map<int, int> slotSelections = const {},
+    List<WorkoutSessionPlanGroup> sessionPlanGroups = const [],
+    List<Exercise> planExercisePool = const [],
+    Set<int> enabledOptionalSlotIds = const {},
+  }) {
     _workout = workout;
     _exercises = List<Exercise>.from(exercises);
     _startedAt = DateTime.now();
     _extraElapsed = 0;
     _setsByExercise.clear();
+    _sessionId = sessionId;
+    _profileId = profileId;
+    _workoutVariantId = workoutVariantId;
+    _groupVariantSelections
+      ..clear()
+      ..addAll(groupSelections);
+    _slotExerciseSelections
+      ..clear()
+      ..addAll(slotSelections);
+    _sessionPlanGroups = List<WorkoutSessionPlanGroup>.from(sessionPlanGroups);
+    _planExercisePool = List<Exercise>.from(planExercisePool);
+    _enabledOptionalSlotIds = Set<int>.from(enabledOptionalSlotIds);
 
     _startTicker();
     _notifyElapsed();
@@ -44,6 +88,21 @@ class ActiveWorkoutProvider extends ChangeNotifier {
   /// Fügt (oder ersetzt) während einer aktiven Session eine Übungs-Liste hinzu.
   void updateExercises(List<Exercise> exercises) {
     _exercises = List<Exercise>.from(exercises);
+    notifyListeners();
+  }
+
+  void selectGroupVariant(int workoutGroupId, int groupVariantId) {
+    _groupVariantSelections[workoutGroupId] = groupVariantId;
+    notifyListeners();
+  }
+
+  void selectSlotExercise(int workoutSlotId, int exerciseId) {
+    _slotExerciseSelections[workoutSlotId] = exerciseId;
+    notifyListeners();
+  }
+
+  void setEnabledOptionalSlotIds(Set<int> value) {
+    _enabledOptionalSlotIds = Set<int>.from(value);
     notifyListeners();
   }
 
@@ -132,6 +191,14 @@ class ActiveWorkoutProvider extends ChangeNotifier {
     _isPaused = false;
     _pausedAt = null;
     _setsByExercise.clear();
+    _sessionId = null;
+    _profileId = null;
+    _workoutVariantId = null;
+    _groupVariantSelections.clear();
+    _slotExerciseSelections.clear();
+    _sessionPlanGroups = const [];
+    _planExercisePool = const [];
+    _enabledOptionalSlotIds = <int>{};
     elapsedSeconds.value = 0;
     notifyListeners();
   }

@@ -1,0 +1,11 @@
+{
+  "Barbell_Incline_Bench_Press_-_Medium_Grip": {"movementFamilyId": "incline_press"},
+  "Incline_Dumbbell_Press": {"movementFamilyId": "incline_press"},
+  "Hammer_Grip_Incline_DB_Bench_Press": {"movementFamilyId": "incline_press"},
+  "Barbell_Bench_Press_-_Medium_Grip": {"movementFamilyId": "horizontal_press"},
+  "Dumbbell_Bench_Press": {"movementFamilyId": "horizontal_press"},
+  "Barbell_Squat": {"movementFamilyId": "squat"},
+  "Barbell_Deadlift": {"movementFamilyId": "hinge"},
+  "Bent_Over_Barbell_Row": {"movementFamilyId": "row"},
+  "Barbell_Shoulder_Press": {"movementFamilyId": "vertical_press"}
+}

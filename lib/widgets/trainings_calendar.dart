@@ -121,7 +121,9 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.55),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest.withOpacity(0.55),
                   ),
                   child: Stack(
                     children: [
@@ -232,11 +234,7 @@ class _DoneCheck extends StatelessWidget {
           ],
         ),
         alignment: Alignment.center,
-        child: Icon(
-          Icons.check_rounded,
-          size: 23,
-          color: scheme.onTertiary,
-        ),
+        child: Icon(Icons.check_rounded, size: 23, color: scheme.onTertiary),
       ),
     );
   }

@@ -99,9 +99,9 @@ class _OnboardingGateState extends State<OnboardingGate> {
         await cloud.mergeFromCloud();
         if (!context.mounted) return;
         await _reloadProviders(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.merged)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.merged)));
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(

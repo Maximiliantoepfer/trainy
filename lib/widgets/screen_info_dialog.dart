@@ -9,15 +9,16 @@ void showScreenInfoDialog(
 }) {
   showDialog(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(title),
-      content: Text(description),
-      actions: [
-        FilledButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: Text(ctx.l10n.understood),
+    builder:
+        (ctx) => AlertDialog(
+          title: Text(title),
+          content: Text(description),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(ctx.l10n.understood),
+            ),
+          ],
         ),
-      ],
-    ),
   );
 }

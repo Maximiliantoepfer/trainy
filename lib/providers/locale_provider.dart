@@ -27,10 +27,10 @@ class LocaleProvider extends ChangeNotifier {
 
   /// `null` tells [MaterialApp] to resolve the device locale.
   Locale? get localeOverride => switch (_preference) {
-        AppLanguagePreference.system => null,
-        AppLanguagePreference.german => const Locale('de'),
-        AppLanguagePreference.english => const Locale('en'),
-      };
+    AppLanguagePreference.system => null,
+    AppLanguagePreference.german => const Locale('de'),
+    AppLanguagePreference.english => const Locale('en'),
+  };
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -47,13 +47,10 @@ class LocaleProvider extends ChangeNotifier {
     _preference = value;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _key,
-      switch (value) {
-        AppLanguagePreference.system => 'system',
-        AppLanguagePreference.german => 'de',
-        AppLanguagePreference.english => 'en',
-      },
-    );
+    await prefs.setString(_key, switch (value) {
+      AppLanguagePreference.system => 'system',
+      AppLanguagePreference.german => 'de',
+      AppLanguagePreference.english => 'en',
+    });
   }
 }

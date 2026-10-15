@@ -28,6 +28,19 @@ class Exercise {
   /// Stable key for a bundled catalog exercise. Null means user-created.
   final String? standardKey;
 
+  /// Immutable catalog ID (for example `free:Barbell_Squat`). A null value
+  /// identifies a personal exercise. `standardKey` remains only for migration
+  /// from the old 36-item seed.
+  final String? catalogId;
+
+  /// A personal display addition over a standard record. It is never
+  /// translated automatically.
+  final String? alias;
+  final String notes;
+  final List<String> goalCodes;
+  final List<String> imagePaths;
+  final bool isArchived;
+
   /// A catalog exercise retains its localized name until the user changes it.
   final bool isNameCustom;
 
@@ -49,6 +62,12 @@ class Exercise {
     required this.icon,
     this.goal,
     this.standardKey,
+    this.catalogId,
+    this.alias,
+    this.notes = '',
+    this.goalCodes = const [],
+    this.imagePaths = const [],
+    this.isArchived = false,
     this.isNameCustom = true,
     this.mergedAliases = const [],
   });
@@ -68,6 +87,12 @@ class Exercise {
     int? icon,
     String? goal,
     String? standardKey,
+    String? catalogId,
+    String? alias,
+    String? notes,
+    List<String>? goalCodes,
+    List<String>? imagePaths,
+    bool? isArchived,
     bool? isNameCustom,
     List<String>? mergedAliases,
   }) {
@@ -86,8 +111,30 @@ class Exercise {
       icon: icon ?? this.icon,
       goal: goal ?? this.goal,
       standardKey: standardKey ?? this.standardKey,
+      catalogId: catalogId ?? this.catalogId,
+      alias: alias ?? this.alias,
+      notes: notes ?? this.notes,
+      goalCodes: goalCodes ?? this.goalCodes,
+      imagePaths: imagePaths ?? this.imagePaths,
+      isArchived: isArchived ?? this.isArchived,
       isNameCustom: isNameCustom ?? this.isNameCustom,
       mergedAliases: mergedAliases ?? this.mergedAliases,
     );
   }
+}
+
+class DuplicateSuggestion {
+  const DuplicateSuggestion({
+    required this.id,
+    required this.sourceExerciseId,
+    required this.confidence,
+    this.targetExerciseId,
+    this.targetCatalogId,
+  });
+
+  final int id;
+  final int sourceExerciseId;
+  final int? targetExerciseId;
+  final String? targetCatalogId;
+  final String confidence;
 }

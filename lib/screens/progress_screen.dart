@@ -79,18 +79,17 @@ class _ProgressScreenState extends State<ProgressScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline_rounded, size: 20),
-            onPressed: () => showScreenInfoDialog(
-              context,
-              title: context.l10n.progress,
-              description: context.l10n.progressDescription,
-            ),
+            onPressed:
+                () => showScreenInfoDialog(
+                  context,
+                  title: context.l10n.progress,
+                  description: context.l10n.progressDescription,
+                ),
             tooltip: context.l10n.info,
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: Size.fromHeight(
-            56 + (active.isActive ? 56 : 0),
-          ),
+          preferredSize: Size.fromHeight(56 + (active.isActive ? 56 : 0)),
           child: Column(
             children: [
               if (active.isActive) const ActiveWorkoutBanner(),
@@ -113,8 +112,14 @@ class _ProgressScreenState extends State<ProgressScreen>
                     dividerColor: Colors.transparent,
                     labelColor: scheme.onPrimary,
                     unselectedLabelColor: scheme.onSurfaceVariant,
-                    labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    labelStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
                     tabs: [
                       Tab(text: context.l10n.history),
                       Tab(text: context.l10n.insights),
@@ -126,33 +131,39 @@ class _ProgressScreenState extends State<ProgressScreen>
           ),
         ),
       ),
-      body: provider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : NotificationListener<OverscrollNotification>(
-              onNotification: (notification) {
-                if (notification.depth != 0) return false;
-                if (_tabController.index == 0 && notification.overscroll < 0) {
-                  widget.onSwipePastStart?.call();
-                  return true;
-                }
-                if (_tabController.index == _tabController.length - 1 && notification.overscroll > 0) {
-                  widget.onSwipePastEnd?.call();
-                  return true;
-                }
-                return false;
-              },
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildHistoryTab(entries, provider),
-                  _buildInsightsTab(entries),
-                ],
+      body:
+          provider.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : NotificationListener<OverscrollNotification>(
+                onNotification: (notification) {
+                  if (notification.depth != 0) return false;
+                  if (_tabController.index == 0 &&
+                      notification.overscroll < 0) {
+                    widget.onSwipePastStart?.call();
+                    return true;
+                  }
+                  if (_tabController.index == _tabController.length - 1 &&
+                      notification.overscroll > 0) {
+                    widget.onSwipePastEnd?.call();
+                    return true;
+                  }
+                  return false;
+                },
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildHistoryTab(entries, provider),
+                    _buildInsightsTab(entries),
+                  ],
+                ),
               ),
-            ),
     );
   }
 
-  Widget _buildHistoryTab(List<WorkoutEntry> entries, ProgressProvider provider) {
+  Widget _buildHistoryTab(
+    List<WorkoutEntry> entries,
+    ProgressProvider provider,
+  ) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
@@ -253,12 +264,13 @@ class _ProgressScreenState extends State<ProgressScreen>
         // pinned:{id}
         if (item.startsWith('pinned:')) {
           final id = int.tryParse(item.substring(7));
-          final pc = id != null
-              ? provider.pinnedCharts.cast<dynamic>().firstWhere(
+          final pc =
+              id != null
+                  ? provider.pinnedCharts.cast<dynamic>().firstWhere(
                     (c) => c.id == id,
                     orElse: () => null,
                   )
-              : null;
+                  : null;
           if (pc == null) {
             return SizedBox.shrink(key: ValueKey(item));
           }
@@ -291,8 +303,8 @@ class _ProgressScreenState extends State<ProgressScreen>
     if (counts.isEmpty) return null;
 
     // Sortiere nach Häufigkeit
-    final sorted = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final sorted =
+        counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
 
     final topExId = sorted.first.key;
     final exercise = exercises.cast<dynamic>().firstWhere(
@@ -332,7 +344,11 @@ class _EmptyState extends StatelessWidget {
                 color: scheme.primaryContainer,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(Icons.show_chart, size: 32, color: scheme.onPrimaryContainer),
+              child: Icon(
+                Icons.show_chart,
+                size: 32,
+                color: scheme.onPrimaryContainer,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
@@ -400,42 +416,63 @@ class _EntryCard extends StatelessWidget {
           onLongPress: () => _confirmDelete(context),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ImageIcon(
+                    const AssetImage('assets/icons/hantel.png'),
+                    color: scheme.onPrimaryContainer,
+                    size: 20,
+                  ),
                 ),
-                child: ImageIcon(const AssetImage('assets/icons/hantel.png'),
-                  color: scheme.onPrimaryContainer, size: 20),
-              ),
-              const SizedBox(width: 14),
-              Expanded(child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(workoutName, style: textTheme.titleMedium,
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  Text(dateStr, style: textTheme.bodySmall),
-                  if (totalSets > 0 || (sessionDuration != null && sessionDuration > 0)) ...[
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 8, children: [
-                      if (totalSets > 0)
-                        _SmallChip(icon: Icons.layers, label: context.l10n.setsCount(totalSets)),
-                      if (sessionDuration != null && sessionDuration > 0)
-                        _SmallChip(
-                          icon: Icons.timer_outlined,
-                          label: localizedDuration(context, sessionDuration),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        workoutName,
+                        style: textTheme.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(dateStr, style: textTheme.bodySmall),
+                      if (totalSets > 0 ||
+                          (sessionDuration != null && sessionDuration > 0)) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            if (totalSets > 0)
+                              _SmallChip(
+                                icon: Icons.layers,
+                                label: context.l10n.setsCount(totalSets),
+                              ),
+                            if (sessionDuration != null && sessionDuration > 0)
+                              _SmallChip(
+                                icon: Icons.timer_outlined,
+                                label: localizedDuration(
+                                  context,
+                                  sessionDuration,
+                                ),
+                              ),
+                          ],
                         ),
-                    ]),
-                  ],
-                ],
-              )),
-              Icon(Icons.chevron_right_rounded, color: scheme.outline),
-            ]),
+                      ],
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: scheme.outline),
+              ],
+            ),
           ),
         ),
       ),
@@ -446,30 +483,33 @@ class _EntryCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(context.l10n.deleteEntry),
-        content: Text(context.l10n.deleteEntryDescription),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(context.l10n.cancel),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(context.l10n.deleteEntry),
+            content: Text(context.l10n.deleteEntryDescription),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(context.l10n.cancel),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFD32F2F),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text(context.l10n.delete),
+              ),
+            ],
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFD32F2F),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(context.l10n.delete),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true || !context.mounted) return;
     await context.read<ProgressProvider>().deleteEntry(entry);
     if (!context.mounted) return;
-    try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
+    try {
+      context.read<CloudSyncProvider>().scheduleBackupSoon();
+    } catch (_) {}
   }
 }
 
@@ -492,9 +532,12 @@ class _SmallChip extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: scheme.onSurfaceVariant),
           const SizedBox(width: 4),
-          Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          )),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
         ],
       ),
     );

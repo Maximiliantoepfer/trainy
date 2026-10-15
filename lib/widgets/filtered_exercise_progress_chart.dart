@@ -44,9 +44,10 @@ class _FilteredExerciseProgressChartState
     for (final entry in entries) {
       exerciseIdsWithData.addAll(entry.results.keys);
     }
-    final exercises = allExercises
-        .where((ex) => exerciseIdsWithData.contains(ex.id))
-        .toList();
+    final exercises =
+        allExercises
+            .where((ex) => exerciseIdsWithData.contains(ex.id))
+            .toList();
 
     if (allExercises.isEmpty) {
       return _section(
@@ -91,7 +92,12 @@ class _FilteredExerciseProgressChartState
       _didPickDefault = true;
     }
 
-    final chartSeries = buildChartSeries(entries, _selectedExerciseId!, _metric, _timeRange);
+    final chartSeries = buildChartSeries(
+      entries,
+      _selectedExerciseId!,
+      _metric,
+      _timeRange,
+    );
 
     final selectedExercise = exercises.firstWhere(
       (ex) => ex.id == _selectedExerciseId,
@@ -112,7 +118,8 @@ class _FilteredExerciseProgressChartState
           onTap: () {
             if (isPinned) {
               final pc = provider.pinnedCharts.firstWhere(
-                (p) => p.exerciseId == _selectedExerciseId && p.metric == _metric,
+                (p) =>
+                    p.exerciseId == _selectedExerciseId && p.metric == _metric,
               );
               provider.unpinChart(pc.id);
             } else {
@@ -141,62 +148,65 @@ class _FilteredExerciseProgressChartState
                 borderRadius: BorderRadius.circular(16),
                 onTap: () => _openExercisePicker(context, exercises),
                 child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  color: scheme.surfaceContainerHigh.withValues(alpha: 0.6),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: scheme.primary.withValues(alpha: 0.12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: scheme.surfaceContainerHigh.withValues(alpha: 0.6),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: scheme.primary.withValues(alpha: 0.12),
+                        ),
+                        child: ImageIcon(
+                          const AssetImage('assets/icons/hantel.png'),
+                          color: scheme.primary,
+                          size: 22,
+                        ),
                       ),
-                      child: ImageIcon(
-                        const AssetImage('assets/icons/hantel.png'),
-                        color: scheme.primary,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            context.l10n.exerciseLabel,
-                            style: textTheme.labelMedium?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                              letterSpacing: 0.2,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              context.l10n.exerciseLabel,
+                              style: textTheme.labelMedium?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                letterSpacing: 0.2,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            displayExerciseName(context, selectedExercise),
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: scheme.onSurface,
+                            const SizedBox(height: 4),
+                            Text(
+                              displayExerciseName(context, selectedExercise),
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: scheme.onSurface,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.search_rounded, color: scheme.onSurfaceVariant),
-                  ],
+                      const SizedBox(width: 12),
+                      Icon(
+                        Icons.search_rounded,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
           ),
           const SizedBox(height: 18),
           // --- Metric Selector (Kombimetriken zuerst) ---
@@ -217,16 +227,23 @@ class _FilteredExerciseProgressChartState
                 if (isCardio) (key: 'speed', label: context.l10n.speed),
                 if (isStrength) (key: 'volume', label: context.l10n.volume),
                 // Einzelmetriken
-                if (selectedExercise.trackReps) (key: 'reps', label: context.l10n.repetitions),
-                if (selectedExercise.trackWeight) (key: 'weight', label: context.l10n.weight),
-                if (selectedExercise.trackDistance) (key: 'distance', label: context.l10n.distance),
-                if (selectedExercise.trackDuration) (key: 'duration', label: context.l10n.duration),
-                if (selectedExercise.trackSets) (key: 'sets', label: context.l10n.sets),
+                if (selectedExercise.trackReps)
+                  (key: 'reps', label: context.l10n.repetitions),
+                if (selectedExercise.trackWeight)
+                  (key: 'weight', label: context.l10n.weight),
+                if (selectedExercise.trackDistance)
+                  (key: 'distance', label: context.l10n.distance),
+                if (selectedExercise.trackDuration)
+                  (key: 'duration', label: context.l10n.duration),
+                if (selectedExercise.trackSets)
+                  (key: 'sets', label: context.l10n.sets),
               ];
 
-              if (availableMetrics.isNotEmpty && !availableMetrics.any((m) => m.key == _metric)) {
+              if (availableMetrics.isNotEmpty &&
+                  !availableMetrics.any((m) => m.key == _metric)) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) setState(() => _metric = availableMetrics.first.key);
+                  if (mounted)
+                    setState(() => _metric = availableMetrics.first.key);
                 });
               }
 
@@ -251,10 +268,11 @@ class _FilteredExerciseProgressChartState
                     _MetricButton(
                       label: m.label,
                       active: _metric == m.key,
-                      onTap: () => setState(() {
-                        _metric = m.key;
-                        _highlightedIndex = null;
-                      }),
+                      onTap:
+                          () => setState(() {
+                            _metric = m.key;
+                            _highlightedIndex = null;
+                          }),
                     ),
                 ],
               );
@@ -275,10 +293,11 @@ class _FilteredExerciseProgressChartState
                     _ => context.l10n.allTime,
                   },
                   active: _timeRange == range,
-                  onTap: () => setState(() {
-                    _timeRange = range;
-                    _highlightedIndex = null;
-                  }),
+                  onTap:
+                      () => setState(() {
+                        _timeRange = range;
+                        _highlightedIndex = null;
+                      }),
                 ),
               ],
             ],
@@ -317,10 +336,11 @@ class _FilteredExerciseProgressChartState
         final chartWidth = constraints.maxWidth;
 
         // Clamp highlighted index
-        final safeHighlight = (_highlightedIndex != null &&
-                _highlightedIndex! < series.avg.length)
-            ? _highlightedIndex
-            : null;
+        final safeHighlight =
+            (_highlightedIndex != null &&
+                    _highlightedIndex! < series.avg.length)
+                ? _highlightedIndex
+                : null;
 
         return ClipRRect(
           borderRadius: BorderRadius.circular(20),
@@ -338,7 +358,11 @@ class _FilteredExerciseProgressChartState
             child: GestureDetector(
               onTapUp: (d) {
                 final idx = findNearestIndex(
-                    d.localPosition, series.avg, chartWidth, 260);
+                  d.localPosition,
+                  series.avg,
+                  chartWidth,
+                  260,
+                );
                 setState(() {
                   if (idx == _highlightedIndex) {
                     _highlightedIndex = null;
@@ -349,12 +373,20 @@ class _FilteredExerciseProgressChartState
               },
               onLongPressStart: (d) {
                 final idx = findNearestIndex(
-                    d.localPosition, series.avg, chartWidth, 260);
+                  d.localPosition,
+                  series.avg,
+                  chartWidth,
+                  260,
+                );
                 setState(() => _highlightedIndex = idx);
               },
               onLongPressMoveUpdate: (d) {
                 final idx = findNearestIndex(
-                    d.localPosition, series.avg, chartWidth, 260);
+                  d.localPosition,
+                  series.avg,
+                  chartWidth,
+                  260,
+                );
                 setState(() => _highlightedIndex = idx);
               },
               onLongPressEnd: (_) {
@@ -387,7 +419,10 @@ class _FilteredExerciseProgressChartState
     );
   }
 
-  int _pickDefaultExerciseId(List<Exercise> exercises, List<WorkoutEntry> entries) {
+  int _pickDefaultExerciseId(
+    List<Exercise> exercises,
+    List<WorkoutEntry> entries,
+  ) {
     // Zuletzt trainierte Übung bevorzugen
     DateTime? latestDate;
     int? latestExId;
@@ -444,9 +479,17 @@ class _FilteredExerciseProgressChartState
                 search.isEmpty
                     ? exercises
                     : exercises
-                        .where((ex) => displayExerciseName(context, ex).toLowerCase().contains(search)
-                            || ex.name.toLowerCase().contains(search)
-                            || ex.mergedAliases.any((a) => a.toLowerCase().contains(search)))
+                        .where(
+                          (ex) =>
+                              displayExerciseName(
+                                context,
+                                ex,
+                              ).toLowerCase().contains(search) ||
+                              ex.name.toLowerCase().contains(search) ||
+                              ex.mergedAliases.any(
+                                (a) => a.toLowerCase().contains(search),
+                              ),
+                        )
                         .toList();
 
             return AnimatedPadding(
@@ -522,124 +565,188 @@ class _FilteredExerciseProgressChartState
                                       final isSelected =
                                           exercise.id == _selectedExerciseId;
                                       final tags = [
-                                        if (exercise.trackReps) context.l10n.repetitions,
-                                        if (exercise.trackWeight) context.l10n.weight,
-                                        if (exercise.trackDistance) context.l10n.distance,
-                                        if (exercise.trackDuration) context.l10n.duration,
-                                        if (exercise.trackSets) context.l10n.sets,
+                                        if (exercise.trackReps)
+                                          context.l10n.repetitions,
+                                        if (exercise.trackWeight)
+                                          context.l10n.weight,
+                                        if (exercise.trackDistance)
+                                          context.l10n.distance,
+                                        if (exercise.trackDuration)
+                                          context.l10n.duration,
+                                        if (exercise.trackSets)
+                                          context.l10n.sets,
                                       ];
-                                      final alias = matchingAlias(exercise, query);
+                                      final alias = matchingAlias(
+                                        exercise,
+                                        query,
+                                      );
                                       return TapScale(
                                         child: InkWell(
-                                        borderRadius: BorderRadius.circular(16),
-                                        onTap: () {
-                                          FocusScope.of(stateContext).unfocus();
-                                          Navigator.of(
-                                            modalContext,
-                                          ).pop(exercise.id);
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 14,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
                                           ),
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              16,
+                                          onTap: () {
+                                            FocusScope.of(
+                                              stateContext,
+                                            ).unfocus();
+                                            Navigator.of(
+                                              modalContext,
+                                            ).pop(exercise.id);
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 14,
                                             ),
-                                            color:
-                                                isSelected
-                                                    ? theme.colorScheme.primary
-                                                        .withValues(alpha: 0.14)
-                                                    : theme
-                                                        .colorScheme
-                                                        .surfaceContainerHigh
-                                                        .withValues(alpha: 0.5),
-                                            border: Border.all(
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
                                               color:
                                                   isSelected
                                                       ? theme
                                                           .colorScheme
                                                           .primary
+                                                          .withValues(
+                                                            alpha: 0.14,
+                                                          )
                                                       : theme
                                                           .colorScheme
-                                                          .outlineVariant
+                                                          .surfaceContainerHigh
                                                           .withValues(
-                                                            alpha: 0.4,
+                                                            alpha: 0.5,
                                                           ),
+                                              border: Border.all(
+                                                color:
+                                                    isSelected
+                                                        ? theme
+                                                            .colorScheme
+                                                            .primary
+                                                        : theme
+                                                            .colorScheme
+                                                            .outlineVariant
+                                                            .withValues(
+                                                              alpha: 0.4,
+                                                            ),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Flexible(
+                                                            child: Text(
+                                                              displayExerciseName(
+                                                                context,
+                                                                exercise,
+                                                              ),
+                                                              style: textTheme.titleMedium?.copyWith(
+                                                                fontWeight:
+                                                                    isSelected
+                                                                        ? FontWeight
+                                                                            .w700
+                                                                        : FontWeight
+                                                                            .w500,
+                                                                color:
+                                                                    isSelected
+                                                                        ? theme
+                                                                            .colorScheme
+                                                                            .primary
+                                                                        : theme
+                                                                            .colorScheme
+                                                                            .onSurface,
+                                                              ),
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                          if (exercise.goal !=
+                                                              null) ...[
+                                                            const SizedBox(
+                                                              width: 8,
+                                                            ),
+                                                            goalBadge(
+                                                              context,
+                                                              exercise.goal!,
+                                                              theme.colorScheme,
+                                                            ),
+                                                          ],
+                                                        ],
+                                                      ),
+                                                      if (tags.isNotEmpty) ...[
+                                                        const SizedBox(
+                                                          height: 4,
+                                                        ),
+                                                        Text(
+                                                          tags.join(' · '),
+                                                          style: textTheme.bodySmall?.copyWith(
+                                                            color:
+                                                                isSelected
+                                                                    ? theme
+                                                                        .colorScheme
+                                                                        .primary
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.7,
+                                                                        )
+                                                                    : theme
+                                                                        .colorScheme
+                                                                        .onSurfaceVariant
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.6,
+                                                                        ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                      if (alias != null) ...[
+                                                        const SizedBox(
+                                                          height: 2,
+                                                        ),
+                                                        Text(
+                                                          context.l10n
+                                                              .formerName(
+                                                                alias,
+                                                              ),
+                                                          style: textTheme
+                                                              .bodySmall
+                                                              ?.copyWith(
+                                                                fontStyle:
+                                                                    FontStyle
+                                                                        .italic,
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .onSurfaceVariant
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.5,
+                                                                    ),
+                                                              ),
+                                                        ),
+                                                      ],
+                                                    ],
+                                                  ),
+                                                ),
+                                                if (isSelected)
+                                                  Icon(
+                                                    Icons.check_rounded,
+                                                    color:
+                                                        theme
+                                                            .colorScheme
+                                                            .primary,
+                                                  ),
+                                              ],
                                             ),
                                           ),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Row(
-                                                      children: [
-                                                        Flexible(
-                                                          child: Text(
-                                                            displayExerciseName(context, exercise),
-                                                            style: textTheme.titleMedium
-                                                                ?.copyWith(
-                                                                  fontWeight:
-                                                                      isSelected
-                                                                          ? FontWeight
-                                                                              .w700
-                                                                          : FontWeight
-                                                                              .w500,
-                                                                  color:
-                                                                      isSelected
-                                                                          ? theme
-                                                                              .colorScheme
-                                                                              .primary
-                                                                          : theme
-                                                                              .colorScheme
-                                                                              .onSurface,
-                                                                ),
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                        ),
-                                                        if (exercise.goal != null) ...[
-                                                          const SizedBox(width: 8),
-                                                          goalBadge(context, exercise.goal!, theme.colorScheme),
-                                                        ],
-                                                      ],
-                                                    ),
-                                                    if (tags.isNotEmpty) ...[
-                                                      const SizedBox(height: 4),
-                                                      Text(
-                                                        tags.join(' · '),
-                                                        style: textTheme.bodySmall?.copyWith(
-                                                          color: isSelected
-                                                              ? theme.colorScheme.primary.withValues(alpha: 0.7)
-                                                              : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                    if (alias != null) ...[
-                                                      const SizedBox(height: 2),
-                                                      Text(context.l10n.formerName(alias),
-                                                        style: textTheme.bodySmall?.copyWith(
-                                                          fontStyle: FontStyle.italic,
-                                                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ),
-                                              ),
-                                              if (isSelected)
-                                                Icon(
-                                                  Icons.check_rounded,
-                                                  color:
-                                                      theme.colorScheme.primary,
-                                                ),
-                                            ],
-                                          ),
                                         ),
-                                      ),
                                       );
                                     },
                                   ),
@@ -728,7 +835,11 @@ class _FilteredExerciseProgressChartState
 // ── Touch Hit-Test (shared) ──────────────────────────────────────────────────
 
 int? findNearestIndex(
-    Offset touch, List<ChartPoint> points, double totalWidth, double totalHeight) {
+  Offset touch,
+  List<ChartPoint> points,
+  double totalWidth,
+  double totalHeight,
+) {
   if (points.isEmpty) return null;
 
   const double minLeftInset = 40;
@@ -797,58 +908,55 @@ class _MetricButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            color:
-                active
-                    ? scheme.primary.withValues(alpha: 0.14)
-                    : scheme.surfaceContainerHigh.withValues(alpha: 0.6),
-            border: Border.all(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
               color:
                   active
-                      ? scheme.primary
-                      : Colors.transparent,
-              width: active ? 1.4 : 1.0,
+                      ? scheme.primary.withValues(alpha: 0.14)
+                      : scheme.surfaceContainerHigh.withValues(alpha: 0.6),
+              border: Border.all(
+                color: active ? scheme.primary : Colors.transparent,
+                width: active ? 1.4 : 1.0,
+              ),
+              boxShadow:
+                  active
+                      ? [
+                        BoxShadow(
+                          color: scheme.primary.withValues(alpha: 0.18),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                      : const [],
             ),
-            boxShadow:
-                active
-                    ? [
-                      BoxShadow(
-                        color: scheme.primary.withValues(alpha: 0.18),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                    : const [],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (active)
-                Container(
-                  width: 6,
-                  height: 6,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: scheme.primary,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (active)
+                  Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: scheme.primary,
+                    ),
+                  ),
+                Text(
+                  label,
+                  style: baseStyle?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: active ? scheme.primary : scheme.onSurfaceVariant,
+                    letterSpacing: 0.2,
                   ),
                 ),
-              Text(
-                label,
-                style: baseStyle?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: active ? scheme.primary : scheme.onSurfaceVariant,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -877,9 +985,10 @@ class _RangeButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          color: active
-              ? scheme.primary.withValues(alpha: 0.14)
-              : scheme.surfaceContainerHigh.withValues(alpha: 0.4),
+          color:
+              active
+                  ? scheme.primary.withValues(alpha: 0.14)
+                  : scheme.surfaceContainerHigh.withValues(alpha: 0.4),
           border: Border.all(
             color: active ? scheme.primary : Colors.transparent,
             width: 1.0,
@@ -1232,14 +1341,17 @@ class ProgressLinePainter extends CustomPainter {
   }
 
   void _drawTooltip(
-      Canvas canvas, Offset pixelPos, ChartPoint point, Rect chartRect) {
-    final lines = <String>[
-      _formatDateFull(point.t),
-      _formatYLabel(point.y),
-    ];
+    Canvas canvas,
+    Offset pixelPos,
+    ChartPoint point,
+    Rect chartRect,
+  ) {
+    final lines = <String>[_formatDateFull(point.t), _formatYLabel(point.y)];
     // Show min/max info if available
-    if (point.yMin != null && point.yMax != null &&
-        ((point.yMin! - point.y).abs() > 0.01 || (point.yMax! - point.y).abs() > 0.01)) {
+    if (point.yMin != null &&
+        point.yMax != null &&
+        ((point.yMin! - point.y).abs() > 0.01 ||
+            (point.yMax! - point.y).abs() > 0.01)) {
       lines.add(
         '$minimumLabel ${_formatYLabel(point.yMin!)} · '
         '$maximumLabel ${_formatYLabel(point.yMax!)}',
@@ -1253,12 +1365,13 @@ class ProgressLinePainter extends CustomPainter {
       height: 1.3,
     );
 
-    final painters = lines.map((line) {
-      return TextPainter(
-        text: TextSpan(text: line, style: tooltipStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-    }).toList();
+    final painters =
+        lines.map((line) {
+          return TextPainter(
+            text: TextSpan(text: line, style: tooltipStyle),
+            textDirection: TextDirection.ltr,
+          )..layout();
+        }).toList();
 
     double maxW = 0;
     double totalH = 0;

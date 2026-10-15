@@ -12,12 +12,7 @@ class ChartPoint {
   final double? yMin; // nur bei avg-Points mit Varianz
   final double? yMax;
 
-  const ChartPoint(
-    this.t,
-    this.y, {
-    this.yMin,
-    this.yMax,
-  });
+  const ChartPoint(this.t, this.y, {this.yMin, this.yMax});
 }
 
 class AxisTick {
@@ -29,26 +24,21 @@ class AxisTick {
 
 // ── Chart Series Result ──────────────────────────────────────────────────────
 
-typedef ChartSeries = ({
-  List<ChartPoint> avg,
-  List<ChartPoint> min,
-  List<ChartPoint> max,
-});
+typedef ChartSeries =
+    ({List<ChartPoint> avg, List<ChartPoint> min, List<ChartPoint> max});
 
 // ── Metric Detection Helpers ─────────────────────────────────────────────────
 
 bool isCardioExercise({
   required bool trackDistance,
   required bool trackDuration,
-}) =>
-    trackDistance && trackDuration;
+}) => trackDistance && trackDuration;
 
 bool isStrengthExercise({
   required bool trackSets,
   required bool trackReps,
   required bool trackWeight,
-}) =>
-    trackSets && trackReps && trackWeight;
+}) => trackSets && trackReps && trackWeight;
 
 /// Returns the best default metric key for an exercise.
 String defaultMetricForExercise({
@@ -58,10 +48,17 @@ String defaultMetricForExercise({
   required bool trackDuration,
   required bool trackDistance,
 }) {
-  if (isCardioExercise(trackDistance: trackDistance, trackDuration: trackDuration)) {
+  if (isCardioExercise(
+    trackDistance: trackDistance,
+    trackDuration: trackDuration,
+  )) {
     return 'speed';
   }
-  if (isStrengthExercise(trackSets: trackSets, trackReps: trackReps, trackWeight: trackWeight)) {
+  if (isStrengthExercise(
+    trackSets: trackSets,
+    trackReps: trackReps,
+    trackWeight: trackWeight,
+  )) {
     return 'volume';
   }
   if (trackReps) return 'reps';
@@ -185,12 +182,7 @@ void _addMetricPoints(
       final vMin = values.reduce(min);
       final vMax = values.reduce(max);
 
-      avgOut.add(ChartPoint(
-        date,
-        avg,
-        yMin: vMin,
-        yMax: vMax,
-      ));
+      avgOut.add(ChartPoint(date, avg, yMin: vMin, yMax: vMax));
 
       // Only add min/max points if there's variance
       if ((vMin - avg).abs() > 0.01 || (vMax - avg).abs() > 0.01) {

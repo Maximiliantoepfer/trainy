@@ -38,9 +38,10 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
     for (final e in widget.entry.results.entries) {
       final map = Map<String, dynamic>.from(e.value);
       if (map['perSet'] is List) {
-        map['perSet'] = (map['perSet'] as List)
-            .map((s) => Map<String, dynamic>.from(s as Map))
-            .toList();
+        map['perSet'] =
+            (map['perSet'] as List)
+                .map((s) => Map<String, dynamic>.from(s as Map))
+                .toList();
       }
       _results[e.key] = map;
     }
@@ -58,54 +59,69 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
     final current = _durationSeconds ?? 0;
     final parts = DurationFormatter.split(current);
     final hCtrl = TextEditingController(
-        text: parts.hours > 0 ? '${parts.hours}' : '');
+      text: parts.hours > 0 ? '${parts.hours}' : '',
+    );
     final mCtrl = TextEditingController(
-        text: parts.minutes > 0 ? '${parts.minutes}' : '');
+      text: parts.minutes > 0 ? '${parts.minutes}' : '',
+    );
     final sCtrl = TextEditingController(
-        text: parts.seconds > 0 ? '${parts.seconds}' : '');
+      text: parts.seconds > 0 ? '${parts.seconds}' : '',
+    );
 
     final newDuration = await showDialog<int?>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(ctx.l10n.editWorkoutDuration),
-        content: Row(children: [
-          Expanded(child: TextField(
-            controller: hCtrl,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            autofocus: true,
-            decoration: InputDecoration(labelText: ctx.l10n.hours),
-          )),
-          const SizedBox(width: 8),
-          Expanded(child: TextField(
-            controller: mCtrl,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(labelText: ctx.l10n.minutes),
-          )),
-          const SizedBox(width: 8),
-          Expanded(child: TextField(
-            controller: sCtrl,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(labelText: ctx.l10n.seconds),
-          )),
-        ]),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(null),
-            child: Text(ctx.l10n.cancel),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(ctx.l10n.editWorkoutDuration),
+            content: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: hCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    autofocus: true,
+                    decoration: InputDecoration(labelText: ctx.l10n.hours),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: mCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(labelText: ctx.l10n.minutes),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: sCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(labelText: ctx.l10n.seconds),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(null),
+                child: Text(ctx.l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final secs = DurationFormatter.totalSecondsFromTexts(
+                    hCtrl.text,
+                    mCtrl.text,
+                    sCtrl.text,
+                  );
+                  Navigator.of(ctx).pop(secs);
+                },
+                child: Text(ctx.l10n.save),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () {
-              final secs = DurationFormatter.totalSecondsFromTexts(
-                  hCtrl.text, mCtrl.text, sCtrl.text);
-              Navigator.of(ctx).pop(secs);
-            },
-            child: Text(ctx.l10n.save),
-          ),
-        ],
-      ),
     );
 
     if (newDuration == null) return;
@@ -162,40 +178,44 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
 
     final newValue = await showDialog<num?>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(_dialogTitleFor(field)),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: isInt ? ctx.l10n.exampleInteger : ctx.l10n.exampleDecimal,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(_dialogTitleFor(field)),
+            content: TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText:
+                    isInt ? ctx.l10n.exampleInteger : ctx.l10n.exampleDecimal,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(null),
+                child: Text(ctx.l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final txt = controller.text.trim().replaceAll(',', '.');
+                  if (txt.isEmpty) {
+                    Navigator.of(ctx).pop(null);
+                    return;
+                  }
+                  num? parsed;
+                  if (isInt) {
+                    parsed = int.tryParse(txt);
+                  } else {
+                    parsed = double.tryParse(txt);
+                  }
+                  Navigator.of(ctx).pop(parsed);
+                },
+                child: Text(ctx.l10n.save),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(null),
-            child: Text(ctx.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              final txt = controller.text.trim().replaceAll(',', '.');
-              if (txt.isEmpty) {
-                Navigator.of(ctx).pop(null);
-                return;
-              }
-              num? parsed;
-              if (isInt) {
-                parsed = int.tryParse(txt);
-              } else {
-                parsed = double.tryParse(txt);
-              }
-              Navigator.of(ctx).pop(parsed);
-            },
-            child: Text(ctx.l10n.save),
-          ),
-        ],
-      ),
     );
 
     if (newValue == null) return;
@@ -237,40 +257,46 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
 
       newValue = await showDialog<num?>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(_dialogTitleFor(field)),
-          content: TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: isWeight ? ctx.l10n.exampleDecimal : ctx.l10n.exampleInteger,
+        builder:
+            (ctx) => AlertDialog(
+              title: Text(_dialogTitleFor(field)),
+              content: TextField(
+                controller: controller,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText:
+                      isWeight
+                          ? ctx.l10n.exampleDecimal
+                          : ctx.l10n.exampleInteger,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(null),
+                  child: Text(ctx.l10n.cancel),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final txt = controller.text.trim().replaceAll(',', '.');
+                    if (txt.isEmpty) {
+                      Navigator.of(ctx).pop(null);
+                      return;
+                    }
+                    num? parsed;
+                    if (isWeight) {
+                      parsed = double.tryParse(txt);
+                    } else {
+                      parsed = int.tryParse(txt);
+                    }
+                    Navigator.of(ctx).pop(parsed);
+                  },
+                  child: Text(ctx.l10n.save),
+                ),
+              ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(null),
-              child: Text(ctx.l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () {
-                final txt = controller.text.trim().replaceAll(',', '.');
-                if (txt.isEmpty) {
-                  Navigator.of(ctx).pop(null);
-                  return;
-                }
-                num? parsed;
-                if (isWeight) {
-                  parsed = double.tryParse(txt);
-                } else {
-                  parsed = int.tryParse(txt);
-                }
-                Navigator.of(ctx).pop(parsed);
-              },
-              child: Text(ctx.l10n.save),
-            ),
-          ],
-        ),
       );
     }
 
@@ -304,10 +330,14 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
       final newSet = <String, dynamic>{};
       if (perSet.isNotEmpty) {
         final last = perSet.last;
-        if (exercise.trackReps && last['reps'] != null) newSet['reps'] = last['reps'];
-        if (exercise.trackWeight && last['weight'] != null) newSet['weight'] = last['weight'];
-        if (exercise.trackDistance && last['distance'] != null) newSet['distance'] = last['distance'];
-        if (exercise.trackDuration && last['duration'] != null) newSet['duration'] = last['duration'];
+        if (exercise.trackReps && last['reps'] != null)
+          newSet['reps'] = last['reps'];
+        if (exercise.trackWeight && last['weight'] != null)
+          newSet['weight'] = last['weight'];
+        if (exercise.trackDistance && last['distance'] != null)
+          newSet['distance'] = last['distance'];
+        if (exercise.trackDuration && last['duration'] != null)
+          newSet['duration'] = last['duration'];
       }
       perSet.add(newSet);
       _recalcAggregates(data, perSet);
@@ -316,7 +346,10 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
   }
 
   /// Berechnet Top-Level-Aggregate aus perSet-Array neu.
-  void _recalcAggregates(Map<String, dynamic> data, List<Map<String, dynamic>> perSet) {
+  void _recalcAggregates(
+    Map<String, dynamic> data,
+    List<Map<String, dynamic>> perSet,
+  ) {
     data['sets'] = perSet.length;
 
     int? lastReps;
@@ -374,54 +407,69 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
   Future<int?> _showDurationEditDialog(int currentSeconds) async {
     final parts = DurationFormatter.split(currentSeconds);
     final hCtrl = TextEditingController(
-        text: parts.hours > 0 ? '${parts.hours}' : '');
+      text: parts.hours > 0 ? '${parts.hours}' : '',
+    );
     final mCtrl = TextEditingController(
-        text: parts.minutes > 0 ? '${parts.minutes}' : '');
+      text: parts.minutes > 0 ? '${parts.minutes}' : '',
+    );
     final sCtrl = TextEditingController(
-        text: parts.seconds > 0 ? '${parts.seconds}' : '');
+      text: parts.seconds > 0 ? '${parts.seconds}' : '',
+    );
 
     return showDialog<int?>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(ctx.l10n.editDuration),
-        content: Row(children: [
-          Expanded(child: TextField(
-            controller: hCtrl,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            autofocus: true,
-            decoration: InputDecoration(labelText: ctx.l10n.hours),
-          )),
-          const SizedBox(width: 8),
-          Expanded(child: TextField(
-            controller: mCtrl,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(labelText: ctx.l10n.minutes),
-          )),
-          const SizedBox(width: 8),
-          Expanded(child: TextField(
-            controller: sCtrl,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(labelText: ctx.l10n.seconds),
-          )),
-        ]),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(null),
-            child: Text(ctx.l10n.cancel),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(ctx.l10n.editDuration),
+            content: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: hCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    autofocus: true,
+                    decoration: InputDecoration(labelText: ctx.l10n.hours),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: mCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(labelText: ctx.l10n.minutes),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: sCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(labelText: ctx.l10n.seconds),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(null),
+                child: Text(ctx.l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final secs = DurationFormatter.totalSecondsFromTexts(
+                    hCtrl.text,
+                    mCtrl.text,
+                    sCtrl.text,
+                  );
+                  Navigator.of(ctx).pop(secs);
+                },
+                child: Text(ctx.l10n.save),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () {
-              final secs = DurationFormatter.totalSecondsFromTexts(
-                  hCtrl.text, mCtrl.text, sCtrl.text);
-              Navigator.of(ctx).pop(secs);
-            },
-            child: Text(ctx.l10n.save),
-          ),
-        ],
-      ),
     );
   }
 
@@ -483,24 +531,37 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
                   borderRadius: BorderRadius.circular(14),
                   onTap: _editWorkoutDuration,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(children: [
-                      Icon(Icons.timer_outlined, size: 20, color: scheme.onSurfaceVariant),
-                      const SizedBox(width: 10),
-                      Text(context.l10n.workoutDuration,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 20,
                           color: scheme.onSurfaceVariant,
-                        )),
-                      const Spacer(),
-                      Text(
-                        localizedDuration(context, _durationSeconds!),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.edit_outlined, size: 16, color: scheme.onSurfaceVariant.withValues(alpha: 0.5)),
-                    ]),
+                        const SizedBox(width: 10),
+                        Text(
+                          context.l10n.workoutDuration,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                        const Spacer(),
+                        Text(
+                          localizedDuration(context, _durationSeconds!),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.edit_outlined,
+                          size: 16,
+                          color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -517,31 +578,36 @@ class _WorkoutEntryDetailScreenState extends State<WorkoutEntryDetailScreen> {
               ex = null;
             }
 
-            final usePerSetMode = ex != null &&
+            final usePerSetMode =
+                ex != null &&
                 ex.trackSets &&
                 data.containsKey('perSet') &&
                 data['perSet'] is List;
 
             return Padding(
-              padding: EdgeInsets.only(bottom: index < _results.length - 1 ? 12 : 0),
-              child: usePerSetMode
-                  ? _PerSetExerciseCard(
-                      exerciseId: exerciseId,
-                      exercise: ex,
-                      data: data,
-                      onEditValue: _editPerSetValue,
-                      onRemoveSet: _removeSet,
-                      onAddSet: _addSet,
-                    )
-                  : _SingleExerciseCard(
-                      exerciseId: exerciseId,
-                      exercise: ex,
-                      exerciseName: ex != null
-                          ? displayExerciseName(context, ex)
-                          : context.l10n.deletedExercise(exerciseId),
-                      values: data,
-                      onEdit: _editMetric,
-                    ),
+              padding: EdgeInsets.only(
+                bottom: index < _results.length - 1 ? 12 : 0,
+              ),
+              child:
+                  usePerSetMode
+                      ? _PerSetExerciseCard(
+                        exerciseId: exerciseId,
+                        exercise: ex,
+                        data: data,
+                        onEditValue: _editPerSetValue,
+                        onRemoveSet: _removeSet,
+                        onAddSet: _addSet,
+                      )
+                      : _SingleExerciseCard(
+                        exerciseId: exerciseId,
+                        exercise: ex,
+                        exerciseName:
+                            ex != null
+                                ? displayExerciseName(context, ex)
+                                : context.l10n.deletedExercise(exerciseId),
+                        values: data,
+                        onEdit: _editMetric,
+                      ),
             );
           }),
         ],
@@ -581,7 +647,8 @@ class _PerSetExerciseCard extends StatelessWidget {
     required int setIndex,
     required String field,
     required num? current,
-  }) onEditValue;
+  })
+  onEditValue;
   final void Function(int exerciseId, int setIndex) onRemoveSet;
   final void Function(int exerciseId, Exercise exercise) onAddSet;
 
@@ -598,9 +665,8 @@ class _PerSetExerciseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final perSet = (data['perSet'] as List)
-        .map((s) => s as Map<String, dynamic>)
-        .toList();
+    final perSet =
+        (data['perSet'] as List).map((s) => s as Map<String, dynamic>).toList();
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -610,29 +676,46 @@ class _PerSetExerciseCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Titel
-            Row(children: [
-              Container(
-                width: 40, height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ImageIcon(
+                    const AssetImage('assets/icons/hantel.png'),
+                    color: scheme.onPrimaryContainer,
+                    size: 18,
+                  ),
                 ),
-                child: ImageIcon(const AssetImage('assets/icons/hantel.png'),
-                    color: scheme.onPrimaryContainer, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(displayExerciseName(context, exercise),
-                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
-                  Text(context.l10n.setsCount(perSet.length),
-                    style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-                ],
-              )),
-            ]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayExerciseName(context, exercise),
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        context.l10n.setsCount(perSet.length),
+                        style: textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
 
             if (perSet.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -647,12 +730,13 @@ class _PerSetExerciseCard extends StatelessWidget {
                   index: i,
                   setData: s,
                   exercise: exercise,
-                  onEditValue: (field, current) => onEditValue(
-                    exerciseId: exerciseId,
-                    setIndex: i,
-                    field: field,
-                    current: current,
-                  ),
+                  onEditValue:
+                      (field, current) => onEditValue(
+                        exerciseId: exerciseId,
+                        setIndex: i,
+                        field: field,
+                        current: current,
+                      ),
                   onRemove: () => onRemoveSet(exerciseId, i),
                 );
               }),
@@ -664,8 +748,10 @@ class _PerSetExerciseCard extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: () => onAddSet(exerciseId, exercise),
                 icon: Icon(Icons.add_rounded, size: 18, color: scheme.primary),
-                label: Text(context.l10n.addSet,
-                  style: textTheme.labelMedium?.copyWith(color: scheme.primary)),
+                label: Text(
+                  context.l10n.addSet,
+                  style: textTheme.labelMedium?.copyWith(color: scheme.primary),
+                ),
               ),
             ),
           ],
@@ -705,17 +791,20 @@ class _EditableSetRow extends StatelessWidget {
         children: [
           // Satznummer
           Container(
-            width: 28, height: 28,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               color: scheme.primaryContainer,
               shape: BoxShape.circle,
             ),
             child: Center(
-              child: Text('${index + 1}',
+              child: Text(
+                '${index + 1}',
                 style: textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: scheme.onPrimaryContainer,
-                )),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -736,21 +825,35 @@ class _EditableSetRow extends StatelessWidget {
                   _TappableValue(
                     label: 'kg',
                     value: _formatWeight(_asDouble(setData['weight'])),
-                    onTap: () => onEditValue('weight', _asDouble(setData['weight'])),
+                    onTap:
+                        () =>
+                            onEditValue('weight', _asDouble(setData['weight'])),
                   ),
                 if (exercise.trackDistance)
                   _TappableValue(
                     label: 'km',
                     value: _formatWeight(_asDouble(setData['distance'])),
-                    onTap: () => onEditValue('distance', _asDouble(setData['distance'])),
+                    onTap:
+                        () => onEditValue(
+                          'distance',
+                          _asDouble(setData['distance']),
+                        ),
                   ),
                 if (exercise.trackDuration)
                   _TappableValue(
                     label: '',
-                    value: _asInt(setData['duration']) != null
-                        ? localizedDuration(context, _asInt(setData['duration'])!)
-                        : null,
-                    onTap: () => onEditValue('duration', _asInt(setData['duration'])),
+                    value:
+                        _asInt(setData['duration']) != null
+                            ? localizedDuration(
+                              context,
+                              _asInt(setData['duration'])!,
+                            )
+                            : null,
+                    onTap:
+                        () => onEditValue(
+                          'duration',
+                          _asInt(setData['duration']),
+                        ),
                   ),
               ],
             ),
@@ -758,7 +861,8 @@ class _EditableSetRow extends StatelessWidget {
 
           // Löschen
           SizedBox(
-            width: 32, height: 32,
+            width: 32,
+            height: 32,
             child: IconButton(
               icon: Icon(Icons.close_rounded, size: 18, color: scheme.error),
               onPressed: onRemove,
@@ -788,7 +892,9 @@ class _EditableSetRow extends StatelessWidget {
 
   static String? _formatWeight(double? w) {
     if (w == null) return null;
-    return w.truncateToDouble() == w ? w.toStringAsFixed(0) : w.toStringAsFixed(1);
+    return w.truncateToDouble() == w
+        ? w.toStringAsFixed(0)
+        : w.toStringAsFixed(1);
   }
 }
 
@@ -811,9 +917,10 @@ class _TappableValue extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final hasValue = value != null && value!.isNotEmpty;
-    final displayText = hasValue
-        ? (label.isNotEmpty ? '$value $label' : value!)
-        : (label.isNotEmpty ? '$label?' : '—');
+    final displayText =
+        hasValue
+            ? (label.isNotEmpty ? '$value $label' : value!)
+            : (label.isNotEmpty ? '$label?' : '—');
 
     return Material(
       color: scheme.surfaceContainerHighest,
@@ -823,11 +930,16 @@ class _TappableValue extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Text(displayText,
+          child: Text(
+            displayText,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.w600,
-              color: hasValue ? null : scheme.onSurfaceVariant.withValues(alpha: 0.5),
-            )),
+              color:
+                  hasValue
+                      ? null
+                      : scheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ),
         ),
       ),
     );
@@ -847,7 +959,8 @@ class _SingleExerciseCard extends StatelessWidget {
     required int exerciseId,
     required String field,
     required num? current,
-  }) onEdit;
+  })
+  onEdit;
 
   const _SingleExerciseCard({
     required this.exerciseId,
@@ -867,49 +980,97 @@ class _SingleExerciseCard extends StatelessWidget {
 
     if (ex == null || ex.trackSets) {
       final sets = _asInt(values['sets']);
-      chips.add(_MetricChip(
-        icon: Icon(Icons.layers, size: 18, color: scheme.onSecondaryContainer),
-        label: context.l10n.sets,
-        value: sets?.toString(),
-        onTap: () => onEdit(exerciseId: exerciseId, field: 'sets', current: sets),
-      ));
+      chips.add(
+        _MetricChip(
+          icon: Icon(
+            Icons.layers,
+            size: 18,
+            color: scheme.onSecondaryContainer,
+          ),
+          label: context.l10n.sets,
+          value: sets?.toString(),
+          onTap:
+              () =>
+                  onEdit(exerciseId: exerciseId, field: 'sets', current: sets),
+        ),
+      );
     }
     if (ex == null || ex.trackReps) {
       final reps = _asInt(values['reps']);
-      chips.add(_MetricChip(
-        icon: Icon(Icons.repeat, size: 18, color: scheme.onSecondaryContainer),
-        label: context.l10n.repetitions,
-        value: reps?.toString(),
-        onTap: () => onEdit(exerciseId: exerciseId, field: 'reps', current: reps),
-      ));
+      chips.add(
+        _MetricChip(
+          icon: Icon(
+            Icons.repeat,
+            size: 18,
+            color: scheme.onSecondaryContainer,
+          ),
+          label: context.l10n.repetitions,
+          value: reps?.toString(),
+          onTap:
+              () =>
+                  onEdit(exerciseId: exerciseId, field: 'reps', current: reps),
+        ),
+      );
     }
     if (ex == null || ex.trackWeight) {
       final weight = _asDouble(values['weight']);
-      chips.add(_MetricChip(
-        icon: ImageIcon(const AssetImage('assets/icons/hantel.png'),
-            size: 18, color: scheme.onSecondaryContainer),
-        label: context.l10n.weight,
-        value: weight == null ? null : _formatWeight(weight),
-        onTap: () => onEdit(exerciseId: exerciseId, field: 'weight', current: weight),
-      ));
+      chips.add(
+        _MetricChip(
+          icon: ImageIcon(
+            const AssetImage('assets/icons/hantel.png'),
+            size: 18,
+            color: scheme.onSecondaryContainer,
+          ),
+          label: context.l10n.weight,
+          value: weight == null ? null : _formatWeight(weight),
+          onTap:
+              () => onEdit(
+                exerciseId: exerciseId,
+                field: 'weight',
+                current: weight,
+              ),
+        ),
+      );
     }
     if (ex == null || ex.trackDistance) {
       final distance = _asDouble(values['distance']);
-      chips.add(_MetricChip(
-        icon: Icon(Icons.straighten, size: 18, color: scheme.onSecondaryContainer),
-        label: context.l10n.distance,
-        value: distance == null ? null : '${_formatWeight(distance)} km',
-        onTap: () => onEdit(exerciseId: exerciseId, field: 'distance', current: distance),
-      ));
+      chips.add(
+        _MetricChip(
+          icon: Icon(
+            Icons.straighten,
+            size: 18,
+            color: scheme.onSecondaryContainer,
+          ),
+          label: context.l10n.distance,
+          value: distance == null ? null : '${_formatWeight(distance)} km',
+          onTap:
+              () => onEdit(
+                exerciseId: exerciseId,
+                field: 'distance',
+                current: distance,
+              ),
+        ),
+      );
     }
     if (ex == null || ex.trackDuration) {
       final duration = _asInt(values['duration']);
-      chips.add(_MetricChip(
-        icon: Icon(Icons.timer_outlined, size: 18, color: scheme.onSecondaryContainer),
-        label: context.l10n.duration,
-        value: duration == null ? null : localizedDuration(context, duration),
-        onTap: () => onEdit(exerciseId: exerciseId, field: 'duration', current: duration),
-      ));
+      chips.add(
+        _MetricChip(
+          icon: Icon(
+            Icons.timer_outlined,
+            size: 18,
+            color: scheme.onSecondaryContainer,
+          ),
+          label: context.l10n.duration,
+          value: duration == null ? null : localizedDuration(context, duration),
+          onTap:
+              () => onEdit(
+                exerciseId: exerciseId,
+                field: 'duration',
+                current: duration,
+              ),
+        ),
+      );
     }
 
     return Card(
@@ -920,25 +1081,35 @@ class _SingleExerciseCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Titel
-            Row(children: [
-              Container(
-                width: 40, height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ImageIcon(
+                    const AssetImage('assets/icons/hantel.png'),
+                    color: scheme.onPrimaryContainer,
+                    size: 18,
+                  ),
                 ),
-                child: ImageIcon(const AssetImage('assets/icons/hantel.png'),
-                    color: scheme.onPrimaryContainer, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: Text(
-                exerciseName,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700),
-                maxLines: 2, overflow: TextOverflow.ellipsis,
-              )),
-            ]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    exerciseName,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
             if (chips.isNotEmpty) ...[
               const SizedBox(height: 10),
               Wrap(spacing: 10, runSpacing: 10, children: chips),
@@ -1005,8 +1176,9 @@ class _MetricChip extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 hasValue ? '$label: $value' : context.l10n.addValue(label),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ],
           ),

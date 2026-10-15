@@ -70,7 +70,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '484619974390',
     projectId: 'trainy-39fd1',
     storageBucket: 'trainy-39fd1.firebasestorage.app',
-    iosClientId: '484619974390-q6abavc7b2aejfp2rm74ckgsh4i40198.apps.googleusercontent.com',
+    iosClientId:
+        '484619974390-q6abavc7b2aejfp2rm74ckgsh4i40198.apps.googleusercontent.com',
     iosBundleId: 'com.example.trainy',
   );
 }

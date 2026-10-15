@@ -321,7 +321,7 @@ users/{uid}/backup/
 # Abhängigkeiten installieren
 flutter pub get
 
-# App starten
+# App starten (bei genau einem angeschlossenen Zielgerät)
 flutter run
 
 # Release-Build (Android)
@@ -330,5 +330,28 @@ flutter build apk --release
 # Release-Build (iOS)
 flutter build ipa --release
 ```
+
+### Android-Debug-Emulator
+
+Für Android-Entwicklung wird ausschließlich der AVD **Trainy_API_36_Clean**
+verwendet. Der ältere Emulator `emulator-5554` ist nicht als Debug-Ziel
+geeignet und wird bewusst nicht verändert. In Android Studio zuerst im Device
+Manager `Trainy_API_36_Clean` starten und ihn anschließend im Geräte-Dropdown
+auswählen.
+
+Im Terminal immer eine konkrete Geräte-ID verwenden. Der Port kann nach einem
+Emulator-Neustart abweichen; deshalb zuerst die aktuelle ID prüfen und dann den
+AVD-Namen bestätigen:
+
+```powershell
+adb devices -l
+adb -s emulator-5556 shell getprop ro.boot.qemu.avd_name
+.\tool\verify_android_launch.ps1 -DeviceId emulator-5556 -ExpectedAvdName Trainy_API_36_Clean
+C:\flutter\bin\flutter.bat run -d emulator-5556
+```
+
+Die Smoke-Prüfung validiert APK-Paket, Launcher-Activity und DEX-Klasse,
+installiert das APK und startet die Activity direkt. Sie bricht ab, bevor ein
+Build oder eine Installation auf dem falschen Emulator erfolgt.
 
 Firebase-Konfiguration: `google-services.json` (Android) und `GoogleService-Info.plist` (iOS) müssen im jeweiligen Plattformordner liegen (nicht im Repo enthalten).

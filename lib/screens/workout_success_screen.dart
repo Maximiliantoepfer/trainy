@@ -122,7 +122,8 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOut,
                       child: AnimatedSlide(
-                        offset: _showStats ? Offset.zero : const Offset(0, 0.15),
+                        offset:
+                            _showStats ? Offset.zero : const Offset(0, 0.15),
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeOut,
                         child: Wrap(
@@ -131,16 +132,33 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
                           alignment: WrapAlignment.center,
                           children: [
                             _StatChip(
-                              icon: Icon(Icons.timer_outlined, size: 16, color: scheme.onSurfaceVariant),
-                              label: localizedDuration(context, widget.durationSeconds),
+                              icon: Icon(
+                                Icons.timer_outlined,
+                                size: 16,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                              label: localizedDuration(
+                                context,
+                                widget.durationSeconds,
+                              ),
                             ),
                             _StatChip(
-                              icon: ImageIcon(const AssetImage('assets/icons/hantel.png'), size: 16, color: scheme.onSurfaceVariant),
-                              label: context.l10n.exercisesCount(widget.exerciseCount),
+                              icon: ImageIcon(
+                                const AssetImage('assets/icons/hantel.png'),
+                                size: 16,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                              label: context.l10n.exercisesCount(
+                                widget.exerciseCount,
+                              ),
                             ),
                             if (widget.totalSets > 0)
                               _StatChip(
-                                icon: Icon(Icons.layers_rounded, size: 16, color: scheme.onSurfaceVariant),
+                                icon: Icon(
+                                  Icons.layers_rounded,
+                                  size: 16,
+                                  color: scheme.onSurfaceVariant,
+                                ),
                                 label: context.l10n.setsCount(widget.totalSets),
                               ),
                           ],
@@ -166,7 +184,8 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOut,
                       child: AnimatedSlide(
-                        offset: _showButton ? Offset.zero : const Offset(0, 0.3),
+                        offset:
+                            _showButton ? Offset.zero : const Offset(0, 0.3),
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeOut,
                         child: SizedBox(
@@ -227,10 +246,13 @@ class _StatChip extends StatelessWidget {
         children: [
           icon,
           const SizedBox(width: 6),
-          Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: scheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          )),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );

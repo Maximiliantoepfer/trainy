@@ -20,8 +20,18 @@ class _MainNavigationState extends State<MainNavigation> {
     const HomeScreen(),
     const ExerciseScreen(),
     ProgressScreen(
-      onSwipePastStart: () => _pageController.animateToPage(1, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic),
-      onSwipePastEnd: () => _pageController.animateToPage(3, duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic),
+      onSwipePastStart:
+          () => _pageController.animateToPage(
+            1,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+          ),
+      onSwipePastEnd:
+          () => _pageController.animateToPage(
+            3,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+          ),
     ),
     const SettingsScreen(),
   ];
@@ -71,23 +81,47 @@ class _MainNavigationState extends State<MainNavigation> {
               },
               destinations: [
                 NavigationDestination(
-                  icon: ImageIcon(AssetImage('assets/icons/web-house.png'), size: 26),
-                  selectedIcon: ImageIcon(AssetImage('assets/icons/web-house.png'), size: 26),
+                  icon: ImageIcon(
+                    AssetImage('assets/icons/web-house.png'),
+                    size: 26,
+                  ),
+                  selectedIcon: ImageIcon(
+                    AssetImage('assets/icons/web-house.png'),
+                    size: 26,
+                  ),
                   label: l10n.home,
                 ),
                 NavigationDestination(
-                  icon: ImageIcon(AssetImage('assets/icons/hantel.png'), size: 26),
-                  selectedIcon: ImageIcon(AssetImage('assets/icons/hantel.png'), size: 26),
+                  icon: ImageIcon(
+                    AssetImage('assets/icons/hantel.png'),
+                    size: 26,
+                  ),
+                  selectedIcon: ImageIcon(
+                    AssetImage('assets/icons/hantel.png'),
+                    size: 26,
+                  ),
                   label: l10n.exercises,
                 ),
                 NavigationDestination(
-                  icon: ImageIcon(AssetImage('assets/icons/diagramm.png'), size: 26),
-                  selectedIcon: ImageIcon(AssetImage('assets/icons/diagramm.png'), size: 26),
+                  icon: ImageIcon(
+                    AssetImage('assets/icons/diagramm.png'),
+                    size: 26,
+                  ),
+                  selectedIcon: ImageIcon(
+                    AssetImage('assets/icons/diagramm.png'),
+                    size: 26,
+                  ),
                   label: l10n.progress,
                 ),
                 NavigationDestination(
-                  icon: ImageIcon(AssetImage('assets/icons/die-einstellungen.png'), size: 26),
-                  selectedIcon: ImageIcon(AssetImage('assets/icons/die-einstellungen.png'), size: 26),
+                  icon: ImageIcon(
+                    AssetImage('assets/icons/die-einstellungen.png'),
+                    size: 26,
+                  ),
+                  selectedIcon: ImageIcon(
+                    AssetImage('assets/icons/die-einstellungen.png'),
+                    size: 26,
+                  ),
                   label: l10n.more,
                 ),
               ],

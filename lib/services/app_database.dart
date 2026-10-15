@@ -8,7 +8,7 @@ class AppDatabase {
   AppDatabase._();
 
   static const _dbName = 'trainy.db';
-  static const _dbVersion = 12; // v12: language-neutral exercise catalog keys
+  static const _dbVersion = 17;
 
   Database? _database;
 
@@ -39,7 +39,12 @@ class AppDatabase {
         icon INTEGER,
         goal TEXT,
         standardKey TEXT,
-        isNameCustom INTEGER NOT NULL DEFAULT 1
+        isNameCustom INTEGER NOT NULL DEFAULT 1,
+        catalogId TEXT,
+        origin TEXT NOT NULL DEFAULT 'custom',
+        alias TEXT,
+        notes TEXT NOT NULL DEFAULT '',
+        isArchived INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -49,7 +54,8 @@ class AppDatabase {
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT NOT NULL,
-        isArchived INTEGER NOT NULL DEFAULT 0
+        isArchived INTEGER NOT NULL DEFAULT 0,
+        goalCodes TEXT NOT NULL DEFAULT '[]'
       )
     ''');
 
@@ -71,7 +77,10 @@ class AppDatabase {
         id INTEGER PRIMARY KEY,    -- immer 0
         weekly_goal INTEGER NOT NULL,
         sync_enabled INTEGER NOT NULL DEFAULT 0,
-        last_sync_millis INTEGER NOT NULL DEFAULT 0
+        last_sync_millis INTEGER NOT NULL DEFAULT 0,
+        training_days TEXT NOT NULL DEFAULT '',
+        insights_order TEXT NOT NULL DEFAULT '',
+        onboarding_done INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.insert('user_settings', {
@@ -89,7 +98,8 @@ class AppDatabase {
         exerciseId INTEGER NOT NULL,
         timestamp INTEGER NOT NULL,
         valuesJson TEXT NOT NULL,
-        durationSeconds INTEGER NOT NULL
+        durationSeconds INTEGER NOT NULL,
+        sessionId INTEGER
       )
     ''');
 
@@ -131,6 +141,11 @@ class AppDatabase {
         FOREIGN KEY(exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
       )
     ''');
+
+    // Fresh installs do not pass through _onUpgrade, so all v13+ catalog,
+    // duplicate and variant tables must be created here as well.
+    await _createCatalogTables(db);
+    await _createWorkoutVariantTables(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -193,6 +208,18 @@ class AppDatabase {
         'ALTER TABLE user_settings ADD COLUMN last_sync_millis INTEGER NOT NULL DEFAULT 0',
       );
     } catch (_) {}
+    // v17: These settings used to be created lazily by their setters. Add
+    // them to the schema itself so fresh installs never issue failed SELECTs
+    // during their first app start.
+    for (final statement in const [
+      "ALTER TABLE user_settings ADD COLUMN training_days TEXT NOT NULL DEFAULT ''",
+      "ALTER TABLE user_settings ADD COLUMN insights_order TEXT NOT NULL DEFAULT ''",
+      'ALTER TABLE user_settings ADD COLUMN onboarding_done INTEGER NOT NULL DEFAULT 0',
+    ]) {
+      try {
+        await db.execute(statement);
+      } catch (_) {}
+    }
 
     // v5: goal column for exercises
     try {
@@ -209,10 +236,10 @@ class AppDatabase {
     };
     for (final e in umlautFixes.entries) {
       try {
-        await db.execute(
-          'UPDATE exercises SET name = ? WHERE name = ?',
-          [e.value, e.key],
-        );
+        await db.execute('UPDATE exercises SET name = ? WHERE name = ?', [
+          e.value,
+          e.key,
+        ]);
       } catch (_) {}
     }
 
@@ -254,8 +281,7 @@ class AppDatabase {
     // v10: trackDistance für bestehende Cardio-Übungen aktivieren
     if (oldVersion < 10) {
       try {
-        final exercises = await db.query('exercises',
-            where: "goal = 'Cardio'");
+        final exercises = await db.query('exercises', where: "goal = 'Cardio'");
         for (final row in exercises) {
           final trackedStr = row['trackedFields'] as String? ?? '{}';
           final tracked = jsonDecode(trackedStr) as Map<String, dynamic>;
@@ -282,6 +308,8 @@ class AppDatabase {
         FOREIGN KEY(exerciseId) REFERENCES exercises(id) ON DELETE CASCADE
       )
     ''');
+    await _createCatalogTables(db);
+    await _createWorkoutVariantTables(db);
 
     // v12: Stable catalog identity and language-neutral goal values. Existing
     // user-entered names are deliberately kept untouched.
@@ -300,8 +328,189 @@ class AppDatabase {
       'Mobilität': 'mobility',
     };
     for (final item in legacyGoals.entries) {
-      await db.update('exercises', {'goal': item.value},
-          where: 'goal = ?', whereArgs: [item.key]);
+      await db.update(
+        'exercises',
+        {'goal': item.value},
+        where: 'goal = ?',
+        whereArgs: [item.key],
+      );
     }
+
+    // v13: catalog/user-exercise separation. `standardKey` stays as legacy
+    // migration data; all new catalog links use catalogId.
+    for (final statement in const [
+      'ALTER TABLE exercises ADD COLUMN catalogId TEXT',
+      "ALTER TABLE exercises ADD COLUMN origin TEXT NOT NULL DEFAULT 'custom'",
+      'ALTER TABLE exercises ADD COLUMN alias TEXT',
+      "ALTER TABLE exercises ADD COLUMN notes TEXT NOT NULL DEFAULT ''",
+      'ALTER TABLE exercises ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0',
+      "ALTER TABLE workouts ADD COLUMN goalCodes TEXT NOT NULL DEFAULT '[]'",
+      'ALTER TABLE workout_entries ADD COLUMN sessionId INTEGER',
+    ]) {
+      try {
+        await db.execute(statement);
+      } catch (_) {}
+    }
+    await _createCatalogTables(db);
+    await _createWorkoutVariantTables(db);
+    final legacyExerciseRows = await db.query(
+      'exercises',
+      columns: ['id', 'goal', 'standardKey'],
+    );
+    for (final row in legacyExerciseRows) {
+      final exerciseId = row['id'];
+      final goal = row['goal'] as String?;
+      if (goal != null && legacyGoals.containsValue(goal)) {
+        await db.insert('exercise_goal_labels', {
+          'exerciseId': exerciseId,
+          'goalCode': goal,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+      if (row['standardKey'] != null) {
+        await db.update(
+          'exercises',
+          {'origin': 'catalog'},
+          where: 'id = ?',
+          whereArgs: [exerciseId],
+        );
+      }
+    }
+  }
+
+  Future<void> _createCatalogTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS exercise_goal_labels(
+        exerciseId INTEGER NOT NULL,
+        goalCode TEXT NOT NULL,
+        PRIMARY KEY(exerciseId, goalCode)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS exercise_images(
+        id INTEGER PRIMARY KEY,
+        exerciseId INTEGER NOT NULL,
+        relativePath TEXT NOT NULL,
+        isCover INTEGER NOT NULL DEFAULT 0,
+        sort INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS duplicate_suggestions(
+        id INTEGER PRIMARY KEY,
+        sourceExerciseId INTEGER NOT NULL,
+        targetExerciseId INTEGER,
+        targetCatalogId TEXT,
+        confidence TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        createdAt INTEGER NOT NULL,
+        UNIQUE(sourceExerciseId, targetExerciseId, targetCatalogId)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS exercise_redirects(
+        id INTEGER PRIMARY KEY,
+        sourceExerciseId INTEGER NOT NULL,
+        targetExerciseId INTEGER NOT NULL,
+        sourceSnapshotJson TEXT NOT NULL,
+        changedWorkoutMappingsJson TEXT NOT NULL,
+        createdAt INTEGER NOT NULL,
+        undoneAt INTEGER,
+        UNIQUE(sourceExerciseId, targetExerciseId, createdAt)
+      )
+    ''');
+  }
+
+  Future<void> _createWorkoutVariantTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS training_profiles(
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        equipmentCodesJson TEXT NOT NULL DEFAULT '[]',
+        isArchived INTEGER NOT NULL DEFAULT 0,
+        sort INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS workout_variants(
+        id INTEGER PRIMARY KEY,
+        workoutId INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        profileId INTEGER,
+        sort INTEGER NOT NULL DEFAULT 0,
+        isDefault INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS workout_groups(
+        id INTEGER PRIMARY KEY,
+        workoutId INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        muscleGroupCode TEXT,
+        sort INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS workout_group_variants(
+        id INTEGER PRIMARY KEY,
+        workoutGroupId INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        profileId INTEGER,
+        sort INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS workout_variant_group_selections(
+        workoutVariantId INTEGER NOT NULL,
+        workoutGroupId INTEGER NOT NULL,
+        groupVariantId INTEGER NOT NULL,
+        PRIMARY KEY(workoutVariantId, workoutGroupId)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS workout_slots(
+        id INTEGER PRIMARY KEY,
+        groupVariantId INTEGER NOT NULL,
+        exerciseId INTEGER NOT NULL,
+        movementFamilyId TEXT,
+        slotKind TEXT NOT NULL DEFAULT 'core',
+        sort INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS workout_slot_alternatives(
+        id INTEGER PRIMARY KEY,
+        workoutSlotId INTEGER NOT NULL,
+        exerciseId INTEGER NOT NULL,
+        profileId INTEGER,
+        sort INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS workout_sessions(
+        id INTEGER PRIMARY KEY,
+        workoutId INTEGER NOT NULL,
+        workoutVariantId INTEGER,
+        profileId INTEGER,
+        startedAt INTEGER NOT NULL,
+        completedAt INTEGER,
+        snapshotJson TEXT NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS workout_session_group_selections(
+        sessionId INTEGER NOT NULL,
+        workoutGroupId INTEGER NOT NULL,
+        groupVariantId INTEGER NOT NULL,
+        PRIMARY KEY(sessionId, workoutGroupId)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS workout_session_slot_selections(
+        sessionId INTEGER NOT NULL,
+        workoutSlotId INTEGER NOT NULL,
+        exerciseId INTEGER NOT NULL,
+        PRIMARY KEY(sessionId, workoutSlotId)
+      )
+    ''');
   }
 }

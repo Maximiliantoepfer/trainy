@@ -171,7 +171,8 @@ class WeeklyActivityChart extends StatelessWidget {
         exerciseSumSec += int.tryParse(dur) ?? 0;
       }
     }
-    final effectiveSec = sessionSec > exerciseSumSec ? sessionSec : exerciseSumSec;
+    final effectiveSec =
+        sessionSec > exerciseSumSec ? sessionSec : exerciseSumSec;
     return effectiveSec / 60.0;
   }
 }
@@ -220,9 +221,14 @@ class _DayColumn extends StatelessWidget {
           children: [
             SizedBox(
               height: topValueHeight,
-              child: value.round() > 0
-                  ? Center(child: FittedBox(child: Text('${value.round()}', style: valueStyle)))
-                  : const SizedBox.shrink(),
+              child:
+                  value.round() > 0
+                      ? Center(
+                        child: FittedBox(
+                          child: Text('${value.round()}', style: valueStyle),
+                        ),
+                      )
+                      : const SizedBox.shrink(),
             ),
             SizedBox(height: innerGap),
             Container(

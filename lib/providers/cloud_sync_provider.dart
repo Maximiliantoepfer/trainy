@@ -161,7 +161,9 @@ class CloudSyncProvider extends ChangeNotifier {
     if (!isSignedIn) return false;
     try {
       final uid = user!.uid;
-      final latestRef = FirebaseStorage.instance.ref('users/$uid/backup/latest.json');
+      final latestRef = FirebaseStorage.instance.ref(
+        'users/$uid/backup/latest.json',
+      );
       await latestRef.getMetadata();
       return true;
     } on FirebaseException catch (e) {
@@ -177,7 +179,9 @@ class CloudSyncProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final uid = user!.uid;
-      final latestRef = FirebaseStorage.instance.ref('users/$uid/backup/latest.json');
+      final latestRef = FirebaseStorage.instance.ref(
+        'users/$uid/backup/latest.json',
+      );
       final bytes = await latestRef.getData(20 * 1024 * 1024);
       if (bytes == null || bytes.isEmpty) return;
       final decoded = jsonDecode(utf8.decode(bytes));

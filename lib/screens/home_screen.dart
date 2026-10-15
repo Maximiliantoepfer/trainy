@@ -17,6 +17,7 @@ import '../widgets/motivational_quote_card.dart';
 import '../providers/active_workout_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../models/exercise.dart';
+import '../utils/goal_utils.dart';
 import '../l10n/l10n.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -35,7 +36,11 @@ class _HomeScreenState extends State<HomeScreen>
   bool get wantKeepAlive => true;
 
   DateTime _dateForWeekday(int weekday) {
-    final base = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final base = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
     final monday = base.subtract(Duration(days: base.weekday - 1));
     return monday.add(Duration(days: weekday - 1));
   }
@@ -56,42 +61,42 @@ class _HomeScreenState extends State<HomeScreen>
 
     String? name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(ctx.l10n.newWorkout),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: ctx.l10n.workoutName,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(ctx.l10n.newWorkout),
+            content: Form(
+              key: formKey,
+              child: TextFormField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(hintText: ctx.l10n.workoutName),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty)
+                    return ctx.l10n.nameRequired;
+                  return null;
+                },
+                onFieldSubmitted: (_) {
+                  if (formKey.currentState?.validate() ?? false) {
+                    Navigator.of(ctx).pop(controller.text.trim());
+                  }
+                },
+              ),
             ),
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return ctx.l10n.nameRequired;
-              return null;
-            },
-            onFieldSubmitted: (_) {
-              if (formKey.currentState?.validate() ?? false) {
-                Navigator.of(ctx).pop(controller.text.trim());
-              }
-            },
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(ctx.l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () {
+                  if (formKey.currentState?.validate() ?? false) {
+                    Navigator.of(ctx).pop(controller.text.trim());
+                  }
+                },
+                child: Text(ctx.l10n.create),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(ctx.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                Navigator.of(ctx).pop(controller.text.trim());
-              }
-            },
-            child: Text(ctx.l10n.create),
-          ),
-        ],
-      ),
     );
 
     if (name == null) return;
@@ -99,11 +104,13 @@ class _HomeScreenState extends State<HomeScreen>
     final w = await provider.createWorkout(name: name);
     if (!mounted) return;
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => WorkoutScreen(workout: w)),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => WorkoutScreen(workout: w)));
     await provider.loadWorkouts();
-    try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
+    try {
+      context.read<CloudSyncProvider>().scheduleBackupSoon();
+    } catch (_) {}
   }
 
   Future<void> _confirmAndDelete(Workout workout) async {
@@ -111,24 +118,25 @@ class _HomeScreenState extends State<HomeScreen>
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(ctx.l10n.deleteWorkout),
-        content: Text(ctx.l10n.deleteWorkoutConfirmation(workout.name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(ctx.l10n.cancel),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(ctx.l10n.deleteWorkout),
+            content: Text(ctx.l10n.deleteWorkoutConfirmation(workout.name)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(ctx.l10n.cancel),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
+                ),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text(ctx.l10n.delete),
+              ),
+            ],
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(ctx.l10n.delete),
-          ),
-        ],
-      ),
     );
 
     if (confirmed != true) return;
@@ -137,7 +145,9 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted) return;
 
     setState(() => _selectedWorkoutId = null);
-    try { context.read<CloudSyncProvider>().scheduleBackupSoon(); } catch (_) {}
+    try {
+      context.read<CloudSyncProvider>().scheduleBackupSoon();
+    } catch (_) {}
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(context.l10n.workoutDeleted(workout.name))),
     );
@@ -146,7 +156,11 @@ class _HomeScreenState extends State<HomeScreen>
   bool get _isBackdating {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final sel = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final sel = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
     return sel.isBefore(today);
   }
 
@@ -155,19 +169,26 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() => _selectedWorkoutId = null);
       return;
     }
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => WorkoutScreen(workout: workout)),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => WorkoutScreen(workout: workout)));
     if (!mounted) return;
     await context.read<WorkoutProvider>().loadWorkouts();
   }
 
   Future<void> _openBackdateWorkout(Workout workout) async {
     final exercises = context.read<ExerciseProvider>().exercises;
-    final list = workout.exerciseIds
-        .map((id) => exercises.where((e) => e.id == id).cast<Exercise?>().firstOrNull)
-        .whereType<Exercise>()
-        .toList();
+    final list =
+        workout.exerciseIds
+            .map(
+              (id) =>
+                  exercises
+                      .where((e) => e.id == id)
+                      .cast<Exercise?>()
+                      .firstOrNull,
+            )
+            .whereType<Exercise>()
+            .toList();
 
     if (list.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -181,11 +202,12 @@ class _HomeScreenState extends State<HomeScreen>
 
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => BackdateWorkoutScreen(
-          workout: workout,
-          exercises: list,
-          backdateDate: _selectedDate,
-        ),
+        builder:
+            (_) => BackdateWorkoutScreen(
+              workout: workout,
+              exercises: list,
+              backdateDate: _selectedDate,
+            ),
       ),
     );
 
@@ -214,6 +236,15 @@ class _HomeScreenState extends State<HomeScreen>
     for (final w in workouts) {
       workoutAssignedDays.addAll(w.assignedDays);
     }
+    final plannedGoalByDay = <int, String>{};
+    for (var day = 1; day <= 7; day++) {
+      final goal = prioritizedGoal(
+        workouts
+            .where((workout) => workout.assignedDays.contains(day))
+            .expand((workout) => workout.goalCodes),
+      );
+      if (goal != null) plannedGoalByDay[day] = goal;
+    }
 
     return PopScope(
       canPop: _selectedWorkoutId == null,
@@ -228,11 +259,12 @@ class _HomeScreenState extends State<HomeScreen>
           actions: [
             IconButton(
               icon: const Icon(Icons.info_outline_rounded, size: 20),
-              onPressed: () => showScreenInfoDialog(
-                context,
-                title: context.l10n.appName,
-                description: context.l10n.homeDescription,
-              ),
+              onPressed:
+                  () => showScreenInfoDialog(
+                    context,
+                    title: context.l10n.appName,
+                    description: context.l10n.homeDescription,
+                  ),
               tooltip: context.l10n.info,
             ),
             Padding(
@@ -255,14 +287,17 @@ class _HomeScreenState extends State<HomeScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        DateFormat('d. MMMM', Localizations.localeOf(context).toLanguageTag())
-                            .format(_selectedDate),
+                        DateFormat(
+                          'd. MMMM',
+                          Localizations.localeOf(context).toLanguageTag(),
+                        ).format(_selectedDate),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Icon(Icons.calendar_today_rounded,
+                      Icon(
+                        Icons.calendar_today_rounded,
                         size: 14,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -284,36 +319,50 @@ class _HomeScreenState extends State<HomeScreen>
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
-              child: active.isActive
-                  ? const ActiveWorkoutBanner()
-                  : const SizedBox.shrink(),
+              child:
+                  active.isActive
+                      ? const ActiveWorkoutBanner()
+                      : const SizedBox.shrink(),
             ),
 
             // Weekly overview
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: Builder(builder: (_) {
-                final now = DateTime.now();
-                final currentMonday = DateTime(now.year, now.month, now.day)
-                    .subtract(Duration(days: now.weekday - 1));
-                final selectedBase = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-                final selectedMonday = selectedBase.subtract(Duration(days: selectedBase.weekday - 1));
-                final isCurrentWeek = currentMonday == selectedMonday;
-                return _WeeklyOverviewCard(
-                  trainedWeekdays: isProgressLoading ? const {} : trainedWeekdays,
-                  weeklyGoal: weeklyGoal,
-                  trainingDays: effectiveTrainingDays,
-                  workoutDays: workoutAssignedDays,
-                  streak: streak,
-                  selectedWeekday: _selectedDate.weekday,
-                  isCurrentWeek: isCurrentWeek,
-                  onDayTap: (weekday) {
-                    setState(() {
-                      _selectedDate = _dateForWeekday(weekday);
-                    });
-                  },
-                );
-              }),
+              child: Builder(
+                builder: (_) {
+                  final now = DateTime.now();
+                  final currentMonday = DateTime(
+                    now.year,
+                    now.month,
+                    now.day,
+                  ).subtract(Duration(days: now.weekday - 1));
+                  final selectedBase = DateTime(
+                    _selectedDate.year,
+                    _selectedDate.month,
+                    _selectedDate.day,
+                  );
+                  final selectedMonday = selectedBase.subtract(
+                    Duration(days: selectedBase.weekday - 1),
+                  );
+                  final isCurrentWeek = currentMonday == selectedMonday;
+                  return _WeeklyOverviewCard(
+                    trainedWeekdays:
+                        isProgressLoading ? const {} : trainedWeekdays,
+                    weeklyGoal: weeklyGoal,
+                    trainingDays: effectiveTrainingDays,
+                    workoutDays: workoutAssignedDays,
+                    plannedGoalByDay: plannedGoalByDay,
+                    streak: streak,
+                    selectedWeekday: _selectedDate.weekday,
+                    isCurrentWeek: isCurrentWeek,
+                    onDayTap: (weekday) {
+                      setState(() {
+                        _selectedDate = _dateForWeekday(weekday);
+                      });
+                    },
+                  );
+                },
+              ),
             ),
 
             // Motivational quote
@@ -323,39 +372,45 @@ class _HomeScreenState extends State<HomeScreen>
             ),
 
             // Today's workout + backdate card
-            Builder(builder: (context) {
-              final selectedWorkouts = context.watch<WorkoutProvider>().workoutsForDay(_selectedDate.weekday);
-              final now = DateTime.now();
-              final isToday = _selectedDate.year == now.year &&
-                  _selectedDate.month == now.month &&
-                  _selectedDate.day == now.day;
-              final dayLabel = isToday
-                  ? context.l10n.todayWorkout
-                  : context.l10n.trainingForDay(
-                      DateFormat.EEEE(
-                        Localizations.localeOf(context).toLanguageTag(),
-                      ).format(_selectedDate),
-                    );
+            Builder(
+              builder: (context) {
+                final selectedWorkouts = context
+                    .watch<WorkoutProvider>()
+                    .workoutsForDay(_selectedDate.weekday);
+                final now = DateTime.now();
+                final isToday =
+                    _selectedDate.year == now.year &&
+                    _selectedDate.month == now.month &&
+                    _selectedDate.day == now.day;
+                final dayLabel =
+                    isToday
+                        ? context.l10n.todayWorkout
+                        : context.l10n.trainingForDay(
+                          DateFormat.EEEE(
+                            Localizations.localeOf(context).toLanguageTag(),
+                          ).format(_selectedDate),
+                        );
 
-              return Column(
-                children: [
-                  if (selectedWorkouts.isNotEmpty && !_isBackdating)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                      child: _TodaysWorkoutCard(
-                        workouts: selectedWorkouts,
-                        onStart: (w) => _openWorkout(w),
-                        dayLabel: dayLabel,
+                return Column(
+                  children: [
+                    if (selectedWorkouts.isNotEmpty && !_isBackdating)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                        child: _TodaysWorkoutCard(
+                          workouts: selectedWorkouts,
+                          onStart: (w) => _openWorkout(w),
+                          dayLabel: dayLabel,
+                        ),
                       ),
-                    ),
-                  if (_isBackdating)
-                    _BackdatePickerCard(
-                      dayLabel: dayLabel,
-                      onPickWorkout: (w) => _openBackdateWorkout(w),
-                    ),
-                ],
-              );
-            }),
+                    if (_isBackdating)
+                      _BackdatePickerCard(
+                        dayLabel: dayLabel,
+                        onPickWorkout: (w) => _openBackdateWorkout(w),
+                      ),
+                  ],
+                );
+              },
+            ),
 
             // Workout list
             if (provider.isLoading)
@@ -375,20 +430,22 @@ class _HomeScreenState extends State<HomeScreen>
                     tween: Tween(begin: 0.0, end: 1.0),
                     duration: Duration(milliseconds: 300 + (i * 50)),
                     curve: Curves.easeOutCubic,
-                    builder: (_, v, child) => Opacity(
-                      opacity: v,
-                      child: Transform.translate(
-                        offset: Offset(0, 20 * (1 - v)),
-                        child: child,
-                      ),
-                    ),
+                    builder:
+                        (_, v, child) => Opacity(
+                          opacity: v,
+                          child: Transform.translate(
+                            offset: Offset(0, 20 * (1 - v)),
+                            child: child,
+                          ),
+                        ),
                     child: WorkoutCard(
                       workout: w,
                       selected: selected,
                       onTap: () => _openWorkout(w),
                       onLongPress: () {
-                        setState(() => _selectedWorkoutId =
-                            selected ? null : w.id);
+                        setState(
+                          () => _selectedWorkoutId = selected ? null : w.id,
+                        );
                       },
                       onPrimaryActionTap: () {
                         if (selected) {
@@ -409,7 +466,11 @@ class _HomeScreenState extends State<HomeScreen>
 
   Set<int> _trainedWeekdaysForSelectedWeek(List entries) {
     if (entries.isEmpty) return {};
-    final base = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final base = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
     final monday = base.subtract(Duration(days: base.weekday - 1));
     final start = DateTime(monday.year, monday.month, monday.day);
     final endExclusive = start.add(const Duration(days: 7));
@@ -446,13 +507,14 @@ class _TodaysWorkoutCard extends StatelessWidget {
         tween: Tween(begin: 0.0, end: 1.0),
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeOutCubic,
-        builder: (_, v, child) => Opacity(
-          opacity: v,
-          child: Transform.translate(
-            offset: Offset(0, 16 * (1 - v)),
-            child: child,
-          ),
-        ),
+        builder:
+            (_, v, child) => Opacity(
+              opacity: v,
+              child: Transform.translate(
+                offset: Offset(0, 16 * (1 - v)),
+                child: child,
+              ),
+            ),
         child: Card(
           color: scheme.primaryContainer,
           child: InkWell(
@@ -466,12 +528,17 @@ class _TodaysWorkoutCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(dayLabel,
+                        Text(
+                          dayLabel,
                           style: textTheme.labelLarge?.copyWith(
-                            color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
-                          )),
+                            color: scheme.onPrimaryContainer.withValues(
+                              alpha: 0.7,
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Text(w.name,
+                        Text(
+                          w.name,
                           style: textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: scheme.onPrimaryContainer,
@@ -480,10 +547,14 @@ class _TodaysWorkoutCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
-                        Text(context.l10n.exercisesCount(w.exerciseIds.length),
+                        Text(
+                          context.l10n.exercisesCount(w.exerciseIds.length),
                           style: textTheme.bodyMedium?.copyWith(
-                            color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
-                          )),
+                            color: scheme.onPrimaryContainer.withValues(
+                              alpha: 0.7,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -510,13 +581,14 @@ class _TodaysWorkoutCard extends StatelessWidget {
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeOutCubic,
-      builder: (_, v, child) => Opacity(
-        opacity: v,
-        child: Transform.translate(
-          offset: Offset(0, 16 * (1 - v)),
-          child: child,
-        ),
-      ),
+      builder:
+          (_, v, child) => Opacity(
+            opacity: v,
+            child: Transform.translate(
+              offset: Offset(0, 16 * (1 - v)),
+              child: child,
+            ),
+          ),
       child: Card(
         color: scheme.primaryContainer,
         child: Padding(
@@ -524,64 +596,80 @@ class _TodaysWorkoutCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(dayLabel,
+              Text(
+                dayLabel,
                 style: textTheme.labelLarge?.copyWith(
                   color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
-                )),
+                ),
+              ),
               const SizedBox(height: 12),
-              ...workouts.map((w) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => onStart(w),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: scheme.primary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
+              ...workouts.map(
+                (w) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => onStart(w),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 4,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: scheme.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: ImageIcon(
+                              const AssetImage('assets/icons/hantel.png'),
+                              color: scheme.onPrimaryContainer,
+                              size: 16,
+                            ),
                           ),
-                          child: ImageIcon(
-                            const AssetImage('assets/icons/hantel.png'),
-                            color: scheme.onPrimaryContainer,
-                            size: 16,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(w.name,
-                                style: textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: scheme.onPrimaryContainer,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  w.name,
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: scheme.onPrimaryContainer,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(context.l10n.exercisesCount(w.exerciseIds.length),
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
-                                )),
-                            ],
+                                Text(
+                                  context.l10n.exercisesCount(
+                                    w.exerciseIds.length,
+                                  ),
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: scheme.onPrimaryContainer.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          onPressed: () => onStart(w),
-                          icon: Icon(Icons.play_arrow_rounded,
-                            color: scheme.onPrimaryContainer),
-                        ),
-                      ],
+                          IconButton(
+                            onPressed: () => onStart(w),
+                            icon: Icon(
+                              Icons.play_arrow_rounded,
+                              color: scheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              )),
+              ),
             ],
           ),
         ),
@@ -607,7 +695,9 @@ class _EmptyState extends StatelessWidget {
               tween: Tween(begin: 0.8, end: 1.0),
               duration: const Duration(milliseconds: 600),
               curve: Curves.easeOutBack,
-              builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+              builder:
+                  (_, scale, child) =>
+                      Transform.scale(scale: scale, child: child),
               child: Container(
                 width: 72,
                 height: 72,
@@ -616,19 +706,24 @@ class _EmptyState extends StatelessWidget {
                   color: scheme.primaryContainer,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: ImageIcon(const AssetImage('assets/icons/hantel.png'),
-                  size: 32, color: scheme.onPrimaryContainer),
+                child: ImageIcon(
+                  const AssetImage('assets/icons/hantel.png'),
+                  size: 32,
+                  color: scheme.onPrimaryContainer,
+                ),
               ),
             ),
             const SizedBox(height: 20),
-            Text(context.l10n.noWorkouts,
-              style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              context.l10n.noWorkouts,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 8),
             Text(
               context.l10n.createFirstWorkout,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -651,6 +746,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
   final int weeklyGoal;
   final Set<int> trainingDays;
   final Set<int> workoutDays;
+  final Map<int, String> plannedGoalByDay;
   final int streak;
   final int selectedWeekday;
   final bool isCurrentWeek;
@@ -660,6 +756,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
     required this.weeklyGoal,
     required this.trainingDays,
     required this.workoutDays,
+    required this.plannedGoalByDay,
     required this.streak,
     required this.selectedWeekday,
     this.isCurrentWeek = true,
@@ -670,7 +767,8 @@ class _WeeklyOverviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final doneCount = trainedWeekdays.length;
-    final progress = weeklyGoal > 0 ? (doneCount / weeklyGoal).clamp(0.0, 1.0) : 0.0;
+    final progress =
+        weeklyGoal > 0 ? (doneCount / weeklyGoal).clamp(0.0, 1.0) : 0.0;
     final goalReached = doneCount >= weeklyGoal;
     final today = DateTime.now().weekday;
 
@@ -692,30 +790,45 @@ class _WeeklyOverviewCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text(isCurrentWeek ? context.l10n.thisWeek : context.l10n.weekOverview,
-                  style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  isCurrentWeek
+                      ? context.l10n.thisWeek
+                      : context.l10n.weekOverview,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: goalReached
-                        ? scheme.tertiary.withValues(alpha: 0.12)
-                        : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    color:
+                        goalReached
+                            ? scheme.tertiary.withValues(alpha: 0.12)
+                            : scheme.surfaceContainerHighest.withValues(
+                              alpha: 0.5,
+                            ),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (goalReached) ...[
-                        Icon(Icons.celebration_rounded, size: 16, color: scheme.tertiary),
+                        Icon(
+                          Icons.celebration_rounded,
+                          size: 16,
+                          color: scheme.tertiary,
+                        ),
                         const SizedBox(width: 4),
                       ],
                       Text(
                         '$doneCount / $weeklyGoal',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: goalReached
-                              ? scheme.tertiary
-                              : scheme.onSurfaceVariant,
+                          color:
+                              goalReached
+                                  ? scheme.tertiary
+                                  : scheme.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -730,30 +843,33 @@ class _WeeklyOverviewCard extends StatelessWidget {
               tween: Tween(begin: 0.0, end: progress),
               duration: const Duration(milliseconds: 600),
               curve: Curves.easeOutCubic,
-              builder: (_, animatedProgress, __) => Container(
-                decoration: goalReached
-                    ? BoxDecoration(
-                        borderRadius: BorderRadius.circular(4),
-                        boxShadow: [
-                          BoxShadow(
-                            color: scheme.tertiary.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      )
-                    : null,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: animatedProgress,
-                    minHeight: 6,
-                    backgroundColor: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    valueColor: AlwaysStoppedAnimation(
-                      goalReached ? scheme.tertiary : scheme.primary,
+              builder:
+                  (_, animatedProgress, __) => Container(
+                    decoration:
+                        goalReached
+                            ? BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: scheme.tertiary.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            )
+                            : null,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: animatedProgress,
+                        minHeight: 6,
+                        backgroundColor: scheme.surfaceContainerHighest
+                            .withValues(alpha: 0.5),
+                        valueColor: AlwaysStoppedAnimation(
+                          goalReached ? scheme.tertiary : scheme.primary,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
             ),
             const SizedBox(height: 14),
             Row(
@@ -761,11 +877,14 @@ class _WeeklyOverviewCard extends StatelessWidget {
               children: List.generate(7, (i) {
                 final weekday = i + 1;
                 final done = trainedWeekdays.contains(weekday);
-                final isTrainingDay = trainingDays.contains(weekday) || workoutDays.contains(weekday);
+                final isTrainingDay =
+                    trainingDays.contains(weekday) ||
+                    workoutDays.contains(weekday);
                 return _DayDot(
                   label: labels[i],
                   done: done,
                   isTrainingDay: isTrainingDay,
+                  plannedGoal: plannedGoalByDay[weekday],
                   isToday: weekday == today,
                   isSelected: weekday == selectedWeekday,
                   onTap: () => onDayTap?.call(weekday),
@@ -799,6 +918,7 @@ class _DayDot extends StatelessWidget {
   final String label;
   final bool done;
   final bool isTrainingDay;
+  final String? plannedGoal;
   final bool isToday;
   final bool isSelected;
   final VoidCallback? onTap;
@@ -806,6 +926,7 @@ class _DayDot extends StatelessWidget {
     required this.label,
     required this.done,
     required this.isTrainingDay,
+    this.plannedGoal,
     required this.isToday,
     this.isSelected = false,
     this.onTap,
@@ -823,9 +944,9 @@ class _DayDot extends StatelessWidget {
       child = Icon(Icons.check_rounded, color: scheme.onTertiary, size: 19);
     } else if (isTrainingDay) {
       bgColor = scheme.surfaceContainerHighest.withValues(alpha: 0.65);
-      child = ImageIcon(
-        const AssetImage('assets/icons/muskel.png'),
-        color: scheme.onSurfaceVariant.withValues(alpha: 0.55),
+      child = GoalIcon(
+        plannedGoal ?? 'strength',
+        color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
         size: 21,
       );
     } else {
@@ -849,8 +970,11 @@ class _DayDot extends StatelessWidget {
           done
               ? context.l10n.trained
               : isTrainingDay
-                  ? context.l10n.planned
-                  : context.l10n.restDay,
+              ? context.l10n.planned +
+                  (plannedGoal == null
+                      ? ''
+                      : ' · ${goalLabel(context, plannedGoal!)}')
+              : context.l10n.restDay,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -859,17 +983,17 @@ class _DayDot extends StatelessWidget {
               width: 42,
               height: 42,
               alignment: Alignment.center,
-              decoration: isToday
-                  ? BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: done
-                            ? const Color(0xFF2E7D32)
-                            : scheme.primary,
-                        width: 2,
-                      ),
-                    )
-                  : null,
+              decoration:
+                  isToday
+                      ? BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color:
+                              done ? const Color(0xFF2E7D32) : scheme.primary,
+                          width: 2,
+                        ),
+                      )
+                      : null,
               padding: isToday ? const EdgeInsets.all(1) : null,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
@@ -932,28 +1056,35 @@ class _BackdatePickerCard extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                Icon(Icons.history_rounded,
-                    color: scheme.onPrimaryContainer),
+                Icon(Icons.history_rounded, color: scheme.onPrimaryContainer),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(dayLabel,
+                      Text(
+                        dayLabel,
                         style: textTheme.labelLarge?.copyWith(
-                          color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
-                        )),
+                          color: scheme.onPrimaryContainer.withValues(
+                            alpha: 0.7,
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(context.l10n.backdateWorkout,
+                      Text(
+                        context.l10n.backdateWorkout,
                         style: textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: scheme.onPrimaryContainer,
-                        )),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right_rounded,
-                    color: scheme.onPrimaryContainer),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: scheme.onPrimaryContainer,
+                ),
               ],
             ),
           ),
@@ -986,36 +1117,41 @@ class _BackdatePickerCard extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(ctx.l10n.selectWorkout,
-                    style: Theme.of(ctx).textTheme.titleLarge),
+                child: Text(
+                  ctx.l10n.selectWorkout,
+                  style: Theme.of(ctx).textTheme.titleLarge,
+                ),
               ),
               const SizedBox(height: 16),
-              ...workouts.map((w) => ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 20),
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
+              ...workouts.map(
+                (w) => ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ImageIcon(
+                      const AssetImage('assets/icons/hantel.png'),
+                      color: scheme.onPrimaryContainer,
+                      size: 18,
+                    ),
                   ),
-                  child: ImageIcon(
-                    const AssetImage('assets/icons/hantel.png'),
-                    color: scheme.onPrimaryContainer,
-                    size: 18,
+                  title: Text(w.name),
+                  subtitle: Text(ctx.l10n.exercisesCount(w.exerciseIds.length)),
+                  trailing: Icon(
+                    Icons.chevron_right_rounded,
+                    color: scheme.onSurfaceVariant,
                   ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onPickWorkout(w);
+                  },
                 ),
-                title: Text(w.name),
-                subtitle: Text(ctx.l10n.exercisesCount(w.exerciseIds.length)),
-                trailing: Icon(Icons.chevron_right_rounded,
-                    color: scheme.onSurfaceVariant),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onPickWorkout(w);
-                },
-              )),
+              ),
               const SizedBox(height: 16),
             ],
           ),

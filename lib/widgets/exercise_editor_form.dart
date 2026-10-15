@@ -12,6 +12,7 @@ class ExerciseEditorForm extends StatelessWidget {
   final ValueNotifier<bool> trackDuration;
   final ValueNotifier<bool> trackDistance;
   final ValueNotifier<String?> goal;
+  final ValueNotifier<List<String>>? goalCodes;
   final VoidCallback? onChanged;
   final bool autofocusName;
 
@@ -25,11 +26,18 @@ class ExerciseEditorForm extends StatelessWidget {
     required this.trackDuration,
     required this.trackDistance,
     required this.goal,
+    this.goalCodes,
     this.onChanged,
     this.autofocusName = false,
   });
 
-  void _applyPreset(bool sets, bool reps, bool weight, bool dur, {bool dist = false}) {
+  void _applyPreset(
+    bool sets,
+    bool reps,
+    bool weight,
+    bool dur, {
+    bool dist = false,
+  }) {
     trackSets.value = sets;
     trackReps.value = reps;
     trackWeight.value = weight;
@@ -69,40 +77,70 @@ class ExerciseEditorForm extends StatelessWidget {
         const SizedBox(height: 20),
         Text(
           l10n.exerciseGoal,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
-        ValueListenableBuilder<String?>(
-          valueListenable: goal,
-          builder: (_, currentGoal, __) => Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final g in exerciseGoals)
-                ChoiceChip(
-                  label: Text(goalLabel(context, g)),
-                  selected: currentGoal == g,
-                  avatar: currentGoal == g
-                      ? null
-                      : Icon(goalIcon(g), size: 16),
-                  onSelected: (sel) {
-                    goal.value = sel ? g : null;
-                    onChanged?.call();
-                  },
-                ),
-            ],
-          ),
-        ),
+        goalCodes == null
+            ? ValueListenableBuilder<String?>(
+              valueListenable: goal,
+              builder:
+                  (_, currentGoal, __) => Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final g in exerciseGoals)
+                        ChoiceChip(
+                          label: Text(goalLabel(context, g)),
+                          selected: currentGoal == g,
+                          avatar:
+                              currentGoal == g
+                                  ? null
+                                  : GoalIcon(g, size: 16),
+                          onSelected: (sel) {
+                            goal.value = sel ? g : null;
+                            onChanged?.call();
+                          },
+                        ),
+                    ],
+                  ),
+            )
+            : ValueListenableBuilder<List<String>>(
+              valueListenable: goalCodes!,
+              builder:
+                  (_, currentGoals, __) => Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final g in exerciseGoals)
+                        ChoiceChip(
+                          label: Text(goalLabel(context, g)),
+                          selected: currentGoals.contains(g),
+                          avatar:
+                              currentGoals.contains(g)
+                                  ? null
+                                  : GoalIcon(g, size: 16),
+                          onSelected: (sel) {
+                            final next = List<String>.from(currentGoals);
+                            if (sel && next.length < 2) next.add(g);
+                            if (!sel) next.remove(g);
+                            goalCodes!.value = next;
+                            goal.value = next.isEmpty ? null : next.first;
+                            onChanged?.call();
+                          },
+                        ),
+                    ],
+                  ),
+            ),
 
         // Tracking
         const SizedBox(height: 20),
         Text(
           l10n.tracking,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: 4),
         Wrap(
@@ -127,7 +165,8 @@ class ExerciseEditorForm extends StatelessWidget {
             ChoiceChip(
               label: Text(l10n.goalLabel('cardio')),
               selected: false,
-              onSelected: (_) => _applyPreset(false, false, false, true, dist: true),
+              onSelected:
+                  (_) => _applyPreset(false, false, false, true, dist: true),
             ),
           ],
         ),
@@ -141,26 +180,34 @@ class ExerciseEditorForm extends StatelessWidget {
     );
   }
 
-  Widget _toggleRow(BuildContext context, String label, ValueNotifier<bool> state) {
+  Widget _toggleRow(
+    BuildContext context,
+    String label,
+    ValueNotifier<bool> state,
+  ) {
     return ValueListenableBuilder<bool>(
       valueListenable: state,
-      builder: (_, v, __) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+      builder:
+          (_, v, __) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                Switch(
+                  value: v,
+                  onChanged: (val) {
+                    state.value = val;
+                    onChanged?.call();
+                  },
+                ),
+              ],
             ),
-            Switch(
-              value: v,
-              onChanged: (val) {
-                state.value = val;
-                onChanged?.call();
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 }

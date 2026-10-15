@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../models/workout.dart';
 import 'app_database.dart';
@@ -14,6 +15,7 @@ class WorkoutDatabase {
       'id': workout.id,
       'name': workout.name,
       'description': workout.description,
+      'goalCodes': jsonEncode(workout.goalCodes),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     if (workout.exerciseIds.isNotEmpty) {
@@ -44,9 +46,11 @@ class WorkoutDatabase {
 
   Future<List<Workout>> getAllWorkouts() async {
     final db = await _db;
-    final rows = await db.query('workouts',
+    final rows = await db.query(
+      'workouts',
       where: 'isArchived = 0',
-      orderBy: 'name COLLATE NOCASE ASC');
+      orderBy: 'name COLLATE NOCASE ASC',
+    );
 
     // Alle Tages-Zuordnungen in einer Query laden
     final dayRows = await db.query('workout_day_assignments');
@@ -75,6 +79,7 @@ class WorkoutDatabase {
           description: (row['description'] ?? '') as String,
           exerciseIds: ids,
           assignedDays: dayMap[workoutId] ?? const {},
+          goalCodes: _goalCodes(row['goalCodes']),
         ),
       );
     }
@@ -94,8 +99,11 @@ class WorkoutDatabase {
   Future<void> setWorkoutDays(int workoutId, Set<int> days) async {
     final db = await _db;
     final batch = db.batch();
-    batch.delete('workout_day_assignments',
-      where: 'workoutId = ?', whereArgs: [workoutId]);
+    batch.delete(
+      'workout_day_assignments',
+      where: 'workoutId = ?',
+      whereArgs: [workoutId],
+    );
     for (final day in days) {
       batch.insert('workout_day_assignments', {
         'workoutId': workoutId,
@@ -108,8 +116,12 @@ class WorkoutDatabase {
   Future<void> deleteWorkout(int id) async {
     final db = await _db;
     // Soft-delete: Workout archivieren statt löschen
-    await db.update('workouts', {'isArchived': 1},
-      where: 'id = ?', whereArgs: [id]);
+    await db.update(
+      'workouts',
+      {'isArchived': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
     await db.delete(
       'exercises_in_workouts',
       where: 'workoutId = ?',
@@ -125,23 +137,57 @@ class WorkoutDatabase {
   /// Sucht ein archiviertes Workout mit gleichem Namen (case-insensitive).
   Future<Workout?> findArchivedByName(String name) async {
     final db = await _db;
-    final rows = await db.query('workouts',
+    final rows = await db.query(
+      'workouts',
       where: 'isArchived = 1 AND LOWER(name) = LOWER(?)',
       whereArgs: [name.trim()],
-      limit: 1);
+      limit: 1,
+    );
     if (rows.isEmpty) return null;
     final row = rows.first;
     return Workout(
       id: (row['id'] as num).toInt(),
       name: (row['name'] ?? '') as String,
       description: (row['description'] ?? '') as String,
+      goalCodes: _goalCodes(row['goalCodes']),
     );
   }
 
   /// Reaktiviert ein archiviertes Workout.
   Future<void> unarchiveWorkout(int id) async {
     final db = await _db;
-    await db.update('workouts', {'isArchived': 0},
-      where: 'id = ?', whereArgs: [id]);
+    await db.update(
+      'workouts',
+      {'isArchived': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> setWorkoutGoalCodes(
+    int workoutId,
+    List<String> goalCodes,
+  ) async {
+    const allowed = {'strength', 'endurance', 'cardio', 'mobility'};
+    final normalized = <String>[];
+    for (final code in goalCodes) {
+      if (allowed.contains(code) && !normalized.contains(code))
+        normalized.add(code);
+      if (normalized.length == 2) break;
+    }
+    await (await _db).update(
+      'workouts',
+      {'goalCodes': jsonEncode(normalized)},
+      where: 'id = ?',
+      whereArgs: [workoutId],
+    );
+  }
+
+  static List<String> _goalCodes(Object? raw) {
+    try {
+      return List<String>.from(jsonDecode(raw as String? ?? '[]') as List);
+    } catch (_) {
+      return const [];
+    }
   }
 }

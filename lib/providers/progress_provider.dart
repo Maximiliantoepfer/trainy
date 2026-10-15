@@ -30,12 +30,7 @@ class ProgressProvider extends ChangeNotifier {
     final pinnedIds = _pinnedCharts.map((pc) => 'pinned:${pc.id}').toSet();
 
     if (_insightsOrder.isEmpty) {
-      return [
-        'calendar',
-        'recommendation',
-        ...pinnedIds,
-        'main_chart',
-      ];
+      return ['calendar', 'recommendation', ...pinnedIds, 'main_chart'];
     }
 
     final result = <String>[];
@@ -99,7 +94,8 @@ class ProgressProvider extends ChangeNotifier {
 
         // Grace: skip today if it's a training day not yet completed
         final isToday = day == today;
-        if (isToday && trainingDays.contains(todayWeekday) &&
+        if (isToday &&
+            trainingDays.contains(todayWeekday) &&
             !workoutDates.contains(today)) {
           continue;
         }
@@ -113,7 +109,8 @@ class ProgressProvider extends ChangeNotifier {
       }
 
       if (scheduledThisWeek.isEmpty) {
-        if (w == 0) continue; // current week may not have had a training day yet
+        if (w == 0)
+          continue; // current week may not have had a training day yet
         break;
       }
 
@@ -135,14 +132,22 @@ class ProgressProvider extends ChangeNotifier {
 
   static Set<int> _heuristicDays(int goal) {
     switch (goal.clamp(1, 7)) {
-      case 1: return const {3};
-      case 2: return const {2, 5};
-      case 3: return const {1, 3, 5};
-      case 4: return const {1, 2, 4, 5};
-      case 5: return const {1, 2, 3, 4, 5};
-      case 6: return const {1, 2, 3, 4, 5, 6};
-      case 7: return const {1, 2, 3, 4, 5, 6, 7};
-      default: return const {1, 3, 5};
+      case 1:
+        return const {3};
+      case 2:
+        return const {2, 5};
+      case 3:
+        return const {1, 3, 5};
+      case 4:
+        return const {1, 2, 4, 5};
+      case 5:
+        return const {1, 2, 3, 4, 5};
+      case 6:
+        return const {1, 2, 3, 4, 5, 6};
+      case 7:
+        return const {1, 2, 3, 4, 5, 6, 7};
+      default:
+        return const {1, 3, 5};
     }
   }
 
@@ -152,18 +157,24 @@ class ProgressProvider extends ChangeNotifier {
     try {
       _weeklyGoal = await SettingsDatabase.instance.getWeeklyGoal();
       final tdStr = await SettingsDatabase.instance.getTrainingDays();
-      _trainingDays = tdStr.isEmpty
-          ? {}
-          : tdStr.split(',').map((s) => int.tryParse(s.trim()) ?? 0).where((d) => d >= 1 && d <= 7).toSet();
+      _trainingDays =
+          tdStr.isEmpty
+              ? {}
+              : tdStr
+                  .split(',')
+                  .map((s) => int.tryParse(s.trim()) ?? 0)
+                  .where((d) => d >= 1 && d <= 7)
+                  .toSet();
       final list = await WorkoutEntryDatabase.instance.getAggregatedEntries();
       _entries
         ..clear()
         ..addAll(list);
       _pinnedCharts = await PinnedChartDatabase.instance.getAll();
       final orderStr = await SettingsDatabase.instance.getInsightsOrder();
-      _insightsOrder = orderStr.isEmpty
-          ? []
-          : orderStr.split(',').where((s) => s.isNotEmpty).toList();
+      _insightsOrder =
+          orderStr.isEmpty
+              ? []
+              : orderStr.split(',').where((s) => s.isNotEmpty).toList();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -184,9 +195,10 @@ class ProgressProvider extends ChangeNotifier {
       workoutId: entry.workoutId,
       timestamp: entry.date.millisecondsSinceEpoch,
     );
-    _entries.removeWhere((e) =>
-      e.workoutId == entry.workoutId &&
-      e.date.millisecondsSinceEpoch == entry.date.millisecondsSinceEpoch,
+    _entries.removeWhere(
+      (e) =>
+          e.workoutId == entry.workoutId &&
+          e.date.millisecondsSinceEpoch == entry.date.millisecondsSinceEpoch,
     );
     notifyListeners();
   }
@@ -210,8 +222,9 @@ class ProgressProvider extends ChangeNotifier {
   }
 
   /// Prüft ob eine bestimmte Übung+Metrik-Kombination bereits gepinnt ist.
-  bool isPinned(int exerciseId, String metric) =>
-      _pinnedCharts.any((pc) => pc.exerciseId == exerciseId && pc.metric == metric);
+  bool isPinned(int exerciseId, String metric) => _pinnedCharts.any(
+    (pc) => pc.exerciseId == exerciseId && pc.metric == metric,
+  );
 
   /// Pinnt eine Übung+Metrik-Kombination.
   Future<void> pinChart(int exerciseId, String metric) async {
@@ -231,7 +244,8 @@ class ProgressProvider extends ChangeNotifier {
   Future<void> unpinChart(int id) async {
     await PinnedChartDatabase.instance.remove(id);
     _pinnedCharts = _pinnedCharts.where((pc) => pc.id != id).toList();
-    _insightsOrder = _insightsOrder.where((item) => item != 'pinned:$id').toList();
+    _insightsOrder =
+        _insightsOrder.where((item) => item != 'pinned:$id').toList();
     notifyListeners();
     await _persistInsightsOrder();
   }
@@ -257,6 +271,7 @@ class ProgressProvider extends ChangeNotifier {
     required int workoutId,
     required int durationSeconds,
     required Map<int, List<Map<String, String>>> setsByExercise,
+    int? sessionId,
     DateTime? when,
   }) async {
     _isSaving = true;
@@ -360,6 +375,7 @@ class ProgressProvider extends ChangeNotifier {
         workoutId: workoutId,
         date: date,
         results: results,
+        sessionId: sessionId,
       );
 
       await WorkoutEntryDatabase.instance.insertEntry(

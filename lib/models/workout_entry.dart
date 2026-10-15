@@ -10,6 +10,7 @@ class WorkoutEntry {
 
   /// Session-Timer-Dauer in Sekunden (nullable für ältere Einträge).
   final int? durationSeconds;
+  final int? sessionId;
 
   const WorkoutEntry({
     required this.id,
@@ -17,6 +18,7 @@ class WorkoutEntry {
     required this.date,
     required this.results,
     this.durationSeconds,
+    this.sessionId,
   });
 
   @override

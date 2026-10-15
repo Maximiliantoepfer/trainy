@@ -29,114 +29,130 @@ class WorkoutCard extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
         decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: selected
-            ? scheme.primaryContainer
-            : Theme.of(context).cardColor,
-        border: selected
-            ? Border.all(color: scheme.primary, width: 1)
-            : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: onTap,
-          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(14),
+          color:
+              selected ? scheme.primaryContainer : Theme.of(context).cardColor,
+          border: selected ? Border.all(color: scheme.primary, width: 1) : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: ImageIcon(
+                      const AssetImage('assets/icons/hantel.png'),
+                      size: 22,
+                      color: scheme.onPrimaryContainer,
+                    ),
                   ),
-                  child: ImageIcon(
-                    const AssetImage('assets/icons/hantel.png'),
-                    size: 22,
-                    color: scheme.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        workout.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.list_rounded, size: 16,
-                            color: workout.exerciseIds.isNotEmpty
-                                ? scheme.onSurfaceVariant
-                                : scheme.onSurfaceVariant.withValues(alpha: 0.4)),
-                          const SizedBox(width: 4),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          workout.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.list_rounded,
+                              size: 16,
+                              color:
+                                  workout.exerciseIds.isNotEmpty
+                                      ? scheme.onSurfaceVariant
+                                      : scheme.onSurfaceVariant.withValues(
+                                        alpha: 0.4,
+                                      ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              workout.exerciseIds.isNotEmpty
+                                  ? context.l10n.exercisesCount(
+                                    workout.exerciseIds.length,
+                                  )
+                                  : context.l10n.noExercises,
+                              style: textTheme.bodyMedium?.copyWith(
+                                color:
+                                    workout.exerciseIds.isEmpty
+                                        ? scheme.onSurfaceVariant.withValues(
+                                          alpha: 0.4,
+                                        )
+                                        : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (workout.assignedDays.isNotEmpty) ...[
+                          const SizedBox(height: 2),
                           Text(
-                            workout.exerciseIds.isNotEmpty
-                                ? context.l10n.exercisesCount(workout.exerciseIds.length)
-                                : context.l10n.noExercises,
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: workout.exerciseIds.isEmpty
-                                  ? scheme.onSurfaceVariant.withValues(alpha: 0.4)
-                                  : null,
+                            (workout.assignedDays.toList()..sort())
+                                .map(
+                                  (d) =>
+                                      [
+                                        context.l10n.monday,
+                                        context.l10n.tuesday,
+                                        context.l10n.wednesday,
+                                        context.l10n.thursday,
+                                        context.l10n.friday,
+                                        context.l10n.saturday,
+                                        context.l10n.sunday,
+                                      ][d - 1],
+                                )
+                                .join(', '),
+                            style: textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant.withValues(
+                                alpha: 0.6,
+                              ),
                             ),
                           ),
                         ],
-                      ),
-                      if (workout.assignedDays.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          (workout.assignedDays.toList()..sort())
-                              .map((d) => [
-                                context.l10n.monday,
-                                context.l10n.tuesday,
-                                context.l10n.wednesday,
-                                context.l10n.thursday,
-                                context.l10n.friday,
-                                context.l10n.saturday,
-                                context.l10n.sunday,
-                              ][d - 1])
-                              .join(', '),
-                          style: textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
-                          ),
-                        ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: selected
-                      ? IconButton(
-                          key: const ValueKey('delete'),
-                          onPressed: onPrimaryActionTap,
-                          icon: Icon(Icons.delete_outline_rounded,
-                            color: scheme.error),
-                          tooltip: context.l10n.delete,
-                        )
-                      : Icon(
-                          Icons.chevron_right_rounded,
-                          key: const ValueKey('chevron'),
-                          color: scheme.outline,
-                        ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child:
+                        selected
+                            ? IconButton(
+                              key: const ValueKey('delete'),
+                              onPressed: onPrimaryActionTap,
+                              icon: Icon(
+                                Icons.delete_outline_rounded,
+                                color: scheme.error,
+                              ),
+                              tooltip: context.l10n.delete,
+                            )
+                            : Icon(
+                              Icons.chevron_right_rounded,
+                              key: const ValueKey('chevron'),
+                              color: scheme.outline,
+                            ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

@@ -34,8 +34,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
   final TextEditingController _durationCtrl = TextEditingController();
   late DateTime _backdateDate;
 
-  bool get _hasAnySets =>
-      _setsByExercise.values.any((list) => list.isNotEmpty);
+  bool get _hasAnySets => _setsByExercise.values.any((list) => list.isNotEmpty);
 
   @override
   void initState() {
@@ -99,8 +98,10 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
     }
 
     if (!mounted) return;
-    final dateStr = DateFormat('dd.MM.yyyy', Localizations.localeOf(context).toLanguageTag())
-        .format(_backdateDate);
+    final dateStr = DateFormat(
+      'dd.MM.yyyy',
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(_backdateDate);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(context.l10n.workoutBackdated(dateStr)),
@@ -135,20 +136,25 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
 
   Future<void> _addSet(BuildContext context, Exercise e) async {
     final tracksAny =
-        e.trackSets || e.trackReps || e.trackWeight || e.trackDuration || e.trackDistance;
+        e.trackSets ||
+        e.trackReps ||
+        e.trackWeight ||
+        e.trackDuration ||
+        e.trackDistance;
     if (!tracksAny) {
       await showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(displayExerciseName(context, e)),
-          content: Text(ctx.l10n.noTrackingFieldsActive),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(ctx.l10n.ok),
+        builder:
+            (ctx) => AlertDialog(
+              title: Text(displayExerciseName(context, e)),
+              content: Text(ctx.l10n.noTrackingFieldsActive),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(ctx.l10n.ok),
+                ),
+              ],
             ),
-          ],
-        ),
       );
       return;
     }
@@ -168,143 +174,173 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
     final last = sessionLast ?? e.lastValues;
     final defs = e.defaultValues;
 
-    final repsCtrl =
-        TextEditingController(text: last['reps'] ?? defs['reps'] ?? '');
-    final weightCtrl =
-        TextEditingController(text: last['weight'] ?? defs['weight'] ?? '');
-    final distanceCtrl =
-        TextEditingController(text: last['distance'] ?? defs['distance'] ?? '');
-    final durationParts =
-        DurationFormatter.fromRaw(last['duration'] ?? defs['duration']);
+    final repsCtrl = TextEditingController(
+      text: last['reps'] ?? defs['reps'] ?? '',
+    );
+    final weightCtrl = TextEditingController(
+      text: last['weight'] ?? defs['weight'] ?? '',
+    );
+    final distanceCtrl = TextEditingController(
+      text: last['distance'] ?? defs['distance'] ?? '',
+    );
+    final durationParts = DurationFormatter.fromRaw(
+      last['duration'] ?? defs['duration'],
+    );
     final durHoursCtrl = TextEditingController(
-        text: durationParts.hours > 0 ? '${durationParts.hours}' : '');
+      text: durationParts.hours > 0 ? '${durationParts.hours}' : '',
+    );
     final durMinutesCtrl = TextEditingController(
-        text: durationParts.minutes > 0 ? '${durationParts.minutes}' : '');
+      text: durationParts.minutes > 0 ? '${durationParts.minutes}' : '',
+    );
     final durSecondsCtrl = TextEditingController(
-        text: durationParts.seconds > 0 ? '${durationParts.seconds}' : '');
+      text: durationParts.seconds > 0 ? '${durationParts.seconds}' : '',
+    );
 
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(displayExerciseName(context, e)),
-        content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            if (e.trackReps)
-              TextField(
-                controller: repsCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: ctx.l10n.repetitions),
-              ),
-            if (e.trackWeight)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: TextField(
-                  controller: weightCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(labelText: ctx.l10n.weightKilograms),
-                ),
-              ),
-            if (e.trackDistance)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: TextField(
-                  controller: distanceCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(labelText: ctx.l10n.distanceKilometers),
-                ),
-              ),
-            if (e.trackDuration)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(ctx.l10n.duration,
-                        style: Theme.of(ctx).textTheme.labelLarge),
-                    const SizedBox(height: 8),
-                    Row(children: [
-                      Expanded(
-                        child: TextField(
-                          controller: durHoursCtrl,
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.next,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly
-                          ],
-                          decoration: InputDecoration(labelText: ctx.l10n.hours),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(displayExerciseName(context, e)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (e.trackReps)
+                    TextField(
+                      controller: repsCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: ctx.l10n.repetitions,
+                      ),
+                    ),
+                  if (e.trackWeight)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: TextField(
+                        controller: weightCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: ctx.l10n.weightKilograms,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: durMinutesCtrl,
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.next,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly
-                          ],
-                          decoration: InputDecoration(labelText: ctx.l10n.minutes),
+                    ),
+                  if (e.trackDistance)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: TextField(
+                        controller: distanceCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: ctx.l10n.distanceKilometers,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: durSecondsCtrl,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly
-                          ],
-                          decoration: InputDecoration(labelText: ctx.l10n.seconds),
-                        ),
+                    ),
+                  if (e.trackDuration)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ctx.l10n.duration,
+                            style: Theme.of(ctx).textTheme.labelLarge,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: durHoursCtrl,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.next,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  decoration: InputDecoration(
+                                    labelText: ctx.l10n.hours,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: durMinutesCtrl,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.next,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  decoration: InputDecoration(
+                                    labelText: ctx.l10n.minutes,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: durSecondsCtrl,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  decoration: InputDecoration(
+                                    labelText: ctx.l10n.seconds,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ]),
-                  ],
-                ),
+                    ),
+                ],
               ),
-          ]),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(ctx.l10n.cancel),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(ctx.l10n.cancel),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final entry = <String, String>{};
+                  if (e.trackReps && repsCtrl.text.trim().isNotEmpty) {
+                    entry['reps'] = repsCtrl.text.trim();
+                  }
+                  if (e.trackWeight && weightCtrl.text.trim().isNotEmpty) {
+                    entry['weight'] = weightCtrl.text.trim();
+                  }
+                  if (e.trackDistance && distanceCtrl.text.trim().isNotEmpty) {
+                    entry['distance'] = distanceCtrl.text.trim();
+                  }
+                  if (e.trackDuration) {
+                    final secs = DurationFormatter.totalSecondsFromTexts(
+                      durHoursCtrl.text,
+                      durMinutesCtrl.text,
+                      durSecondsCtrl.text,
+                    );
+                    if (secs > 0) entry['duration'] = '$secs';
+                  }
+                  if (entry.isNotEmpty) {
+                    _setsByExercise.putIfAbsent(e.id, () => []);
+                    // Single mode: replace last entry
+                    if (_setsByExercise[e.id]!.isNotEmpty) {
+                      _setsByExercise[e.id]!.last = entry;
+                    } else {
+                      _setsByExercise[e.id]!.add(entry);
+                    }
+                    setState(() {});
+                  }
+                  Navigator.pop(ctx);
+                },
+                child: Text(ctx.l10n.save),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () {
-              final entry = <String, String>{};
-              if (e.trackReps && repsCtrl.text.trim().isNotEmpty) {
-                entry['reps'] = repsCtrl.text.trim();
-              }
-              if (e.trackWeight && weightCtrl.text.trim().isNotEmpty) {
-                entry['weight'] = weightCtrl.text.trim();
-              }
-              if (e.trackDistance && distanceCtrl.text.trim().isNotEmpty) {
-                entry['distance'] = distanceCtrl.text.trim();
-              }
-              if (e.trackDuration) {
-                final secs = DurationFormatter.totalSecondsFromTexts(
-                    durHoursCtrl.text,
-                    durMinutesCtrl.text,
-                    durSecondsCtrl.text);
-                if (secs > 0) entry['duration'] = '$secs';
-              }
-              if (entry.isNotEmpty) {
-                _setsByExercise.putIfAbsent(e.id, () => []);
-                // Single mode: replace last entry
-                if (_setsByExercise[e.id]!.isNotEmpty) {
-                  _setsByExercise[e.id]!.last = entry;
-                } else {
-                  _setsByExercise[e.id]!.add(entry);
-                }
-                setState(() {});
-              }
-              Navigator.pop(ctx);
-            },
-            child: Text(ctx.l10n.save),
-          ),
-        ],
-      ),
     );
   }
 
@@ -331,12 +367,12 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final exercises = widget.exercises;
-    final doneCount =
-        _setsByExercise.values.where((v) => v.isNotEmpty).length;
-    final progress =
-        exercises.isEmpty ? 0.0 : doneCount / exercises.length;
-    final dateStr = DateFormat('EE, dd.MM.yyyy', Localizations.localeOf(context).toLanguageTag())
-        .format(_backdateDate);
+    final doneCount = _setsByExercise.values.where((v) => v.isNotEmpty).length;
+    final progress = exercises.isEmpty ? 0.0 : doneCount / exercises.length;
+    final dateStr = DateFormat(
+      'EE, dd.MM.yyyy',
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(_backdateDate);
 
     return Scaffold(
       appBar: AppBar(
@@ -348,8 +384,10 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
               child: GestureDetector(
                 onTap: _pickDate,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer,
                     borderRadius: BorderRadius.circular(999),
@@ -357,8 +395,11 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.edit_calendar_rounded,
-                          size: 16, color: scheme.onPrimaryContainer),
+                      Icon(
+                        Icons.edit_calendar_rounded,
+                        size: 16,
+                        color: scheme.onPrimaryContainer,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         dateStr,
@@ -380,10 +421,11 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
             tween: Tween(begin: 0, end: progress),
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOut,
-            builder: (_, value, __) => LinearProgressIndicator(
-              value: value,
-              valueColor: AlwaysStoppedAnimation(scheme.primary),
-            ),
+            builder:
+                (_, value, __) => LinearProgressIndicator(
+                  value: value,
+                  valueColor: AlwaysStoppedAnimation(scheme.primary),
+                ),
           ),
         ),
       ),
@@ -399,15 +441,14 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Icon(Icons.timer_outlined,
-                        color: scheme.onSurfaceVariant),
+                    Icon(Icons.timer_outlined, color: scheme.onSurfaceVariant),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
                         controller: _durationCtrl,
                         keyboardType: TextInputType.number,
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
+                          FilteringTextInputFormatter.digitsOnly,
                         ],
                         decoration: InputDecoration(
                           labelText: context.l10n.estimatedDurationMinutes,
@@ -425,9 +466,7 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
           final sets = _setsByExercise[e.id] ?? const [];
           final hasSets = sets.isNotEmpty;
           return Card(
-            color: hasSets
-                ? scheme.primary.withValues(alpha: 0.08)
-                : null,
+            color: hasSets ? scheme.primary.withValues(alpha: 0.08) : null,
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () => _addSet(context, e),
@@ -436,64 +475,72 @@ class _BackdateWorkoutScreenState extends State<BackdateWorkoutScreen> {
                 child: Row(
                   children: [
                     if (e.goal != null)
-                      Container(
-                        width: 4,
-                        color: goalColor(e.goal!, scheme),
-                      ),
+                      Container(width: 4, color: goalColor(e.goal!, scheme)),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
-                        child: Row(children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Flexible(
-                                      child: Text(displayExerciseName(context, e),
-                                          style: textTheme.titleMedium),
-                                    ),
-                                    if (e.goal != null) ...[
-                                      const SizedBox(width: 8),
-                                      goalBadge(context, e.goal!, scheme),
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          displayExerciseName(context, e),
+                                          style: textTheme.titleMedium,
+                                        ),
+                                      ),
+                                      if (e.goal != null) ...[
+                                        const SizedBox(width: 8),
+                                        goalBadge(context, e.goal!, scheme),
+                                      ],
                                     ],
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                if (hasSets)
-                                  Text(
-                                    '${sets.length} Satz${sets.length == 1 ? "" : "e"} erfasst',
-                                    style: textTheme.bodySmall
-                                        ?.copyWith(color: scheme.primary),
-                                  )
-                                else
-                                  Text(
-                                    [
-                                      if (e.trackSets) 'Sätze',
-                                      if (e.trackReps) 'Wdh.',
-                                      if (e.trackWeight) 'Gewicht',
-                                      if (e.trackDistance) 'Entfernung',
-                                      if (e.trackDuration) 'Dauer',
-                                    ].join(' · '),
-                                    style: textTheme.bodySmall,
                                   ),
-                              ],
+                                  const SizedBox(height: 2),
+                                  if (hasSets)
+                                    Text(
+                                      '${sets.length} Satz${sets.length == 1 ? "" : "e"} erfasst',
+                                      style: textTheme.bodySmall?.copyWith(
+                                        color: scheme.primary,
+                                      ),
+                                    )
+                                  else
+                                    Text(
+                                      [
+                                        if (e.trackSets) 'Sätze',
+                                        if (e.trackReps) 'Wdh.',
+                                        if (e.trackWeight) 'Gewicht',
+                                        if (e.trackDistance) 'Entfernung',
+                                        if (e.trackDuration) 'Dauer',
+                                      ].join(' · '),
+                                      style: textTheme.bodySmall,
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 200),
-                            child: hasSets
-                                ? Icon(Icons.check_circle_rounded,
-                                    key: ValueKey('done_${e.id}'),
-                                    color: scheme.primary)
-                                : Icon(Icons.add_circle_outline_rounded,
-                                    key: ValueKey('add_${e.id}'),
-                                    color: scheme.primary),
-                          ),
-                        ]),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              child:
+                                  hasSets
+                                      ? Icon(
+                                        Icons.check_circle_rounded,
+                                        key: ValueKey('done_${e.id}'),
+                                        color: scheme.primary,
+                                      )
+                                      : Icon(
+                                        Icons.add_circle_outline_rounded,
+                                        key: ValueKey('add_${e.id}'),
+                                        color: scheme.primary,
+                                      ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -569,11 +616,14 @@ class _PerSetSheetState extends State<_PerSetSheet> {
     _distanceCtrl = TextEditingController(text: last['distance'] ?? '');
     final durParts = DurationFormatter.fromRaw(last['duration']);
     _durHoursCtrl = TextEditingController(
-        text: durParts.hours > 0 ? '${durParts.hours}' : '');
+      text: durParts.hours > 0 ? '${durParts.hours}' : '',
+    );
     _durMinutesCtrl = TextEditingController(
-        text: durParts.minutes > 0 ? '${durParts.minutes}' : '');
+      text: durParts.minutes > 0 ? '${durParts.minutes}' : '',
+    );
     _durSecondsCtrl = TextEditingController(
-        text: durParts.seconds > 0 ? '${durParts.seconds}' : '');
+      text: durParts.seconds > 0 ? '${durParts.seconds}' : '',
+    );
   }
 
   @override
@@ -635,22 +685,27 @@ class _PerSetSheetState extends State<_PerSetSheet> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding:
-            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-              child: Text(displayExerciseName(context, e), style: textTheme.titleLarge),
+              child: Text(
+                displayExerciseName(context, e),
+                style: textTheme.titleLarge,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
               child: Text(
                 context.l10n.recordedSets(sets.length),
-                style: textTheme.bodySmall
-                    ?.copyWith(color: scheme.onSurfaceVariant),
+                style: textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ),
 
@@ -662,12 +717,13 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                   shrinkWrap: true,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: sets.length,
-                  itemBuilder: (_, i) => _CompletedSetRow(
-                    index: i,
-                    data: sets[i],
-                    exercise: e,
-                    onRemove: () => _removeSet(i),
-                  ),
+                  itemBuilder:
+                      (_, i) => _CompletedSetRow(
+                        index: i,
+                        data: sets[i],
+                        exercise: e,
+                        onRemove: () => _removeSet(i),
+                      ),
                 ),
               ),
               const Padding(
@@ -680,9 +736,12 @@ class _PerSetSheetState extends State<_PerSetSheet> {
             // Input for next set
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(context.l10n.setNumber(sets.length + 1),
-                  style: textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
+              child: Text(
+                context.l10n.setNumber(sets.length + 1),
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             Padding(
@@ -693,7 +752,9 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                     TextField(
                       controller: _repsCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: InputDecoration(labelText: context.l10n.repetitions),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.repetitions,
+                      ),
                     ),
                   if (e.trackWeight)
                     Padding(
@@ -701,8 +762,11 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                       child: TextField(
                         controller: _weightCtrl,
                         keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: InputDecoration(labelText: context.l10n.weightKilograms),
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: context.l10n.weightKilograms,
+                        ),
                       ),
                     ),
                   if (e.trackDistance)
@@ -711,47 +775,58 @@ class _PerSetSheetState extends State<_PerSetSheet> {
                       child: TextField(
                         controller: _distanceCtrl,
                         keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: InputDecoration(labelText: context.l10n.distanceKilometers),
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: context.l10n.distanceKilometers,
+                        ),
                       ),
                     ),
                   if (e.trackDuration)
                     Padding(
                       padding: const EdgeInsets.only(top: 12),
-                      child: Row(children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _durHoursCtrl,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly
-                            ],
-                            decoration: InputDecoration(labelText: context.l10n.hours),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _durHoursCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: InputDecoration(
+                                labelText: context.l10n.hours,
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _durMinutesCtrl,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly
-                            ],
-                            decoration: InputDecoration(labelText: context.l10n.minutes),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _durMinutesCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: InputDecoration(
+                                labelText: context.l10n.minutes,
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _durSecondsCtrl,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly
-                            ],
-                            decoration: InputDecoration(labelText: context.l10n.seconds),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _durSecondsCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: InputDecoration(
+                                labelText: context.l10n.seconds,
+                              ),
+                            ),
                           ),
-                        ),
-                      ]),
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -760,27 +835,29 @@ class _PerSetSheetState extends State<_PerSetSheet> {
             // Action buttons
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              child: Row(children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(context.l10n.done),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(context.l10n.done),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: FilledButton(
-                      onPressed: _saveCurrentSet,
-                      child: Text(context.l10n.saveSet),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: _saveCurrentSet,
+                        child: Text(context.l10n.saveSet),
+                      ),
                     ),
                   ),
-                ),
-              ]),
+                ],
+              ),
             ),
           ],
         ),
@@ -818,7 +895,8 @@ class _CompletedSetRow extends StatelessWidget {
     }
     if (exercise.trackDuration && data['duration'] != null) {
       parts.add(
-          localizedDuration(context, int.tryParse(data['duration']!) ?? 0));
+        localizedDuration(context, int.tryParse(data['duration']!) ?? 0),
+      );
     }
 
     return Padding(
@@ -843,18 +921,12 @@ class _CompletedSetRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              parts.join(' / '),
-              style: textTheme.bodyMedium,
-            ),
-          ),
+          Expanded(child: Text(parts.join(' / '), style: textTheme.bodyMedium)),
           SizedBox(
             width: 32,
             height: 32,
             child: IconButton(
-              icon: Icon(Icons.close_rounded,
-                  size: 18, color: scheme.error),
+              icon: Icon(Icons.close_rounded, size: 18, color: scheme.error),
               onPressed: onRemove,
               padding: EdgeInsets.zero,
             ),

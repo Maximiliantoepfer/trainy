@@ -44,6 +44,12 @@ dependencies:
   intl: ^0.19.0
   collection: ^1.17.1
   flutter_speed_dial: ^5.0.0
+  image_picker: ^1.1.2
+  path_provider: ^2.1.5
+  archive: ^4.0.5
+  image: ^4.5.4
+  crypto: ^3.0.6
+  path: ^1.9.1
 
   confetti: ^0.7.0
 
