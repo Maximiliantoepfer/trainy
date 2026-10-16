@@ -143,6 +143,10 @@ lib/
 
 ## Datenbank-Schema (Datenepoch 2)
 
+Der Workout-Editor v5 verwendet Schema 5 ohne Datenreset. Details zu gemeinsamer
+Gruppenreihenfolge, lokaler Session-Wiederaufnahme und kompatiblen Schema-4-
+Backups stehen in [Workout-Editor v5](docs/workout-editor-v5.md).
+
 ### Tabellen
 
 | Gruppe | Zentrale Tabellen | Zweck |
