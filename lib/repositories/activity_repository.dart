@@ -153,6 +153,8 @@ class ActivityRepository {
     required String activityType,
     required List<String> tags,
     required List<ActivityItemSnapshotInput> items,
+    String? workoutId,
+    String? workoutVariantId,
     String? profileId,
     DateTime? startedAt,
   }) async {
@@ -164,6 +166,8 @@ class ActivityRepository {
       await txn.insert('activity_sessions', {
         'id': sessionId,
         'source_local_id': '$localWorkoutId',
+        'workout_id': workoutId,
+        'workout_variant_id': workoutVariantId,
         'profile_id': profileId,
         'activity_type': activityType,
         'status': 'active',

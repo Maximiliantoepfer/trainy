@@ -10,8 +10,8 @@ import 'package:sqflite/sqflite.dart';
 /// here so the application remains usable during that transition.
 abstract final class DatabaseSchemaV2 {
   static const int dataEpoch = 2;
-  static const int schemaVersion = 2;
-  static const String schemaRevision = '2026-10-16.2';
+  static const int schemaVersion = 3;
+  static const String schemaRevision = '2026-10-16.3';
 
   static const userDataTables = <String>[
     'health_record_links',
@@ -29,6 +29,7 @@ abstract final class DatabaseSchemaV2 {
     'workout_group_variants_v2',
     'workout_groups_v2',
     'workout_variants_v2',
+    'workout_weekly_schedule',
     'workout_tags',
     'workout_templates',
     'exercise_redirects_v2',
@@ -131,7 +132,411 @@ abstract final class DatabaseSchemaV2 {
       );
       await migrateLegacyProfiles(db);
     }
+    if (oldVersion < 3) {
+      await _upgradeToWorkoutWorkflowV3(db);
+    }
     await _writeCurrentMetadata(db);
+  }
+
+  /// Brings the remaining integer facade rows into the canonical workout
+  /// graph.  The facade is intentionally kept read-only for older releases,
+  /// but every new workflow operation uses the UUID tables from here on.
+  static Future<void> _upgradeToWorkoutWorkflowV3(Database db) async {
+    if (!await _columnExists(db, 'exercise_items', 'legacy_local_id')) {
+      await db.execute('ALTER TABLE exercise_items ADD COLUMN legacy_local_id INTEGER');
+    }
+    if (!await _columnExists(db, 'workout_templates', 'legacy_local_id')) {
+      await db.execute('ALTER TABLE workout_templates ADD COLUMN legacy_local_id INTEGER');
+    }
+    if (!await _columnExists(db, 'workout_templates', 'primary_goal_code')) {
+      await db.execute("ALTER TABLE workout_templates ADD COLUMN primary_goal_code TEXT NOT NULL DEFAULT 'strength' CHECK(primary_goal_code IN ('strength','endurance','cardio','mobility'))");
+    }
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_exercise_items_legacy_local ON exercise_items(legacy_local_id) WHERE legacy_local_id IS NOT NULL');
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_workout_templates_legacy_local ON workout_templates(legacy_local_id) WHERE legacy_local_id IS NOT NULL');
+    await db.execute('''CREATE TABLE IF NOT EXISTS workout_weekly_schedule(
+      id TEXT PRIMARY KEY,
+      workout_id TEXT NOT NULL,
+      weekday INTEGER NOT NULL CHECK(weekday BETWEEN 1 AND 7),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(workout_id, weekday),
+      FOREIGN KEY(workout_id) REFERENCES workout_templates(id) ON DELETE CASCADE
+    )''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_weekly_schedule_workout ON workout_weekly_schedule(workout_id)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_weekly_schedule_day_order ON workout_weekly_schedule(weekday, sort_order, id)');
+    await migrateLegacyProfiles(db);
+    await _migrateLegacyWorkoutPlanning(db);
+  }
+
+  static Future<void> _migrateLegacyWorkoutPlanning(Database db) async {
+    if (!await _tableExists(db, 'exercises') ||
+        !await _tableExists(db, 'workouts')) {
+      return;
+    }
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    final exerciseRows = await db.query('exercises');
+    final exerciseIds = <int, String>{};
+    for (final row in exerciseRows) {
+      final localId = (row['id'] as num).toInt();
+      final catalogId = row['catalogId'] as String?;
+      final existingByLocal = await db.query(
+        'exercise_items',
+        columns: const ['id'],
+        where: 'legacy_local_id = ?',
+        whereArgs: [localId],
+        limit: 1,
+      );
+      final existingByCatalog = catalogId == null
+          ? const <Map<String, Object?>>[]
+          : await db.query(
+              'exercise_items',
+              columns: const ['id'],
+              where: 'catalog_id = ?',
+              whereArgs: [catalogId],
+              limit: 1,
+            );
+      final canonicalId = existingByLocal.isNotEmpty
+          ? existingByLocal.single['id']! as String
+          : existingByCatalog.isNotEmpty
+          ? existingByCatalog.single['id']! as String
+          : 'legacy-exercise:$localId';
+      final goalCodes = _legacyGoalCodes(row['goalCodes'], row['goal']);
+      if (existingByLocal.isEmpty && existingByCatalog.isEmpty) {
+        final isCatalog = catalogId != null && catalogId.isNotEmpty;
+        await db.insert('exercise_items', {
+          'id': canonicalId,
+          'legacy_local_id': localId,
+          'source_type': isCatalog ? 'catalog' : 'custom',
+          'catalog_id': isCatalog ? catalogId : null,
+          'custom_name': isCatalog ? null : (row['name'] as String),
+          'custom_description': isCatalog
+              ? null
+              : (row['description'] as String? ?? ''),
+          'personal_alias': row['alias'] as String?,
+          'notes': row['notes'] as String? ?? '',
+          'tracking_mode': _trackingModeForGoals(goalCodes),
+          'is_archived': (row['isArchived'] as num?)?.toInt() ?? 0,
+          'created_at_utc': now,
+          'updated_at_utc': now,
+        });
+      } else {
+        await db.update(
+          'exercise_items',
+          {'legacy_local_id': localId, 'updated_at_utc': now},
+          where: 'id = ?',
+          whereArgs: [canonicalId],
+        );
+      }
+      await _replaceCanonicalTags(
+        db,
+        table: 'exercise_tags',
+        idColumn: 'exercise_id',
+        entityId: canonicalId,
+        goals: _statisticsGoals(_primaryGoal(goalCodes)),
+      );
+      exerciseIds[localId] = canonicalId;
+    }
+
+    final workoutRows = await db.query('workouts');
+    final workoutIds = <int, String>{};
+    for (final row in workoutRows) {
+      final localId = (row['id'] as num).toInt();
+      final existing = await db.query(
+        'workout_templates',
+        columns: const ['id'],
+        where: 'legacy_local_id = ?',
+        whereArgs: [localId],
+        limit: 1,
+      );
+      final workoutId = existing.isEmpty
+          ? 'legacy-workout:$localId'
+          : existing.single['id']! as String;
+      final goals = _legacyGoalCodes(row['goalCodes'], null);
+      final primary = _primaryGoal(goals);
+      if (existing.isEmpty) {
+        await db.insert('workout_templates', {
+          'id': workoutId,
+          'legacy_local_id': localId,
+          'name': row['name'] as String,
+          'description': row['description'] as String? ?? '',
+          'primary_goal_code': primary,
+          'source_type': 'custom',
+          'is_archived': (row['isArchived'] as num?)?.toInt() ?? 0,
+          'created_at_utc': now,
+          'updated_at_utc': now,
+        });
+      } else {
+        await db.update(
+          'workout_templates',
+          {
+            'legacy_local_id': localId,
+            'primary_goal_code': primary,
+            'updated_at_utc': now,
+          },
+          where: 'id = ?',
+          whereArgs: [workoutId],
+        );
+      }
+      await _replaceCanonicalTags(
+        db,
+        table: 'workout_tags',
+        idColumn: 'workout_id',
+        entityId: workoutId,
+        goals: _statisticsGoals(primary),
+      );
+      workoutIds[localId] = workoutId;
+    }
+
+    if (workoutIds.isEmpty) return;
+    final variantRows = await db.query('workout_variants');
+    final groupRows = await db.query('workout_groups');
+    final groupVariantRows = await db.query('workout_group_variants');
+    final selectionRows = await db.query('workout_variant_group_selections');
+    final slotRows = await db.query('workout_slots');
+    final alternativeRows = await db.query('workout_slot_alternatives');
+    final variantIds = <int, String>{};
+    final groupIds = <int, String>{};
+    final groupVariantIds = <int, String>{};
+    final slotIds = <int, String>{};
+
+    for (final row in groupRows) {
+      final localWorkoutId = (row['workoutId'] as num).toInt();
+      final workoutId = workoutIds[localWorkoutId];
+      if (workoutId == null) continue;
+      final legacyId = (row['id'] as num).toInt();
+      final id = 'legacy-workout-group:$legacyId';
+      await db.insert('workout_groups_v2', {
+        'id': id,
+        'workout_id': workoutId,
+        'name': row['name'] as String,
+        'muscle_group_code': row['muscleGroupCode'] as String?,
+        'sort_order': (row['sort'] as num?)?.toInt() ?? 0,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      groupIds[legacyId] = id;
+    }
+    for (final row in groupVariantRows) {
+      final legacyGroupId = (row['workoutGroupId'] as num).toInt();
+      final groupId = groupIds[legacyGroupId];
+      if (groupId == null) continue;
+      final legacyId = (row['id'] as num).toInt();
+      final id = 'legacy-group-variant:$legacyId';
+      final profile = row['profileId'] as int?;
+      await db.insert('workout_group_variants_v2', {
+        'id': id,
+        'workout_group_id': groupId,
+        'profile_id': profile == null ? null : 'legacy-profile:$profile',
+        'name': row['name'] as String,
+        'sort_order': (row['sort'] as num?)?.toInt() ?? 0,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      groupVariantIds[legacyId] = id;
+    }
+    for (final row in variantRows) {
+      final localWorkoutId = (row['workoutId'] as num).toInt();
+      final workoutId = workoutIds[localWorkoutId];
+      if (workoutId == null) continue;
+      final legacyId = (row['id'] as num).toInt();
+      final id = 'legacy-setup:$legacyId';
+      final profile = row['profileId'] as int?;
+      await db.insert('workout_variants_v2', {
+        'id': id,
+        'workout_id': workoutId,
+        'profile_id': profile == null ? null : 'legacy-profile:$profile',
+        'name': row['name'] as String,
+        'is_default': (row['isDefault'] as num?)?.toInt() ?? 0,
+        'sort_order': (row['sort'] as num?)?.toInt() ?? 0,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      variantIds[legacyId] = id;
+    }
+    for (final row in slotRows) {
+      final legacyGroupVariantId = (row['groupVariantId'] as num).toInt();
+      final groupVariantId = groupVariantIds[legacyGroupVariantId];
+      final exerciseId = exerciseIds[(row['exerciseId'] as num).toInt()];
+      if (groupVariantId == null || exerciseId == null) continue;
+      final legacyId = (row['id'] as num).toInt();
+      final id = 'legacy-slot:$legacyId';
+      await db.insert('workout_slots_v2', {
+        'id': id,
+        'group_variant_id': groupVariantId,
+        'exercise_id': exerciseId,
+        'movement_family_id': row['movementFamilyId'] as String?,
+        'slot_kind': row['slotKind'] as String? ?? 'core',
+        'sort_order': (row['sort'] as num?)?.toInt() ?? 0,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      slotIds[legacyId] = id;
+    }
+    for (final row in alternativeRows) {
+      final slotId = slotIds[(row['workoutSlotId'] as num).toInt()];
+      final exerciseId = exerciseIds[(row['exerciseId'] as num).toInt()];
+      if (slotId == null || exerciseId == null) continue;
+      final legacyId = (row['id'] as num).toInt();
+      final profile = row['profileId'] as int?;
+      await db.insert('workout_slot_alternatives_v2', {
+        'id': 'legacy-slot-alternative:$legacyId',
+        'workout_slot_id': slotId,
+        'exercise_id': exerciseId,
+        'profile_id': profile == null ? null : 'legacy-profile:$profile',
+        'sort_order': (row['sort'] as num?)?.toInt() ?? 0,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+    for (final row in selectionRows) {
+      final variantId = variantIds[(row['workoutVariantId'] as num).toInt()];
+      final groupId = groupIds[(row['workoutGroupId'] as num).toInt()];
+      final groupVariantId = groupVariantIds[(row['groupVariantId'] as num).toInt()];
+      if (variantId == null || groupId == null || groupVariantId == null) continue;
+      await db.insert('workout_variant_group_selections_v2', {
+        'workout_variant_id': variantId,
+        'workout_group_id': groupId,
+        'group_variant_id': groupVariantId,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+
+    for (final entry in workoutIds.entries) {
+      final localWorkoutId = entry.key;
+      final workoutId = entry.value;
+      final hasSetup = await db.query(
+        'workout_variants_v2',
+        columns: const ['id'],
+        where: 'workout_id = ?',
+        whereArgs: [workoutId],
+        limit: 1,
+      );
+      if (hasSetup.isEmpty) {
+        await _createCanonicalDefaultSetup(
+          db,
+          workoutId: workoutId,
+          localWorkoutId: localWorkoutId,
+          exerciseIds: exerciseIds,
+        );
+      }
+    }
+
+    final assignments = await db.query(
+      'workout_day_assignments',
+      orderBy: 'dayOfWeek ASC, workoutId ASC',
+    );
+    final nextOrder = <int, int>{};
+    for (final row in assignments) {
+      final workoutId = workoutIds[(row['workoutId'] as num).toInt()];
+      if (workoutId == null) continue;
+      final weekday = (row['dayOfWeek'] as num).toInt();
+      final order = nextOrder.update(weekday, (value) => value + 1, ifAbsent: () => 0);
+      await db.insert('workout_weekly_schedule', {
+        'id': 'legacy-weekly:$workoutId:$weekday',
+        'workout_id': workoutId,
+        'weekday': weekday,
+        'sort_order': order,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+  }
+
+  static Future<void> _createCanonicalDefaultSetup(
+    Database db, {
+    required String workoutId,
+    required int localWorkoutId,
+    required Map<int, String> exerciseIds,
+  }) async {
+    final setupId = '$workoutId:setup:default';
+    final groupId = '$workoutId:group:main';
+    final groupVariantId = '$workoutId:group-variant:default';
+    await db.insert('workout_variants_v2', {
+      'id': setupId,
+      'workout_id': workoutId,
+      'name': 'Standard',
+      'is_default': 1,
+      'sort_order': 0,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('workout_groups_v2', {
+      'id': groupId,
+      'workout_id': workoutId,
+      'name': 'Main',
+      'sort_order': 0,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('workout_group_variants_v2', {
+      'id': groupVariantId,
+      'workout_group_id': groupId,
+      'name': 'Standard',
+      'sort_order': 0,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('workout_variant_group_selections_v2', {
+      'workout_variant_id': setupId,
+      'workout_group_id': groupId,
+      'group_variant_id': groupVariantId,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    final mappings = await db.query(
+      'exercises_in_workouts',
+      where: 'workoutId = ?',
+      whereArgs: [localWorkoutId],
+      orderBy: 'sort ASC',
+    );
+    for (var index = 0; index < mappings.length; index++) {
+      final localExerciseId = (mappings[index]['exerciseId'] as num).toInt();
+      final exerciseId = exerciseIds[localExerciseId];
+      if (exerciseId == null) continue;
+      await db.insert('workout_slots_v2', {
+        'id': '$workoutId:slot:$index',
+        'group_variant_id': groupVariantId,
+        'exercise_id': exerciseId,
+        'slot_kind': 'core',
+        'sort_order': index,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+  }
+
+  static List<String> _legacyGoalCodes(Object? raw, Object? fallback) {
+    final values = <String>[];
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) values.addAll(decoded.map((value) => '$value'));
+      } catch (_) {}
+    }
+    if (fallback is String && fallback.isNotEmpty) values.add(fallback);
+    final normalized = <String>[];
+    for (final value in values) {
+      final code = switch (value) {
+        'Kraft' || 'strength' => 'strength',
+        'Ausdauer' || 'endurance' => 'endurance',
+        'Cardio' || 'cardio' => 'cardio',
+        'Mobilität' || 'mobility' => 'mobility',
+        _ => null,
+      };
+      if (code != null && !normalized.contains(code)) normalized.add(code);
+    }
+    return normalized.isEmpty ? const ['strength'] : normalized;
+  }
+
+  static String _primaryGoal(Iterable<String> goals) {
+    for (final candidate in const ['strength', 'endurance', 'cardio', 'mobility']) {
+      if (goals.contains(candidate)) return candidate;
+    }
+    return 'strength';
+  }
+
+  static List<String> _statisticsGoals(String primary) =>
+      primary == 'endurance' ? const ['cardio', 'endurance'] : [primary];
+
+  static String _trackingModeForGoals(Iterable<String> goals) {
+    if (goals.contains('strength')) return 'strength';
+    if (goals.contains('cardio') || goals.contains('endurance')) return 'cardio';
+    if (goals.contains('mobility')) return 'mobility';
+    return 'mixed';
+  }
+
+  static Future<void> _replaceCanonicalTags(
+    DatabaseExecutor db, {
+    required String table,
+    required String idColumn,
+    required String entityId,
+    required Iterable<String> goals,
+  }) async {
+    await db.delete(table, where: '$idColumn = ?', whereArgs: [entityId]);
+    final normalized = goals.toSet().toList(growable: false);
+    for (var index = 0; index < normalized.length && index < 2; index++) {
+      await db.insert(table, {
+        idColumn: entityId,
+        'tag_code': normalized[index],
+        'position': index,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
   }
 
   /// Copies the transitional integer profile rows once into the UUID model.
@@ -378,6 +783,7 @@ abstract final class DatabaseSchemaV2 {
     )''',
     '''CREATE TABLE exercise_items(
       id TEXT PRIMARY KEY,
+      legacy_local_id INTEGER,
       source_type TEXT NOT NULL CHECK(source_type IN ('catalog','custom')),
       catalog_id TEXT UNIQUE,
       custom_name TEXT,
@@ -462,9 +868,12 @@ abstract final class DatabaseSchemaV2 {
     // Canonical workout/plan graph.
     '''CREATE TABLE workout_templates(
       id TEXT PRIMARY KEY,
+      legacy_local_id INTEGER,
       name TEXT NOT NULL CHECK(length(trim(name)) > 0),
       description TEXT NOT NULL DEFAULT '',
       icon_key TEXT,
+      primary_goal_code TEXT NOT NULL DEFAULT 'strength'
+        CHECK(primary_goal_code IN ('strength','endurance','cardio','mobility')),
       source_type TEXT NOT NULL DEFAULT 'custom' CHECK(source_type IN ('custom','generated')),
       is_archived INTEGER NOT NULL DEFAULT 0 CHECK(is_archived IN (0,1)),
       created_at_utc INTEGER NOT NULL,
@@ -479,6 +888,14 @@ abstract final class DatabaseSchemaV2 {
       FOREIGN KEY(workout_id) REFERENCES workout_templates(id) ON DELETE CASCADE,
       FOREIGN KEY(tag_code) REFERENCES tag_definitions(code) ON DELETE RESTRICT,
       CHECK(position = 1 OR tag_code IN ('strength','cardio','mobility'))
+    )''',
+    '''CREATE TABLE workout_weekly_schedule(
+      id TEXT PRIMARY KEY,
+      workout_id TEXT NOT NULL,
+      weekday INTEGER NOT NULL CHECK(weekday BETWEEN 1 AND 7),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(workout_id, weekday),
+      FOREIGN KEY(workout_id) REFERENCES workout_templates(id) ON DELETE CASCADE
     )''',
     '''CREATE TABLE workout_variants_v2(
       id TEXT PRIMARY KEY,
@@ -874,6 +1291,7 @@ abstract final class DatabaseSchemaV2 {
     'CREATE INDEX idx_profile_equipment_profile ON training_profile_equipment(profile_id)',
     'CREATE INDEX idx_selected_profile_profile ON selected_training_profile(profile_id)',
     'CREATE INDEX idx_exercise_tags_exercise ON exercise_tags(exercise_id)',
+    'CREATE UNIQUE INDEX idx_exercise_items_legacy_local ON exercise_items(legacy_local_id) WHERE legacy_local_id IS NOT NULL',
     'CREATE INDEX idx_exercise_tags_tag ON exercise_tags(tag_code)',
     'CREATE INDEX idx_metric_configs_exercise ON exercise_metric_configs(exercise_id)',
     'CREATE INDEX idx_metric_configs_metric ON exercise_metric_configs(metric_code)',
@@ -884,6 +1302,9 @@ abstract final class DatabaseSchemaV2 {
     'CREATE INDEX idx_redirects_target ON exercise_redirects_v2(target_exercise_id)',
     'CREATE UNIQUE INDEX idx_redirects_active_source ON exercise_redirects_v2(source_exercise_id) WHERE undone_at_utc IS NULL',
     'CREATE INDEX idx_workout_tags_workout ON workout_tags(workout_id)',
+    'CREATE UNIQUE INDEX idx_workout_templates_legacy_local ON workout_templates(legacy_local_id) WHERE legacy_local_id IS NOT NULL',
+    'CREATE INDEX idx_weekly_schedule_workout ON workout_weekly_schedule(workout_id)',
+    'CREATE INDEX idx_weekly_schedule_day_order ON workout_weekly_schedule(weekday, sort_order, id)',
     'CREATE INDEX idx_workout_tags_tag ON workout_tags(tag_code)',
     'CREATE INDEX idx_variants_workout ON workout_variants_v2(workout_id)',
     'CREATE INDEX idx_variants_profile ON workout_variants_v2(profile_id)',

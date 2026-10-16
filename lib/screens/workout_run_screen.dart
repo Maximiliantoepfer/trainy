@@ -20,7 +20,6 @@ import 'workout_success_screen.dart';
 import '../l10n/l10n.dart';
 import '../services/workout_plan_database.dart';
 import '../repositories/activity_repository.dart';
-import '../repositories/training_profile_repository.dart';
 import '../widgets/modal_form_dialogs.dart';
 
 class WorkoutRunScreen extends StatefulWidget {
@@ -29,6 +28,9 @@ class WorkoutRunScreen extends StatefulWidget {
   final bool autoStart;
   final int? workoutVariantId;
   final int? profileId;
+  final String? canonicalWorkoutSetupId;
+  final String? canonicalProfileId;
+  final bool persistLegacyPlanSelections;
   final List<int?> workoutSlotIds;
   final Map<int, List<Exercise>> slotAlternatives;
   final Map<int, int> initialSlotSelections;
@@ -44,6 +46,9 @@ class WorkoutRunScreen extends StatefulWidget {
     this.autoStart = false,
     this.workoutVariantId,
     this.profileId,
+    this.canonicalWorkoutSetupId,
+    this.canonicalProfileId,
+    this.persistLegacyPlanSelections = true,
     this.workoutSlotIds = const [],
     this.slotAlternatives = const {},
     this.initialSlotSelections = const {},
@@ -174,7 +179,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       ..updateExercises(_exercises)
       ..selectGroupVariant(group.workoutGroupId, groupVariantId);
     final sessionId = active.sessionId;
-    if (sessionId != null) {
+    if (sessionId != null && widget.persistLegacyPlanSelections) {
       await WorkoutPlanDatabase.instance.selectSessionGroupVariant(
         sessionId: sessionId,
         workoutGroupId: group.workoutGroupId,
@@ -270,7 +275,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     active.updateExercises(_exercises);
     active.setEnabledOptionalSlotIds(_enabledOptionalSlotIds);
     final sessionId = active.sessionId;
-    if (sessionId != null) {
+    if (sessionId != null && widget.persistLegacyPlanSelections) {
       for (final slotId in _workoutSlotIds.whereType<int>()) {
         final exerciseId = _slotSelections[slotId];
         if (exerciseId == null) continue;
@@ -300,11 +305,14 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
             ),
         ];
         final selectedProfile =
-            widget.profileId != null
+            widget.canonicalProfileId ??
+            (widget.profileId != null
                 ? 'legacy-profile:${widget.profileId}'
-                : await TrainingProfileRepository().selectedProfileId();
+                : null);
         final persisted = await ActivityRepository().startWorkoutActivity(
           localWorkoutId: widget.workout.id,
+          workoutId: widget.workout.canonicalId,
+          workoutVariantId: widget.canonicalWorkoutSetupId,
           nameSnapshot: widget.workout.name,
           activityType: _activityTypeForGoals(goals),
           tags: goals,
@@ -312,15 +320,17 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
           items: itemSnapshots,
         );
         stagedActivitySessionId = persisted.sessionId;
-        final session = await WorkoutPlanDatabase.instance.createSession(
-          workoutId: widget.workout.id,
-          executedExerciseIds:
-              _exercises.map((exercise) => exercise.id).toList(),
-          workoutVariantId: widget.workoutVariantId,
-          profileId: widget.profileId,
-          groupSelections: _groupSelections,
-          slotSelections: _slotSelections,
-        );
+        final session = widget.persistLegacyPlanSelections
+            ? await WorkoutPlanDatabase.instance.createSession(
+                workoutId: widget.workout.id,
+                executedExerciseIds:
+                    _exercises.map((exercise) => exercise.id).toList(),
+                workoutVariantId: widget.workoutVariantId,
+                profileId: widget.profileId,
+                groupSelections: _groupSelections,
+                slotSelections: _slotSelections,
+              )
+            : null;
         if (!mounted) {
           await ActivityRepository().discardSession(persisted.sessionId);
           return;
@@ -328,7 +338,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
         active.start(
           workout: widget.workout,
           exercises: _exercises,
-          sessionId: session.id,
+          sessionId: session?.id,
           workoutVariantId: widget.workoutVariantId,
           profileId: widget.profileId,
           groupSelections: _groupSelections,
@@ -671,7 +681,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       ..selectSlotExercise(slotId, next.id);
     await active.ensurePersistedExercise(next);
     final sessionId = active.sessionId;
-    if (sessionId != null) {
+    if (sessionId != null && widget.persistLegacyPlanSelections) {
       await WorkoutPlanDatabase.instance.selectSessionSlotExercise(
         sessionId: sessionId,
         workoutSlotId: slotId,

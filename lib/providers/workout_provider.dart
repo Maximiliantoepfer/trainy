@@ -1,117 +1,150 @@
 import 'package:flutter/material.dart';
+
 import '../models/workout.dart';
-import '../services/workout_database.dart';
+import '../models/workout_planning.dart';
+import '../repositories/workout_planning_repository.dart';
 
+/// UI state for canonical workout planning. Widgets never write the legacy
+/// integer tables directly; the repository owns the temporary runner bridge.
 class WorkoutProvider extends ChangeNotifier {
-  List<Workout> _workouts = [];
-  bool _isLoading = false;
+  WorkoutProvider({WorkoutPlanningRepository? repository})
+    : _repository = repository ?? WorkoutPlanningRepository();
 
-  List<Workout> get workouts => _workouts;
+  final WorkoutPlanningRepository _repository;
+  List<Workout> _workouts = const [];
+  bool _isLoading = false;
+  Object? _error;
+
+  List<Workout> get workouts => List.unmodifiable(_workouts);
   bool get isLoading => _isLoading;
+  Object? get error => _error;
 
   Future<void> loadWorkouts() async {
     _isLoading = true;
+    _error = null;
     notifyListeners();
     try {
-      _workouts = await WorkoutDatabase.instance.getAllWorkouts();
+      _workouts = await _repository.workouts();
+    } catch (error) {
+      _error = error;
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> addOrUpdateWorkout(Workout workout) async {
-    await WorkoutDatabase.instance.upsertWorkout(workout);
-    final idx = _workouts.indexWhere((w) => w.id == workout.id);
-    if (idx >= 0) {
-      _workouts[idx] = workout;
-    } else {
-      _workouts.add(workout);
-      _workouts.sort(
-        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-      );
-    }
-    notifyListeners();
-  }
-
-  Future<Workout> createWorkout({required String name}) async {
-    // Prüfen ob ein archiviertes Workout mit gleichem Namen existiert
-    final archived = await WorkoutDatabase.instance.findArchivedByName(name);
-    if (archived != null) {
-      await WorkoutDatabase.instance.unarchiveWorkout(archived.id);
-      final w = Workout(
-        id: archived.id,
+  Future<Workout> createWorkout({
+    required String name,
+    String description = '',
+    WorkoutPrimaryGoal primaryGoal = WorkoutPrimaryGoal.strength,
+    String setupName = 'Standard',
+    String? profileId,
+    List<int> exerciseIds = const [],
+  }) async {
+    final workout = await _repository.createWorkout(
+      WorkoutEditorDraft(
         name: name,
-        description: '',
-        exerciseIds: const [],
-      );
-      await WorkoutDatabase.instance.upsertWorkout(w);
-      _workouts.add(w);
-      _workouts.sort(
-        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-      );
-      notifyListeners();
-      return w;
-    }
-
-    final w = Workout(
-      id: DateTime.now().millisecondsSinceEpoch,
-      name: name,
-      description: '',
-      exerciseIds: const [],
+        description: description,
+        primaryGoal: primaryGoal,
+        setupName: setupName,
+        profileId: profileId,
+        exerciseIds: exerciseIds,
+      ),
     );
-    await addOrUpdateWorkout(w);
-    return w;
+    _workouts = [..._workouts, workout]
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    notifyListeners();
+    return workout;
   }
 
-  Future<void> updateWorkoutName(int workoutId, String newName) async {
-    await WorkoutDatabase.instance.updateWorkoutName(workoutId, newName);
-    final idx = _workouts.indexWhere((w) => w.id == workoutId);
-    if (idx >= 0) {
-      _workouts[idx] = _workouts[idx].copyWith(name: newName);
-      notifyListeners();
-    }
+  Future<void> updateWorkoutName(int workoutId, String name) async {
+    final workout = _find(workoutId);
+    await _repository.updateBasics(workout: workout, name: name);
+    _replace(workout.copyWith(name: name.trim()));
+  }
+
+  Future<void> updateWorkoutBasics({
+    required Workout workout,
+    required String name,
+    String? description,
+    WorkoutPrimaryGoal? primaryGoal,
+  }) async {
+    await _repository.updateBasics(
+      workout: workout,
+      name: name,
+      description: description,
+      primaryGoal: primaryGoal,
+    );
+    _replace(
+      workout.copyWith(
+        name: name.trim(),
+        description: description,
+        primaryGoalCode: primaryGoal?.code,
+      ),
+    );
   }
 
   Future<void> setWorkoutExercises(int workoutId, List<int> exerciseIds) async {
-    await WorkoutDatabase.instance.setWorkoutExercises(workoutId, exerciseIds);
-    final idx = _workouts.indexWhere((w) => w.id == workoutId);
-    if (idx >= 0) {
-      _workouts[idx] = _workouts[idx].copyWith(
-        exerciseIds: List<int>.from(exerciseIds),
-      );
-      notifyListeners();
-    }
+    final workout = _find(workoutId);
+    await _repository.replaceDefaultExercises(
+      workoutId: workout.canonicalId,
+      exerciseIds: exerciseIds,
+    );
+    _replace(workout.copyWith(exerciseIds: exerciseIds));
   }
 
   Future<void> setWorkoutDays(int workoutId, Set<int> days) async {
-    await WorkoutDatabase.instance.setWorkoutDays(workoutId, days);
-    final idx = _workouts.indexWhere((w) => w.id == workoutId);
-    if (idx >= 0) {
-      _workouts[idx] = _workouts[idx].copyWith(assignedDays: days);
-      notifyListeners();
-    }
+    final workout = _find(workoutId);
+    await _repository.replaceWorkoutDays(
+      workoutId: workout.canonicalId,
+      weekdays: days,
+    );
+    await loadWorkouts();
   }
 
-  Future<void> setWorkoutGoalCodes(
-    int workoutId,
-    List<String> goalCodes,
-  ) async {
-    await WorkoutDatabase.instance.setWorkoutGoalCodes(workoutId, goalCodes);
-    final index = _workouts.indexWhere((workout) => workout.id == workoutId);
-    if (index >= 0) {
-      _workouts[index] = _workouts[index].copyWith(goalCodes: goalCodes);
-      notifyListeners();
-    }
+  /// Compatibility command for callers that still hand over multiple labels.
+  /// A workout now has one visible primary goal, selected deterministically.
+  Future<void> setWorkoutGoalCodes(int workoutId, List<String> values) async {
+    const priority = ['strength', 'endurance', 'cardio', 'mobility'];
+    final goal = priority.firstWhere(
+      values.contains,
+      orElse: () => 'strength',
+    );
+    final workout = _find(workoutId);
+    await _repository.updateBasics(
+      workout: workout,
+      name: workout.name,
+      primaryGoal: WorkoutPrimaryGoal.fromCode(goal),
+    );
+    _replace(workout.copyWith(primaryGoalCode: goal));
   }
 
-  List<Workout> workoutsForDay(int dayOfWeek) {
-    return _workouts.where((w) => w.assignedDays.contains(dayOfWeek)).toList();
-  }
+  List<Workout> workoutsForDay(int dayOfWeek) =>
+      _workouts.where((workout) => workout.assignedDays.contains(dayOfWeek)).toList()
+        ..sort((a, b) {
+          final order = (a.scheduleOrderByDay[dayOfWeek] ?? 0).compareTo(
+            b.scheduleOrderByDay[dayOfWeek] ?? 0,
+          );
+          return order != 0 ? order : a.name.compareTo(b.name);
+        });
 
   Future<void> deleteWorkout(int workoutId) async {
-    await WorkoutDatabase.instance.deleteWorkout(workoutId);
-    _workouts.removeWhere((w) => w.id == workoutId);
+    final workout = _find(workoutId);
+    await _repository.archiveWorkout(workout);
+    _workouts = _workouts.where((value) => value.id != workoutId).toList();
+    notifyListeners();
+  }
+
+  Workout _find(int workoutId) => _workouts.firstWhere(
+    (workout) => workout.id == workoutId,
+    orElse: () => throw StateError('Workout no longer exists.'),
+  );
+
+  void _replace(Workout next) {
+    _workouts = _workouts
+        .map((workout) => workout.id == next.id ? next : workout)
+        .toList(growable: false);
     notifyListeners();
   }
 }
