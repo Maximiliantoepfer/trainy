@@ -8,7 +8,7 @@ Eine native Flutter-App für Android und iOS zum Erstellen, Durchführen und Aus
 
 - **Workout-Management** – Workouts erstellen, Übungen per Drag & Drop sortieren
 - **Live-Session** – Timer und lokales Set-by-Set-Autosave mit Wiederherstellung nach einem Prozessabbruch
-- **Übungsbibliothek** – 876 mitgelieferte Offline-Übungen, eigene Übungen, gemeinsame Suche und Ziel-/Profilfilter
+- **Übungsbibliothek** – 883 mitgelieferte Offline-Übungen, eigene Übungen, gemeinsame Suche und Ziel-/Profil-/Quellenfilter
 - **Fortschritts-Auswertung** – Charts, Wochenziel, Trainingskalender, Session-Details
 - **Cloud-Backup** – Google Sign-In → geprüftes v2-ZIP in Firebase Storage
 - **Individuelles Theme** – Light/Dark/System + freie Akzentfarbenauswahl
@@ -265,22 +265,36 @@ diese lokale Speicherung nicht.
 
 - Quelle: Free Exercise DB, fest auf Commit
   `a859101d633a01c4a1a920d6a8ce41dabba0705f` gepinnt (Unlicense)
-- Inhalt: exakt 876 Standardübungen sowie fünf getrennte grobe Trainy-
-  Aktivitäten für Laufen, Gehen, Radfahren, Schwimmen und Intervalllauf
-- Medien: 873 lokale Übungscover plus ein lokales Ersatzbild als WebP; kein
-  Download zur Laufzeit
-- Sprache: englische Originaltexte sind vollständig. Redaktionell geprüfte
-  deutsche Felder werden bevorzugt; andernfalls wird sichtbar und im Manifest
-  nachvollziehbar auf Englisch zurückgefallen.
+- Inhalt: 876 Free-DB-Einträge plus sieben kuratierte Trainy-Einträge. Kraft,
+  Cardio, Ausdauer und Mobilität erscheinen in einer gemeinsamen Bibliothek.
+- Medien: ausschließlich projekt-eigene oder im Medienmanifest einzeln als
+  CC0/CC-BY belegte lokale Covers. Die ungeklärten Free-DB-Fotos werden nicht
+  in die App gepackt; es gibt keinen Download zur Laufzeit.
+- Sprache: englische Originaltexte sind vollständig. Der Release-Import
+  erzeugt den vollständigen deutschen Katalog über DeepL mit versioniertem
+  Fitnessglossar, Quell-Hash-Cache und struktureller Validierung.
 - Datenhaltung: Assets bleiben unveränderliche Standarddaten. Erst beim
   Hinzufügen zu einem Workout wird eine Katalogübung lokal materialisiert.
   Eigene Übungen liegen daneben in SQLite und werden nie automatisch gemergt.
 
-Die Bibliothek zeigt Standard- und eigene Übungen gemeinsam. Suche, Zielchips
-(`Kraft`, `Cardio`, `Ausdauer`, `Mobilität`) und ein optionaler Equipmentfilter
-für das gewählte Trainingsprofil werden kombiniert angewandt. Grobe
-Ausdaueraktivitäten stehen in einem eigenen Aktivitätsbereich; Mobilität
-enthält konkrete Übungen statt einer unspezifischen „Mobilitätseinheit“.
+Die Bibliothek zeigt Standard- und eigene Übungen gemeinsam. Die gewichtete
+DE/EN-Suche normalisiert Bindestriche, Leerzeichen, Umlaute und häufige
+Pluralformen. Label, Trainingsprofil und Quelle sind unabhängige Filter; die
+Auswahl eines Bibliotheksprofils ändert niemals das Standardprofil in den
+Einstellungen.
+
+Der DeepL-Schlüssel bleibt ausschließlich in der lokalen Umgebung:
+
+```powershell
+$env:DEEPL_AUTH_KEY = '<lokaler Schlüssel>'
+dart run tool/apply_catalog_release.dart
+dart run tool/translate_catalog_de.dart
+```
+
+Das Tool prüft das Zeichenkontingent vor der ersten Übersetzung, cached nach
+Quell-Hash und ersetzt `catalog_de.json` samt Manifest erst nach vollständiger
+Validierung. `tool/apply_catalog_release.dart` wendet zuvor Essentials,
+Bewegungsfamilien und das lizenzsichere Medienmanifest reproduzierbar an.
 
 ---
 
