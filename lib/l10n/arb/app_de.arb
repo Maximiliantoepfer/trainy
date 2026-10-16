@@ -84,6 +84,8 @@
   "editExercise": "Übung bearbeiten",
   "exerciseName": "Übungsname",
   "description": "Beschreibung",
+  "optionalDescription": "Beschreibung (optional)",
+  "localSaveFailed": "Lokal speichern fehlgeschlagen. Deine Eingaben bleiben für einen erneuten Versuch erhalten.",
   "optional": "optional",
   "exerciseGoal": "Trainingsziel",
   "standard": "Standard",
@@ -104,7 +106,7 @@
   "exerciseArchived": "Übung archiviert; der Trainingsverlauf bleibt unverändert",
   "archive": "Archivieren",
   "undo": "Rückgängig",
-  "trainingProfile": "Trainingsprofil",
+  "trainingProfile": "Profil",
   "workoutVariant": "Workout-Variante",
   "standardVariant": "Standard",
   "createVariant": "Variante erstellen",
@@ -141,13 +143,13 @@
   "equipmentCardioMachine": "Cardiogerät",
   "equipmentOther": "Sonstiges",
   "noEquipmentSelected": "Kein Equipment ausgewählt",
-  "trainingProfileDescription": "Wähle das Equipment an deinem bevorzugten Trainingsort.",
-  "addTrainingProfile": "Trainingsprofil hinzufügen",
-  "editTrainingProfile": "Trainingsprofil bearbeiten",
+  "trainingProfileDescription": "Verwalte deine Trainingsorte und ihr Equipment.",
+  "addTrainingProfile": "Neues Profil",
+  "editTrainingProfile": "Profil bearbeiten",
   "archiveProfile": "Profil archivieren?",
-  "archiveProfileDescription": "\"{name}\" wird nicht mehr als Trainingsprofil angeboten. Bestehende Einheiten bleiben unverändert.",
+  "archiveProfileDescription": "\"{name}\" wird nicht mehr als Profil angeboten. Bestehende Einheiten bleiben unverändert.",
   "@archiveProfileDescription": {"placeholders": {"name": {"type": "String"}}},
-  "profileLoadFailed": "Die Trainingsprofile konnten nicht geladen werden.",
+  "profileLoadFailed": "Die Profile konnten nicht geladen werden.",
   "profileOperationFailed": "Profilaktion fehlgeschlagen ({operation}). Bitte erneut versuchen.",
   "@profileOperationFailed": {"placeholders": {"operation": {"type": "String"}}},
   "bodyweight": "Körpergewicht",
@@ -392,15 +394,15 @@
   "equipmentBicycle": "Fahrrad",
   "equipmentPool": "Schwimmbecken",
   "workoutBasics": "Grundlagen",
-  "workoutSetup": "Setup",
+  "workoutSetup": "Profil",
   "workoutExercises": "Übungen",
   "choosePrimaryGoal": "Wähle das Hauptziel dieses Workouts",
   "primaryGoal": "Hauptziel",
-  "setupName": "Setup-Name",
-  "withoutProfile": "Ohne Trainingsprofil",
-  "createSetup": "Setup hinzufügen",
-  "selectSetup": "Setup auswählen",
-  "setups": "Setups",
+  "setupName": "Profilname",
+  "withoutProfile": "Ohne Profil",
+  "createSetup": "Profil hinzufügen",
+  "selectSetup": "Profil auswählen",
+  "setups": "Profile",
   "weeklyPlanner": "Wochenplan",
   "editWeeklyPlanner": "Wochenplan bearbeiten",
   "addToWeeklyPlanner": "In Wochenplan eintragen",
@@ -422,16 +424,16 @@
   "next": "Weiter",
   "back": "Zurück",
   "saveWorkout": "Workout speichern",
-  "noSetups": "Noch kein Setup angelegt",
+  "noSetups": "Noch kein Profil angelegt",
   "setupExercisesCount": "{count, plural, =0{Keine Übungen} =1{1 Übung} other{{count} Übungen}}",
   "@setupExercisesCount": {"placeholders": {"count": {"type": "int"}}},
   "plannedWorkouts": "Geplante Workouts",
   "dayDetails": "Tagesübersicht",
   "workoutAlreadyPlanned": "Dieses Workout ist an diesem Tag bereits geplant."
-  ,"defaultSetup": "Standard-Setup"
-  ,"chooseSetupProfile": "Für welche Trainingsumgebung ist dieses Setup?"
+  ,"defaultSetup": "Standard"
+  ,"chooseSetupProfile": "Wähle ein Profil für diese Trainingsumgebung."
   ,"profileSetup": "Dieses Profil verwenden"
-  ,"makeDefaultSetup": "Als Standard-Setup festlegen"
+  ,"makeDefaultSetup": "Als Standard festlegen"
   ,"warmupGroup": "Aufwärmen"
   ,"coreExercisesGroup": "Kernübungen"
   ,"cooldownGroup": "Cooldown"

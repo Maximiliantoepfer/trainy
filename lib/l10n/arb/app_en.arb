@@ -84,6 +84,8 @@
   "editExercise": "Edit exercise",
   "exerciseName": "Exercise name",
   "description": "Description",
+  "optionalDescription": "Description (optional)",
+  "localSaveFailed": "Could not save locally. Your input is kept for another attempt.",
   "optional": "optional",
   "exerciseGoal": "Training goal",
   "standard": "Standard",
@@ -104,7 +106,7 @@
   "exerciseArchived": "Exercise archived; workout history stays unchanged",
   "archive": "Archive",
   "undo": "Undo",
-  "trainingProfile": "Training profile",
+  "trainingProfile": "Profile",
   "workoutVariant": "Workout variant",
   "standardVariant": "Standard",
   "createVariant": "Create variant",
@@ -141,13 +143,13 @@
   "equipmentCardioMachine": "Cardio machine",
   "equipmentOther": "Other",
   "noEquipmentSelected": "No equipment selected",
-  "trainingProfileDescription": "Choose the equipment available for your default training location.",
-  "addTrainingProfile": "Add training profile",
-  "editTrainingProfile": "Edit training profile",
+  "trainingProfileDescription": "Manage your training locations and their equipment.",
+  "addTrainingProfile": "New profile",
+  "editTrainingProfile": "Edit profile",
   "archiveProfile": "Archive profile?",
-  "archiveProfileDescription": "\"{name}\" will no longer be offered as a training profile. Existing sessions remain unchanged.",
+  "archiveProfileDescription": "\"{name}\" will no longer be offered as a profile. Existing sessions remain unchanged.",
   "@archiveProfileDescription": {"placeholders": {"name": {"type": "String"}}},
-  "profileLoadFailed": "Training profiles could not be loaded.",
+  "profileLoadFailed": "Profiles could not be loaded.",
   "profileOperationFailed": "Profile operation failed ({operation}). Please retry.",
   "@profileOperationFailed": {"placeholders": {"operation": {"type": "String"}}},
   "bodyweight": "Bodyweight",
@@ -392,15 +394,15 @@
   "equipmentBicycle": "Bicycle",
   "equipmentPool": "Swimming pool",
   "workoutBasics": "Basics",
-  "workoutSetup": "Setup",
+  "workoutSetup": "Profile",
   "workoutExercises": "Exercises",
   "choosePrimaryGoal": "Choose this workout's primary goal",
   "primaryGoal": "Primary goal",
-  "setupName": "Setup name",
-  "withoutProfile": "No training profile",
-  "createSetup": "Add setup",
-  "selectSetup": "Choose setup",
-  "setups": "Setups",
+  "setupName": "Profile name",
+  "withoutProfile": "No profile",
+  "createSetup": "Add profile",
+  "selectSetup": "Choose profile",
+  "setups": "Profiles",
   "weeklyPlanner": "Weekly planner",
   "editWeeklyPlanner": "Edit weekly planner",
   "addToWeeklyPlanner": "Add to weekly planner",
@@ -422,16 +424,16 @@
   "next": "Next",
   "back": "Back",
   "saveWorkout": "Save workout",
-  "noSetups": "No setup yet",
+  "noSetups": "No profile yet",
   "setupExercisesCount": "{count, plural, =0{No exercises} =1{1 exercise} other{{count} exercises}}",
   "@setupExercisesCount": {"placeholders": {"count": {"type": "int"}}},
   "plannedWorkouts": "Planned workouts",
   "dayDetails": "Day overview",
   "workoutAlreadyPlanned": "This workout is already planned for this day."
-  ,"defaultSetup": "Default setup"
-  ,"chooseSetupProfile": "Which training environment is this setup for?"
+  ,"defaultSetup": "Default"
+  ,"chooseSetupProfile": "Choose a profile for this training environment."
   ,"profileSetup": "Use this profile"
-  ,"makeDefaultSetup": "Make default setup"
+  ,"makeDefaultSetup": "Make default"
   ,"warmupGroup": "Warm-up"
   ,"coreExercisesGroup": "Main exercises"
   ,"cooldownGroup": "Cooldown"

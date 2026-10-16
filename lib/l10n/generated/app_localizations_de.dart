@@ -258,6 +258,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get description => 'Beschreibung';
 
   @override
+  String get optionalDescription => 'Beschreibung (optional)';
+
+  @override
+  String get localSaveFailed => 'Lokal speichern fehlgeschlagen. Deine Eingaben bleiben für einen erneuten Versuch erhalten.';
+
+  @override
   String get optional => 'optional';
 
   @override
@@ -317,7 +323,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get undo => 'Rückgängig';
 
   @override
-  String get trainingProfile => 'Trainingsprofil';
+  String get trainingProfile => 'Profil';
 
   @override
   String get workoutVariant => 'Workout-Variante';
@@ -428,24 +434,24 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noEquipmentSelected => 'Kein Equipment ausgewählt';
 
   @override
-  String get trainingProfileDescription => 'Wähle das Equipment an deinem bevorzugten Trainingsort.';
+  String get trainingProfileDescription => 'Verwalte deine Trainingsorte und ihr Equipment.';
 
   @override
-  String get addTrainingProfile => 'Trainingsprofil hinzufügen';
+  String get addTrainingProfile => 'Neues Profil';
 
   @override
-  String get editTrainingProfile => 'Trainingsprofil bearbeiten';
+  String get editTrainingProfile => 'Profil bearbeiten';
 
   @override
   String get archiveProfile => 'Profil archivieren?';
 
   @override
   String archiveProfileDescription(String name) {
-    return '\"$name\" wird nicht mehr als Trainingsprofil angeboten. Bestehende Einheiten bleiben unverändert.';
+    return '\"$name\" wird nicht mehr als Profil angeboten. Bestehende Einheiten bleiben unverändert.';
   }
 
   @override
-  String get profileLoadFailed => 'Die Trainingsprofile konnten nicht geladen werden.';
+  String get profileLoadFailed => 'Die Profile konnten nicht geladen werden.';
 
   @override
   String profileOperationFailed(String operation) {
@@ -1261,7 +1267,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get workoutBasics => 'Grundlagen';
 
   @override
-  String get workoutSetup => 'Setup';
+  String get workoutSetup => 'Profil';
 
   @override
   String get workoutExercises => 'Übungen';
@@ -1273,19 +1279,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get primaryGoal => 'Hauptziel';
 
   @override
-  String get setupName => 'Setup-Name';
+  String get setupName => 'Profilname';
 
   @override
-  String get withoutProfile => 'Ohne Trainingsprofil';
+  String get withoutProfile => 'Ohne Profil';
 
   @override
-  String get createSetup => 'Setup hinzufügen';
+  String get createSetup => 'Profil hinzufügen';
 
   @override
-  String get selectSetup => 'Setup auswählen';
+  String get selectSetup => 'Profil auswählen';
 
   @override
-  String get setups => 'Setups';
+  String get setups => 'Profile';
 
   @override
   String get weeklyPlanner => 'Wochenplan';
@@ -1335,7 +1341,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get saveWorkout => 'Workout speichern';
 
   @override
-  String get noSetups => 'Noch kein Setup angelegt';
+  String get noSetups => 'Noch kein Profil angelegt';
 
   @override
   String setupExercisesCount(int count) {
@@ -1359,16 +1365,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get workoutAlreadyPlanned => 'Dieses Workout ist an diesem Tag bereits geplant.';
 
   @override
-  String get defaultSetup => 'Standard-Setup';
+  String get defaultSetup => 'Standard';
 
   @override
-  String get chooseSetupProfile => 'Für welche Trainingsumgebung ist dieses Setup?';
+  String get chooseSetupProfile => 'Wähle ein Profil für diese Trainingsumgebung.';
 
   @override
   String get profileSetup => 'Dieses Profil verwenden';
 
   @override
-  String get makeDefaultSetup => 'Als Standard-Setup festlegen';
+  String get makeDefaultSetup => 'Als Standard festlegen';
 
   @override
   String get warmupGroup => 'Aufwärmen';

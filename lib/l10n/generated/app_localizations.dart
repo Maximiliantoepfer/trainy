@@ -569,6 +569,18 @@ abstract class AppLocalizations {
   /// **'Description'**
   String get description;
 
+  /// No description provided for @optionalDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (optional)'**
+  String get optionalDescription;
+
+  /// No description provided for @localSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save locally. Your input is kept for another attempt.'**
+  String get localSaveFailed;
+
   /// No description provided for @optional.
   ///
   /// In en, this message translates to:
@@ -686,7 +698,7 @@ abstract class AppLocalizations {
   /// No description provided for @trainingProfile.
   ///
   /// In en, this message translates to:
-  /// **'Training profile'**
+  /// **'Profile'**
   String get trainingProfile;
 
   /// No description provided for @workoutVariant.
@@ -908,19 +920,19 @@ abstract class AppLocalizations {
   /// No description provided for @trainingProfileDescription.
   ///
   /// In en, this message translates to:
-  /// **'Choose the equipment available for your default training location.'**
+  /// **'Manage your training locations and their equipment.'**
   String get trainingProfileDescription;
 
   /// No description provided for @addTrainingProfile.
   ///
   /// In en, this message translates to:
-  /// **'Add training profile'**
+  /// **'New profile'**
   String get addTrainingProfile;
 
   /// No description provided for @editTrainingProfile.
   ///
   /// In en, this message translates to:
-  /// **'Edit training profile'**
+  /// **'Edit profile'**
   String get editTrainingProfile;
 
   /// No description provided for @archiveProfile.
@@ -932,13 +944,13 @@ abstract class AppLocalizations {
   /// No description provided for @archiveProfileDescription.
   ///
   /// In en, this message translates to:
-  /// **'\"{name}\" will no longer be offered as a training profile. Existing sessions remain unchanged.'**
+  /// **'\"{name}\" will no longer be offered as a profile. Existing sessions remain unchanged.'**
   String archiveProfileDescription(String name);
 
   /// No description provided for @profileLoadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Training profiles could not be loaded.'**
+  /// **'Profiles could not be loaded.'**
   String get profileLoadFailed;
 
   /// No description provided for @profileOperationFailed.
@@ -2246,7 +2258,7 @@ abstract class AppLocalizations {
   /// No description provided for @workoutSetup.
   ///
   /// In en, this message translates to:
-  /// **'Setup'**
+  /// **'Profile'**
   String get workoutSetup;
 
   /// No description provided for @workoutExercises.
@@ -2270,31 +2282,31 @@ abstract class AppLocalizations {
   /// No description provided for @setupName.
   ///
   /// In en, this message translates to:
-  /// **'Setup name'**
+  /// **'Profile name'**
   String get setupName;
 
   /// No description provided for @withoutProfile.
   ///
   /// In en, this message translates to:
-  /// **'No training profile'**
+  /// **'No profile'**
   String get withoutProfile;
 
   /// No description provided for @createSetup.
   ///
   /// In en, this message translates to:
-  /// **'Add setup'**
+  /// **'Add profile'**
   String get createSetup;
 
   /// No description provided for @selectSetup.
   ///
   /// In en, this message translates to:
-  /// **'Choose setup'**
+  /// **'Choose profile'**
   String get selectSetup;
 
   /// No description provided for @setups.
   ///
   /// In en, this message translates to:
-  /// **'Setups'**
+  /// **'Profiles'**
   String get setups;
 
   /// No description provided for @weeklyPlanner.
@@ -2390,7 +2402,7 @@ abstract class AppLocalizations {
   /// No description provided for @noSetups.
   ///
   /// In en, this message translates to:
-  /// **'No setup yet'**
+  /// **'No profile yet'**
   String get noSetups;
 
   /// No description provided for @setupExercisesCount.
@@ -2420,13 +2432,13 @@ abstract class AppLocalizations {
   /// No description provided for @defaultSetup.
   ///
   /// In en, this message translates to:
-  /// **'Default setup'**
+  /// **'Default'**
   String get defaultSetup;
 
   /// No description provided for @chooseSetupProfile.
   ///
   /// In en, this message translates to:
-  /// **'Which training environment is this setup for?'**
+  /// **'Choose a profile for this training environment.'**
   String get chooseSetupProfile;
 
   /// No description provided for @profileSetup.
@@ -2438,7 +2450,7 @@ abstract class AppLocalizations {
   /// No description provided for @makeDefaultSetup.
   ///
   /// In en, this message translates to:
-  /// **'Make default setup'**
+  /// **'Make default'**
   String get makeDefaultSetup;
 
   /// No description provided for @warmupGroup.

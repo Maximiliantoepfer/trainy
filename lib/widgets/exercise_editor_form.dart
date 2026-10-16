@@ -55,6 +55,7 @@ class ExerciseEditorForm extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
+          key: const ValueKey('exerciseName'),
           controller: nameCtrl,
           decoration: InputDecoration(
             labelText: l10n.exerciseName,
@@ -68,9 +69,12 @@ class ExerciseEditorForm extends StatelessWidget {
           controller: descCtrl,
           decoration: InputDecoration(
             labelText: '${l10n.description} (${l10n.optional})',
+            alignLabelWithHint: true,
+            floatingLabelBehavior: FloatingLabelBehavior.always,
           ),
-          minLines: 1,
-          maxLines: 3,
+          textAlignVertical: TextAlignVertical.top,
+          minLines: 2,
+          maxLines: 4,
         ),
 
         // Trainingsziel

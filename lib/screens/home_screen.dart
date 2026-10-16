@@ -129,9 +129,9 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() => _selectedWorkoutId = null);
       return;
     }
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => WorkoutDetailScreen(workout: workout)));
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => WorkoutDetailScreen(workout: workout)),
+    );
     if (!mounted) return;
     await context.read<WorkoutProvider>().loadWorkouts();
   }
@@ -377,7 +377,11 @@ class _HomeScreenState extends State<HomeScreen>
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (workouts.isEmpty)
-              _EmptyState(onCreateWorkout: _createWorkout)
+              Padding(
+                key: const ValueKey('emptyWorkoutsSpacing'),
+                padding: const EdgeInsets.only(top: 32),
+                child: _EmptyState(onCreateWorkout: _createWorkout),
+              )
             else
               ...List.generate(workouts.length, (i) {
                 final w = workouts[i];
