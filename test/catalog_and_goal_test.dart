@@ -28,9 +28,10 @@ void main() {
     expect(exercise.tracking.weight, isTrue);
   });
 
-  test('weekly goal priority is strength, cardio, endurance, mobility', () {
+  test('weekly goal priority is strength, endurance, cardio, mobility', () {
     expect(prioritizedGoal(['mobility', 'endurance']), 'endurance');
     expect(prioritizedGoal(['cardio', 'strength']), 'strength');
+    expect(prioritizedGoal(['cardio', 'endurance']), 'endurance');
     expect(prioritizedGoal(['mobility', 'cardio']), 'cardio');
     expect(prioritizedGoal(const []), isNull);
   });
