@@ -86,6 +86,41 @@ Widget _host({
 );
 
 void main() {
+  testWidgets('selecting an existing profile refreshes synchronously', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 1, 1);
+    final store = _FakeProfileStore();
+    store.values.addAll([
+      TrainingProfileRecord(
+        id: 'home',
+        name: 'Home',
+        equipmentCodes: const {'bodyweight'},
+        sortOrder: 0,
+        createdAtUtc: now,
+        updatedAtUtc: now,
+      ),
+      TrainingProfileRecord(
+        id: 'gym',
+        name: 'Gym',
+        equipmentCodes: const {'machine'},
+        sortOrder: 1,
+        createdAtUtc: now,
+        updatedAtUtc: now,
+      ),
+    ]);
+    store.selected = 'home';
+
+    await tester.pumpWidget(_host(store: store));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('trainingProfile_gym')));
+    await tester.pumpAndSettle();
+
+    expect(store.selected, 'gym');
+    expect(store.loads, 2);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('profile flow saves after teardown and refreshes exactly once', (
     tester,
   ) async {

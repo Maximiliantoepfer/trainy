@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -35,6 +37,45 @@ void main() {
     expect(await database.rawQuery('PRAGMA foreign_key_check'), isEmpty);
     final result = await database.rawQuery('PRAGMA integrity_check');
     expect(result.single.values.single, 'ok');
+  });
+
+  test('repeated schema-2 starts preserve existing local data', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'trainy-repeated-start-',
+    );
+    final databasePath = '${directory.path}${Platform.pathSeparator}trainy.db';
+
+    Future<Database> open() => databaseFactoryFfi.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: DatabaseSchemaV2.schemaVersion,
+        onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+        onCreate: (db, _) => DatabaseSchemaV2.create(db),
+        onUpgrade: DatabaseSchemaV2.upgrade,
+      ),
+    );
+
+    try {
+      var persistentDatabase = await open();
+      await persistentDatabase.insert('app_meta', {
+        'key': 'test_sentinel',
+        'value': 'keep-me',
+      });
+      await persistentDatabase.close();
+
+      for (var start = 0; start < 3; start++) {
+        persistentDatabase = await open();
+        final sentinel = await persistentDatabase.query(
+          'app_meta',
+          where: 'key = ?',
+          whereArgs: const ['test_sentinel'],
+        );
+        expect(sentinel.single['value'], 'keep-me');
+        await persistentDatabase.close();
+      }
+    } finally {
+      await directory.delete(recursive: true);
+    }
   });
 
   test('every foreign-key column starts an index', () async {
