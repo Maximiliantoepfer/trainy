@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../models/exercise.dart';
 import '../models/catalog_exercise.dart';
+import '../models/training_profile.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../providers/progress_provider.dart';
@@ -20,6 +21,7 @@ import '../utils/utils.dart';
 import '../utils/exercise_localization.dart';
 import '../services/catalog_repository.dart';
 import '../services/exercise_image_service.dart';
+import '../repositories/training_profile_repository.dart';
 import '../l10n/l10n.dart';
 
 class ExerciseScreen extends StatefulWidget {
@@ -33,7 +35,11 @@ class _ExerciseScreenState extends State<ExerciseScreen>
     with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
-  bool _showCatalog = false;
+  String? _goalFilter;
+  bool _showActivities = false;
+  bool _profileFilter = false;
+  String? _profileName;
+  Set<String> _profileEquipment = const {};
 
   @override
   bool get wantKeepAlive => true;
@@ -44,6 +50,26 @@ class _ExerciseScreenState extends State<ExerciseScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<ExerciseProvider>().loadExercises();
     });
+    _loadSelectedProfile();
+  }
+
+  Future<void> _loadSelectedProfile() async {
+    final repository = TrainingProfileRepository();
+    try {
+      final selected = await repository.selectedProfileId();
+      final profiles = await repository.profiles();
+      TrainingProfileRecord? profile;
+      for (final candidate in profiles) {
+        if (candidate.id == selected) profile = candidate;
+      }
+      if (!mounted || profile == null) return;
+      setState(() {
+        _profileName = profile!.name;
+        _profileEquipment = profile.equipmentCodes;
+      });
+    } catch (_) {
+      // The library remains fully usable without the optional profile filter.
+    }
   }
 
   @override
@@ -56,27 +82,58 @@ class _ExerciseScreenState extends State<ExerciseScreen>
   Widget build(BuildContext context) {
     super.build(context);
     final provider = context.watch<ExerciseProvider>();
-    final list = [...provider.exercises]..sort(
-      (a, b) => displayExerciseName(
-        context,
-        a,
-      ).toLowerCase().compareTo(displayExerciseName(context, b).toLowerCase()),
-    );
+    final list = [...provider.exercises];
     final scheme = Theme.of(context).colorScheme;
     final catalog = CatalogRepository.instance;
     final q = _query.toLowerCase();
-    final filtered =
-        _query.isEmpty
-            ? list
-            : list.where((e) {
+    final materializedCatalogIds =
+        list.map((value) => value.catalogId).whereType<String>().toSet();
+    final customAndMaterialized =
+        _showActivities
+            ? <Exercise>[]
+            : list.where((exercise) {
+              if (_goalFilter != null &&
+                  !exercise.goalCodes.contains(_goalFilter) &&
+                  exercise.goal != _goalFilter) {
+                return false;
+              }
+              if (q.isEmpty) return true;
               return displayExerciseName(
                     context,
-                    e,
+                    exercise,
                   ).toLowerCase().contains(q) ||
-                  e.name.toLowerCase().contains(q) ||
-                  e.description.toLowerCase().contains(q) ||
-                  e.mergedAliases.any((a) => a.toLowerCase().contains(q));
+                  exercise.name.toLowerCase().contains(q) ||
+                  exercise.description.toLowerCase().contains(q) ||
+                  exercise.mergedAliases.any(
+                    (alias) => alias.toLowerCase().contains(q),
+                  );
             }).toList();
+    final catalogValues =
+        catalog.isLoaded
+            ? catalog
+                .search(
+                  Localizations.localeOf(context).languageCode,
+                  _query,
+                  goalCode: _goalFilter,
+                  activitiesOnly: _showActivities,
+                  availableEquipment: _profileFilter ? _profileEquipment : null,
+                )
+                .where(
+                  (item) =>
+                      !materializedCatalogIds.contains(item.definition.id),
+                )
+                .toList()
+            : <LocalizedCatalogExercise>[];
+    final libraryItems = <_LibraryItem>[
+      for (final exercise in customAndMaterialized)
+        _LibraryItem.exercise(exercise),
+      for (final item in catalogValues) _LibraryItem.catalog(item),
+    ]..sort(
+      (a, b) => a
+          .name(context)
+          .toLowerCase()
+          .compareTo(b.name(context).toLowerCase()),
+    );
 
     final isActive = context.watch<ActiveWorkoutProvider>().isActive;
 
@@ -140,46 +197,81 @@ class _ExerciseScreenState extends State<ExerciseScreen>
               onChanged: (v) => setState(() => _query = v),
             ),
           ),
-          if (catalog.isLoaded)
+          if (catalog.isLoaded) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: SegmentedButton<bool>(
                 showSelectedIcon: false,
                 segments: [
-                  ButtonSegment(value: false, label: Text(context.l10n.own)),
-                  ButtonSegment(value: true, label: Text(context.l10n.catalog)),
+                  ButtonSegment(
+                    value: false,
+                    label: Text(context.l10n.exerciseLibrary),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    label: Text(context.l10n.activities),
+                  ),
                 ],
-                selected: {_showCatalog},
+                selected: {_showActivities},
                 onSelectionChanged:
-                    (value) => setState(() => _showCatalog = value.first),
+                    (value) => setState(() => _showActivities = value.first),
               ),
             ),
+            SizedBox(
+              height: 44,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                children: [
+                  for (final filter in <String?>[
+                    null,
+                    'strength',
+                    'cardio',
+                    'endurance',
+                    'mobility',
+                  ]) ...[
+                    ChoiceChip(
+                      label: Text(
+                        filter == null
+                            ? context.l10n.all
+                            : context.l10n.goalLabel(filter),
+                      ),
+                      selected: _goalFilter == filter,
+                      onSelected: (_) => setState(() => _goalFilter = filter),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  if (_profileName != null)
+                    FilterChip(
+                      label: Text(context.l10n.matchesProfile(_profileName!)),
+                      selected: _profileFilter,
+                      onSelected:
+                          (value) => setState(() => _profileFilter = value),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
           Expanded(
             child:
                 provider.isLoading
                     ? const Center(child: CircularProgressIndicator())
-                    : _showCatalog
-                    ? _CatalogList(
-                      query: _query,
-                      onAdd: (item) async {
-                        await provider.addCatalogExercise(item);
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(context.l10n.catalogExerciseAdded),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                    )
-                    : list.isEmpty
+                    : libraryItems.isEmpty
                     ? _EmptyState(onAdd: () => _openEditor(context))
                     : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-                      itemCount: filtered.length,
+                      itemCount: libraryItems.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (_, i) {
-                        final e = filtered[i];
+                        final item = libraryItems[i];
+                        final e = item.exercise;
+                        if (e == null) {
+                          return _CatalogExerciseTile(
+                            item: item.catalog!,
+                            onTap: () => _showCatalogDetails(item.catalog!),
+                          );
+                        }
                         final tags = [
                           if (e.trackSets) context.l10n.sets,
                           if (e.trackReps) context.l10n.repetitions,
@@ -204,6 +296,16 @@ class _ExerciseScreenState extends State<ExerciseScreen>
         icon: const Icon(Icons.add_rounded),
         label: Text(context.l10n.newExercise),
       ),
+    );
+  }
+
+  Future<void> _showCatalogDetails(LocalizedCatalogExercise item) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => _CatalogDetailsSheet(item: item),
     );
   }
 
@@ -492,86 +594,142 @@ class _OriginLabel extends StatelessWidget {
   }
 }
 
-class _CatalogList extends StatelessWidget {
-  const _CatalogList({required this.query, required this.onAdd});
-  final String query;
-  final Future<void> Function(LocalizedCatalogExercise item) onAdd;
+class _LibraryItem {
+  const _LibraryItem.exercise(this.exercise) : catalog = null;
+  const _LibraryItem.catalog(this.catalog) : exercise = null;
+
+  final Exercise? exercise;
+  final LocalizedCatalogExercise? catalog;
+
+  String name(BuildContext context) =>
+      exercise != null
+          ? displayExerciseName(context, exercise!)
+          : catalog!.content.name;
+}
+
+class _CatalogExerciseTile extends StatelessWidget {
+  const _CatalogExerciseTile({required this.item, required this.onTap});
+
+  final LocalizedCatalogExercise item;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final catalog = CatalogRepository.instance;
-    if (!catalog.isLoaded) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(context.l10n.catalogUnavailable),
-        ),
-      );
-    }
-    final values = catalog.search(
-      Localizations.localeOf(context).languageCode,
-      query,
-    );
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-      itemCount: values.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final item = values[index];
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => onAdd(item),
-            child: SizedBox(
-              height: 88,
-              child: Row(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 1,
-                    child: Image.asset(
-                      item.definition.imageAssetPath,
-                      fit: BoxFit.cover,
-                      errorBuilder:
-                          (_, __, ___) => const Center(
-                            child: Icon(Icons.fitness_center_rounded),
-                          ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.content.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            item.content.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Icon(Icons.add_circle_outline_rounded),
-                  ),
-                ],
+  Widget build(BuildContext context) => Card(
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: SizedBox(
+        height: 92,
+        child: Row(
+          children: [
+            AspectRatio(
+              aspectRatio: 1,
+              child: Image.asset(
+                item.definition.imageAssetPath,
+                fit: BoxFit.cover,
+                errorBuilder:
+                    (_, __, ___) =>
+                        const Center(child: Icon(Icons.fitness_center_rounded)),
               ),
             ),
-          ),
-        );
-      },
-    );
-  }
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.content.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.content.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Icon(Icons.chevron_right_rounded),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _CatalogDetailsSheet extends StatelessWidget {
+  const _CatalogDetailsSheet({required this.item});
+
+  final LocalizedCatalogExercise item;
+
+  @override
+  Widget build(BuildContext context) => DraggableScrollableSheet(
+    expand: false,
+    initialChildSize: .78,
+    minChildSize: .45,
+    maxChildSize: .95,
+    builder:
+        (context, controller) => ListView(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: AspectRatio(
+                aspectRatio: 16 / 10,
+                child: Image.asset(
+                  item.definition.imageAssetPath,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              item.content.name,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(item.content.description),
+            const SizedBox(height: 20),
+            Text(
+              context.l10n.instructions,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            for (
+              var index = 0;
+              index < item.content.instructions.length;
+              index++
+            )
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      radius: 11,
+                      child: Text(
+                        '${index + 1}',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(item.content.instructions[index])),
+                  ],
+                ),
+              ),
+          ],
+        ),
+  );
 }
 
 class _EmptyState extends StatelessWidget {

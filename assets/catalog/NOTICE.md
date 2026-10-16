@@ -1,6 +1,8 @@
-# Trainy core activity catalog
+# Bundled exercise catalog
 
-The six `trainy:` activities in this development catalog are original Trainy
-project content. The production importer retains them and adds Free Exercise
-DB from commit `a859101d633a01c4a1a920d6a8ce41dabba0705f`, published under the
-Unlicense. Free Exercise DB content is not part of this core-only asset set.
+Source: Free Exercise DB, commit a859101d633a01c4a1a920d6a8ce41dabba0705f
+https://github.com/yuhonas/free-exercise-db
+
+The upstream catalog is public domain under the Unlicense. Trainy ships local
+metadata and optimized WebP covers. Three source records without imagery use
+Trainy's bundled neutral fallback image.

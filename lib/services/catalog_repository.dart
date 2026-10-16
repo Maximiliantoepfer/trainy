@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 
 import '../models/catalog_exercise.dart';
+import 'database_schema_v2.dart';
 
 /// Read-only local catalog. It has no network dependency and is loaded once
 /// during app startup so display lookups stay synchronous in widgets.
@@ -83,17 +84,14 @@ class CatalogRepository {
       }
       await Future.wait(['de', 'en'].map(_loadLocale));
       for (final id in _definitions.keys) {
-        for (final locale in const ['de', 'en']) {
-          final content = _contentByLocale[locale]?[id];
-          if (content == null ||
-              !content.reviewed ||
-              content.name.trim().isEmpty ||
-              content.instructions.isEmpty ||
-              content.searchTerms.isEmpty) {
-            throw FormatException(
-              'Incomplete reviewed $locale content for $id.',
-            );
-          }
+        final english = _contentByLocale['en']?[id];
+        final german = _contentByLocale['de']?[id];
+        if (!_isComplete(english) || english!.reviewed != true) {
+          throw FormatException('Incomplete reviewed English content for $id.');
+        }
+        if (!_isComplete(german) ||
+            (!german!.reviewed && german.fallbackLocale != 'en')) {
+          throw FormatException('Invalid German content or fallback for $id.');
         }
       }
       await _validateManifest(
@@ -112,6 +110,13 @@ class CatalogRepository {
       return false;
     }
   }
+
+  static bool _isComplete(CatalogLocalizedContent? content) =>
+      content != null &&
+      content.name.trim().isNotEmpty &&
+      content.description.trim().isNotEmpty &&
+      content.instructions.isNotEmpty &&
+      content.searchTerms.isNotEmpty;
 
   Future<void> _validateManifest({
     required String catalogRaw,
@@ -191,19 +196,58 @@ class CatalogRepository {
     );
   }
 
-  List<LocalizedCatalogExercise> search(String localeCode, String query) {
+  List<LocalizedCatalogExercise> search(
+    String localeCode,
+    String query, {
+    String? goalCode,
+    bool? activitiesOnly,
+    Set<String>? availableEquipment,
+  }) {
     final normalized = query.trim().toLowerCase();
     return _definitions.values
         .map((definition) => localized(definition.id, localeCode))
         .whereType<LocalizedCatalogExercise>()
         .where((exercise) {
+          final isActivity = exercise.definition.id.startsWith('trainy:');
+          if (activitiesOnly != null && isActivity != activitiesOnly) {
+            return false;
+          }
+          if (goalCode != null &&
+              !exercise.definition.goalCodes.contains(goalCode)) {
+            return false;
+          }
+          if (availableEquipment != null && availableEquipment.isNotEmpty) {
+            final needed = exercise.definition.equipmentIds;
+            final bodyOnly =
+                needed.isEmpty ||
+                needed.every(
+                  (code) =>
+                      code == 'body only' ||
+                      code == 'bodyweight' ||
+                      code == 'none',
+                );
+            if (!bodyOnly &&
+                !needed.any(
+                  (code) => availableEquipment.contains(
+                    DatabaseSchemaV2.normalizeEquipmentCode(code),
+                  ),
+                )) {
+              return false;
+            }
+          }
           if (normalized.isEmpty) return true;
+          final english = _contentByLocale['en']?[exercise.definition.id];
           final haystack =
               [
                 exercise.content.name,
                 exercise.content.description,
+                ...exercise.content.instructions,
                 ...exercise.content.searchTerms,
+                if (english != null) english.name,
                 ...exercise.definition.aliases,
+                ...exercise.definition.primaryMuscleIds,
+                ...exercise.definition.secondaryMuscleIds,
+                ...exercise.definition.equipmentIds,
               ].join(' ').toLowerCase();
           return haystack.contains(normalized);
         })

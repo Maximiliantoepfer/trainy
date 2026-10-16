@@ -89,6 +89,7 @@ class CatalogLocalizedContent {
   final List<String> instructions;
   final List<String> searchTerms;
   final bool reviewed;
+  final String? fallbackLocale;
 
   const CatalogLocalizedContent({
     required this.name,
@@ -96,6 +97,7 @@ class CatalogLocalizedContent {
     required this.instructions,
     required this.searchTerms,
     required this.reviewed,
+    this.fallbackLocale,
   });
 
   factory CatalogLocalizedContent.fromJson(Map<String, dynamic> json) =>
@@ -105,6 +107,7 @@ class CatalogLocalizedContent {
         instructions: List<String>.from(json['instructions'] ?? const []),
         searchTerms: List<String>.from(json['searchTerms'] ?? const []),
         reviewed: json['reviewed'] == true,
+        fallbackLocale: json['fallbackLocale'] as String?,
       );
 }
 

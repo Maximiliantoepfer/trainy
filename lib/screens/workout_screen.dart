@@ -15,6 +15,7 @@ import '../widgets/exercise_editor_form.dart';
 import '../widgets/exercise_editor_sheet.dart';
 import '../utils/goal_utils.dart';
 import '../services/workout_plan_database.dart';
+import '../services/catalog_repository.dart';
 import '../models/workout_plan.dart';
 import 'workout_launch_options.dart';
 import 'workout_plan_editor_screen.dart';
@@ -370,6 +371,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Future<void> _addExercisesBottomSheet() async {
     final provider = context.read<ExerciseProvider>();
+    final localeCode = Localizations.localeOf(context).languageCode;
     final result = await showModalBottomSheet<_AddExercisesResult>(
       context: context,
       isScrollControlled: true,
@@ -385,7 +387,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     if (!mounted || result == null) return;
 
     var createdName = '';
-    final selectedIds = result.selectedIds;
+    final selectedIds = Set<int>.from(result.selectedIds);
+    for (final catalogId in result.selectedCatalogIds) {
+      final item = CatalogRepository.instance.localized(catalogId, localeCode);
+      if (item == null) continue;
+      selectedIds.add(await provider.addCatalogExercise(item));
+    }
     if (result.draft case final draft?) {
       final newId = await provider.addExercise(
         name: draft.name,
@@ -997,9 +1004,14 @@ class _QuickExerciseDraft {
 
 @immutable
 class _AddExercisesResult {
-  const _AddExercisesResult({required this.selectedIds, this.draft});
+  const _AddExercisesResult({
+    required this.selectedIds,
+    this.selectedCatalogIds = const {},
+    this.draft,
+  });
 
   final Set<int> selectedIds;
+  final Set<String> selectedCatalogIds;
   final _QuickExerciseDraft? draft;
 }
 
@@ -1029,6 +1041,7 @@ class _AddExercisesSheetState extends State<_AddExercisesSheet>
   late final ValueNotifier<bool> _trackDistance;
   late final ValueNotifier<String?> _goal;
   late final Set<int> _selectedIds;
+  final Set<String> _selectedCatalogIds = {};
   String _query = '';
 
   @override
@@ -1076,9 +1089,12 @@ class _AddExercisesSheetState extends State<_AddExercisesSheet>
   }
 
   void _submitExisting() {
-    Navigator.of(
-      context,
-    ).pop(_AddExercisesResult(selectedIds: Set.unmodifiable(_selectedIds)));
+    Navigator.of(context).pop(
+      _AddExercisesResult(
+        selectedIds: Set.unmodifiable(_selectedIds),
+        selectedCatalogIds: Set.unmodifiable(_selectedCatalogIds),
+      ),
+    );
   }
 
   void _submitNew() {
@@ -1087,6 +1103,7 @@ class _AddExercisesSheetState extends State<_AddExercisesSheet>
     Navigator.of(context).pop(
       _AddExercisesResult(
         selectedIds: Set<int>.from(_selectedIds),
+        selectedCatalogIds: Set<String>.from(_selectedCatalogIds),
         draft: _QuickExerciseDraft(
           name: name,
           description: _descriptionController.text.trim(),
@@ -1121,6 +1138,22 @@ class _AddExercisesSheetState extends State<_AddExercisesSheet>
                       ),
                 )
                 .toList();
+    final materializedCatalogIds =
+        widget.exercises
+            .map((exercise) => exercise.catalogId)
+            .whereType<String>()
+            .toSet();
+    final catalogFiltered =
+        CatalogRepository.instance
+            .search(
+              Localizations.localeOf(context).languageCode,
+              _query,
+              activitiesOnly: false,
+            )
+            .where(
+              (item) => !materializedCatalogIds.contains(item.definition.id),
+            )
+            .toList();
     final isCreateTab = _tabController.index == 1;
 
     return SafeArea(
@@ -1196,10 +1229,54 @@ class _AddExercisesSheetState extends State<_AddExercisesSheet>
                       Expanded(
                         child: ListView.separated(
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                          itemCount: filtered.length,
+                          itemCount: filtered.length + catalogFiltered.length,
                           separatorBuilder:
                               (_, __) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
+                            if (index >= filtered.length) {
+                              final item =
+                                  catalogFiltered[index - filtered.length];
+                              return Card(
+                                clipBehavior: Clip.antiAlias,
+                                child: CheckboxListTile(
+                                  value: _selectedCatalogIds.contains(
+                                    item.definition.id,
+                                  ),
+                                  onChanged: (selected) {
+                                    setState(() {
+                                      if (selected == true) {
+                                        _selectedCatalogIds.add(
+                                          item.definition.id,
+                                        );
+                                      } else {
+                                        _selectedCatalogIds.remove(
+                                          item.definition.id,
+                                        );
+                                      }
+                                    });
+                                  },
+                                  secondary: SizedBox(
+                                    width: 52,
+                                    height: 52,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Image.asset(
+                                        item.definition.imageAssetPath,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                  title: Text(item.content.name),
+                                  subtitle: Text(
+                                    item.content.description,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                ),
+                              );
+                            }
                             final exercise = filtered[index];
                             final metrics = <String>[
                               if (exercise.trackSets) context.l10n.sets,

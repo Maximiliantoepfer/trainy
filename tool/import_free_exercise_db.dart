@@ -1,11 +1,13 @@
 /// Builds Trainy's immutable, fully-offline exercise catalog.
 ///
 /// This is a release gate: it only accepts the pinned Free Exercise DB source
-/// and a complete, editorially reviewed German content file. Work happens in
+/// and optional, editorially reviewed German content. Missing German fields
+/// visibly fall back to the English source and are never marked reviewed.
+/// Work happens in
 /// a temporary sibling directory and replaces the catalog only after every
 /// validation succeeds. The mobile app never executes this tool.
 ///
-/// Prerequisites: `cwebp` on PATH and a complete `catalog_de.json`.
+/// Prerequisites: `cwebp` on PATH or Python with Pillow WebP support.
 /// Usage:
 ///   dart run tool/import_free_exercise_db.dart C:\\src\\free-exercise-db \
 ///     tool/catalog_translations_de.json --replace
@@ -28,19 +30,19 @@ const _fallbackIds = <String>{
 };
 
 Future<void> main(List<String> args) async {
-  if (args.length < 2 || !args.contains('--replace')) {
-    stderr.writeln('Usage: <source> <reviewed German JSON> --replace');
+  if (args.isEmpty || !args.contains('--replace')) {
+    stderr.writeln('Usage: <source> [reviewed German JSON] --replace');
     exitCode = 64;
     return;
   }
-  await _requireCwebp();
+  await _requireImageEncoder();
   final sourceRoot = Directory(args[0]);
-  final translationFile = File(args[1]);
+  final translationPath = args.where((value) => value != '--replace').skip(1);
+  final translationFile =
+      translationPath.isEmpty ? null : File(translationPath.first);
   final sourceFile = File(_join(sourceRoot.path, 'dist', 'exercises.json'));
-  if (!await sourceFile.exists() || !await translationFile.exists()) {
-    throw StateError(
-      'Source exercises.json or German translation file is missing.',
-    );
+  if (!await sourceFile.exists()) {
+    throw StateError('Source exercises.json is missing.');
   }
   final commit = await _gitCommit(sourceRoot);
   if (commit != _pinnedCommit) {
@@ -54,7 +56,10 @@ Future<void> main(List<String> args) async {
       'Expected $_expectedExerciseCount exercises, got ${source.length}.',
     );
   }
-  final translations = _readTranslations(await translationFile.readAsString());
+  final translations =
+      translationFile != null && await translationFile.exists()
+          ? _readTranslations(await translationFile.readAsString())
+          : <String, Map<String, dynamic>>{};
   final expectedIds = source.map((raw) => 'free:${(raw as Map)['id']}').toSet();
   _validateTranslations(translations, expectedIds);
 
@@ -74,6 +79,8 @@ Future<void> main(List<String> args) async {
     final definitions = <Map<String, dynamic>>[];
     final english = <String, dynamic>{};
     final german = <String, dynamic>{};
+    var reviewedGermanCount = 0;
+    var germanFallbackCount = 0;
 
     // Trainy core activities are curated in-repository and are retained when
     // the pinned Free Exercise DB release replaces the generated catalog.
@@ -91,7 +98,8 @@ Future<void> main(List<String> args) async {
           catalogRoot['exercises'] ?? const [],
         )) {
           final item = Map<String, dynamic>.from(raw as Map);
-          if ((item['id'] as String).startsWith('trainy:')) {
+          if ((item['id'] as String).startsWith('trainy:') &&
+              item['id'] != 'trainy:mobility_session') {
             definitions.add(item);
           }
         }
@@ -108,7 +116,10 @@ Future<void> main(List<String> args) async {
           Map<String, dynamic>.from(germanRoot['exercises'] as Map),
         );
         english.removeWhere((id, _) => !id.startsWith('trainy:'));
-        german.removeWhere((id, _) => !id.startsWith('trainy:'));
+        german.removeWhere(
+          (id, _) =>
+              !id.startsWith('trainy:') || id == 'trainy:mobility_session',
+        );
       }
     }
 
@@ -164,7 +175,16 @@ Future<void> main(List<String> args) async {
         'iconKey': _iconKey(category, name),
         'aliases': [name, upstreamId.replaceAll('_', ' ')],
       });
-      final instructions = List<String>.from(item['instructions'] ?? const []);
+      final sourceInstructions = List<String>.from(
+        item['instructions'] ?? const [],
+      );
+      final instructions =
+          sourceInstructions.isNotEmpty
+              ? sourceInstructions
+              : List<String>.from(override['englishInstructions'] ?? const []);
+      if (name.trim().isEmpty || instructions.isEmpty) {
+        throw StateError('English catalog record $catalogId is incomplete.');
+      }
       english[catalogId] = {
         'name': name,
         'description': instructions.join('\n'),
@@ -172,7 +192,18 @@ Future<void> main(List<String> args) async {
         'searchTerms': [name, upstreamId.replaceAll('_', ' ')],
         'reviewed': true,
       };
-      german[catalogId] = translations[catalogId];
+      final reviewedGerman = translations[catalogId];
+      if (reviewedGerman != null) {
+        german[catalogId] = reviewedGerman;
+        reviewedGermanCount++;
+      } else {
+        german[catalogId] = {
+          ...Map<String, dynamic>.from(english[catalogId] as Map),
+          'reviewed': false,
+          'fallbackLocale': 'en',
+        };
+        germanFallbackCount++;
+      }
     }
     definitions.sort(
       (a, b) => (a['id'] as String).compareTo(b['id'] as String),
@@ -210,6 +241,8 @@ Future<void> main(List<String> args) async {
       'schemaVersion': 1,
       'catalogVersion': _catalogVersion,
       'locale': 'de',
+      'reviewedExerciseCount': reviewedGermanCount,
+      'fallbackExerciseCount': germanFallbackCount,
       'exercises': german,
     });
     await File(_join(temporary.path, 'NOTICE.md')).writeAsString('''
@@ -235,6 +268,10 @@ Trainy's bundled neutral fallback image.
       'schemaVersion': 1,
       'catalogVersion': _catalogVersion,
       'sourceCommit': commit,
+      'freeExerciseCount': _expectedExerciseCount,
+      'totalCatalogCount': definitions.length,
+      'germanReviewedExerciseCount': reviewedGermanCount,
+      'germanFallbackExerciseCount': germanFallbackCount,
       'assetChecksums': checksums,
     });
     await _replaceDirectory(temporary, target);
@@ -258,8 +295,9 @@ void _validateTranslations(
   Map<String, Map<String, dynamic>> values,
   Set<String> ids,
 ) {
-  if (values.length != ids.length || !values.keys.toSet().containsAll(ids)) {
-    throw StateError('German file must contain exactly every catalog ID.');
+  final unknown = values.keys.toSet().difference(ids);
+  if (unknown.isNotEmpty) {
+    throw StateError('German file contains unknown catalog IDs: $unknown');
   }
   for (final entry in values.entries) {
     final content = entry.value;
@@ -282,15 +320,29 @@ Future<Map<String, dynamic>> _readOverrides() async {
       : const {};
 }
 
-Future<void> _requireCwebp() async {
+bool _usePythonPillow = false;
+
+Future<void> _requireImageEncoder() async {
   try {
     final result = await Process.run('cwebp', const ['-version']);
     if (result.exitCode == 0) return;
   } on ProcessException {
-    // The actionable error below also covers a missing executable.
+    // Try the deterministic Pillow fallback below.
+  }
+  try {
+    final result = await Process.run('python', const [
+      '-c',
+      'from PIL import features; raise SystemExit(0 if features.check("webp") else 1)',
+    ]);
+    if (result.exitCode == 0) {
+      _usePythonPillow = true;
+      return;
+    }
+  } on ProcessException {
+    // The actionable error below covers both missing encoders.
   }
   throw StateError(
-    'cwebp is required to produce WebP covers. Install libwebp and retry.',
+    'A WebP encoder is required. Install cwebp or Python Pillow with WebP support.',
   );
 }
 
@@ -306,17 +358,28 @@ Future<String> _gitCommit(Directory source) async {
 }
 
 Future<void> _encodeWebP(File input, File output) async {
-  final result = await Process.run('cwebp', [
-    '-quiet',
-    '-q',
-    '82',
-    '-resize',
-    '512',
-    '0',
-    input.path,
-    '-o',
-    output.path,
-  ]);
+  final result =
+      _usePythonPillow
+          ? await Process.run('python', [
+            '-c',
+            'from PIL import Image, ImageOps; import sys; '
+                'im=Image.open(sys.argv[1]).convert("RGB"); '
+                'im.thumbnail((512,512), Image.Resampling.LANCZOS); '
+                'im.save(sys.argv[2], "WEBP", quality=82, method=6)',
+            input.path,
+            output.path,
+          ])
+          : await Process.run('cwebp', [
+            '-quiet',
+            '-q',
+            '82',
+            '-resize',
+            '512',
+            '0',
+            input.path,
+            '-o',
+            output.path,
+          ]);
   if (result.exitCode != 0 || !await output.exists()) {
     throw StateError('cwebp failed for ${input.path}: ${result.stderr}');
   }
@@ -383,8 +446,11 @@ Map<String, bool> _tracking(String category, String equipment, String name) {
 
 List<String> _goals(String category, String name) {
   final lower = name.toLowerCase();
-  if (category == 'cardio') return const ['cardio'];
-  if (lower.contains('stretch') || lower.contains('yoga')) {
+  if (category == 'cardio') return const ['cardio', 'endurance'];
+  if (category == 'plyometrics') return const ['strength', 'cardio'];
+  if (category == 'stretching' ||
+      lower.contains('stretch') ||
+      lower.contains('yoga')) {
     return const ['mobility'];
   }
   if (lower.contains('jump rope')) return const ['cardio', 'endurance'];
@@ -395,7 +461,11 @@ List<String> _goals(String category, String name) {
 String _activityType(String category, String name) {
   final lower = name.toLowerCase();
   if (category == 'cardio' || lower.contains('jump rope')) return 'cardio';
-  if (lower.contains('stretch') || lower.contains('yoga')) return 'mobility';
+  if (category == 'stretching' ||
+      lower.contains('stretch') ||
+      lower.contains('yoga')) {
+    return 'mobility';
+  }
   return 'strength';
 }
 

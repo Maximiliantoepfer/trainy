@@ -23,6 +23,7 @@ Trainy-Recovery/
 recovery/
 
 # Temporary catalog import output (published catalog assets remain tracked)
+.tmp/
 tool/.tmp/
 tool/tmp/
 assets/catalog/.tmp/

@@ -7,5 +7,40 @@
   "Barbell_Squat": {"movementFamilyId": "squat"},
   "Barbell_Deadlift": {"movementFamilyId": "hinge"},
   "Bent_Over_Barbell_Row": {"movementFamilyId": "row"},
-  "Barbell_Shoulder_Press": {"movementFamilyId": "vertical_press"}
+  "Barbell_Shoulder_Press": {"movementFamilyId": "vertical_press"},
+  "Iron_Cross": {
+    "englishInstructions": [
+      "Stand tall with a dumbbell in each hand and brace your trunk.",
+      "Raise the dumbbells out to shoulder height while keeping a soft bend in the elbows.",
+      "Lower the weights under control and repeat without using momentum."
+    ]
+  },
+  "One-Arm_Kettlebell_Swings": {
+    "englishInstructions": [
+      "Stand with the kettlebell in front of you, hinge at the hips, and grip it with one hand.",
+      "Hike the bell between your legs, then drive the hips forward to swing it to chest height.",
+      "Let the bell return under control, keep the spine neutral, and repeat before changing sides."
+    ]
+  },
+  "Push_Press": {
+    "englishInstructions": [
+      "Hold the barbell at the shoulders with the feet about hip-width apart.",
+      "Dip slightly through the knees and hips, then drive forcefully upward.",
+      "Use the leg drive to press the bar overhead, finish with locked arms, and lower it under control."
+    ]
+  },
+  "Side_Bridge": {
+    "englishInstructions": [
+      "Lie on your side with the elbow directly below the shoulder and the legs extended.",
+      "Brace the trunk and lift the hips until the body forms a straight line.",
+      "Hold without letting the hips rotate or sag, then lower under control."
+    ]
+  },
+  "Side_Jackknife": {
+    "englishInstructions": [
+      "Lie on your side with the legs extended and support your balance with the lower arm.",
+      "Lift the legs and upper body toward each other while contracting the side of the abdomen.",
+      "Pause briefly, then lower under control without rolling backward."
+    ]
+  }
 }
