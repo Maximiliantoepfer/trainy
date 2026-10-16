@@ -7,7 +7,6 @@
 /// a temporary sibling directory and replaces the catalog only after every
 /// validation succeeds. The mobile app never executes this tool.
 ///
-/// Prerequisites: `cwebp` on PATH or Python with Pillow WebP support.
 /// Usage:
 ///   dart run tool/import_free_exercise_db.dart C:\\src\\free-exercise-db \
 ///     tool/catalog_translations_de.json --replace
@@ -18,16 +17,24 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
-const _catalogVersion = 1;
+const _catalogVersion = 2;
 // Verified against the pinned source commit (2026-09-12).  The former plan
 // stated 873, but the actual upstream JSON contains 876 records.
 const _expectedExerciseCount = 876;
 const _pinnedCommit = 'a859101d633a01c4a1a920d6a8ce41dabba0705f';
-const _fallbackIds = <String>{
-  'Kettlebell_Halo',
-  'Kettlebell_Halo_With_Overhead_Extension',
-  'Kettlebell_Overhead_Triceps_Extension',
-};
+const _coverCategories = [
+  'strength',
+  'push',
+  'pull',
+  'squat',
+  'hinge',
+  'core',
+  'cardio',
+  'cycling',
+  'swimming',
+  'rowing',
+  'mobility',
+];
 
 Future<void> main(List<String> args) async {
   if (args.isEmpty || !args.contains('--replace')) {
@@ -35,7 +42,6 @@ Future<void> main(List<String> args) async {
     exitCode = 64;
     return;
   }
-  await _requireImageEncoder();
   final sourceRoot = Directory(args[0]);
   final translationPath = args.where((value) => value != '--replace').skip(1);
   final translationFile =
@@ -69,12 +75,15 @@ Future<void> main(List<String> args) async {
   );
   await temporary.create(recursive: true);
   try {
-    final imageDirectory = Directory(_join(temporary.path, 'images'));
-    await imageDirectory.create(recursive: true);
-    await _encodeWebP(
-      File(_join('tool', 'catalog_fallback.png')),
-      File(_join(imageDirectory.path, '_fallback.webp')),
-    );
+    final coverDirectory = Directory(_join(temporary.path, 'covers'));
+    await coverDirectory.create(recursive: true);
+    for (final category in _coverCategories) {
+      final sourceCover = File(_join(target.path, 'covers', '$category.webp'));
+      if (!await sourceCover.exists()) {
+        throw StateError('Missing Trainy-owned category cover: $category');
+      }
+      await sourceCover.copy(_join(coverDirectory.path, '$category.webp'));
+    }
     final overrides = await _readOverrides();
     final definitions = <Map<String, dynamic>>[];
     final english = <String, dynamic>{};
@@ -127,29 +136,22 @@ Future<void> main(List<String> args) async {
       final item = Map<String, dynamic>.from(raw as Map);
       final upstreamId = item['id'] as String;
       final catalogId = 'free:$upstreamId';
-      final imagePaths = List<String>.from(item['images'] ?? const []);
-      final imageFile = '${_safeFileName(upstreamId)}.webp';
-      if (imagePaths.isEmpty) {
-        if (!_fallbackIds.contains(upstreamId)) {
-          throw StateError(
-            'Unexpected source exercise without image: $upstreamId',
-          );
-        }
-      } else {
-        final input = File(
-          _join(sourceRoot.path, 'exercises', imagePaths.first),
-        );
-        if (!await input.exists()) {
-          throw StateError('Missing source image for $upstreamId');
-        }
-        await _encodeWebP(input, File(_join(imageDirectory.path, imageFile)));
-      }
       final name = item['name'] as String;
       final category = (item['category'] as String? ?? 'other').toLowerCase();
       final equipment =
           (item['equipment'] as String? ?? 'unknown').toLowerCase();
       final override = Map<String, dynamic>.from(
         overrides[upstreamId] ?? const {},
+      );
+      final goals = List<String>.from(
+        override['goalCodes'] ?? _goals(category, name),
+      );
+      final coverCategory = _coverCategory(
+        id: catalogId,
+        movementFamilyId:
+            override['movementFamilyId'] ??
+            'free:${_safeFileName(upstreamId).toLowerCase()}',
+        goals: goals,
       );
       definitions.add({
         'id': catalogId,
@@ -164,14 +166,10 @@ Future<void> main(List<String> args) async {
           item['secondaryMuscles'] ?? const [],
         ),
         'equipmentIds': [equipment],
-        'goalCodes': List<String>.from(
-          override['goalCodes'] ?? _goals(category, name),
-        ),
+        'goalCodes': goals,
         'tracking': _tracking(category, equipment, name),
-        'imageAssetPath':
-            imagePaths.isEmpty
-                ? 'assets/catalog/images/_fallback.webp'
-                : 'assets/catalog/images/$imageFile',
+        'imageAssetPath': 'assets/catalog/covers/$coverCategory.webp',
+        'mediaId': 'owned:category-$coverCategory',
         'iconKey': _iconKey(category, name),
         'aliases': [name, upstreamId.replaceAll('_', ' ')],
       });
@@ -245,15 +243,31 @@ Future<void> main(List<String> args) async {
       'fallbackExerciseCount': germanFallbackCount,
       'exercises': german,
     });
+    await _writeJson(File(_join(temporary.path, 'catalog_media.json')), {
+      'schemaVersion': 1,
+      'media': [
+        for (final category in _coverCategories)
+          {
+            'mediaId': 'owned:category-$category',
+            'assetPath': 'assets/catalog/covers/$category.webp',
+            'sha256': await _sha256(
+              File(_join(coverDirectory.path, '$category.webp')),
+            ),
+            'author': 'Trainy project',
+            'sourceUrl': null,
+            'license': 'owned',
+          },
+      ],
+    });
     await File(_join(temporary.path, 'NOTICE.md')).writeAsString('''
 # Bundled exercise catalog
 
 Source: Free Exercise DB, commit $commit
 https://github.com/yuhonas/free-exercise-db
 
-The upstream catalog is public domain under the Unlicense. Trainy ships local
-metadata and optimized WebP covers. Three source records without imagery use
-Trainy's bundled neutral fallback image.
+The upstream text catalog is public domain under the Unlicense. Upstream photos
+are intentionally not shipped because their individual provenance is unclear.
+Trainy uses project-owned, local category covers declared in catalog_media.json.
 ''');
     final checksums = <String, String>{};
     await for (final entity in temporary.list(recursive: true)) {
@@ -320,32 +334,6 @@ Future<Map<String, dynamic>> _readOverrides() async {
       : const {};
 }
 
-bool _usePythonPillow = false;
-
-Future<void> _requireImageEncoder() async {
-  try {
-    final result = await Process.run('cwebp', const ['-version']);
-    if (result.exitCode == 0) return;
-  } on ProcessException {
-    // Try the deterministic Pillow fallback below.
-  }
-  try {
-    final result = await Process.run('python', const [
-      '-c',
-      'from PIL import features; raise SystemExit(0 if features.check("webp") else 1)',
-    ]);
-    if (result.exitCode == 0) {
-      _usePythonPillow = true;
-      return;
-    }
-  } on ProcessException {
-    // The actionable error below covers both missing encoders.
-  }
-  throw StateError(
-    'A WebP encoder is required. Install cwebp or Python Pillow with WebP support.',
-  );
-}
-
 Future<String> _gitCommit(Directory source) async {
   final result = await Process.run('git', const [
     'rev-parse',
@@ -355,34 +343,6 @@ Future<String> _gitCommit(Directory source) async {
     throw StateError('Cannot resolve upstream source commit.');
   }
   return (result.stdout as String).trim();
-}
-
-Future<void> _encodeWebP(File input, File output) async {
-  final result =
-      _usePythonPillow
-          ? await Process.run('python', [
-            '-c',
-            'from PIL import Image, ImageOps; import sys; '
-                'im=Image.open(sys.argv[1]).convert("RGB"); '
-                'im.thumbnail((512,512), Image.Resampling.LANCZOS); '
-                'im.save(sys.argv[2], "WEBP", quality=82, method=6)',
-            input.path,
-            output.path,
-          ])
-          : await Process.run('cwebp', [
-            '-quiet',
-            '-q',
-            '82',
-            '-resize',
-            '512',
-            '0',
-            input.path,
-            '-o',
-            output.path,
-          ]);
-  if (result.exitCode != 0 || !await output.exists()) {
-    throw StateError('cwebp failed for ${input.path}: ${result.stderr}');
-  }
 }
 
 Future<void> _replaceDirectory(Directory temporary, Directory target) async {
@@ -414,6 +374,36 @@ String _join(String first, [String? second, String? third]) => [
 
 String _safeFileName(String id) =>
     id.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_').replaceAll(RegExp('_+'), '_');
+
+String _coverCategory({
+  required String id,
+  required String movementFamilyId,
+  required List<String> goals,
+}) {
+  final key = '$id $movementFamilyId'.toLowerCase();
+  if (goals.contains('mobility')) return 'mobility';
+  if (goals.contains('cardio') ||
+      (goals.contains('endurance') && !goals.contains('strength'))) {
+    if (key.contains('cycl') || key.contains('bicycl')) return 'cycling';
+    if (key.contains('swim')) return 'swimming';
+    if (key.contains('row')) return 'rowing';
+    return 'cardio';
+  }
+  if (RegExp(r'push|press|dip|chest|fly').hasMatch(key)) return 'push';
+  if (RegExp(r'pull|row|chin|curl|pulldown').hasMatch(key)) return 'pull';
+  if (RegExp(r'deadlift|hinge|good_morning|hip_thrust|swing').hasMatch(key)) {
+    return 'hinge';
+  }
+  if (RegExp(
+    r'ab_|abdominal|crunch|sit-up|sit_up|plank|core|twist',
+  ).hasMatch(key)) {
+    return 'core';
+  }
+  if (RegExp(r'squat|lunge|leg_|calf|quadricep|hamstring').hasMatch(key)) {
+    return 'squat';
+  }
+  return 'strength';
+}
 
 Map<String, bool> _tracking(String category, String equipment, String name) {
   final lower = name.toLowerCase();

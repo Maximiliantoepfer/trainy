@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "essentials": [
+    {"id":"free:Pushups","rank":1,"movementFamilyId":"push_up","deName":"Liegestütz","aliases":["Push-Up","Push Up","Pushup","Pushups","Liegestütz","Liegestütze"]},
+    {"id":"free:Pullups","rank":2,"movementFamilyId":"pull_up","deName":"Klimmzug","aliases":["Pull-Up","Pull Up","Pullup","Pullups","Klimmzug","Klimmzüge"]},
+    {"id":"free:Chin-Up","rank":3,"movementFamilyId":"chin_up","deName":"Klimmzug im Untergriff","aliases":["Chin-Up","Chin Up","Untergriff-Klimmzug"]},
+    {"id":"free:Barbell_Full_Squat","rank":4,"movementFamilyId":"squat","deName":"Kniebeuge mit Langhantel","aliases":["Squat","Kniebeuge","Kniebeugen"]},
+    {"id":"free:Barbell_Deadlift","rank":5,"movementFamilyId":"deadlift","deName":"Kreuzheben mit Langhantel","aliases":["Deadlift","Kreuzheben"]},
+    {"id":"free:Barbell_Bench_Press_-_Medium_Grip","rank":6,"movementFamilyId":"horizontal_press","deName":"Bankdrücken mit Langhantel","aliases":["Bench Press","Bankdrücken"]},
+    {"id":"free:Barbell_Shoulder_Press","rank":7,"movementFamilyId":"vertical_press","deName":"Schulterdrücken mit Langhantel","aliases":["Shoulder Press","Overhead Press","Schulterdrücken"]},
+    {"id":"free:Bent_Over_Barbell_Row","rank":8,"movementFamilyId":"horizontal_pull","deName":"Langhantelrudern","aliases":["Barbell Row","Bent-Over Row","Rudern","Langhantelrudern"]},
+    {"id":"free:Wide-Grip_Lat_Pulldown","rank":9,"movementFamilyId":"vertical_pull","deName":"Latzug im breiten Griff","aliases":["Lat Pulldown","Latzug"]},
+    {"id":"free:Barbell_Lunge","rank":10,"movementFamilyId":"lunge","deName":"Ausfallschritt mit Langhantel","aliases":["Lunge","Ausfallschritt","Ausfallschritte"]},
+    {"id":"free:Leg_Press","rank":11,"movementFamilyId":"leg_press","deName":"Beinpresse","aliases":["Leg Press","Beinpresse"]},
+    {"id":"free:Lying_Leg_Curls","rank":12,"movementFamilyId":"leg_curl","deName":"Liegender Beinbeuger","aliases":["Leg Curl","Beinbeuger"]},
+    {"id":"free:Leg_Extensions","rank":13,"movementFamilyId":"leg_extension","deName":"Beinstrecker","aliases":["Leg Extension","Beinstrecker"]},
+    {"id":"free:Barbell_Hip_Thrust","rank":14,"movementFamilyId":"hip_thrust","deName":"Hip Thrust mit Langhantel","aliases":["Hip Thrust","Hüftheben"]},
+    {"id":"free:Standing_Calf_Raises","rank":15,"movementFamilyId":"calf_raise","deName":"Wadenheben im Stand","aliases":["Calf Raise","Wadenheben"]},
+    {"id":"free:Dumbbell_Bicep_Curl","rank":16,"movementFamilyId":"elbow_flexion","deName":"Bizepscurl mit Kurzhanteln","aliases":["Biceps Curl","Bicep Curl","Bizepscurl"]},
+    {"id":"free:Triceps_Pushdown","rank":17,"movementFamilyId":"elbow_extension","deName":"Trizepsdrücken am Kabelzug","aliases":["Triceps Pushdown","Trizepsdrücken"]},
+    {"id":"free:Plank","rank":18,"movementFamilyId":"plank","deName":"Unterarmstütz","aliases":["Plank","Unterarmstütz"]},
+    {"id":"free:Crunches","rank":19,"movementFamilyId":"crunch","deName":"Crunch","aliases":["Crunch","Crunches","Bauchpresse"]},
+
+    {"id":"trainy:running","rank":101,"movementFamilyId":"running","deName":"Joggen","aliases":["Joggen","Laufen","Running","Run"]},
+    {"id":"trainy:walking","rank":102,"movementFamilyId":"walking","deName":"Gehen","aliases":["Gehen","Walking","Walk"]},
+    {"id":"trainy:cycling","rank":103,"movementFamilyId":"cycling","deName":"Radfahren","aliases":["Radfahren","Cycling","Biking"]},
+    {"id":"trainy:swimming","rank":104,"movementFamilyId":"swimming","deName":"Schwimmen","aliases":["Schwimmen","Swimming"]},
+    {"id":"free:Rowing_Stationary","rank":105,"movementFamilyId":"rowing_cardio","deName":"Rudern am Ergometer","aliases":["Rowing","Ruderergometer","Ergometer-Rudern"]},
+    {"id":"free:Elliptical_Trainer","rank":106,"movementFamilyId":"elliptical","deName":"Crosstrainer","aliases":["Elliptical","Crosstrainer"]},
+    {"id":"free:Stairmaster","rank":107,"movementFamilyId":"stair_climber","deName":"Treppensteiger","aliases":["Stairmaster","Stair Climber","Treppensteiger"]},
+    {"id":"free:Rope_Jumping","rank":108,"movementFamilyId":"jump_rope","deName":"Seilspringen","aliases":["Jump Rope","Rope Jumping","Seilspringen"]},
+    {"id":"trainy:interval_running","rank":109,"movementFamilyId":"interval_running","deName":"Intervalllauf","aliases":["Intervalllauf","Interval Running","Intervalle"]},
+
+    {"id":"free:Kneeling_Hip_Flexor","rank":201,"movementFamilyId":"hip_flexor_mobility","deName":"Hüftbeuger-Dehnung im Knien","aliases":["Hip Flexor Stretch","Hüftbeuger-Dehnung"]},
+    {"id":"free:90_90_Hamstring","rank":202,"movementFamilyId":"hamstring_mobility","deName":"90/90-Oberschenkeldehnung","aliases":["Hamstring Stretch","Oberschenkeldehnung"]},
+    {"id":"free:Calf_Stretch_Hands_Against_Wall","rank":203,"movementFamilyId":"calf_mobility","deName":"Wadendehnung an der Wand","aliases":["Calf Stretch","Wadendehnung"]},
+    {"id":"free:Lying_Prone_Quadriceps","rank":204,"movementFamilyId":"quadriceps_mobility","deName":"Quadrizeps-Dehnung in Bauchlage","aliases":["Quadriceps Stretch","Quadrizeps-Dehnung"]},
+    {"id":"free:Dynamic_Chest_Stretch","rank":205,"movementFamilyId":"chest_mobility","deName":"Dynamische Brustdehnung","aliases":["Chest Stretch","Brustdehnung"]},
+    {"id":"free:Shoulder_Stretch","rank":206,"movementFamilyId":"shoulder_mobility","deName":"Schulterdehnung","aliases":["Shoulder Stretch","Schulterdehnung"]},
+    {"id":"free:Cat_Stretch","rank":207,"movementFamilyId":"spine_mobility","deName":"Cat-Cow","aliases":["Cat-Cow","Cat Cow","Katze-Kuh"]},
+    {"id":"trainy:hip_90_90","rank":208,"movementFamilyId":"hip_90_90","deName":"90/90-Hüftmobilisation","aliases":["90/90 Hip Mobility","90 90 Hüfte"]},
+    {"id":"trainy:thoracic_rotation","rank":209,"movementFamilyId":"thoracic_rotation","deName":"Brustwirbelsäulenrotation","aliases":["Thoracic Rotation","BWS-Rotation","Brustwirbelsäulenrotation"]}
+  ],
+  "additions": [
+    {
+      "id":"trainy:hip_90_90",
+      "activityTypeCode":"mobility",
+      "primaryMuscleIds":["hips"],
+      "secondaryMuscleIds":["glutes"],
+      "equipmentIds":["bodyweight"],
+      "goalCodes":["mobility"],
+      "tracking":{"sets":true,"reps":false,"weight":false,"duration":true,"distance":false},
+      "iconKey":"mobility",
+      "en":{"name":"90/90 Hip Mobility","description":"Controlled hip rotation mobility in the 90/90 seated position.","instructions":["Sit with both knees bent to roughly 90 degrees.","Keep your torso tall and rotate the knees from side to side with control.","Work only through a comfortable range."],"searchTerms":["90/90","hip mobility","hip rotation"]},
+      "de":{"name":"90/90-Hüftmobilisation","description":"Kontrollierte Hüftrotation im 90/90-Sitz.","instructions":["Setze dich hin und beuge beide Knie ungefähr im 90-Grad-Winkel.","Halte den Oberkörper aufrecht und führe die Knie kontrolliert von einer Seite zur anderen.","Bewege dich nur im angenehmen Bewegungsumfang."],"searchTerms":["90/90","Hüftmobilität","Hüftrotation"]}
+    },
+    {
+      "id":"trainy:thoracic_rotation",
+      "activityTypeCode":"mobility",
+      "primaryMuscleIds":["middle back"],
+      "secondaryMuscleIds":["shoulders"],
+      "equipmentIds":["bodyweight"],
+      "goalCodes":["mobility"],
+      "tracking":{"sets":true,"reps":true,"weight":false,"duration":false,"distance":false},
+      "iconKey":"mobility",
+      "en":{"name":"Thoracic Spine Rotation","description":"Controlled rotation for thoracic spine and shoulder mobility.","instructions":["Begin on all fours and place one hand behind your head.","Rotate the elbow toward the floor and then open it toward the ceiling.","Keep the hips stable and move without momentum."],"searchTerms":["thoracic rotation","T-spine mobility","upper back rotation"]},
+      "de":{"name":"Brustwirbelsäulenrotation","description":"Kontrollierte Rotation für die Beweglichkeit von Brustwirbelsäule und Schulter.","instructions":["Beginne im Vierfüßlerstand und lege eine Hand an den Hinterkopf.","Drehe den Ellenbogen zum Boden und öffne ihn anschließend zur Decke.","Halte die Hüfte stabil und bewege dich ohne Schwung."],"searchTerms":["Brustwirbelsäulenrotation","BWS-Rotation","oberer Rücken"]}
+    }
+  ]
+}

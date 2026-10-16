@@ -1,90 +1,10 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 1,
+  "catalogVersion": 2,
   "locale": "de",
-  "reviewedExerciseCount": 0,
+  "reviewedExerciseCount": 7,
   "fallbackExerciseCount": 876,
   "exercises": {
-    "trainy:running": {
-      "name": "Joggen",
-      "description": "Gleichmäßiges Lauftraining für Herz-Kreislauf-System und Grundlagenausdauer.",
-      "instructions": [
-        "Beginne mit lockerem Tempo und stabiler Haltung.",
-        "Steigere Umfang und Tempo kontrolliert.",
-        "Beende die Einheit mit einigen ruhigen Minuten."
-      ],
-      "searchTerms": [
-        "Laufen",
-        "Joggen",
-        "Dauerlauf",
-        "Ausdauer"
-      ],
-      "reviewed": true
-    },
-    "trainy:walking": {
-      "name": "Gehen",
-      "description": "Niedrig belastende Ausdauereinheit im zügigen oder entspannten Gehtempo.",
-      "instructions": [
-        "Wähle ein Tempo, das du sauber halten kannst.",
-        "Gehe aufrecht und rolle den Fuß kontrolliert ab.",
-        "Passe Strecke und Dauer an dein Tagesziel an."
-      ],
-      "searchTerms": [
-        "Gehen",
-        "Walking",
-        "Spazieren",
-        "Ausdauer"
-      ],
-      "reviewed": true
-    },
-    "trainy:cycling": {
-      "name": "Radfahren",
-      "description": "Ausdauertraining auf Fahrrad oder Ergometer.",
-      "instructions": [
-        "Stelle Sitzhöhe und Widerstand passend ein.",
-        "Halte eine kontrollierte Trittfrequenz.",
-        "Reduziere den Widerstand zum Ausfahren."
-      ],
-      "searchTerms": [
-        "Radfahren",
-        "Fahrrad",
-        "Ergometer",
-        "Bike"
-      ],
-      "reviewed": true
-    },
-    "trainy:swimming": {
-      "name": "Schwimmen",
-      "description": "Ganzkörper-Ausdauertraining im Wasser.",
-      "instructions": [
-        "Wärme dich mit ruhigen Bahnen auf.",
-        "Achte auf gleichmäßige Atmung und saubere Technik.",
-        "Schwimme zum Abschluss locker aus."
-      ],
-      "searchTerms": [
-        "Schwimmen",
-        "Pool",
-        "Bahnen",
-        "Ausdauer"
-      ],
-      "reviewed": true
-    },
-    "trainy:interval_running": {
-      "name": "Intervalllauf",
-      "description": "Laufeinheit mit abwechselnden Belastungs- und Erholungsabschnitten.",
-      "instructions": [
-        "Laufe dich vor dem ersten Intervall ein.",
-        "Halte Belastung und Erholung wie geplant ein.",
-        "Beende die Einheit mit lockerem Auslaufen."
-      ],
-      "searchTerms": [
-        "Intervalllauf",
-        "Intervalle",
-        "Laufen",
-        "Tempo"
-      ],
-      "reviewed": true
-    },
     "free:3_4_Sit-Up": {
       "name": "3/4 Sit-Up",
       "description": "Lie down on the floor and secure your feet. Your legs should be bent at the knees.\nPlace your hands behind or to the side of your head. You will begin with your back on the ground. This will be your starting position.\nFlex your hips and spine to raise your torso toward your knees.\nAt the top of the contraction your torso should be perpendicular to the ground. Reverse the motion, going only ¾ of the way down.\nRepeat for the recommended amount of repetitions.",
@@ -103,7 +23,7 @@
       "fallbackLocale": "en"
     },
     "free:90_90_Hamstring": {
-      "name": "90/90 Hamstring",
+      "name": "90/90-Oberschenkeldehnung",
       "description": "Lie on your back, with one leg extended straight out.\nWith the other leg, bend the hip and knee to 90 degrees. You may brace your leg with your hands if necessary. This will be your starting position.\nExtend your leg straight into the air, pausing briefly at the top. Return the leg to the starting position.\nRepeat for 10-20 repetitions, and then switch to the other leg.",
       "instructions": [
         "Lie on your back, with one leg extended straight out.",
@@ -113,7 +33,10 @@
       ],
       "searchTerms": [
         "90/90 Hamstring",
-        "90 90 Hamstring"
+        "90 90 Hamstring",
+        "90/90-Oberschenkeldehnung",
+        "Hamstring Stretch",
+        "Oberschenkeldehnung"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -770,7 +693,7 @@
       "fallbackLocale": "en"
     },
     "free:Barbell_Bench_Press_-_Medium_Grip": {
-      "name": "Barbell Bench Press - Medium Grip",
+      "name": "Bankdrücken mit Langhantel",
       "description": "Lie back on a flat bench. Using a medium width grip (a grip that creates a 90-degree angle in the middle of the movement between the forearms and the upper arms), lift the bar from the rack and hold it straight over you with your arms locked. This will be your starting position.\nFrom the starting position, breathe in and begin coming down slowly until the bar touches your middle chest.\nAfter a brief pause, push the bar back to the starting position as you breathe out. Focus on pushing the bar using your chest muscles. Lock your arms and squeeze your chest in the contracted position at the top of the motion, hold for a second and then start coming down slowly again. Tip: Ideally, lowering the weight should take about twice as long as raising it.\nRepeat the movement for the prescribed amount of repetitions.\nWhen you are done, place the bar back in the rack.",
       "instructions": [
         "Lie back on a flat bench. Using a medium width grip (a grip that creates a 90-degree angle in the middle of the movement between the forearms and the upper arms), lift the bar from the rack and hold it straight over you with your arms locked. This will be your starting position.",
@@ -781,7 +704,9 @@
       ],
       "searchTerms": [
         "Barbell Bench Press - Medium Grip",
-        "Barbell Bench Press - Medium Grip"
+        "Bankdrücken mit Langhantel",
+        "Bench Press",
+        "Bankdrücken"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -820,7 +745,7 @@
       "fallbackLocale": "en"
     },
     "free:Barbell_Deadlift": {
-      "name": "Barbell Deadlift",
+      "name": "Kreuzheben mit Langhantel",
       "description": "Stand in front of a loaded barbell.\nWhile keeping the back as straight as possible, bend your knees, bend forward and grasp the bar using a medium (shoulder width) overhand grip. This will be the starting position of the exercise. Tip: If it is difficult to hold on to the bar with this grip, alternate your grip or use wrist straps.\nWhile holding the bar, start the lift by pushing with your legs while simultaneously getting your torso to the upright position as you breathe out. In the upright position, stick your chest out and contract the back by bringing the shoulder blades back. Think of how the soldiers in the military look when they are in standing in attention.\nGo back to the starting position by bending at the knees while simultaneously leaning the torso forward at the waist while keeping the back straight. When the weights on the bar touch the floor you are back at the starting position and ready to perform another repetition.\nPerform the amount of repetitions prescribed in the program.",
       "instructions": [
         "Stand in front of a loaded barbell.",
@@ -831,13 +756,15 @@
       ],
       "searchTerms": [
         "Barbell Deadlift",
-        "Barbell Deadlift"
+        "Kreuzheben mit Langhantel",
+        "Deadlift",
+        "Kreuzheben"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
     },
     "free:Barbell_Full_Squat": {
-      "name": "Barbell Full Squat",
+      "name": "Kniebeuge mit Langhantel",
       "description": "This exercise is best performed inside a squat rack for safety purposes. To begin, first set the bar on a rack just above shoulder level. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it.\nHold on to the bar using both arms at each side and lift it off the rack by first pushing with your legs and at the same time straightening your torso.\nStep away from the rack and position your legs using a shoulder-width medium stance with the toes slightly pointed out. Keep your head up at all times and maintain a straight back. This will be your starting position.\nBegin to slowly lower the bar by bending the knees and sitting back with your hips as you maintain a straight posture with the head up. Continue down until your hamstrings are on your calves. Inhale as you perform this portion of the movement.\nBegin to raise the bar as you exhale by pushing the floor with the heel or middle of your foot as you straighten the legs and extend the hips to go back to the starting position.\nRepeat for the recommended amount of repetitions.",
       "instructions": [
         "This exercise is best performed inside a squat rack for safety purposes. To begin, first set the bar on a rack just above shoulder level. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it.",
@@ -849,7 +776,10 @@
       ],
       "searchTerms": [
         "Barbell Full Squat",
-        "Barbell Full Squat"
+        "Kniebeuge mit Langhantel",
+        "Squat",
+        "Kniebeuge",
+        "Kniebeugen"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -903,7 +833,7 @@
       "fallbackLocale": "en"
     },
     "free:Barbell_Hip_Thrust": {
-      "name": "Barbell Hip Thrust",
+      "name": "Hip Thrust mit Langhantel",
       "description": "Begin seated on the ground with a bench directly behind you. Have a loaded barbell over your legs. Using a fat bar or having a pad on the bar can greatly reduce the discomfort caused by this exercise.\nRoll the bar so that it is directly above your hips, and lean back against the bench so that your shoulder blades are near the top of it.\nBegin the movement by driving through your feet, extending your hips vertically through the bar. Your weight should be supported by your shoulder blades and your feet. Extend as far as possible, then reverse the motion to return to the starting position.",
       "instructions": [
         "Begin seated on the ground with a bench directly behind you. Have a loaded barbell over your legs. Using a fat bar or having a pad on the bar can greatly reduce the discomfort caused by this exercise.",
@@ -912,7 +842,9 @@
       ],
       "searchTerms": [
         "Barbell Hip Thrust",
-        "Barbell Hip Thrust"
+        "Hip Thrust mit Langhantel",
+        "Hip Thrust",
+        "Hüftheben"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -951,7 +883,7 @@
       "fallbackLocale": "en"
     },
     "free:Barbell_Lunge": {
-      "name": "Barbell Lunge",
+      "name": "Ausfallschritt mit Langhantel",
       "description": "This exercise is best performed inside a squat rack for safety purposes. To begin, first set the bar on a rack just below shoulder level. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it.\nHold on to the bar using both arms at each side and lift it off the rack by first pushing with your legs and at the same time straightening your torso.\nStep away from the rack and step forward with your right leg and squat down through your hips, while keeping the torso upright and maintaining balance. Inhale as you go down. Note: Do not allow your knee to go forward beyond your toes as you come down, as this will put undue stress on the knee joint. li>\nUsing mainly the heel of your foot, push up and go back to the starting position as you exhale.\nRepeat the movement for the recommended amount of repetitions and then perform with the left leg.",
       "instructions": [
         "This exercise is best performed inside a squat rack for safety purposes. To begin, first set the bar on a rack just below shoulder level. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it.",
@@ -962,7 +894,10 @@
       ],
       "searchTerms": [
         "Barbell Lunge",
-        "Barbell Lunge"
+        "Ausfallschritt mit Langhantel",
+        "Lunge",
+        "Ausfallschritt",
+        "Ausfallschritte"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -1018,7 +953,7 @@
       "fallbackLocale": "en"
     },
     "free:Barbell_Shoulder_Press": {
-      "name": "Barbell Shoulder Press",
+      "name": "Schulterdrücken mit Langhantel",
       "description": "Sit on a bench with back support in a squat rack. Position a barbell at a height that is just above your head. Grab the barbell with a pronated grip (palms facing forward).\nOnce you pick up the barbell with the correct grip width, lift the bar up over your head by locking your arms. Hold at about shoulder level and slightly in front of your head. This is your starting position.\nLower the bar down to the shoulders slowly as you inhale.\nLift the bar back up to the starting position as you exhale.\nRepeat for the recommended amount of repetitions.",
       "instructions": [
         "Sit on a bench with back support in a squat rack. Position a barbell at a height that is just above your head. Grab the barbell with a pronated grip (palms facing forward).",
@@ -1029,7 +964,10 @@
       ],
       "searchTerms": [
         "Barbell Shoulder Press",
-        "Barbell Shoulder Press"
+        "Schulterdrücken mit Langhantel",
+        "Shoulder Press",
+        "Overhead Press",
+        "Schulterdrücken"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -1367,7 +1305,7 @@
       "fallbackLocale": "en"
     },
     "free:Bent_Over_Barbell_Row": {
-      "name": "Bent Over Barbell Row",
+      "name": "Langhantelrudern",
       "description": "Holding a barbell with a pronated grip (palms facing down), bend your knees slightly and bring your torso forward, by bending at the waist, while keeping the back straight until it is almost parallel to the floor. Tip: Make sure that you keep the head up. The barbell should hang directly in front of you as your arms hang perpendicular to the floor and your torso. This is your starting position.\nNow, while keeping the torso stationary, breathe out and lift the barbell to you. Keep the elbows close to the body and only use the forearms to hold the weight. At the top contracted position, squeeze the back muscles and hold for a brief pause.\nThen inhale and slowly lower the barbell back to the starting position.\nRepeat for the recommended amount of repetitions.",
       "instructions": [
         "Holding a barbell with a pronated grip (palms facing down), bend your knees slightly and bring your torso forward, by bending at the waist, while keeping the back straight until it is almost parallel to the floor. Tip: Make sure that you keep the head up. The barbell should hang directly in front of you as your arms hang perpendicular to the floor and your torso. This is your starting position.",
@@ -1377,7 +1315,10 @@
       ],
       "searchTerms": [
         "Bent Over Barbell Row",
-        "Bent Over Barbell Row"
+        "Langhantelrudern",
+        "Barbell Row",
+        "Bent-Over Row",
+        "Rudern"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -2368,7 +2309,7 @@
       "fallbackLocale": "en"
     },
     "free:Calf_Stretch_Hands_Against_Wall": {
-      "name": "Calf Stretch Hands Against Wall",
+      "name": "Wadendehnung an der Wand",
       "description": "Stand facing a wall from several feet away. Stagger your stance, placing one foot forward.\nLean forward and rest your hands on the wall, keeping your heel, hip and head in a straight line.\nAttempt to keep your heel on the ground. Hold for 10-20 seconds and then switch sides.",
       "instructions": [
         "Stand facing a wall from several feet away. Stagger your stance, placing one foot forward.",
@@ -2377,7 +2318,9 @@
       ],
       "searchTerms": [
         "Calf Stretch Hands Against Wall",
-        "Calf Stretch Hands Against Wall"
+        "Wadendehnung an der Wand",
+        "Calf Stretch",
+        "Wadendehnung"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -2444,7 +2387,7 @@
       "fallbackLocale": "en"
     },
     "free:Cat_Stretch": {
-      "name": "Cat Stretch",
+      "name": "Cat-Cow",
       "description": "Position yourself on the floor on your hands and knees.\nPull your belly in and round your spine, lower back, shoulders, and neck, letting your head drop.\nHold for 15 seconds.",
       "instructions": [
         "Position yourself on the floor on your hands and knees.",
@@ -2453,7 +2396,9 @@
       ],
       "searchTerms": [
         "Cat Stretch",
-        "Cat Stretch"
+        "Cat-Cow",
+        "Cat Cow",
+        "Katze-Kuh"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -2673,7 +2618,7 @@
       "fallbackLocale": "en"
     },
     "free:Chin-Up": {
-      "name": "Chin-Up",
+      "name": "Klimmzug im Untergriff",
       "description": "Grab the pull-up bar with the palms facing your torso and a grip closer than the shoulder width.\nAs you have both arms extended in front of you holding the bar at the chosen grip width, keep your torso as straight as possible while creating a curvature on your lower back and sticking your chest out. This is your starting position. Tip: Keeping the torso as straight as possible maximizes biceps stimulation while minimizing back involvement.\nAs you breathe out, pull your torso up until your head is around the level of the pull-up bar. Concentrate on using the biceps muscles in order to perform the movement. Keep the elbows close to your body. Tip: The upper torso should remain stationary as it moves through space and only the arms should move. The forearms should do no other work other than hold the bar.\nAfter a second of squeezing the biceps in the contracted position, slowly lower your torso back to the starting position; when your arms are fully extended. Breathe in as you perform this portion of the movement.\nRepeat this motion for the prescribed amount of repetitions.",
       "instructions": [
         "Grab the pull-up bar with the palms facing your torso and a grip closer than the shoulder width.",
@@ -2684,7 +2629,9 @@
       ],
       "searchTerms": [
         "Chin-Up",
-        "Chin-Up"
+        "Klimmzug im Untergriff",
+        "Chin Up",
+        "Untergriff-Klimmzug"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -3153,7 +3100,7 @@
       "fallbackLocale": "en"
     },
     "free:Crunches": {
-      "name": "Crunches",
+      "name": "Crunch",
       "description": "Lie flat on your back with your feet flat on the ground, or resting on a bench with your knees bent at a 90 degree angle. If you are resting your feet on a bench, place them three to four inches apart and point your toes inward so they touch.\nNow place your hands lightly on either side of your head keeping your elbows in. Tip: Don't lock your fingers behind your head.\nWhile pushing the small of your back down in the floor to better isolate your abdominal muscles, begin to roll your shoulders off the floor.\nContinue to push down as hard as you can with your lower back as you contract your abdominals and exhale. Your shoulders should come up off the floor only about four inches, and your lower back should remain on the floor. At the top of the movement, contract your abdominals hard and keep the contraction for a second. Tip: Focus on slow, controlled movement - don't cheat yourself by using momentum.\nAfter the one second contraction, begin to come down slowly again to the starting position as you inhale.\nRepeat for the recommended amount of repetitions.",
       "instructions": [
         "Lie flat on your back with your feet flat on the ground, or resting on a bench with your knees bent at a 90 degree angle. If you are resting your feet on a bench, place them three to four inches apart and point your toes inward so they touch.",
@@ -3165,7 +3112,8 @@
       ],
       "searchTerms": [
         "Crunches",
-        "Crunches"
+        "Crunch",
+        "Bauchpresse"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -3734,7 +3682,7 @@
       "fallbackLocale": "en"
     },
     "free:Dumbbell_Bicep_Curl": {
-      "name": "Dumbbell Bicep Curl",
+      "name": "Bizepscurl mit Kurzhanteln",
       "description": "Stand up straight with a dumbbell in each hand at arm's length. Keep your elbows close to your torso and rotate the palms of your hands until they are facing forward. This will be your starting position.\nNow, keeping the upper arms stationary, exhale and curl the weights while contracting your biceps. Continue to raise the weights until your biceps are fully contracted and the dumbbells are at shoulder level. Hold the contracted position for a brief pause as you squeeze your biceps.\nThen, inhale and slowly begin to lower the dumbbells back to the starting position.\nRepeat for the recommended amount of repetitions.",
       "instructions": [
         "Stand up straight with a dumbbell in each hand at arm's length. Keep your elbows close to your torso and rotate the palms of your hands until they are facing forward. This will be your starting position.",
@@ -3744,7 +3692,10 @@
       ],
       "searchTerms": [
         "Dumbbell Bicep Curl",
-        "Dumbbell Bicep Curl"
+        "Bizepscurl mit Kurzhanteln",
+        "Biceps Curl",
+        "Bicep Curl",
+        "Bizepscurl"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -4200,7 +4151,7 @@
       "fallbackLocale": "en"
     },
     "free:Dynamic_Chest_Stretch": {
-      "name": "Dynamic Chest Stretch",
+      "name": "Dynamische Brustdehnung",
       "description": "Stand with your hands together, arms extended directly in front of you. This will be your starting position.\nKeeping your arms straight, quickly move your arms back as far as possible and back in again, similar to an exaggerated clapping motion. Repeat 5-10 times, increasing speed as you do so.",
       "instructions": [
         "Stand with your hands together, arms extended directly in front of you. This will be your starting position.",
@@ -4208,7 +4159,9 @@
       ],
       "searchTerms": [
         "Dynamic Chest Stretch",
-        "Dynamic Chest Stretch"
+        "Dynamische Brustdehnung",
+        "Chest Stretch",
+        "Brustdehnung"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -4327,7 +4280,7 @@
       "fallbackLocale": "en"
     },
     "free:Elliptical_Trainer": {
-      "name": "Elliptical Trainer",
+      "name": "Crosstrainer",
       "description": "To begin, step onto the elliptical and select the desired option from the menu. Most ellipticals have a manual setting, or you can select a program to run. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise. Elevation can be adjusted to change the intensity of the workout.\nThe handles can be used to monitor your heart rate to help you stay at an appropriate intensity.",
       "instructions": [
         "To begin, step onto the elliptical and select the desired option from the menu. Most ellipticals have a manual setting, or you can select a program to run. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise. Elevation can be adjusted to change the intensity of the workout.",
@@ -4335,7 +4288,8 @@
       ],
       "searchTerms": [
         "Elliptical Trainer",
-        "Elliptical Trainer"
+        "Crosstrainer",
+        "Elliptical"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -6578,7 +6532,7 @@
       "fallbackLocale": "en"
     },
     "free:Kneeling_Hip_Flexor": {
-      "name": "Kneeling Hip Flexor",
+      "name": "Hüftbeuger-Dehnung im Knien",
       "description": "Kneel on a mat and bring your right knee up so the bottom of your foot is on the floor and extend your left leg out behind you so the top of your foot is on the floor.\nShift your weight forward until you feel a stretch in your hip. Hold for 15 seconds, then repeat for your other side.",
       "instructions": [
         "Kneel on a mat and bring your right knee up so the bottom of your foot is on the floor and extend your left leg out behind you so the top of your foot is on the floor.",
@@ -6586,7 +6540,9 @@
       ],
       "searchTerms": [
         "Kneeling Hip Flexor",
-        "Kneeling Hip Flexor"
+        "Hüftbeuger-Dehnung im Knien",
+        "Hip Flexor Stretch",
+        "Hüftbeuger-Dehnung"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -6783,7 +6739,7 @@
       "fallbackLocale": "en"
     },
     "free:Leg_Extensions": {
-      "name": "Leg Extensions",
+      "name": "Beinstrecker",
       "description": "For this exercise you will need to use a leg extension machine. First choose your weight and sit on the machine with your legs under the pad (feet pointed forward) and the hands holding the side bars. This will be your starting position. Tip: You will need to adjust the pad so that it falls on top of your lower leg (just above your feet). Also, make sure that your legs form a 90-degree angle between the lower and upper leg. If the angle is less than 90-degrees then that means the knee is over the toes which in turn creates undue stress at the knee joint. If the machine is designed that way, either look for another machine or just make sure that when you start executing the exercise you stop going down once you hit the 90-degree angle.\nUsing your quadriceps, extend your legs to the maximum as you exhale. Ensure that the rest of the body remains stationary on the seat. Pause a second on the contracted position.\nSlowly lower the weight back to the original position as you inhale, ensuring that you do not go past the 90-degree angle limit.\nRepeat for the recommended amount of times.",
       "instructions": [
         "For this exercise you will need to use a leg extension machine. First choose your weight and sit on the machine with your legs under the pad (feet pointed forward) and the hands holding the side bars. This will be your starting position. Tip: You will need to adjust the pad so that it falls on top of your lower leg (just above your feet). Also, make sure that your legs form a 90-degree angle between the lower and upper leg. If the angle is less than 90-degrees then that means the knee is over the toes which in turn creates undue stress at the knee joint. If the machine is designed that way, either look for another machine or just make sure that when you start executing the exercise you stop going down once you hit the 90-degree angle.",
@@ -6793,7 +6749,8 @@
       ],
       "searchTerms": [
         "Leg Extensions",
-        "Leg Extensions"
+        "Beinstrecker",
+        "Leg Extension"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -6816,7 +6773,7 @@
       "fallbackLocale": "en"
     },
     "free:Leg_Press": {
-      "name": "Leg Press",
+      "name": "Beinpresse",
       "description": "Using a leg press machine, sit down on the machine and place your legs on the platform directly in front of you at a medium (shoulder width) foot stance. (Note: For the purposes of this discussion we will use the medium stance described above which targets overall development; however you can choose any of the three stances described in the foot positioning section).\nLower the safety bars holding the weighted platform in place and press the platform all the way up until your legs are fully extended in front of you. Tip: Make sure that you do not lock your knees. Your torso and the legs should make a perfect 90-degree angle. This will be your starting position.\nAs you inhale, slowly lower the platform until your upper and lower legs make a 90-degree angle.\nPushing mainly with the heels of your feet and using the quadriceps go back to the starting position as you exhale.\nRepeat for the recommended amount of repetitions and ensure to lock the safety pins properly once you are done. You do not want that platform falling on you fully loaded.",
       "instructions": [
         "Using a leg press machine, sit down on the machine and place your legs on the platform directly in front of you at a medium (shoulder width) foot stance. (Note: For the purposes of this discussion we will use the medium stance described above which targets overall development; however you can choose any of the three stances described in the foot positioning section).",
@@ -6827,7 +6784,7 @@
       ],
       "searchTerms": [
         "Leg Press",
-        "Leg Press"
+        "Beinpresse"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -7390,7 +7347,7 @@
       "fallbackLocale": "en"
     },
     "free:Lying_Leg_Curls": {
-      "name": "Lying Leg Curls",
+      "name": "Liegender Beinbeuger",
       "description": "Adjust the machine lever to fit your height and lie face down on the leg curl machine with the pad of the lever on the back of your legs (just a few inches under the calves). Tip: Preferably use a leg curl machine that is angled as opposed to flat since an angled position is more favorable for hamstrings recruitment.\nKeeping the torso flat on the bench, ensure your legs are fully stretched and grab the side handles of the machine. Position your toes straight (or you can also use any of the other two stances described on the foot positioning section). This will be your starting position.\nAs you exhale, curl your legs up as far as possible without lifting the upper legs from the pad. Once you hit the fully contracted position, hold it for a second.\nAs you inhale, bring the legs back to the initial position. Repeat for the recommended amount of repetitions.",
       "instructions": [
         "Adjust the machine lever to fit your height and lie face down on the leg curl machine with the pad of the lever on the back of your legs (just a few inches under the calves). Tip: Preferably use a leg curl machine that is angled as opposed to flat since an angled position is more favorable for hamstrings recruitment.",
@@ -7400,7 +7357,9 @@
       ],
       "searchTerms": [
         "Lying Leg Curls",
-        "Lying Leg Curls"
+        "Liegender Beinbeuger",
+        "Leg Curl",
+        "Beinbeuger"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -7441,7 +7400,7 @@
       "fallbackLocale": "en"
     },
     "free:Lying_Prone_Quadriceps": {
-      "name": "Lying Prone Quadriceps",
+      "name": "Quadrizeps-Dehnung in Bauchlage",
       "description": "Lay face down on the floor with your partner kneeling beside you. Flex one knee and raise that leg off the ground, attempting to touch your glutes with your foot. Your partner should hold the knee and ankle. This will be your starting position.\nAttempt to extend your knee while your partner prevents any actual movement.\nAfter 10-20 seconds, relax your muscles as your partner gently pushes the foot towards your glutes, further stretching the quadriceps and hip flexors.\nAfter 10-20 seconds, switch sides.",
       "instructions": [
         "Lay face down on the floor with your partner kneeling beside you. Flex one knee and raise that leg off the ground, attempting to touch your glutes with your foot. Your partner should hold the knee and ankle. This will be your starting position.",
@@ -7451,7 +7410,9 @@
       ],
       "searchTerms": [
         "Lying Prone Quadriceps",
-        "Lying Prone Quadriceps"
+        "Quadrizeps-Dehnung in Bauchlage",
+        "Quadriceps Stretch",
+        "Quadrizeps-Dehnung"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -8894,7 +8855,7 @@
       "fallbackLocale": "en"
     },
     "free:Plank": {
-      "name": "Plank",
+      "name": "Unterarmstütz",
       "description": "Get into a prone position on the floor, supporting your weight on your toes and your forearms. Your arms are bent and directly below the shoulder.\nKeep your body straight at all times, and hold this position as long as possible. To increase difficulty, an arm or leg can be raised.",
       "instructions": [
         "Get into a prone position on the floor, supporting your weight on your toes and your forearms. Your arms are bent and directly below the shoulder.",
@@ -8902,7 +8863,7 @@
       ],
       "searchTerms": [
         "Plank",
-        "Plank"
+        "Unterarmstütz"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -9252,7 +9213,7 @@
       "fallbackLocale": "en"
     },
     "free:Pullups": {
-      "name": "Pullups",
+      "name": "Klimmzug",
       "description": "Grab the pull-up bar with the palms facing forward using the prescribed grip. Note on grips: For a wide grip, your hands need to be spaced out at a distance wider than your shoulder width. For a medium grip, your hands need to be spaced out at a distance equal to your shoulder width and for a close grip at a distance smaller than your shoulder width.\nAs you have both arms extended in front of you holding the bar at the chosen grip width, bring your torso back around 30 degrees or so while creating a curvature on your lower back and sticking your chest out. This is your starting position.\nPull your torso up until the bar touches your upper chest by drawing the shoulders and the upper arms down and back. Exhale as you perform this portion of the movement. Tip: Concentrate on squeezing the back muscles once you reach the full contracted position. The upper torso should remain stationary as it moves through space and only the arms should move. The forearms should do no other work other than hold the bar.\nAfter a second on the contracted position, start to inhale and slowly lower your torso back to the starting position when your arms are fully extended and the lats are fully stretched.\nRepeat this motion for the prescribed amount of repetitions.",
       "instructions": [
         "Grab the pull-up bar with the palms facing forward using the prescribed grip. Note on grips: For a wide grip, your hands need to be spaced out at a distance wider than your shoulder width. For a medium grip, your hands need to be spaced out at a distance equal to your shoulder width and for a close grip at a distance smaller than your shoulder width.",
@@ -9263,7 +9224,11 @@
       ],
       "searchTerms": [
         "Pullups",
-        "Pullups"
+        "Klimmzug",
+        "Pull-Up",
+        "Pull Up",
+        "Pullup",
+        "Klimmzüge"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -9382,7 +9347,7 @@
       "fallbackLocale": "en"
     },
     "free:Pushups": {
-      "name": "Pushups",
+      "name": "Liegestütz",
       "description": "Lie on the floor face down and place your hands about 36 inches apart while holding your torso up at arms length.\nNext, lower yourself downward until your chest almost touches the floor as you inhale.\nNow breathe out and press your upper body back up to the starting position while squeezing your chest.\nAfter a brief pause at the top contracted position, you can begin to lower yourself downward again for as many repetitions as needed.",
       "instructions": [
         "Lie on the floor face down and place your hands about 36 inches apart while holding your torso up at arms length.",
@@ -9392,7 +9357,11 @@
       ],
       "searchTerms": [
         "Pushups",
-        "Pushups"
+        "Liegestütz",
+        "Push-Up",
+        "Push Up",
+        "Pushup",
+        "Liegestütze"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -10027,7 +9996,7 @@
       "fallbackLocale": "en"
     },
     "free:Rope_Jumping": {
-      "name": "Rope Jumping",
+      "name": "Seilspringen",
       "description": "Hold an end of the rope in each hand. Position the rope behind you on the ground. Raise your arms up and turn the rope over your head bringing it down in front of you. When it reaches the ground, jump over it. Find a good turning pace that can be maintained. Different speeds and techniques can be used to introduce variation.\nRope jumping is exciting, challenges your coordination, and requires a lot of energy. A 150 lb person will burn about 350 calories jumping rope for 30 minutes, compared to over 450 calories running.",
       "instructions": [
         "Hold an end of the rope in each hand. Position the rope behind you on the ground. Raise your arms up and turn the rope over your head bringing it down in front of you. When it reaches the ground, jump over it. Find a good turning pace that can be maintained. Different speeds and techniques can be used to introduce variation.",
@@ -10035,7 +10004,8 @@
       ],
       "searchTerms": [
         "Rope Jumping",
-        "Rope Jumping"
+        "Seilspringen",
+        "Jump Rope"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -10072,7 +10042,7 @@
       "fallbackLocale": "en"
     },
     "free:Rowing_Stationary": {
-      "name": "Rowing, Stationary",
+      "name": "Rudern am Ergometer",
       "description": "To begin, seat yourself on the rower. Make sure that your heels are resting comfortably against the base of the foot pedals and that the straps are secured. Select the program that you wish to use, if applicable. Sit up straight and bend forward at the hips.\nThere are three phases of movement when using a rower. The first phase is when you come forward on the rower. Your knees are bent and against your chest. Your upper body is leaning slightly forward while still maintaining good posture. Next, push against the foot pedals and extend your legs while bringing your hands to your upper abdominal area, squeezing your shoulders back as you do so. To avoid straining your back, use primarily your leg and hip muscles.\nThe recovery phase simply involves straightening your arms, bending the knees, and bringing your body forward again as you transition back into the first phase.",
       "instructions": [
         "To begin, seat yourself on the rower. Make sure that your heels are resting comfortably against the base of the foot pedals and that the straps are secured. Select the program that you wish to use, if applicable. Sit up straight and bend forward at the hips.",
@@ -10081,7 +10051,11 @@
       ],
       "searchTerms": [
         "Rowing, Stationary",
-        "Rowing Stationary"
+        "Rowing Stationary",
+        "Rudern am Ergometer",
+        "Rowing",
+        "Ruderergometer",
+        "Ergometer-Rudern"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -10881,14 +10855,14 @@
       "fallbackLocale": "en"
     },
     "free:Shoulder_Stretch": {
-      "name": "Shoulder Stretch",
+      "name": "Schulterdehnung",
       "description": "Reach your left arm across your body and hold it straight.",
       "instructions": [
         "Reach your left arm across your body and hold it straight."
       ],
       "searchTerms": [
         "Shoulder Stretch",
-        "Shoulder Stretch"
+        "Schulterdehnung"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -12175,7 +12149,7 @@
       "fallbackLocale": "en"
     },
     "free:Stairmaster": {
-      "name": "Stairmaster",
+      "name": "Treppensteiger",
       "description": "To begin, step onto the stairmaster and select the desired option from the menu. You can choose a manual setting, or you can select a program to run. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise.\nPump your legs up and down in an established rhythm, driving the pedals down but not all the way to the floor. It is recommended that you maintain your grip on the handles so that you don't fall. The handles can be used to monitor your heart rate to help you stay at an appropriate intensity.\nStairmasters offer convenience, cardiovascular benefits, and usually have less impact than running outside. They are typically much harder than other cardio equipment. A 150 lb person will typically burn over 300 calories in 30 minutes, compared to about 175 calories walking.",
       "instructions": [
         "To begin, step onto the stairmaster and select the desired option from the menu. You can choose a manual setting, or you can select a program to run. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise.",
@@ -12184,7 +12158,8 @@
       ],
       "searchTerms": [
         "Stairmaster",
-        "Stairmaster"
+        "Treppensteiger",
+        "Stair Climber"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -12380,7 +12355,7 @@
       "fallbackLocale": "en"
     },
     "free:Standing_Calf_Raises": {
-      "name": "Standing Calf Raises",
+      "name": "Wadenheben im Stand",
       "description": "Adjust the padded lever of the calf raise machine to fit your height.\nPlace your shoulders under the pads provided and position your toes facing forward (or using any of the two other positions described at the beginning of the chapter). The balls of your feet should be secured on top of the calf block with the heels extending off it. Push the lever up by extending your hips and knees until your torso is standing erect. The knees should be kept with a slight bend; never locked. Toes should be facing forward, outwards or inwards as described at the beginning of the chapter. This will be your starting position.\nRaise your heels as you breathe out by extending your ankles as high as possible and flexing your calf. Ensure that the knee is kept stationary at all times. There should be no bending at any time. Hold the contracted position by a second before you start to go back down.\nGo back slowly to the starting position as you breathe in by lowering your heels as you bend the ankles until calves are stretched.\nRepeat for the recommended amount of repetitions.",
       "instructions": [
         "Adjust the padded lever of the calf raise machine to fit your height.",
@@ -12391,7 +12366,9 @@
       ],
       "searchTerms": [
         "Standing Calf Raises",
-        "Standing Calf Raises"
+        "Wadenheben im Stand",
+        "Calf Raise",
+        "Wadenheben"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -13559,7 +13536,7 @@
       "fallbackLocale": "en"
     },
     "free:Triceps_Pushdown": {
-      "name": "Triceps Pushdown",
+      "name": "Trizepsdrücken am Kabelzug",
       "description": "Attach a straight or angled bar to a high pulley and grab with an overhand grip (palms facing down) at shoulder width.\nStanding upright with the torso straight and a very small inclination forward, bring the upper arms close to your body and perpendicular to the floor. The forearms should be pointing up towards the pulley as they hold the bar. This is your starting position.\nUsing the triceps, bring the bar down until it touches the front of your thighs and the arms are fully extended perpendicular to the floor. The upper arms should always remain stationary next to your torso and only the forearms should move. Exhale as you perform this movement.\nAfter a second hold at the contracted position, bring the bar slowly up to the starting point. Breathe in as you perform this step.\nRepeat for the recommended amount of repetitions.",
       "instructions": [
         "Attach a straight or angled bar to a high pulley and grab with an overhand grip (palms facing down) at shoulder width.",
@@ -13570,7 +13547,8 @@
       ],
       "searchTerms": [
         "Triceps Pushdown",
-        "Triceps Pushdown"
+        "Trizepsdrücken am Kabelzug",
+        "Trizepsdrücken"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -14085,7 +14063,7 @@
       "fallbackLocale": "en"
     },
     "free:Wide-Grip_Lat_Pulldown": {
-      "name": "Wide-Grip Lat Pulldown",
+      "name": "Latzug im breiten Griff",
       "description": "Sit down on a pull-down machine with a wide bar attached to the top pulley. Make sure that you adjust the knee pad of the machine to fit your height. These pads will prevent your body from being raised by the resistance attached to the bar.\nGrab the bar with the palms facing forward using the prescribed grip. Note on grips: For a wide grip, your hands need to be spaced out at a distance wider than shoulder width. For a medium grip, your hands need to be spaced out at a distance equal to your shoulder width and for a close grip at a distance smaller than your shoulder width.\nAs you have both arms extended in front of you holding the bar at the chosen grip width, bring your torso back around 30 degrees or so while creating a curvature on your lower back and sticking your chest out. This is your starting position.\nAs you breathe out, bring the bar down until it touches your upper chest by drawing the shoulders and the upper arms down and back. Tip: Concentrate on squeezing the back muscles once you reach the full contracted position. The upper torso should remain stationary and only the arms should move. The forearms should do no other work except for holding the bar; therefore do not try to pull down the bar using the forearms.\nAfter a second at the contracted position squeezing your shoulder blades together, slowly raise the bar back to the starting position when your arms are fully extended and the lats are fully stretched. Inhale during this portion of the movement.\nRepeat this motion for the prescribed amount of repetitions.",
       "instructions": [
         "Sit down on a pull-down machine with a wide bar attached to the top pulley. Make sure that you adjust the knee pad of the machine to fit your height. These pads will prevent your body from being raised by the resistance attached to the bar.",
@@ -14097,7 +14075,9 @@
       ],
       "searchTerms": [
         "Wide-Grip Lat Pulldown",
-        "Wide-Grip Lat Pulldown"
+        "Latzug im breiten Griff",
+        "Lat Pulldown",
+        "Latzug"
       ],
       "reviewed": false,
       "fallbackLocale": "en"
@@ -14349,6 +14329,133 @@
       ],
       "reviewed": false,
       "fallbackLocale": "en"
+    },
+    "trainy:cycling": {
+      "name": "Radfahren",
+      "description": "Ausdauertraining auf Fahrrad oder Ergometer.",
+      "instructions": [
+        "Stelle Sitzhöhe und Widerstand passend ein.",
+        "Halte eine kontrollierte Trittfrequenz.",
+        "Reduziere den Widerstand zum Ausfahren."
+      ],
+      "searchTerms": [
+        "Radfahren",
+        "Fahrrad",
+        "Ergometer",
+        "Bike",
+        "Cycling",
+        "Biking"
+      ],
+      "reviewed": true
+    },
+    "trainy:hip_90_90": {
+      "name": "90/90-Hüftmobilisation",
+      "description": "Kontrollierte Hüftrotation im 90/90-Sitz.",
+      "instructions": [
+        "Setze dich hin und beuge beide Knie ungefähr im 90-Grad-Winkel.",
+        "Halte den Oberkörper aufrecht und führe die Knie kontrolliert von einer Seite zur anderen.",
+        "Bewege dich nur im angenehmen Bewegungsumfang."
+      ],
+      "searchTerms": [
+        "90/90",
+        "Hüftmobilität",
+        "Hüftrotation",
+        "90/90-Hüftmobilisation",
+        "90/90 Hip Mobility",
+        "90 90 Hüfte"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "742a309d3d1b240955cf84c0c3b9319dbcc80db2b90b95256a0de3bb58abe601"
+    },
+    "trainy:interval_running": {
+      "name": "Intervalllauf",
+      "description": "Laufeinheit mit abwechselnden Belastungs- und Erholungsabschnitten.",
+      "instructions": [
+        "Laufe dich vor dem ersten Intervall ein.",
+        "Halte Belastung und Erholung wie geplant ein.",
+        "Beende die Einheit mit lockerem Auslaufen."
+      ],
+      "searchTerms": [
+        "Intervalllauf",
+        "Intervalle",
+        "Laufen",
+        "Tempo",
+        "Interval Running"
+      ],
+      "reviewed": true
+    },
+    "trainy:running": {
+      "name": "Joggen",
+      "description": "Gleichmäßiges Lauftraining für Herz-Kreislauf-System und Grundlagenausdauer.",
+      "instructions": [
+        "Beginne mit lockerem Tempo und stabiler Haltung.",
+        "Steigere Umfang und Tempo kontrolliert.",
+        "Beende die Einheit mit einigen ruhigen Minuten."
+      ],
+      "searchTerms": [
+        "Laufen",
+        "Joggen",
+        "Dauerlauf",
+        "Ausdauer",
+        "Running",
+        "Run"
+      ],
+      "reviewed": true
+    },
+    "trainy:swimming": {
+      "name": "Schwimmen",
+      "description": "Ganzkörper-Ausdauertraining im Wasser.",
+      "instructions": [
+        "Wärme dich mit ruhigen Bahnen auf.",
+        "Achte auf gleichmäßige Atmung und saubere Technik.",
+        "Schwimme zum Abschluss locker aus."
+      ],
+      "searchTerms": [
+        "Schwimmen",
+        "Pool",
+        "Bahnen",
+        "Ausdauer",
+        "Swimming"
+      ],
+      "reviewed": true
+    },
+    "trainy:thoracic_rotation": {
+      "name": "Brustwirbelsäulenrotation",
+      "description": "Kontrollierte Rotation für die Beweglichkeit von Brustwirbelsäule und Schulter.",
+      "instructions": [
+        "Beginne im Vierfüßlerstand und lege eine Hand an den Hinterkopf.",
+        "Drehe den Ellenbogen zum Boden und öffne ihn anschließend zur Decke.",
+        "Halte die Hüfte stabil und bewege dich ohne Schwung."
+      ],
+      "searchTerms": [
+        "Brustwirbelsäulenrotation",
+        "BWS-Rotation",
+        "oberer Rücken",
+        "Thoracic Rotation"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "cb92c38dc556c1d7e0f7b49c89215b8e17cbed1133a17bc512002f5df30ca442"
+    },
+    "trainy:walking": {
+      "name": "Gehen",
+      "description": "Niedrig belastende Ausdauereinheit im zügigen oder entspannten Gehtempo.",
+      "instructions": [
+        "Wähle ein Tempo, das du sauber halten kannst.",
+        "Gehe aufrecht und rolle den Fuß kontrolliert ab.",
+        "Passe Strecke und Dauer an dein Tagesziel an."
+      ],
+      "searchTerms": [
+        "Gehen",
+        "Walking",
+        "Spazieren",
+        "Ausdauer",
+        "Walk"
+      ],
+      "reviewed": true
     }
-  }
+  },
+  "exerciseCount": 883,
+  "machineTranslatedExerciseCount": 0
 }

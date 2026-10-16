@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "media": [
+    {
+      "mediaId": "owned:category-strength",
+      "assetPath": "assets/catalog/covers/strength.webp",
+      "sha256": "8a1b3a991760a5d66490d86e0badfd18a5b1e1360b1642137348cf3c4ac08fdc",
+      "author": "Trainy project",
+      "sourceUrl": null,
+      "license": "owned"
+    },
+    {
+      "mediaId": "owned:category-push",
+      "assetPath": "assets/catalog/covers/push.webp",
+      "sha256": "03c80b85e7a17ac957f96f0d077afc1c7e58def6dd452bdffba9ea42584c0886",
+      "author": "Trainy project",
+      "sourceUrl": null,
+      "license": "owned"
+    },
+    {
+      "mediaId": "owned:category-pull",
+      "assetPath": "assets/catalog/covers/pull.webp",
+      "sha256": "d4a46c15bb6efefb51b082480036cfd312d71e9f3b78ff3157703a2255883a03",
+      "author": "Trainy project",
+      "sourceUrl": null,
+      "license": "owned"
+    },
+    {
+      "mediaId": "owned:category-squat",
+      "assetPath": "assets/catalog/covers/squat.webp",
+      "sha256": "9633e103beebebb98ddc240dbf820137304185c5495331951e30a9265c52222e",
+      "author": "Trainy project",
+      "sourceUrl": null,
+      "license": "owned"
+    },
+    {
+      "mediaId": "owned:category-hinge",
+      "assetPath": "assets/catalog/covers/hinge.webp",
+      "sha256": "58237e0ae49b12b374ecc164c5f66e4bd233d93861f43733da43873d1a21ff99",
+      "author": "Trainy project",
+      "sourceUrl": null,
+      "license": "owned"
+    },
+    {
+      "mediaId": "owned:category-core",
+      "assetPath": "assets/catalog/covers/core.webp",
+      "sha256": "004e707e03e98f21a9097890051b1b396e30675ee2f2354f87afd8335564c047",
+      "author": "Trainy project",
+      "sourceUrl": null,
+      "license": "owned"
+    },
+    {
+      "mediaId": "owned:category-cardio",
+      "assetPath": "assets/catalog/covers/cardio.webp",
+      "sha256": "a034491ab0ded2ddb626f755551758844c35e713b662c331168ab5d18c1924ee",
+      "author": "Trainy project",
+      "sourceUrl": null,
+      "license": "owned"
+    },
+    {
+      "mediaId": "owned:category-cycling",
+      "assetPath": "assets/catalog/covers/cycling.webp",
+      "sha256": "e528ae48acd85ed257e4e7770792d6b0c7a9df7ced5805819114127b067774ad",
+      "author": "Trainy project",
+      "sourceUrl": null,
+      "license": "owned"
+    },
+    {
+      "mediaId": "owned:category-swimming",
+      "assetPath": "assets/catalog/covers/swimming.webp",
+      "sha256": "2944ff1c54e8f0073d9986634180c133238fff2e39785865d4e231a74d495c7c",
+      "author": "Trainy project",
+      "sourceUrl": null,
+      "license": "owned"
+    },
+    {
+      "mediaId": "owned:category-rowing",
+      "assetPath": "assets/catalog/covers/rowing.webp",
+      "sha256": "0d748bfcbb8938f379f05cd0246e76f78d15bc19f25b3f545cb2fa5939470569",
+      "author": "Trainy project",
+      "sourceUrl": null,
+      "license": "owned"
+    },
+    {
+      "mediaId": "owned:category-mobility",
+      "assetPath": "assets/catalog/covers/mobility.webp",
+      "sha256": "deec9940e84757768c57f9abc1886c84fcd07e7cc34a5750c9c79f120ed672f5",
+      "author": "Trainy project",
+      "sourceUrl": null,
+      "license": "owned"
+    }
+  ]
+}

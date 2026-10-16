@@ -27,6 +27,7 @@ recovery/
 tool/.tmp/
 tool/tmp/
 assets/catalog/.tmp/
+tool/.catalog_translation_cache.json
 
 # IntelliJ related
 *.iml
