@@ -19,6 +19,7 @@ class ActivityRepository {
     String? trainingPlanId,
     String? workoutVariantId,
     String? profileId,
+    String? sourceLocalId,
     DateTime? startedAt,
   }) async {
     final normalizedTags = _validateTags(tags);
@@ -28,6 +29,7 @@ class ActivityRepository {
     await _database.transaction((txn) async {
       await txn.insert('activity_sessions', {
         'id': id,
+        'source_local_id': sourceLocalId,
         'workout_id': workoutId,
         'training_plan_id': trainingPlanId,
         'workout_variant_id': workoutVariantId,
@@ -59,6 +61,7 @@ class ActivityRepository {
     String? movementFamilySnapshot,
     String? equipmentSnapshot,
     String? sessionGroupId,
+    String? sourceLocalId,
     int sortOrder = 0,
   }) async {
     final id = UuidV4.generate();
@@ -66,6 +69,7 @@ class ActivityRepository {
       await txn.insert('activity_items', {
         'id': id,
         'session_id': sessionId,
+        'source_local_id': sourceLocalId,
         'session_group_id': sessionGroupId,
         'exercise_id': exerciseId,
         'catalog_id_snapshot': catalogIdSnapshot,
@@ -108,6 +112,96 @@ class ActivityRepository {
     return effortId;
   }
 
+  Future<void> putEffort({
+    required String effortId,
+    required String sessionId,
+    required String activityItemId,
+    String effortType = 'set',
+    int sortOrder = 0,
+    required List<ActivityMetricInput> metrics,
+  }) async {
+    await _database.transaction((txn) async {
+      await txn.insert('activity_efforts', {
+        'id': effortId,
+        'activity_item_id': activityItemId,
+        'effort_type': effortType,
+        'sort_order': sortOrder,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await txn.delete(
+        'activity_metric_values',
+        where: 'effort_id = ?',
+        whereArgs: [effortId],
+      );
+      await _insertMetrics(
+        txn,
+        sessionId: sessionId,
+        itemId: activityItemId,
+        effortId: effortId,
+        metrics: metrics,
+      );
+    });
+  }
+
+  Future<void> removeEffort(String effortId) => _database.transaction(
+    (txn) =>
+        txn.delete('activity_efforts', where: 'id = ?', whereArgs: [effortId]),
+  );
+
+  Future<StartedWorkoutActivity> startWorkoutActivity({
+    required int localWorkoutId,
+    required String nameSnapshot,
+    required String activityType,
+    required List<String> tags,
+    required List<ActivityItemSnapshotInput> items,
+    String? profileId,
+    DateTime? startedAt,
+  }) async {
+    final normalizedTags = _validateTags(tags);
+    final localStart = startedAt ?? DateTime.now();
+    final sessionId = UuidV4.generate();
+    final itemIds = <int, String>{};
+    await _database.transaction((txn) async {
+      await txn.insert('activity_sessions', {
+        'id': sessionId,
+        'source_local_id': '$localWorkoutId',
+        'profile_id': profileId,
+        'activity_type': activityType,
+        'status': 'active',
+        'source': 'manual',
+        'name_snapshot': nameSnapshot,
+        'started_at_utc': localStart.toUtc().millisecondsSinceEpoch,
+        'timezone_offset_minutes': localStart.timeZoneOffset.inMinutes,
+        'created_at_utc': DateTime.now().toUtc().millisecondsSinceEpoch,
+      });
+      for (var index = 0; index < normalizedTags.length; index++) {
+        await txn.insert('activity_session_tags', {
+          'session_id': sessionId,
+          'tag_code': normalizedTags[index],
+          'position': index,
+        });
+      }
+      for (var index = 0; index < items.length; index++) {
+        final item = items[index];
+        final id = UuidV4.generate();
+        itemIds[item.localExerciseId] = id;
+        await txn.insert('activity_items', {
+          'id': id,
+          'session_id': sessionId,
+          'source_local_id': '${item.localExerciseId}',
+          'catalog_id_snapshot': item.catalogId,
+          'display_name_snapshot': item.displayName,
+          'movement_family_snapshot': item.movementFamily,
+          'equipment_snapshot': item.equipment,
+          'sort_order': index,
+        });
+      }
+    });
+    return StartedWorkoutActivity(
+      sessionId: sessionId,
+      activityItemIds: Map.unmodifiable(itemIds),
+    );
+  }
+
   Future<void> recordItemMetrics({
     required String sessionId,
     required String activityItemId,
@@ -127,11 +221,64 @@ class ActivityRepository {
       final changed = await txn.update(
         'activity_sessions',
         {'status': 'completed', 'ended_at_utc': ended},
-        where: "id = ? AND status = 'active'",
+        where: "id = ? AND status IN ('active','completed')",
         whereArgs: [sessionId],
       );
-      if (changed != 1) throw StateError('Active session not found.');
+      if (changed != 1) throw StateError('Session not found.');
     });
+  }
+
+  Future<void> discardSession(String sessionId) async {
+    await _database.update(
+      'activity_sessions',
+      {
+        'status': 'discarded',
+        'ended_at_utc': DateTime.now().toUtc().millisecondsSinceEpoch,
+      },
+      where: "id = ? AND status = 'active'",
+      whereArgs: [sessionId],
+    );
+  }
+
+  Future<RestorableActivitySession?> latestActiveWorkout() async {
+    final sessions = await _database.query(
+      'activity_sessions',
+      where:
+          "status = 'active' AND source = 'manual' AND source_local_id IS NOT NULL",
+      orderBy: 'started_at_utc DESC',
+      limit: 1,
+    );
+    if (sessions.isEmpty) return null;
+    final session = sessions.single;
+    final sessionId = session['id'] as String;
+    final items = await _database.query(
+      'activity_items',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'sort_order ASC',
+    );
+    final efforts = await _database.rawQuery(
+      '''SELECT effort.*, metric.metric_code, metric.entered_value,
+                metric.entered_unit_code
+         FROM activity_efforts effort
+         LEFT JOIN activity_metric_values metric ON metric.effort_id = effort.id
+         INNER JOIN activity_items item ON item.id = effort.activity_item_id
+         WHERE item.session_id = ?
+         ORDER BY item.sort_order, effort.sort_order, metric.metric_code''',
+      [sessionId],
+    );
+    return RestorableActivitySession(
+      sessionId: sessionId,
+      localWorkoutId: int.parse(session['source_local_id'] as String),
+      profileId: session['profile_id'] as String?,
+      startedAt:
+          DateTime.fromMillisecondsSinceEpoch(
+            (session['started_at_utc'] as num).toInt(),
+            isUtc: true,
+          ).toLocal(),
+      items: items,
+      efforts: efforts,
+    );
   }
 
   static Future<void> _insertMetrics(
@@ -174,6 +321,50 @@ class ActivityRepository {
     });
     return normalized;
   }
+}
+
+class ActivityItemSnapshotInput {
+  const ActivityItemSnapshotInput({
+    required this.localExerciseId,
+    required this.displayName,
+    this.catalogId,
+    this.movementFamily,
+    this.equipment,
+  });
+
+  final int localExerciseId;
+  final String displayName;
+  final String? catalogId;
+  final String? movementFamily;
+  final String? equipment;
+}
+
+class StartedWorkoutActivity {
+  const StartedWorkoutActivity({
+    required this.sessionId,
+    required this.activityItemIds,
+  });
+
+  final String sessionId;
+  final Map<int, String> activityItemIds;
+}
+
+class RestorableActivitySession {
+  const RestorableActivitySession({
+    required this.sessionId,
+    required this.localWorkoutId,
+    required this.startedAt,
+    required this.items,
+    required this.efforts,
+    this.profileId,
+  });
+
+  final String sessionId;
+  final int localWorkoutId;
+  final String? profileId;
+  final DateTime startedAt;
+  final List<Map<String, Object?>> items;
+  final List<Map<String, Object?>> efforts;
 }
 
 class ActivityMetricInput {

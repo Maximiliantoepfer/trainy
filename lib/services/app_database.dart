@@ -34,6 +34,7 @@ class AppDatabase {
       await db.execute('PRAGMA foreign_keys = ON');
     },
     onCreate: (db, _) => DatabaseSchemaV2.create(db),
+    onUpgrade: DatabaseSchemaV2.upgrade,
     onOpen: (db) async {
       final enabled = Sqflite.firstIntValue(
         await db.rawQuery('PRAGMA foreign_keys'),
@@ -90,8 +91,7 @@ class AppDatabase {
       for (final row in metadataRows) row['key'] as String: row['value'],
     };
     if (metadata['data_epoch'] != '${DatabaseSchemaV2.dataEpoch}' ||
-        metadata['schema_version'] != '${DatabaseSchemaV2.schemaVersion}' ||
-        metadata['schema_revision'] != DatabaseSchemaV2.schemaRevision) {
+        metadata['schema_version'] != '${DatabaseSchemaV2.schemaVersion}') {
       throw StateError('The database metadata does not match epoch 2.');
     }
   }

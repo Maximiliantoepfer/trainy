@@ -5,36 +5,61 @@ import '../services/data_lifecycle_coordinator.dart';
 /// Recreates all database-backed providers after a destructive lifecycle
 /// operation. Locale and theme providers live above this boundary.
 class DataLifecycleProvider extends ChangeNotifier {
-  DataLifecycleProvider({DataLifecycleCoordinator? coordinator})
-    : _coordinator = coordinator ?? DataLifecycleCoordinator.instance;
+  DataLifecycleProvider({
+    DataLifecycleCoordinator? coordinator,
+    DataStartupResult initialResult = const DataStartupResult.ready(),
+  }) : _coordinator = coordinator ?? DataLifecycleCoordinator.instance,
+       _startupResult = initialResult;
 
   final DataLifecycleCoordinator _coordinator;
   int _generation = 0;
   bool _isBusy = false;
+  DataStartupResult _startupResult;
 
   int get generation => _generation;
   bool get isBusy => _isBusy;
+  DataStartupResult get startupResult => _startupResult;
+  bool get needsRecovery =>
+      _startupResult.state == DataStartupState.needsRecovery;
 
   Future<void> resetLocalTrainingData() async {
-    await _run(_coordinator.resetLocalTrainingData);
+    await _run(() async {
+      await _coordinator.resetLocalTrainingData();
+      _startupResult = const DataStartupResult.ready();
+    });
   }
 
   Future<void> deleteAllLocalData() async {
-    await _run(_coordinator.deleteAllLocalData);
+    await _run(() async {
+      await _coordinator.deleteAllLocalData();
+      _startupResult = const DataStartupResult.ready();
+    });
   }
+
+  Future<void> retryStartup() async {
+    await _run(() async {
+      _startupResult = await _coordinator.retryRecovery();
+      if (_startupResult.isReady) _generation++;
+    }, incrementGeneration: false);
+  }
+
+  Future<String> exportRecoveryCopy() => _coordinator.exportRecoveryCopy();
 
   void notifyDataWasReplaced() {
     _generation++;
     notifyListeners();
   }
 
-  Future<void> _run(Future<void> Function() action) async {
+  Future<void> _run(
+    Future<void> Function() action, {
+    bool incrementGeneration = true,
+  }) async {
     if (_isBusy) return;
     _isBusy = true;
     notifyListeners();
     try {
       await action();
-      _generation++;
+      if (incrementGeneration) _generation++;
     } finally {
       _isBusy = false;
       notifyListeners();

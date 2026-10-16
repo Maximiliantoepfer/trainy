@@ -10,11 +10,26 @@ import 'database_schema_v2.dart';
 import 'exercise_image_service.dart';
 import 'settings_database.dart';
 
+enum DataStartupState { ready, migrated, needsRecovery }
+
+class DataStartupResult {
+  const DataStartupResult._(this.state, {this.error});
+
+  const DataStartupResult.ready() : this._(DataStartupState.ready);
+  const DataStartupResult.migrated() : this._(DataStartupState.migrated);
+  const DataStartupResult.needsRecovery(Object error)
+    : this._(DataStartupState.needsRecovery, error: error);
+
+  final DataStartupState state;
+  final Object? error;
+
+  bool get isReady => state != DataStartupState.needsRecovery;
+}
+
 /// Coordinates destructive data transitions independently of the UI.
 ///
-/// The epoch marker is written only after the new database passed both the
-/// SQLite integrity and foreign-key checks. Consequently an interrupted reset
-/// is safely repeated on the next start.
+/// Database metadata is authoritative. The preference marker is only a
+/// reconstructable cache and can never delete a valid epoch-2 database.
 class DataLifecycleCoordinator {
   DataLifecycleCoordinator._();
 
@@ -28,31 +43,107 @@ class DataLifecycleCoordinator {
     'trainy_restore',
   ];
 
-  Future<void> applyDataEpoch() async {
+  Future<DataStartupResult> ensureReady() async {
     final preferences = await SharedPreferences.getInstance();
-    var resetPerformed = false;
-    if (preferences.getInt(_epochPreferenceKey) != DatabaseSchemaV2.dataEpoch) {
-      await _deleteTrainingFiles(includeV2: true);
-      resetPerformed = true;
+    final databaseFile = File(await AppDatabase.instance.databasePath);
+    final databaseExisted = await databaseFile.exists();
+    final legacyExisted = await _legacyDatabaseExists();
+
+    if (!databaseExisted) {
+      if (legacyExisted) await _deleteLegacyDatabases();
+      try {
+        final db = await AppDatabase.instance.database;
+        await AppDatabase.instance.assertIntegrity(database: db);
+        await preferences.setInt(
+          _epochPreferenceKey,
+          DatabaseSchemaV2.dataEpoch,
+        );
+        if (legacyExisted) {
+          await preferences.setBool(
+            SettingsDatabase.syncEnabledPreferenceKey,
+            false,
+          );
+          return const DataStartupResult.migrated();
+        }
+        return const DataStartupResult.ready();
+      } catch (error) {
+        await AppDatabase.instance.close();
+        return DataStartupResult.needsRecovery(error);
+      }
     }
+
     try {
       final db = await AppDatabase.instance.database;
+      final epoch = await DatabaseSchemaV2.readEpoch(db);
+      if (epoch != DatabaseSchemaV2.dataEpoch) {
+        throw DatabaseEpochMismatch(epoch);
+      }
       await AppDatabase.instance.assertIntegrity(database: db);
-    } catch (_) {
-      // A process death during file creation can leave a structurally valid
-      // but incomplete SQLite file. Epoch data is intentionally disposable.
+      final markerWasMissing =
+          preferences.getInt(_epochPreferenceKey) != DatabaseSchemaV2.dataEpoch;
+      await preferences.setInt(_epochPreferenceKey, DatabaseSchemaV2.dataEpoch);
+      return markerWasMissing
+          ? const DataStartupResult.migrated()
+          : const DataStartupResult.ready();
+    } on DatabaseEpochMismatch catch (error) {
+      await AppDatabase.instance.close();
+      final actual = error.actualEpoch;
+      if (actual == null || actual >= DatabaseSchemaV2.dataEpoch) {
+        return DataStartupResult.needsRecovery(error);
+      }
+      // A genuine older epoch is the only automatic destructive transition.
       await _deleteTrainingFiles(includeV2: true);
-      resetPerformed = true;
-      final db = await AppDatabase.instance.database;
-      await AppDatabase.instance.assertIntegrity(database: db);
-    }
-    await preferences.setInt(_epochPreferenceKey, DatabaseSchemaV2.dataEpoch);
-    if (resetPerformed) {
       await preferences.setBool(
         SettingsDatabase.syncEnabledPreferenceKey,
         false,
       );
+      try {
+        final db = await AppDatabase.instance.database;
+        await AppDatabase.instance.assertIntegrity(database: db);
+        await preferences.setInt(
+          _epochPreferenceKey,
+          DatabaseSchemaV2.dataEpoch,
+        );
+        return const DataStartupResult.migrated();
+      } catch (recreateError) {
+        await AppDatabase.instance.close();
+        return DataStartupResult.needsRecovery(recreateError);
+      }
+    } catch (error) {
+      await AppDatabase.instance.close();
+      return DataStartupResult.needsRecovery(error);
     }
+  }
+
+  @Deprecated('Use ensureReady() and handle the recovery state.')
+  Future<DataStartupResult> applyDataEpoch() => ensureReady();
+
+  Future<DataStartupResult> retryRecovery() => ensureReady();
+
+  /// Saves the raw SQLite files without opening a potentially damaged DB.
+  Future<String> exportRecoveryCopy() async {
+    await AppDatabase.instance.close();
+    final sourcePath = await AppDatabase.instance.databasePath;
+    final timestamp = DateTime.now().toUtc().toIso8601String().replaceAll(
+      ':',
+      '-',
+    );
+    final documents = await getApplicationDocumentsDirectory();
+    final target = Directory(
+      path.join(documents.path, 'Trainy-Recovery', timestamp),
+    );
+    await target.create(recursive: true);
+    var copied = 0;
+    for (final suffix in const ['', '-wal', '-shm', '-journal']) {
+      final source = File('$sourcePath$suffix');
+      if (!await source.exists()) continue;
+      await source.copy(path.join(target.path, path.basename(source.path)));
+      copied++;
+    }
+    if (copied == 0) {
+      throw StateError('No local database files were found.');
+    }
+    return target.path;
   }
 
   /// Deletes training data while preserving login and visual preferences.
@@ -81,8 +172,6 @@ class DataLifecycleCoordinator {
     await preferences.remove(accountDeletionPendingKey);
   }
 
-  /// Completes the local half after Auth deletion succeeded but the process
-  /// was interrupted. It must be called after Firebase initialization.
   Future<void> completePendingAccountDeletionIfNeeded({
     required bool isSignedIn,
   }) async {
@@ -93,8 +182,6 @@ class DataLifecycleCoordinator {
     await deleteAllLocalData();
   }
 
-  /// Removes database, images and all device preferences. It creates a fresh,
-  /// verified epoch-2 database so the app can return directly to onboarding.
   Future<void> deleteAllLocalData() async {
     final preferences = await SharedPreferences.getInstance();
     await _deleteTrainingFiles(includeV2: true);
@@ -102,6 +189,27 @@ class DataLifecycleCoordinator {
     final db = await AppDatabase.instance.database;
     await AppDatabase.instance.assertIntegrity(database: db);
     await preferences.setInt(_epochPreferenceKey, DatabaseSchemaV2.dataEpoch);
+  }
+
+  Future<bool> _legacyDatabaseExists() async {
+    final databaseDirectory = await getDatabasesPath();
+    for (final name in _legacyDatabaseNames) {
+      if (await File(path.join(databaseDirectory, name)).exists()) return true;
+    }
+    return false;
+  }
+
+  Future<void> _deleteLegacyDatabases() async {
+    await AppDatabase.instance.close();
+    final databaseDirectory = await getDatabasesPath();
+    for (final name in _legacyDatabaseNames) {
+      final filePath = path.join(databaseDirectory, name);
+      await deleteDatabase(filePath);
+      for (final suffix in const ['-wal', '-shm', '-journal']) {
+        final companion = File('$filePath$suffix');
+        if (await companion.exists()) await companion.delete();
+      }
+    }
   }
 
   Future<void> _deleteTrainingFiles({required bool includeV2}) async {

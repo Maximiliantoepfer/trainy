@@ -33,13 +33,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get progress => 'Progress';
 
   @override
-  String get progressDescription => 'Track your training progress. History shows your completed workouts; Insights contains the calendar and exercise charts.';
+  String get progressDescription =>
+      'Track your training progress. History shows your completed workouts; Insights contains the calendar and exercise charts.';
 
   @override
   String get settings => 'Settings';
 
   @override
-  String get settingsDescription => 'Customize Trainy, set weekly goals, and back up your data to the cloud.';
+  String get settingsDescription =>
+      'Customize Trainy, set weekly goals, and back up your data to the cloud.';
 
   @override
   String get more => 'More';
@@ -231,7 +233,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noWorkouts => 'No workouts yet';
 
   @override
-  String get createFirstWorkout => 'Create workouts, add exercises, and track your progress.';
+  String get createFirstWorkout =>
+      'Create workouts, add exercises, and track your progress.';
 
   @override
   String get createWorkout => 'Create workout';
@@ -243,7 +246,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noExercises => 'No exercises yet';
 
   @override
-  String get createFirstExercise => 'Create your first exercise to get started.';
+  String get createFirstExercise =>
+      'Create your first exercise to get started.';
 
   @override
   String get newExercise => 'New exercise';
@@ -285,13 +289,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get keepOwnExercise => 'Keep my exercise';
 
   @override
-  String get catalogUnavailable => 'The reviewed offline catalog is not bundled in this build yet.';
+  String get catalogUnavailable =>
+      'The reviewed offline catalog is not bundled in this build yet.';
 
   @override
   String get catalogExerciseAdded => 'Exercise added to your library';
 
   @override
-  String get exerciseArchived => 'Exercise archived; workout history stays unchanged';
+  String get exerciseLibrary => 'Exercises';
+
+  @override
+  String get activities => 'Activities';
+
+  @override
+  String get all => 'All';
+
+  @override
+  String matchesProfile(String name) {
+    return 'Matches $name';
+  }
+
+  @override
+  String get instructions => 'Instructions';
+
+  @override
+  String get exerciseArchived =>
+      'Exercise archived; workout history stays unchanged';
 
   @override
   String get archive => 'Archive';
@@ -376,6 +399,65 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get equipmentBands => 'Resistance bands';
+
+  @override
+  String get equipmentBench => 'Bench';
+
+  @override
+  String get equipmentRack => 'Rack';
+
+  @override
+  String get equipmentPullUpBar => 'Pull-up bar';
+
+  @override
+  String get equipmentMedicineBall => 'Medicine ball';
+
+  @override
+  String get equipmentExerciseBall => 'Exercise ball';
+
+  @override
+  String get equipmentFoamRoller => 'Foam roller';
+
+  @override
+  String get equipmentEzBar => 'EZ bar';
+
+  @override
+  String get equipmentMat => 'Mat';
+
+  @override
+  String get equipmentCardioMachine => 'Cardio machine';
+
+  @override
+  String get equipmentOther => 'Other';
+
+  @override
+  String get noEquipmentSelected => 'No equipment selected';
+
+  @override
+  String get trainingProfileDescription =>
+      'Choose the equipment available for your default training location.';
+
+  @override
+  String get addTrainingProfile => 'Add training profile';
+
+  @override
+  String get editTrainingProfile => 'Edit training profile';
+
+  @override
+  String get archiveProfile => 'Archive profile?';
+
+  @override
+  String archiveProfileDescription(String name) {
+    return '\"$name\" will no longer be offered as a training profile. Existing sessions remain unchanged.';
+  }
+
+  @override
+  String get profileLoadFailed => 'Training profiles could not be loaded.';
+
+  @override
+  String profileOperationFailed(String operation) {
+    return 'Profile operation failed ($operation). Please retry.';
+  }
 
   @override
   String get bodyweight => 'Bodyweight';
@@ -475,7 +557,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noEntries => 'No entries yet';
 
   @override
-  String get startWorkoutToSeeEntries => 'Start a workout and record sets to see progress here.';
+  String get startWorkoutToSeeEntries =>
+      'Start a workout and record sets to see progress here.';
 
   @override
   String get calendar => 'Calendar';
@@ -523,7 +606,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get restoreBackup => 'Restore backup?';
 
   @override
-  String get restoreBackupDescription => 'Local data will be replaced by the cloud backup.';
+  String get restoreBackupDescription =>
+      'Local data will be replaced by the cloud backup.';
 
   @override
   String get signedInSuccessfully => 'Signed in successfully';
@@ -576,7 +660,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteEntry => 'Delete entry?';
 
   @override
-  String get deleteEntryDescription => 'This workout entry will be permanently deleted.';
+  String get deleteEntryDescription =>
+      'This workout entry will be permanently deleted.';
 
   @override
   String deletedExercise(int id) {
@@ -601,13 +686,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exerciseProgress => 'Exercise progress';
 
   @override
-  String get exerciseDescription => 'Manage your exercises. Create new exercises, edit existing ones, and choose which metrics to track.';
+  String get exerciseDescription =>
+      'Manage your exercises. Create new exercises, edit existing ones, and choose which metrics to track.';
 
   @override
   String get editExerciseConfirmationTitle => 'Edit exercise?';
 
   @override
-  String get editExerciseConfirmation => 'Changes affect every workout that uses this exercise.';
+  String get editExerciseConfirmation =>
+      'Changes affect every workout that uses this exercise.';
 
   @override
   String mergeExercises(int count) {
@@ -701,7 +788,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noExercisesDescription => 'Create your first exercise.';
 
   @override
-  String get homeDescription => 'Your dashboard at a glance. See your weekly overview, planned workouts, and start training directly.';
+  String get homeDescription =>
+      'Your dashboard at a glance. See your weekly overview, planned workouts, and start training directly.';
 
   @override
   String get noExercisesInWorkout => 'This workout has no exercises.';
@@ -740,7 +828,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get distanceKilometers => 'Distance (km)';
 
   @override
-  String get allExercisesAlreadyInWorkout => 'All exercises are already in this workout.';
+  String get allExercisesAlreadyInWorkout =>
+      'All exercises are already in this workout.';
 
   @override
   String get addExercise => 'Add exercise';
@@ -812,13 +901,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get setUpCloudBackup => 'Set up cloud backup?';
 
   @override
-  String get setUpCloudBackupDescription => 'Sign in to securely back up your workout data to the cloud and sync it between devices. This is optional and the app remains local-first.';
+  String get setUpCloudBackupDescription =>
+      'Sign in to securely back up your workout data to the cloud and sync it between devices. This is optional and the app remains local-first.';
 
   @override
   String get continueWithoutCloud => 'Continue without cloud';
 
   @override
-  String get cloudBackupAccountFoundDescription => 'A cloud backup already exists for this account. How would you like to continue?';
+  String get cloudBackupAccountFoundDescription =>
+      'A cloud backup already exists for this account. How would you like to continue?';
 
   @override
   String get doNotLoad => 'Don\'t load';
@@ -833,7 +924,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cloudOverwrite => 'Overwrite cloud backup?';
 
   @override
-  String get cloudOverwriteDescription => 'All existing cloud-backup data will be lost. Continue?';
+  String get cloudOverwriteDescription =>
+      'All existing cloud-backup data will be lost. Continue?';
 
   @override
   String get overwrite => 'Overwrite';
@@ -846,24 +938,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String motivationalQuote(String key) {
-    String _temp0 = intl.Intl.selectLogic(
-      key,
-      {
-        'start': 'You do not have to be perfect. You just have to start.',
-        'consistency': 'Consistency beats talent.',
-        'strength': 'You are stronger than you think.',
-        'progress': 'Progress, not perfection.',
-        'habit': 'Motivation gets you going. Habit gets you to the finish line.',
-        'challenge': 'If it does not challenge you, it does not change you.',
-        'smallSteps': 'Small steps are better than no steps.',
-        'effort': 'Every workout counts — even the one you did not feel like doing.',
-        'discipline': 'Discipline is the bridge between goals and results.',
-        'today': 'What you do today shapes who you are tomorrow.',
-        'routine': 'The best time to train is the time you can keep.',
-        'limits': 'Your only limit is you.',
-        'other': 'Keep going.',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(key, {
+      'start': 'You do not have to be perfect. You just have to start.',
+      'consistency': 'Consistency beats talent.',
+      'strength': 'You are stronger than you think.',
+      'progress': 'Progress, not perfection.',
+      'habit': 'Motivation gets you going. Habit gets you to the finish line.',
+      'challenge': 'If it does not challenge you, it does not change you.',
+      'smallSteps': 'Small steps are better than no steps.',
+      'effort':
+          'Every workout counts — even the one you did not feel like doing.',
+      'discipline': 'Discipline is the bridge between goals and results.',
+      'today': 'What you do today shapes who you are tomorrow.',
+      'routine': 'The best time to train is the time you can keep.',
+      'limits': 'Your only limit is you.',
+      'other': 'Keep going.',
+    });
     return '$_temp0';
   }
 
@@ -898,10 +988,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get addExercisesForProgress => 'Create exercises first to see progress.';
+  String get addExercisesForProgress =>
+      'Create exercises first to see progress.';
 
   @override
-  String get completeWorkoutForProgress => 'Complete a workout to see progress data.';
+  String get completeWorkoutForProgress =>
+      'Complete a workout to see progress data.';
 
   @override
   String get selectExercise => 'Select exercise';
@@ -971,63 +1063,57 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String goalLabel(String goal) {
-    String _temp0 = intl.Intl.selectLogic(
-      goal,
-      {
-        'strength': 'Strength',
-        'endurance': 'Endurance',
-        'cardio': 'Cardio',
-        'mobility': 'Mobility',
-        'other': 'Other',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(goal, {
+      'strength': 'Strength',
+      'endurance': 'Endurance',
+      'cardio': 'Cardio',
+      'mobility': 'Mobility',
+      'other': 'Other',
+    });
     return '$_temp0';
   }
 
   @override
   String standardExerciseName(String key) {
-    String _temp0 = intl.Intl.selectLogic(
-      key,
-      {
-        'kraft_bankdruecken': 'Bench press',
-        'kraft_kniebeugen': 'Squats',
-        'kraft_kreuzheben': 'Deadlift',
-        'kraft_schulterdruecken': 'Shoulder press',
-        'kraft_langhantelrudern': 'Barbell row',
-        'kraft_bizeps_curls': 'Biceps curls',
-        'kraft_trizepsdruecken': 'Triceps press',
-        'kraft_beinpresse': 'Leg press',
-        'kraft_ausfallschritte': 'Lunges',
-        'kraft_wadenheben': 'Calf raises',
-        'kraft_russian_twist': 'Russian twist',
-        'kraft_latzug': 'Lat pulldown',
-        'kraft_butterfly': 'Butterfly',
-        'kraft_beinbeuger': 'Leg curl',
-        'kraft_beinstrecker': 'Leg extension',
-        'kraft_seitheben': 'Lateral raise',
-        'kraft_facepulls': 'Face pulls',
-        'kraft_brustpresse': 'Chest press',
-        'kraft_hip_thrusts': 'Hip thrusts',
-        'kraft_reverse_flys': 'Reverse flyes',
-        'kraft_bulgarian_split_squats': 'Bulgarian split squats',
-        'kraft_klimmzuege': 'Pull-ups',
-        'kraft_liegestuetze': 'Push-ups',
-        'kraft_dips': 'Dips',
-        'kraft_sit_ups': 'Sit-ups',
-        'kraft_push_ups': 'Push-ups',
-        'kraft_pull_ups': 'Pull-ups',
-        'cardio_joggen': 'Jogging',
-        'cardio_laufen': 'Running',
-        'cardio_radfahren': 'Cycling',
-        'cardio_intervallaeufe': 'Interval running',
-        'cardio_schwimmen': 'Swimming',
-        'ausdauer_plank': 'Plank',
-        'ausdauer_seilspringen': 'Jump rope',
-        'mobilitaet_dehnen': 'Stretching',
-        'mobilitaet_yoga': 'Yoga',
-        'other': 'Exercise',
-      },
-    );
+    String _temp0 = intl.Intl.selectLogic(key, {
+      'kraft_bankdruecken': 'Bench press',
+      'kraft_kniebeugen': 'Squats',
+      'kraft_kreuzheben': 'Deadlift',
+      'kraft_schulterdruecken': 'Shoulder press',
+      'kraft_langhantelrudern': 'Barbell row',
+      'kraft_bizeps_curls': 'Biceps curls',
+      'kraft_trizepsdruecken': 'Triceps press',
+      'kraft_beinpresse': 'Leg press',
+      'kraft_ausfallschritte': 'Lunges',
+      'kraft_wadenheben': 'Calf raises',
+      'kraft_russian_twist': 'Russian twist',
+      'kraft_latzug': 'Lat pulldown',
+      'kraft_butterfly': 'Butterfly',
+      'kraft_beinbeuger': 'Leg curl',
+      'kraft_beinstrecker': 'Leg extension',
+      'kraft_seitheben': 'Lateral raise',
+      'kraft_facepulls': 'Face pulls',
+      'kraft_brustpresse': 'Chest press',
+      'kraft_hip_thrusts': 'Hip thrusts',
+      'kraft_reverse_flys': 'Reverse flyes',
+      'kraft_bulgarian_split_squats': 'Bulgarian split squats',
+      'kraft_klimmzuege': 'Pull-ups',
+      'kraft_liegestuetze': 'Push-ups',
+      'kraft_dips': 'Dips',
+      'kraft_sit_ups': 'Sit-ups',
+      'kraft_push_ups': 'Push-ups',
+      'kraft_pull_ups': 'Pull-ups',
+      'cardio_joggen': 'Jogging',
+      'cardio_laufen': 'Running',
+      'cardio_radfahren': 'Cycling',
+      'cardio_intervallaeufe': 'Interval running',
+      'cardio_schwimmen': 'Swimming',
+      'ausdauer_plank': 'Plank',
+      'ausdauer_seilspringen': 'Jump rope',
+      'mobilitaet_dehnen': 'Stretching',
+      'mobilitaet_yoga': 'Yoga',
+      'other': 'Exercise',
+    });
     return '$_temp0';
   }
 
@@ -1038,16 +1124,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get resetLocalTrainingData => 'Reset local training data';
 
   @override
-  String get resetLocalTrainingDataDescription => 'Deletes workouts, progress and personal exercise images on this device.';
+  String get resetLocalTrainingDataDescription =>
+      'Deletes workouts, progress and personal exercise images on this device.';
 
   @override
-  String get resetLocalTrainingDataConfirm => 'Your local training data and personal exercise images will be deleted. Your login, language and appearance stay unchanged.';
+  String get resetLocalTrainingDataConfirm =>
+      'Your local training data and personal exercise images will be deleted. Your login, language and appearance stay unchanged.';
 
   @override
   String get confirmResetAgain => 'Really reset local data?';
 
   @override
-  String get confirmResetAgainDescription => 'This cannot be undone. Automatic cloud backup will be disabled.';
+  String get confirmResetAgainDescription =>
+      'This cannot be undone. Automatic cloud backup will be disabled.';
 
   @override
   String get resetNow => 'Reset now';
@@ -1056,16 +1145,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteCloudData => 'Delete cloud data';
 
   @override
-  String get deleteCloudDataDescription => 'Deletes every Trainy backup stored for this account. Local data and the account remain.';
+  String get deleteCloudDataDescription =>
+      'Deletes every Trainy backup stored for this account. Local data and the account remain.';
 
   @override
-  String get deleteCloudDataConfirm => 'All Trainy cloud objects for your account will be deleted.';
+  String get deleteCloudDataConfirm =>
+      'All Trainy cloud objects for your account will be deleted.';
 
   @override
   String get confirmCloudDeleteAgain => 'Permanently delete cloud data?';
 
   @override
-  String get confirmCloudDeleteAgainDescription => 'The operation can be retried if the connection is interrupted.';
+  String get confirmCloudDeleteAgainDescription =>
+      'The operation can be retried if the connection is interrupted.';
 
   @override
   String get cloudDataDeleted => 'Cloud data deleted';
@@ -1074,16 +1166,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteAccountAndData => 'Delete account and all data';
 
   @override
-  String get deleteAccountAndDataDescription => 'Deletes cloud data, the Firebase account and all local app data.';
+  String get deleteAccountAndDataDescription =>
+      'Deletes cloud data, the Firebase account and all local app data.';
 
   @override
-  String get deleteAccountAndDataConfirm => 'You will be asked to sign in with Google again. Then the account and all Trainy data will be deleted.';
+  String get deleteAccountAndDataConfirm =>
+      'You will be asked to sign in with Google again. Then the account and all Trainy data will be deleted.';
 
   @override
   String get confirmAccountDeleteAgain => 'Permanently delete your account?';
 
   @override
-  String get confirmAccountDeleteAgainDescription => 'This action cannot be undone.';
+  String get confirmAccountDeleteAgainDescription =>
+      'This action cannot be undone.';
 
   @override
   String get deletePermanently => 'Delete permanently';
@@ -1092,11 +1187,55 @@ class AppLocalizationsEn extends AppLocalizations {
   String get activeWorkoutMustEnd => 'Active workout';
 
   @override
-  String get activeWorkoutMustEndDescription => 'The current workout must be completed or discarded before data can be deleted.';
+  String get activeWorkoutMustEndDescription =>
+      'The current workout must be completed or discarded before data can be deleted.';
 
   @override
   String get discardAndContinue => 'Discard & continue';
 
   @override
   String get continueLabel => 'Continue';
+
+  @override
+  String get localDataRecovery => 'Local data recovery';
+
+  @override
+  String get localDataNeedsRecovery =>
+      'Your local training data needs attention';
+
+  @override
+  String get localDataNeedsRecoveryDescription =>
+      'Trainy did not delete the database. You can retry opening it, save a raw recovery copy, or explicitly reset the local training data.';
+
+  @override
+  String get saveRecoveryCopy => 'Save recovery copy';
+
+  @override
+  String recoverySaved(String path) {
+    return 'Recovery copy saved to $path';
+  }
+
+  @override
+  String get recoveryExportFailed => 'The recovery copy could not be saved.';
+
+  @override
+  String get recoveryResetDescription =>
+      'This permanently deletes the local training database and creates a fresh one. Save a recovery copy first if you may need the data.';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get finishingLocally => 'Finishing locally …';
+
+  @override
+  String get savedLocally => 'Saved locally';
+
+  @override
+  String get workoutSaveFailed =>
+      'The workout is still available as a local draft. Saving failed; please retry.';
+
+  @override
+  String get workoutAutosaveFailed =>
+      'A change could not be saved locally. Your input remains here; retry before finishing.';
 }

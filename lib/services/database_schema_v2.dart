@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqflite/sqflite.dart';
 
 /// The first schema in data epoch 2.
@@ -8,8 +10,8 @@ import 'package:sqflite/sqflite.dart';
 /// here so the application remains usable during that transition.
 abstract final class DatabaseSchemaV2 {
   static const int dataEpoch = 2;
-  static const int schemaVersion = 1;
-  static const String schemaRevision = '2026-10-16.1';
+  static const int schemaVersion = 2;
+  static const String schemaRevision = '2026-10-16.2';
 
   static const userDataTables = <String>[
     'health_record_links',
@@ -36,6 +38,7 @@ abstract final class DatabaseSchemaV2 {
     'exercise_metric_configs',
     'exercise_tags',
     'exercise_items',
+    'selected_training_profile',
     'training_profile_equipment',
     'training_profiles_v2',
     // Temporary application facade tables.
@@ -78,6 +81,187 @@ abstract final class DatabaseSchemaV2 {
     }
     await _seedReferenceData(db);
   }
+
+  /// Applies non-destructive schema upgrades inside data epoch 2.
+  ///
+  /// An epoch mismatch is intentionally not migrated here. The lifecycle
+  /// coordinator decides whether an older epoch may be replaced.
+  static Future<void> upgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    final epoch = await readEpoch(db);
+    if (epoch != dataEpoch) {
+      throw DatabaseEpochMismatch(epoch);
+    }
+    if (oldVersion < 2) {
+      await db.execute('''CREATE TABLE IF NOT EXISTS selected_training_profile(
+        id INTEGER PRIMARY KEY CHECK(id = 0),
+        profile_id TEXT,
+        FOREIGN KEY(profile_id) REFERENCES training_profiles_v2(id) ON DELETE SET NULL
+      )''');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_selected_profile_profile ON selected_training_profile(profile_id)',
+      );
+      if (!await _columnExists(db, 'activity_items', 'source_local_id')) {
+        await db.execute(
+          'ALTER TABLE activity_items ADD COLUMN source_local_id TEXT',
+        );
+      }
+      if (!await _columnExists(db, 'activity_sessions', 'source_local_id')) {
+        await db.execute(
+          'ALTER TABLE activity_sessions ADD COLUMN source_local_id TEXT',
+        );
+      }
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_activity_items_source_local ON activity_items(source_local_id)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_activity_sessions_source_local ON activity_sessions(source_local_id)',
+      );
+      await db.execute('''DELETE FROM workout_entries
+        WHERE sessionId IS NOT NULL AND id NOT IN (
+          SELECT MAX(id) FROM workout_entries
+          WHERE sessionId IS NOT NULL
+          GROUP BY sessionId, exerciseId
+        )''');
+      await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_session_exercise_unique ON workout_entries(sessionId, exerciseId) WHERE sessionId IS NOT NULL',
+      );
+      await migrateLegacyProfiles(db);
+    }
+    await _writeCurrentMetadata(db);
+  }
+
+  /// Copies the transitional integer profile rows once into the UUID model.
+  /// The operation is idempotent and never mutates or deletes the legacy row.
+  static Future<int> migrateLegacyProfiles(DatabaseExecutor db) async {
+    if (!await _tableExists(db, 'training_profiles')) return 0;
+    final rows = await db.query('training_profiles');
+    var inserted = 0;
+    for (final row in rows) {
+      final legacyId = (row['id'] as num).toInt();
+      final profileId = 'legacy-profile:$legacyId';
+      final existing = await db.query(
+        'training_profiles_v2',
+        columns: const ['id'],
+        where: 'id = ?',
+        whereArgs: [profileId],
+        limit: 1,
+      );
+      if (existing.isEmpty) {
+        final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+        await db.insert('training_profiles_v2', {
+          'id': profileId,
+          'name': (row['name'] as String).trim(),
+          'is_archived': (row['isArchived'] as num?)?.toInt() ?? 0,
+          'sort_order': (row['sort'] as num?)?.toInt() ?? 0,
+          'created_at_utc': now,
+          'updated_at_utc': now,
+        });
+        inserted++;
+      }
+
+      final decoded = jsonDecode(row['equipmentCodesJson'] as String? ?? '[]');
+      for (final raw in decoded is List ? decoded : const <Object?>[]) {
+        final normalized = normalizeEquipmentCode('$raw');
+        await db.insert(
+          'training_profile_equipment',
+          {'profile_id': profileId, 'equipment_code': normalized},
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    }
+
+    final selected = await db.query(
+      'selected_training_profile',
+      where: 'id = 0',
+      limit: 1,
+    );
+    if (selected.isEmpty) {
+      final first = await db.query(
+        'training_profiles_v2',
+        columns: const ['id'],
+        where: 'is_archived = 0',
+        orderBy: 'sort_order ASC, name COLLATE NOCASE ASC',
+        limit: 1,
+      );
+      await db.insert('selected_training_profile', {
+        'id': 0,
+        'profile_id': first.isEmpty ? null : first.single['id'],
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+    return inserted;
+  }
+
+  static String normalizeEquipmentCode(String value) {
+    final normalized = value.trim().toLowerCase().replaceAll(
+      RegExp(r'[ -]+'),
+      '_',
+    );
+    return switch (normalized) {
+      'body_only' || 'body_weight' || 'bodyweight' => 'bodyweight',
+      'dumbbells' || 'dumbbell' => 'dumbbell',
+      'barbells' || 'barbell' => 'barbell',
+      'bench' => 'bench',
+      'power_rack' || 'squat_rack' || 'rack' => 'rack',
+      'pull_up_bar' || 'pullup_bar' => 'pull_up_bar',
+      'cable' || 'cable_machine' => 'cable',
+      'machines' || 'machine' => 'machine',
+      'kettlebells' || 'kettlebell' => 'kettlebell',
+      'band' || 'bands' || 'resistance_bands' => 'bands',
+      'medicine_ball' => 'medicine_ball',
+      'exercise_ball' || 'stability_ball' => 'exercise_ball',
+      'foam_roll' || 'foam_roller' => 'foam_roller',
+      'e_z_curl_bar' || 'ez_bar' => 'ez_bar',
+      'mat' || 'yoga_mat' => 'mat',
+      'cardio_machine' || 'cardio_equipment' => 'cardio_machine',
+      _ => 'other',
+    };
+  }
+
+  static Future<int?> readEpoch(DatabaseExecutor db) async {
+    if (!await _tableExists(db, 'app_meta')) return null;
+    final rows = await db.query(
+      'app_meta',
+      columns: const ['value'],
+      where: 'key = ?',
+      whereArgs: const ['data_epoch'],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : int.tryParse('${rows.single['value']}');
+  }
+
+  static Future<void> _writeCurrentMetadata(DatabaseExecutor db) async {
+    for (final entry
+        in {
+          'data_epoch': '$dataEpoch',
+          'schema_version': '$schemaVersion',
+          'schema_revision': schemaRevision,
+        }.entries) {
+      await db.insert('app_meta', {
+        'key': entry.key,
+        'value': entry.value,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
+  static Future<bool> _tableExists(DatabaseExecutor db, String table) async {
+    final rows = await db.rawQuery(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+      [table],
+    );
+    return rows.isNotEmpty;
+  }
+
+  static Future<bool> _columnExists(
+    DatabaseExecutor db,
+    String table,
+    String column,
+  ) async => (await db.rawQuery(
+    'PRAGMA table_info($table)',
+  )).any((row) => row['name'] == column);
 
   static Future<void> _seedReferenceData(DatabaseExecutor db) async {
     await db.insert('app_meta', {
@@ -183,6 +367,11 @@ abstract final class DatabaseSchemaV2 {
       equipment_code TEXT NOT NULL,
       PRIMARY KEY(profile_id, equipment_code),
       FOREIGN KEY(profile_id) REFERENCES training_profiles_v2(id) ON DELETE CASCADE
+    )''',
+    '''CREATE TABLE selected_training_profile(
+      id INTEGER PRIMARY KEY CHECK(id = 0),
+      profile_id TEXT,
+      FOREIGN KEY(profile_id) REFERENCES training_profiles_v2(id) ON DELETE SET NULL
     )''',
     '''CREATE TABLE exercise_items(
       id TEXT PRIMARY KEY,
@@ -372,6 +561,7 @@ abstract final class DatabaseSchemaV2 {
     // Canonical executed activity snapshot.
     '''CREATE TABLE activity_sessions(
       id TEXT PRIMARY KEY,
+      source_local_id TEXT,
       workout_id TEXT,
       training_plan_id TEXT,
       workout_variant_id TEXT,
@@ -416,6 +606,7 @@ abstract final class DatabaseSchemaV2 {
       session_id TEXT NOT NULL,
       session_group_id TEXT,
       exercise_id TEXT,
+      source_local_id TEXT,
       catalog_id_snapshot TEXT,
       display_name_snapshot TEXT NOT NULL,
       movement_family_snapshot TEXT,
@@ -678,6 +869,7 @@ abstract final class DatabaseSchemaV2 {
 
   static const _indexStatements = <String>[
     'CREATE INDEX idx_profile_equipment_profile ON training_profile_equipment(profile_id)',
+    'CREATE INDEX idx_selected_profile_profile ON selected_training_profile(profile_id)',
     'CREATE INDEX idx_exercise_tags_exercise ON exercise_tags(exercise_id)',
     'CREATE INDEX idx_exercise_tags_tag ON exercise_tags(tag_code)',
     'CREATE INDEX idx_metric_configs_exercise ON exercise_metric_configs(exercise_id)',
@@ -709,6 +901,7 @@ abstract final class DatabaseSchemaV2 {
     'CREATE INDEX idx_sessions_plan ON activity_sessions(training_plan_id)',
     'CREATE INDEX idx_sessions_variant ON activity_sessions(workout_variant_id)',
     'CREATE INDEX idx_sessions_profile ON activity_sessions(profile_id)',
+    'CREATE INDEX idx_activity_sessions_source_local ON activity_sessions(source_local_id)',
     'CREATE INDEX idx_session_tags_session ON activity_session_tags(session_id)',
     'CREATE INDEX idx_session_tags_tag ON activity_session_tags(tag_code)',
     'CREATE INDEX idx_session_groups_session ON activity_session_groups(session_id)',
@@ -717,6 +910,7 @@ abstract final class DatabaseSchemaV2 {
     'CREATE INDEX idx_activity_items_session ON activity_items(session_id)',
     'CREATE INDEX idx_activity_items_group ON activity_items(session_group_id)',
     'CREATE INDEX idx_activity_items_exercise ON activity_items(exercise_id)',
+    'CREATE INDEX idx_activity_items_source_local ON activity_items(source_local_id)',
     'CREATE INDEX idx_efforts_item ON activity_efforts(activity_item_id)',
     'CREATE INDEX idx_metric_values_session ON activity_metric_values(session_id)',
     'CREATE INDEX idx_metric_values_item ON activity_metric_values(activity_item_id)',
@@ -758,6 +952,7 @@ abstract final class DatabaseSchemaV2 {
     'CREATE INDEX idx_entries_workout ON workout_entries(workoutId)',
     'CREATE INDEX idx_entries_exercise ON workout_entries(exerciseId)',
     'CREATE INDEX idx_entries_session ON workout_entries(sessionId)',
+    'CREATE UNIQUE INDEX idx_entries_session_exercise_unique ON workout_entries(sessionId, exerciseId) WHERE sessionId IS NOT NULL',
   ];
 
   static const _triggerStatements = <String>[
@@ -816,4 +1011,14 @@ abstract final class DatabaseSchemaV2 {
       )
       BEGIN SELECT RAISE(ABORT, 'exercise redirect cycle'); END''',
   ];
+}
+
+class DatabaseEpochMismatch implements Exception {
+  const DatabaseEpochMismatch(this.actualEpoch);
+
+  final int? actualEpoch;
+
+  @override
+  String toString() =>
+      'DatabaseEpochMismatch(expected: ${DatabaseSchemaV2.dataEpoch}, actual: $actualEpoch)';
 }

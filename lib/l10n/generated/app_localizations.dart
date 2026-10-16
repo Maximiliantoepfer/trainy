@@ -62,7 +62,8 @@ import 'app_localizations_en.dart';
 /// be consistent with the languages listed in the AppLocalizations.supportedLocales
 /// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale)
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -70,7 +71,8 @@ abstract class AppLocalizations {
     return Localizations.of<AppLocalizations>(context, AppLocalizations);
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate =
+      _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -82,17 +84,18 @@ abstract class AppLocalizations {
   /// Additional delegates can be added by appending to this list in
   /// MaterialApp. This list does not have to be used at all if a custom list
   /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
+      <LocalizationsDelegate<dynamic>>[
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('de'),
-    Locale('en')
+    Locale('en'),
   ];
 
   /// No description provided for @appName.
@@ -635,6 +638,36 @@ abstract class AppLocalizations {
   /// **'Exercise added to your library'**
   String get catalogExerciseAdded;
 
+  /// No description provided for @exerciseLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercises'**
+  String get exerciseLibrary;
+
+  /// No description provided for @activities.
+  ///
+  /// In en, this message translates to:
+  /// **'Activities'**
+  String get activities;
+
+  /// No description provided for @all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get all;
+
+  /// No description provided for @matchesProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Matches {name}'**
+  String matchesProfile(String name);
+
+  /// No description provided for @instructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Instructions'**
+  String get instructions;
+
   /// No description provided for @exerciseArchived.
   ///
   /// In en, this message translates to:
@@ -808,6 +841,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Resistance bands'**
   String get equipmentBands;
+
+  /// No description provided for @equipmentBench.
+  ///
+  /// In en, this message translates to:
+  /// **'Bench'**
+  String get equipmentBench;
+
+  /// No description provided for @equipmentRack.
+  ///
+  /// In en, this message translates to:
+  /// **'Rack'**
+  String get equipmentRack;
+
+  /// No description provided for @equipmentPullUpBar.
+  ///
+  /// In en, this message translates to:
+  /// **'Pull-up bar'**
+  String get equipmentPullUpBar;
+
+  /// No description provided for @equipmentMedicineBall.
+  ///
+  /// In en, this message translates to:
+  /// **'Medicine ball'**
+  String get equipmentMedicineBall;
+
+  /// No description provided for @equipmentExerciseBall.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise ball'**
+  String get equipmentExerciseBall;
+
+  /// No description provided for @equipmentFoamRoller.
+  ///
+  /// In en, this message translates to:
+  /// **'Foam roller'**
+  String get equipmentFoamRoller;
+
+  /// No description provided for @equipmentEzBar.
+  ///
+  /// In en, this message translates to:
+  /// **'EZ bar'**
+  String get equipmentEzBar;
+
+  /// No description provided for @equipmentMat.
+  ///
+  /// In en, this message translates to:
+  /// **'Mat'**
+  String get equipmentMat;
+
+  /// No description provided for @equipmentCardioMachine.
+  ///
+  /// In en, this message translates to:
+  /// **'Cardio machine'**
+  String get equipmentCardioMachine;
+
+  /// No description provided for @equipmentOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get equipmentOther;
+
+  /// No description provided for @noEquipmentSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'No equipment selected'**
+  String get noEquipmentSelected;
+
+  /// No description provided for @trainingProfileDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the equipment available for your default training location.'**
+  String get trainingProfileDescription;
+
+  /// No description provided for @addTrainingProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Add training profile'**
+  String get addTrainingProfile;
+
+  /// No description provided for @editTrainingProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit training profile'**
+  String get editTrainingProfile;
+
+  /// No description provided for @archiveProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive profile?'**
+  String get archiveProfile;
+
+  /// No description provided for @archiveProfileDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{name}\" will no longer be offered as a training profile. Existing sessions remain unchanged.'**
+  String archiveProfileDescription(String name);
+
+  /// No description provided for @profileLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Training profiles could not be loaded.'**
+  String get profileLoadFailed;
+
+  /// No description provided for @profileOperationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile operation failed ({operation}). Please retry.'**
+  String profileOperationFailed(String operation);
 
   /// No description provided for @bodyweight.
   ///
@@ -1942,9 +2083,82 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Continue'**
   String get continueLabel;
+
+  /// No description provided for @localDataRecovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Local data recovery'**
+  String get localDataRecovery;
+
+  /// No description provided for @localDataNeedsRecovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Your local training data needs attention'**
+  String get localDataNeedsRecovery;
+
+  /// No description provided for @localDataNeedsRecoveryDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Trainy did not delete the database. You can retry opening it, save a raw recovery copy, or explicitly reset the local training data.'**
+  String get localDataNeedsRecoveryDescription;
+
+  /// No description provided for @saveRecoveryCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Save recovery copy'**
+  String get saveRecoveryCopy;
+
+  /// No description provided for @recoverySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery copy saved to {path}'**
+  String recoverySaved(String path);
+
+  /// No description provided for @recoveryExportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The recovery copy could not be saved.'**
+  String get recoveryExportFailed;
+
+  /// No description provided for @recoveryResetDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'This permanently deletes the local training database and creates a fresh one. Save a recovery copy first if you may need the data.'**
+  String get recoveryResetDescription;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
+  /// No description provided for @finishingLocally.
+  ///
+  /// In en, this message translates to:
+  /// **'Finishing locally …'**
+  String get finishingLocally;
+
+  /// No description provided for @savedLocally.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved locally'**
+  String get savedLocally;
+
+  /// No description provided for @workoutSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The workout is still available as a local draft. Saving failed; please retry.'**
+  String get workoutSaveFailed;
+
+  /// No description provided for @workoutAutosaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'A change could not be saved locally. Your input remains here; retry before finishing.'**
+  String get workoutAutosaveFailed;
 }
 
-class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -1953,25 +2167,26 @@ class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> 
   }
 
   @override
-  bool isSupported(Locale locale) => <String>['de', 'en'].contains(locale.languageCode);
+  bool isSupported(Locale locale) =>
+      <String>['de', 'en'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
-
-
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'de': return AppLocalizationsDe();
-    case 'en': return AppLocalizationsEn();
+    case 'de':
+      return AppLocalizationsDe();
+    case 'en':
+      return AppLocalizationsEn();
   }
 
   throw FlutterError(
     'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
     'an issue with the localizations generation tool. Please file an issue '
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.'
+    'that was used.',
   );
 }

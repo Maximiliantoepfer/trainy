@@ -5,6 +5,9 @@ import 'package:trainy/repositories/activity_repository.dart';
 import 'package:trainy/repositories/exercise_repository.dart';
 import 'package:trainy/repositories/training_plan_repository.dart';
 import 'package:trainy/repositories/workout_repository.dart';
+import 'package:trainy/providers/active_workout_provider.dart';
+import 'package:trainy/models/workout.dart';
+import 'package:trainy/models/exercise.dart';
 import 'package:trainy/services/database_schema_v2.dart';
 import 'package:trainy/services/database_service.dart';
 
@@ -329,6 +332,64 @@ void main() {
       expect(await database.query('activity_efforts'), hasLength(1));
       expect(await database.query('activity_metric_values'), hasLength(4));
       expect(await database.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+    },
+  );
+
+  test(
+    'active workout serializes each set before completion and restores it',
+    () async {
+      final service = DatabaseService(database: database);
+      final repository = ActivityRepository(databaseService: service);
+      final started = await repository.startWorkoutActivity(
+        localWorkoutId: 7,
+        nameSnapshot: 'Strength',
+        activityType: 'strength',
+        tags: const ['strength'],
+        items: const [
+          ActivityItemSnapshotInput(localExerciseId: 11, displayName: 'Squat'),
+        ],
+      );
+      final provider = ActiveWorkoutProvider(activityRepository: repository);
+      provider.start(
+        workout: Workout(id: 7, name: 'Strength'),
+        exercises: const [
+          Exercise(
+            id: 11,
+            name: 'Squat',
+            description: '',
+            trackSets: true,
+            trackReps: true,
+            trackWeight: true,
+            trackDuration: false,
+            trackDistance: false,
+            defaultValues: {},
+            lastValues: {},
+            units: {},
+            icon: null,
+          ),
+        ],
+        activitySessionId: started.sessionId,
+        activityItemIds: started.activityItemIds,
+      );
+
+      provider.addSet(11, const {'reps': '5', 'weight': '100'});
+      await provider.flushPendingWrites();
+      expect(await database.query('activity_efforts'), hasLength(1));
+      expect(await database.query('activity_metric_values'), hasLength(2));
+
+      provider.updateLastSet(11, const {'reps': '6', 'weight': '102.5'});
+      await provider.flushPendingWrites();
+      expect(await database.query('activity_efforts'), hasLength(1));
+      expect(await database.query('activity_metric_values'), hasLength(2));
+      expect((await repository.latestActiveWorkout())!.efforts, isNotEmpty);
+
+      await provider.completePersistedSession();
+      provider.clearCompleted();
+      expect(
+        (await database.query('activity_sessions')).single['status'],
+        'completed',
+      );
+      provider.dispose();
     },
   );
 }

@@ -44,4 +44,38 @@ class DatabaseService {
       limit: limit,
     );
   }
+
+  Future<List<Map<String, Object?>>> rawQuery(
+    String sql, [
+    List<Object?>? arguments,
+  ]) async => (await _connection).rawQuery(sql, arguments);
+
+  Future<int> insert(
+    String table,
+    Map<String, Object?> values, {
+    ConflictAlgorithm? conflictAlgorithm,
+  }) async => (await _connection).insert(
+    table,
+    values,
+    conflictAlgorithm: conflictAlgorithm,
+  );
+
+  Future<int> update(
+    String table,
+    Map<String, Object?> values, {
+    String? where,
+    List<Object?>? whereArgs,
+  }) async => (await _connection).update(
+    table,
+    values,
+    where: where,
+    whereArgs: whereArgs,
+  );
+
+  Future<int> delete(
+    String table, {
+    String? where,
+    List<Object?>? whereArgs,
+  }) async =>
+      (await _connection).delete(table, where: where, whereArgs: whereArgs);
 }

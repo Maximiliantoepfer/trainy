@@ -15,7 +15,7 @@ import '../providers/active_workout_provider.dart';
 import '../providers/locale_provider.dart';
 import '../providers/data_lifecycle_provider.dart';
 import '../widgets/language_preference_picker.dart';
-import '../services/workout_plan_database.dart';
+import '../repositories/training_profile_repository.dart';
 import '../l10n/l10n.dart';
 import '../widgets/training_profile_settings_card.dart';
 
@@ -28,6 +28,9 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen>
     with AutomaticKeepAliveClientMixin {
+  late final TrainingProfileRepository _trainingProfiles =
+      TrainingProfileRepository();
+
   @override
   bool get wantKeepAlive => true;
 
@@ -172,10 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
           _SectionHeader(title: l10n.trainingProfile),
           const SizedBox(height: 12),
-          TrainingProfileSettingsCard(
-            loadProfiles: WorkoutPlanDatabase.instance.profiles,
-            saveProfile: WorkoutPlanDatabase.instance.saveProfile,
-          ),
+          TrainingProfileSettingsCard(store: _trainingProfiles),
 
           const SizedBox(height: 24),
 

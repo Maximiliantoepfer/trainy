@@ -19,6 +19,7 @@ class CloudSyncProvider extends ChangeNotifier {
   int _lastSyncMillis = 0;
   bool _isBusy = false;
   bool _disposed = false;
+  String? _optionalCloudErrorCode;
   Timer? _periodicCheck;
   Timer? _immediateDebounce;
   StreamSubscription<User?>? _authSubscription;
@@ -31,6 +32,7 @@ class CloudSyncProvider extends ChangeNotifier {
   int get lastSyncMillis => _lastSyncMillis;
   User? get user => FirebaseAuth.instance.currentUser;
   bool get isSignedIn => user != null;
+  String? get optionalCloudErrorCode => _optionalCloudErrorCode;
 
   Future<void> _init() async {
     _syncEnabled = await _settings.getSyncEnabled();
@@ -124,10 +126,15 @@ class CloudSyncProvider extends ChangeNotifier {
       await FirebaseStorage.instance
           .ref('users/${user!.uid}/backups/v2/latest.zip')
           .getMetadata();
+      _optionalCloudErrorCode = null;
       return true;
     } on FirebaseException catch (error) {
       if (error.code == 'object-not-found') return false;
-      rethrow;
+      // Cloud is optional. Missing permissions or connectivity must never
+      // block onboarding or local training data.
+      _optionalCloudErrorCode = error.code;
+      if (!_disposed) notifyListeners();
+      return false;
     }
   }
 
