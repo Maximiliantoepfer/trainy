@@ -9,6 +9,7 @@ class WorkoutSuccessScreen extends StatefulWidget {
   final int durationSeconds;
   final int exerciseCount;
   final int totalSets;
+  final Future<void> Function()? finalizeLocally;
 
   const WorkoutSuccessScreen({
     super.key,
@@ -16,6 +17,7 @@ class WorkoutSuccessScreen extends StatefulWidget {
     required this.durationSeconds,
     required this.exerciseCount,
     required this.totalSets,
+    this.finalizeLocally,
   });
 
   @override
@@ -31,6 +33,9 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
   bool _showStats = false;
   bool _showMessage = false;
   bool _showButton = false;
+  bool _isFinalizing = false;
+  bool _saved = false;
+  Object? _saveError;
 
   @override
   void initState() {
@@ -50,6 +55,8 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
     );
     _confettiController.play();
 
+    WidgetsBinding.instance.addPostFrameCallback((_) => _finalize());
+
     // Staggered entrance
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) setState(() => _showStats = true);
@@ -60,6 +67,27 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
     Future.delayed(const Duration(milliseconds: 600), () {
       if (mounted) setState(() => _showButton = true);
     });
+  }
+
+  Future<void> _finalize() async {
+    if (_isFinalizing || _saved) return;
+    final finalize = widget.finalizeLocally;
+    if (finalize == null) {
+      setState(() => _saved = true);
+      return;
+    }
+    setState(() {
+      _isFinalizing = true;
+      _saveError = null;
+    });
+    try {
+      await finalize();
+      if (mounted) setState(() => _saved = true);
+    } catch (error) {
+      if (mounted) setState(() => _saveError = error);
+    } finally {
+      if (mounted) setState(() => _isFinalizing = false);
+    }
   }
 
   @override
@@ -166,6 +194,53 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
                       ),
                     ),
                     const SizedBox(height: 32),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child:
+                          _saveError != null
+                              ? Column(
+                                key: const ValueKey('workoutSaveError'),
+                                children: [
+                                  Text(
+                                    context.l10n.workoutSaveFailed,
+                                    style: TextStyle(color: scheme.error),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: _finalize,
+                                    icon: const Icon(Icons.refresh_rounded),
+                                    label: Text(context.l10n.retry),
+                                  ),
+                                ],
+                              )
+                              : Row(
+                                key: ValueKey(_saved),
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (_isFinalizing)
+                                    const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  else
+                                    Icon(
+                                      Icons.offline_pin_rounded,
+                                      size: 18,
+                                      color: scheme.primary,
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _saved
+                                        ? context.l10n.savedLocally
+                                        : context.l10n.finishingLocally,
+                                  ),
+                                ],
+                              ),
+                    ),
+                    const SizedBox(height: 16),
                     AnimatedOpacity(
                       opacity: _showMessage ? 1.0 : 0.0,
                       duration: const Duration(milliseconds: 300),
@@ -192,7 +267,10 @@ class _WorkoutSuccessScreenState extends State<WorkoutSuccessScreen>
                           width: double.infinity,
                           height: 48,
                           child: FilledButton(
-                            onPressed: () => Navigator.of(context).pop(),
+                            onPressed:
+                                _saved
+                                    ? () => Navigator.of(context).pop()
+                                    : null,
                             child: Text(context.l10n.done),
                           ),
                         ),

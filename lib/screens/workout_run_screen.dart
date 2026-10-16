@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -18,6 +19,8 @@ import '../utils/utils.dart';
 import 'workout_success_screen.dart';
 import '../l10n/l10n.dart';
 import '../services/workout_plan_database.dart';
+import '../repositories/activity_repository.dart';
+import '../repositories/training_profile_repository.dart';
 import '../widgets/modal_form_dialogs.dart';
 
 class WorkoutRunScreen extends StatefulWidget {
@@ -283,6 +286,27 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     if (_isRunning) return;
     final active = context.read<ActiveWorkoutProvider>();
     if (!active.isActive) {
+      final goals = _validatedSessionGoals(widget.workout.goalCodes);
+      final itemSnapshots = [
+        for (final exercise in _exercises)
+          ActivityItemSnapshotInput(
+            localExerciseId: exercise.id,
+            displayName: displayExerciseName(context, exercise),
+            catalogId: exercise.catalogId,
+          ),
+      ];
+      final selectedProfile =
+          widget.profileId != null
+              ? 'legacy-profile:${widget.profileId}'
+              : await TrainingProfileRepository().selectedProfileId();
+      final persisted = await ActivityRepository().startWorkoutActivity(
+        localWorkoutId: widget.workout.id,
+        nameSnapshot: widget.workout.name,
+        activityType: _activityTypeForGoals(goals),
+        tags: goals,
+        profileId: selectedProfile,
+        items: itemSnapshots,
+      );
       final session = await WorkoutPlanDatabase.instance.createSession(
         workoutId: widget.workout.id,
         executedExerciseIds: _exercises.map((exercise) => exercise.id).toList(),
@@ -303,6 +327,8 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
         sessionPlanGroups: _sessionPlanGroups,
         planExercisePool: _allExercisesById.values.toList(),
         enabledOptionalSlotIds: _enabledOptionalSlotIds,
+        activitySessionId: persisted.sessionId,
+        activityItemIds: persisted.activityItemIds,
       );
     } else {
       active.updateExercises(_exercises);
@@ -387,10 +413,32 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     final progressProvider = context.read<ProgressProvider>();
     final cloudProvider = context.read<CloudSyncProvider>();
 
-    // Clear and navigate immediately
-    active.clear();
-    if (!mounted) return;
+    Future<void> finalizeLocally() async {
+      await active.completePersistedSession();
+      if (sessionId != null) {
+        await WorkoutPlanDatabase.instance.completeSession(sessionId);
+      }
+      active.clearCompleted();
+      if (hasAnySets) {
+        unawaited(
+          progressProvider
+              .saveWorkoutEntries(
+                workoutId: workoutId,
+                durationSeconds: effectiveDuration,
+                setsByExercise: setsByExerciseCopy,
+                sessionId: sessionId,
+              )
+              .then((_) {
+                if (cloudProvider.syncEnabled && cloudProvider.isSignedIn) {
+                  return cloudProvider.backupNow();
+                }
+              })
+              .catchError((_) {}),
+        );
+      }
+    }
 
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder:
@@ -399,31 +447,31 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
               durationSeconds: effectiveDuration,
               exerciseCount: exercisesDone,
               totalSets: totalSets,
+              finalizeLocally: finalizeLocally,
             ),
       ),
     );
+  }
 
-    // Save data in background (fire-and-forget)
-    if (hasAnySets) {
-      progressProvider
-          .saveWorkoutEntries(
-            workoutId: workoutId,
-            durationSeconds: effectiveDuration,
-            setsByExercise: setsByExerciseCopy,
-            sessionId: sessionId,
-          )
-          .then((_) {
-            if (sessionId != null) {
-              WorkoutPlanDatabase.instance
-                  .completeSession(sessionId)
-                  .catchError((_) {});
-            }
-            if (cloudProvider.syncEnabled && cloudProvider.isSignedIn) {
-              cloudProvider.backupNow().catchError((_) {});
-            }
-          })
-          .catchError((_) {});
+  static List<String> _validatedSessionGoals(Iterable<String> values) {
+    const domains = {'strength', 'cardio', 'mobility'};
+    final result = <String>[];
+    for (final value in values) {
+      if ({...domains, 'endurance'}.contains(value) &&
+          !result.contains(value)) {
+        result.add(value);
+      }
+      if (result.length == 2) break;
     }
+    if (!result.any(domains.contains)) result.insert(0, 'strength');
+    if (result.length > 2) result.removeLast();
+    return result;
+  }
+
+  static String _activityTypeForGoals(List<String> goals) {
+    if (goals.contains('cardio')) return 'cardio';
+    if (goals.contains('mobility')) return 'mobility';
+    return 'strength';
   }
 
   Map<String, String> _deriveLastValues(List<Map<String, String>> sets) {
@@ -556,6 +604,9 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       _adHocExercises.add(exercise);
     });
     context.read<ActiveWorkoutProvider>().updateExercises(_exercises);
+    await context.read<ActiveWorkoutProvider>().ensurePersistedExercise(
+      exercise,
+    );
   }
 
   Future<void> _switchSlotExercise(int index, int direction) async {
@@ -589,6 +640,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     active
       ..updateExercises(_exercises)
       ..selectSlotExercise(slotId, next.id);
+    await active.ensurePersistedExercise(next);
     final sessionId = active.sessionId;
     if (sessionId != null) {
       await WorkoutPlanDatabase.instance.selectSessionSlotExercise(
@@ -657,6 +709,17 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       ),
       body: Column(
         children: [
+          if (active.persistenceError != null)
+            MaterialBanner(
+              content: Text(context.l10n.workoutAutosaveFailed),
+              leading: Icon(Icons.cloud_off_rounded, color: scheme.error),
+              actions: [
+                TextButton(
+                  onPressed: active.retryPendingWrites,
+                  child: Text(context.l10n.retry),
+                ),
+              ],
+            ),
           if (_sessionPlanGroups.isNotEmpty)
             SizedBox(
               height: 76,
