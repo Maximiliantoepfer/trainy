@@ -409,7 +409,7 @@
   "moveWorkout": "Move workout",
   "moveUp": "Move up",
   "moveDown": "Move down",
-  "coreExercise": "Core exercise",
+  "coreExercise": "Required exercise",
   "optionalExercise": "Optional",
   "makeOptional": "Mark optional",
   "makeCore": "Mark core",
@@ -448,4 +448,12 @@
   ,"removeFromWeeklyPlan": "Remove from weekly plan"
   ,"weeklyPlacementRemoved": "Workout removed from weekly plan"
   ,"undo": "Undo"
+  ,"dragGroup": "Drag group"
+  ,"requiredExercise": "Required exercise"
+  ,"exerciseRequirement": "Required/Optional"
+  ,"workoutEditFailed": "Could not save this change. Please try again."
+  ,"alreadyInWorkout": "Already in this workout"
+  ,"noExercisesFound": "No matching exercises. Change the search or label."
+  ,"swapLockedAfterSets": "Sets have already been recorded. This exercise can no longer be replaced."
+  ,"finishActiveWorkoutFirst": "Please resume or finish the active session first."
 }

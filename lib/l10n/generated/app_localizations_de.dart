@@ -1312,7 +1312,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get moveDown => 'Nach unten';
 
   @override
-  String get coreExercise => 'Kernübung';
+  String get coreExercise => 'Pflichtübung';
 
   @override
   String get optionalExercise => 'Optional';
@@ -1416,4 +1416,28 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get weeklyPlacementRemoved => 'Workout aus Wochenplan entfernt';
+
+  @override
+  String get dragGroup => 'Gruppe ziehen';
+
+  @override
+  String get requiredExercise => 'Pflichtübung';
+
+  @override
+  String get exerciseRequirement => 'Pflicht/Optional';
+
+  @override
+  String get workoutEditFailed => 'Die Änderung konnte nicht gespeichert werden. Bitte erneut versuchen.';
+
+  @override
+  String get alreadyInWorkout => 'Bereits im Workout';
+
+  @override
+  String get noExercisesFound => 'Keine passenden Übungen gefunden. Suche oder Label ändern.';
+
+  @override
+  String get swapLockedAfterSets => 'Bereits Sätze erfasst. Diese Übung kann nicht mehr ausgetauscht werden.';
+
+  @override
+  String get finishActiveWorkoutFirst => 'Bitte zuerst die laufende Einheit fortsetzen oder beenden.';
 }

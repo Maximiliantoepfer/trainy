@@ -409,7 +409,7 @@
   "moveWorkout": "Workout verschieben",
   "moveUp": "Nach oben",
   "moveDown": "Nach unten",
-  "coreExercise": "Kernübung",
+  "coreExercise": "Pflichtübung",
   "optionalExercise": "Optional",
   "makeOptional": "Als optional markieren",
   "makeCore": "Als Kernübung markieren",
@@ -448,4 +448,12 @@
   ,"removeFromWeeklyPlan": "Aus Wochenplan entfernen"
   ,"weeklyPlacementRemoved": "Workout aus Wochenplan entfernt"
   ,"undo": "Rückgängig"
+  ,"dragGroup": "Gruppe ziehen"
+  ,"requiredExercise": "Pflichtübung"
+  ,"exerciseRequirement": "Pflicht/Optional"
+  ,"workoutEditFailed": "Die Änderung konnte nicht gespeichert werden. Bitte erneut versuchen."
+  ,"alreadyInWorkout": "Bereits im Workout"
+  ,"noExercisesFound": "Keine passenden Übungen gefunden. Suche oder Label ändern."
+  ,"swapLockedAfterSets": "Bereits Sätze erfasst. Diese Übung kann nicht mehr ausgetauscht werden."
+  ,"finishActiveWorkoutFirst": "Bitte zuerst die laufende Einheit fortsetzen oder beenden."
 }

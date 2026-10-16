@@ -1,3 +1,5 @@
+import 'workout_planning.dart';
+
 class TrainingProfile {
   const TrainingProfile({
     required this.id,
@@ -127,12 +129,67 @@ class WorkoutSessionPlanGroup {
     required this.name,
     required this.selectedGroupVariantId,
     required this.variants,
+    this.kind = WorkoutGroupKind.custom,
+    this.sourceId,
   });
 
   final int workoutGroupId;
   final String name;
   final int selectedGroupVariantId;
   final List<WorkoutSessionPlanGroupVariant> variants;
+  final WorkoutGroupKind kind;
+  final String? sourceId;
+
+  Map<String, Object?> toJson() => {
+    'id': workoutGroupId,
+    'sourceId': sourceId,
+    'name': name,
+    'kind': kind.code,
+    'selectedVariantId': selectedGroupVariantId,
+    'variants': [
+      for (final variant in variants)
+        {
+          'id': variant.id,
+          'name': variant.name,
+          'slots': [
+            for (final slot in variant.slots)
+              {
+                'id': slot.id,
+                'exerciseId': slot.exerciseId,
+                'optional': slot.isOptional,
+                'alternatives': slot.alternativeExerciseIds,
+              },
+          ],
+        },
+    ],
+  };
+
+  factory WorkoutSessionPlanGroup.fromJson(Map<String, dynamic> json) =>
+      WorkoutSessionPlanGroup(
+        workoutGroupId: json['id'] as int,
+        sourceId: json['sourceId'] as String?,
+        name: json['name'] as String,
+        kind: WorkoutGroupKind.fromCode(json['kind'] as String?),
+        selectedGroupVariantId: json['selectedVariantId'] as int,
+        variants: [
+          for (final variant in json['variants'] as List)
+            WorkoutSessionPlanGroupVariant(
+              id: variant['id'] as int,
+              name: variant['name'] as String,
+              slots: [
+                for (final slot in variant['slots'] as List)
+                  WorkoutSessionPlanSlot(
+                    id: slot['id'] as int,
+                    exerciseId: slot['exerciseId'] as int,
+                    isOptional: slot['optional'] as bool,
+                    alternativeExerciseIds: List<int>.from(
+                      slot['alternatives'] as List? ?? [],
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      );
 }
 
 class WorkoutSessionPlanGroupVariant {

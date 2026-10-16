@@ -15,10 +15,18 @@ import '../services/workout_database.dart';
 /// - Sets werden im Speicher gehalten und können laufend ergänzt werden
 /// - Ein sekündlicher Ticker aktualisiert Listener im Vordergrund
 class ActiveWorkoutProvider extends ChangeNotifier {
-  ActiveWorkoutProvider({ActivityRepository? activityRepository})
-    : _activityRepository = activityRepository ?? ActivityRepository();
+  ActiveWorkoutProvider({
+    ActivityRepository? activityRepository,
+    Future<List<Workout>> Function()? loadWorkouts,
+    Future<List<Exercise>> Function()? loadExercises,
+  }) : _activityRepository = activityRepository ?? ActivityRepository(),
+       _loadWorkouts = loadWorkouts ?? WorkoutDatabase.instance.getAllWorkouts,
+       _loadExercises =
+           loadExercises ?? ExerciseDatabase.instance.getAllExercises;
 
   final ActivityRepository _activityRepository;
+  final Future<List<Workout>> Function() _loadWorkouts;
+  final Future<List<Exercise>> Function() _loadExercises;
   Workout? _workout;
   List<Exercise> _exercises = const [];
   DateTime? _startedAt;
@@ -29,6 +37,8 @@ class ActiveWorkoutProvider extends ChangeNotifier {
   int? _profileId;
   int? _workoutVariantId;
   String? _activitySessionId;
+  String? canonicalProfileId;
+  String? canonicalSetupId;
   final Map<int, String> _activityItemIds = {};
   final Map<int, List<String>> _effortIdsByExercise = {};
   final List<Future<void> Function()> _pendingWrites = [];
@@ -71,7 +81,7 @@ class ActiveWorkoutProvider extends ChangeNotifier {
     if (isActive) return;
     final snapshot = await _activityRepository.latestActiveWorkout();
     if (snapshot == null) return;
-    final workouts = await WorkoutDatabase.instance.getAllWorkouts();
+    final workouts = await _loadWorkouts();
     Workout? workout;
     for (final candidate in workouts) {
       if (candidate.id == snapshot.localWorkoutId) {
@@ -80,7 +90,7 @@ class ActiveWorkoutProvider extends ChangeNotifier {
       }
     }
     if (workout == null) return;
-    final allExercises = await ExerciseDatabase.instance.getAllExercises();
+    final allExercises = await _loadExercises();
     final exercisesById = {
       for (final exercise in allExercises) exercise.id: exercise,
     };
@@ -92,12 +102,23 @@ class ActiveWorkoutProvider extends ChangeNotifier {
       final itemId = row['id'] as String;
       final exercise = localId == null ? null : exercisesById[localId];
       if (localId == null || exercise == null) continue;
-      exercises.add(exercise);
+      final order = snapshot.selection['exercises'] as List?;
+      if (order == null || order.contains(localId)) exercises.add(exercise);
       itemIds[localId] = itemId;
       itemToExercise[itemId] = localId;
     }
+    final order = snapshot.selection['exercises'] as List?;
+    if (order != null) {
+      exercises.sort(
+        (a, b) => order.indexOf(a.id).compareTo(order.indexOf(b.id)),
+      );
+    }
+    Map<int, int> decodeSelections(String key) => {
+      for (final entry in (snapshot.selection[key] as Map? ?? {}).entries)
+        int.parse(entry.key as String): entry.value as int,
+    };
     start(
-      workout: workout,
+      workout: workout.copyWith(name: snapshot.nameSnapshot ?? workout.name),
       exercises: exercises,
       activitySessionId: snapshot.sessionId,
       activityItemIds: itemIds,
@@ -107,6 +128,14 @@ class ActiveWorkoutProvider extends ChangeNotifier {
               : null,
       startedAt: snapshot.startedAt,
       planExercisePool: allExercises,
+      canonicalProfileId: snapshot.profileId,
+      canonicalSetupId: snapshot.setupId,
+      sessionPlanGroups: snapshot.groups,
+      groupSelections: decodeSelections('groups'),
+      slotSelections: decodeSelections('slots'),
+      enabledOptionalSlotIds: Set<int>.from(
+        snapshot.selection['optional'] as List? ?? [],
+      ),
     );
 
     final valuesByEffort = <String, Map<String, String>>{};
@@ -166,6 +195,8 @@ class ActiveWorkoutProvider extends ChangeNotifier {
     String? activitySessionId,
     Map<int, String> activityItemIds = const {},
     DateTime? startedAt,
+    String? canonicalProfileId,
+    String? canonicalSetupId,
   }) {
     _workout = workout;
     _exercises = List<Exercise>.from(exercises);
@@ -176,6 +207,8 @@ class ActiveWorkoutProvider extends ChangeNotifier {
     _profileId = profileId;
     _workoutVariantId = workoutVariantId;
     _activitySessionId = activitySessionId;
+    this.canonicalProfileId = canonicalProfileId;
+    this.canonicalSetupId = canonicalSetupId;
     _activityItemIds
       ..clear()
       ..addAll(activityItemIds);
@@ -200,6 +233,11 @@ class ActiveWorkoutProvider extends ChangeNotifier {
   /// Fügt (oder ersetzt) während einer aktiven Session eine Übungs-Liste hinzu.
   void updateExercises(List<Exercise> exercises) {
     _exercises = List<Exercise>.from(exercises);
+    _planExercisePool =
+        {
+          for (final e in [..._planExercisePool, ...exercises]) e.id: e,
+        }.values.toList();
+    persistPlan();
     notifyListeners();
   }
 
@@ -217,20 +255,24 @@ class ActiveWorkoutProvider extends ChangeNotifier {
       sortOrder: _activityItemIds.length,
     );
     _activityItemIds[exercise.id] = itemId;
+    persistPlan();
   }
 
   void selectGroupVariant(int workoutGroupId, int groupVariantId) {
     _groupVariantSelections[workoutGroupId] = groupVariantId;
+    persistPlan();
     notifyListeners();
   }
 
   void selectSlotExercise(int workoutSlotId, int exerciseId) {
     _slotExerciseSelections[workoutSlotId] = exerciseId;
+    persistPlan();
     notifyListeners();
   }
 
   void setEnabledOptionalSlotIds(Set<int> value) {
     _enabledOptionalSlotIds = Set<int>.from(value);
+    persistPlan();
     notifyListeners();
   }
 
@@ -241,6 +283,32 @@ class ActiveWorkoutProvider extends ChangeNotifier {
     _effortIdsByExercise.putIfAbsent(exerciseId, () => []).add(effortId);
     _enqueueEffortWrite(exerciseId, effortId, entry);
     notifyListeners();
+  }
+
+  Map<String, Object?> get selectionSnapshot => {
+    'exercises': _exercises.map((e) => e.id).toList(),
+    'groups': {
+      for (final e in _groupVariantSelections.entries) '${e.key}': e.value,
+    },
+    'slots': {
+      for (final e in _slotExerciseSelections.entries) '${e.key}': e.value,
+    },
+    'optional': _enabledOptionalSlotIds.toList(),
+  };
+
+  void persistPlan() {
+    final id = _activitySessionId;
+    if (id == null) return;
+    final snapshot = selectionSnapshot;
+    final groups = List<WorkoutSessionPlanGroup>.from(_sessionPlanGroups);
+    _pendingWrites.add(
+      () => _activityRepository.savePlanSnapshot(
+        sessionId: id,
+        groups: groups,
+        selection: snapshot,
+      ),
+    );
+    _startDrain();
   }
 
   /// Aktualisiert den zuletzt erfassten Satz für eine Übung,
@@ -445,6 +513,8 @@ class ActiveWorkoutProvider extends ChangeNotifier {
     _profileId = null;
     _workoutVariantId = null;
     _activitySessionId = null;
+    canonicalSetupId = null;
+    canonicalProfileId = null;
     _activityItemIds.clear();
     _effortIdsByExercise.clear();
     _pendingWrites.clear();

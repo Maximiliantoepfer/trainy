@@ -2348,7 +2348,7 @@ abstract class AppLocalizations {
   /// No description provided for @coreExercise.
   ///
   /// In en, this message translates to:
-  /// **'Core exercise'**
+  /// **'Required exercise'**
   String get coreExercise;
 
   /// No description provided for @optionalExercise.
@@ -2518,6 +2518,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Workout removed from weekly plan'**
   String get weeklyPlacementRemoved;
+
+  /// No description provided for @dragGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag group'**
+  String get dragGroup;
+
+  /// No description provided for @requiredExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Required exercise'**
+  String get requiredExercise;
+
+  /// No description provided for @exerciseRequirement.
+  ///
+  /// In en, this message translates to:
+  /// **'Required/Optional'**
+  String get exerciseRequirement;
+
+  /// No description provided for @workoutEditFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save this change. Please try again.'**
+  String get workoutEditFailed;
+
+  /// No description provided for @alreadyInWorkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Already in this workout'**
+  String get alreadyInWorkout;
+
+  /// No description provided for @noExercisesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching exercises. Change the search or label.'**
+  String get noExercisesFound;
+
+  /// No description provided for @swapLockedAfterSets.
+  ///
+  /// In en, this message translates to:
+  /// **'Sets have already been recorded. This exercise can no longer be replaced.'**
+  String get swapLockedAfterSets;
+
+  /// No description provided for @finishActiveWorkoutFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Please resume or finish the active session first.'**
+  String get finishActiveWorkoutFirst;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

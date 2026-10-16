@@ -1312,7 +1312,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moveDown => 'Move down';
 
   @override
-  String get coreExercise => 'Core exercise';
+  String get coreExercise => 'Required exercise';
 
   @override
   String get optionalExercise => 'Optional';
@@ -1416,4 +1416,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get weeklyPlacementRemoved => 'Workout removed from weekly plan';
+
+  @override
+  String get dragGroup => 'Drag group';
+
+  @override
+  String get requiredExercise => 'Required exercise';
+
+  @override
+  String get exerciseRequirement => 'Required/Optional';
+
+  @override
+  String get workoutEditFailed => 'Could not save this change. Please try again.';
+
+  @override
+  String get alreadyInWorkout => 'Already in this workout';
+
+  @override
+  String get noExercisesFound => 'No matching exercises. Change the search or label.';
+
+  @override
+  String get swapLockedAfterSets => 'Sets have already been recorded. This exercise can no longer be replaced.';
+
+  @override
+  String get finishActiveWorkoutFirst => 'Please resume or finish the active session first.';
 }

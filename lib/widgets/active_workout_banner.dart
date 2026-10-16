@@ -33,6 +33,15 @@ class ActiveWorkoutBanner extends StatelessWidget {
                       workout: workout,
                       exercises: active.exercises,
                       autoStart: false,
+                      sessionPlanGroups: active.sessionPlanGroups,
+                      initialGroupSelections: active.groupVariantSelections,
+                      initialSlotSelections: active.slotExerciseSelections,
+                      initiallyEnabledOptionalSlotIds:
+                          active.enabledOptionalSlotIds,
+                      allExercises: active.planExercisePool,
+                      canonicalProfileId: active.canonicalProfileId,
+                      canonicalWorkoutSetupId: active.canonicalSetupId,
+                      persistLegacyPlanSelections: false,
                     ),
               ),
             );

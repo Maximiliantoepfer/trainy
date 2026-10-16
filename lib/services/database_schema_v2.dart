@@ -10,8 +10,8 @@ import 'package:sqflite/sqflite.dart';
 /// here so the application remains usable during that transition.
 abstract final class DatabaseSchemaV2 {
   static const int dataEpoch = 2;
-  static const int schemaVersion = 4;
-  static const String schemaRevision = '2026-10-16.4';
+  static const int schemaVersion = 5;
+  static const String schemaRevision = '2026-10-16.5';
 
   static const userDataTables = <String>[
     'health_record_links',
@@ -138,7 +138,46 @@ abstract final class DatabaseSchemaV2 {
     if (oldVersion < 4) {
       await _upgradeToMobileWorkoutWorkflowV4(db);
     }
+    if (oldVersion < 5) {
+      if (!await _columnExists(
+        db,
+        'activity_session_groups',
+        'plan_snapshot',
+      )) {
+        await db.execute(
+          'ALTER TABLE activity_session_groups ADD COLUMN plan_snapshot TEXT',
+        );
+      }
+      if (!await _columnExists(db, 'activity_sessions', 'selection_snapshot')) {
+        await db.execute(
+          'ALTER TABLE activity_sessions ADD COLUMN selection_snapshot TEXT',
+        );
+      }
+      await normalizeWorkoutGroupOrder(db);
+    }
     await _writeCurrentMetadata(db);
+  }
+
+  /// Also used after importing a schema-4 backup into a staging database.
+  static Future<void> normalizeWorkoutGroupOrder(DatabaseExecutor db) async {
+    final workouts = await db.query('workout_templates', columns: ['id']);
+    for (final workout in workouts) {
+      final groups = await db.query(
+        'workout_groups_v2',
+        where: 'workout_id = ?',
+        whereArgs: [workout['id']],
+        orderBy:
+            "CASE group_kind WHEN 'warmup' THEN 0 WHEN 'cooldown' THEN 2 ELSE 1 END, sort_order, id",
+      );
+      for (var i = 0; i < groups.length; i++) {
+        await db.update(
+          'workout_groups_v2',
+          {'sort_order': i},
+          where: 'id = ?',
+          whereArgs: [groups[i]['id']],
+        );
+      }
+    }
   }
 
   /// Separates setup contents that were formerly shared through a group
@@ -1232,6 +1271,7 @@ abstract final class DatabaseSchemaV2 {
     // Canonical executed activity snapshot.
     '''CREATE TABLE activity_sessions(
       id TEXT PRIMARY KEY,
+      selection_snapshot TEXT,
       source_local_id TEXT,
       workout_id TEXT,
       training_plan_id TEXT,
@@ -1262,6 +1302,7 @@ abstract final class DatabaseSchemaV2 {
     )''',
     '''CREATE TABLE activity_session_groups(
       id TEXT PRIMARY KEY,
+      plan_snapshot TEXT,
       session_id TEXT NOT NULL,
       workout_group_id TEXT,
       group_variant_id TEXT,

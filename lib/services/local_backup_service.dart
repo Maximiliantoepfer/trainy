@@ -15,9 +15,13 @@ import 'exercise_image_service.dart';
 
 /// Versioned data-epoch-2 backup. Old row-merging JSON backups are rejected.
 class LocalBackupService {
-  LocalBackupService._();
+  LocalBackupService({Future<Directory> Function()? documentsDirectory})
+    : _documentsDirectory =
+          documentsDirectory ?? getApplicationDocumentsDirectory;
 
-  static final LocalBackupService instance = LocalBackupService._();
+  final Future<Directory> Function() _documentsDirectory;
+
+  static final LocalBackupService instance = LocalBackupService();
   static const formatVersion = 2;
   static const _maxArchiveBytes = 96 * 1024 * 1024;
   static const _maxFileBytes = 12 * 1024 * 1024;
@@ -26,7 +30,10 @@ class LocalBackupService {
     final db = await AppDatabase.instance.database;
     final tables = <String, dynamic>{};
     for (final table in DatabaseSchemaV2.userDataTables.reversed) {
-      final rows = await db.query(table);
+      final rows =
+          (await db.query(
+            table,
+          )).map((row) => Map<String, Object?>.from(row)).toList();
       if (table == 'user_settings') {
         for (final row in rows) {
           row['sync_enabled'] = 0;
@@ -137,8 +144,10 @@ class LocalBackupService {
     if (manifest['format'] != 'trainy-backup' ||
         manifest['formatVersion'] != formatVersion ||
         manifest['dataEpoch'] != DatabaseSchemaV2.dataEpoch ||
-        manifest['schemaVersion'] != DatabaseSchemaV2.schemaVersion ||
-        manifest['schemaRevision'] != DatabaseSchemaV2.schemaRevision) {
+        !isCompatibleSchema(
+          manifest['schemaVersion'],
+          manifest['schemaRevision'],
+        )) {
       throw const FormatException('Incompatible backup version.');
     }
     final databaseManifest = Map<String, dynamic>.from(
@@ -152,8 +161,8 @@ class LocalBackupService {
     }
     final data = Map<String, dynamic>.from(decoded);
     if (data['dataEpoch'] != DatabaseSchemaV2.dataEpoch ||
-        data['schemaVersion'] != DatabaseSchemaV2.schemaVersion ||
-        data['schemaRevision'] != DatabaseSchemaV2.schemaRevision) {
+        data['schemaVersion'] != manifest['schemaVersion'] ||
+        data['schemaRevision'] != manifest['schemaRevision']) {
       throw const FormatException('Incompatible database epoch.');
     }
     final tableData = Map<String, dynamic>.from(
@@ -210,13 +219,16 @@ class LocalBackupService {
             );
           }
         }
+        if (data['schemaVersion'] == 4) {
+          await DatabaseSchemaV2.normalizeWorkoutGroupOrder(txn);
+        }
       });
       await AppDatabase.instance.assertIntegrity(database: temporary);
     } finally {
       await temporary.close();
     }
 
-    final documents = await getApplicationDocumentsDirectory();
+    final documents = await _documentsDirectory();
     final stagingRoot = Directory(path.join(documents.path, 'trainy_restore'));
     final stagingImages = Directory(
       path.join(stagingRoot.path, 'exercise_images'),
@@ -304,6 +316,11 @@ class LocalBackupService {
       throw FormatException('$label exceeds the size limit.');
     }
   }
+
+  static bool isCompatibleSchema(Object? version, Object? revision) =>
+      (version == DatabaseSchemaV2.schemaVersion &&
+          revision == DatabaseSchemaV2.schemaRevision) ||
+      (version == 4 && revision == '2026-10-16.4');
 
   static void _validateArchivePath(String value) {
     final normalized = value.replaceAll('\\', '/');

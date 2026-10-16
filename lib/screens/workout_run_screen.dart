@@ -15,13 +15,13 @@ import '../providers/active_workout_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../utils/duration_utils.dart';
 import '../utils/goal_utils.dart';
-import '../utils/utils.dart';
 import 'workout_success_screen.dart';
 import '../l10n/l10n.dart';
 import '../services/workout_plan_database.dart';
 import '../services/catalog_repository.dart';
 import '../repositories/training_profile_repository.dart';
-import '../services/database_schema_v2.dart';
+import '../widgets/workout_exercise_picker.dart';
+import '../utils/workout_group_localization.dart';
 import '../repositories/activity_repository.dart';
 import '../widgets/modal_form_dialogs.dart';
 
@@ -68,6 +68,7 @@ class WorkoutRunScreen extends StatefulWidget {
 class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
   bool _isRunning = false;
   bool _isStarting = false;
+  bool _pickingExercise = false;
   late List<Exercise> _exercises;
   late List<int?> _workoutSlotIds;
   late Map<int, int> _slotSelections;
@@ -109,7 +110,6 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     } else {
       final active = context.read<ActiveWorkoutProvider>();
       if (active.isActive) {
-        active.updateExercises(_exercises);
         _isRunning = true;
       }
     }
@@ -155,6 +155,39 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
   ) async {
     if (!group.variants.any((value) => value.id == groupVariantId)) return;
     final active = context.read<ActiveWorkoutProvider>();
+    final current = group.variants.firstWhere(
+      (v) =>
+          v.id ==
+          (_groupSelections[group.workoutGroupId] ??
+              group.selectedGroupVariantId),
+    );
+    if (current.slots.any(
+      (s) =>
+          active
+              .setsByExercise[_slotSelections[s.id] ?? s.exerciseId]
+              ?.isNotEmpty ==
+          true,
+    )) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.swapLockedAfterSets)));
+      return;
+    }
+    try {
+      for (final slot
+          in group.variants.firstWhere((v) => v.id == groupVariantId).slots) {
+        if (slot.isOptional && !_enabledOptionalSlotIds.contains(slot.id)) {
+          continue;
+        }
+        final exercise =
+            _allExercisesById[_slotSelections[slot.id] ?? slot.exerciseId];
+        if (exercise != null) await active.ensurePersistedExercise(exercise);
+      }
+    } catch (error, stack) {
+      _showEditError(error, stack);
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _groupSelections[group.workoutGroupId] = groupVariantId;
       _rebuildExercisesFromPlan();
@@ -162,6 +195,9 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     active
       ..updateExercises(_exercises)
       ..selectGroupVariant(group.workoutGroupId, groupVariantId);
+    for (final slot in _slotSelections.entries) {
+      active.selectSlotExercise(slot.key, slot.value);
+    }
     final sessionId = active.sessionId;
     if (sessionId != null && widget.persistLegacyPlanSelections) {
       await WorkoutPlanDatabase.instance.selectSessionGroupVariant(
@@ -210,7 +246,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               children: [
                 Text(
-                  group.name,
+                  workoutGroupLabel(sheetContext, group.kind, group.name),
                   style: Theme.of(sheetContext).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
@@ -252,12 +288,32 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     );
     if (result == null || !mounted) return;
     final active = context.read<ActiveWorkoutProvider>();
+    // Recorded efforts stay visible and tied to their original exercise.
+    final retained = {...result};
+    for (final slot in optionalSlots) {
+      final id = _slotSelections[slot.id] ?? slot.exerciseId;
+      if (active.setsByExercise[id]?.isNotEmpty == true) retained.add(slot.id);
+    }
+    try {
+      for (final slot in optionalSlots.where((s) => retained.contains(s.id))) {
+        final exercise =
+            _allExercisesById[_slotSelections[slot.id] ?? slot.exerciseId];
+        if (exercise != null) await active.ensurePersistedExercise(exercise);
+      }
+    } catch (error, stack) {
+      _showEditError(error, stack);
+      return;
+    }
+    if (!mounted) return;
     setState(() {
-      _enabledOptionalSlotIds = result;
+      _enabledOptionalSlotIds = retained;
       _rebuildExercisesFromPlan();
     });
     active.updateExercises(_exercises);
     active.setEnabledOptionalSlotIds(_enabledOptionalSlotIds);
+    for (final slot in _slotSelections.entries) {
+      active.selectSlotExercise(slot.key, slot.value);
+    }
     final sessionId = active.sessionId;
     if (sessionId != null && widget.persistLegacyPlanSelections) {
       for (final slotId in _workoutSlotIds.whereType<int>()) {
@@ -302,6 +358,8 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
           tags: goals,
           profileId: selectedProfile,
           items: itemSnapshots,
+          groups: _sessionPlanGroups,
+          selectionSnapshot: _selectionSnapshot,
         );
         stagedActivitySessionId = persisted.sessionId;
         final session =
@@ -333,6 +391,8 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
           enabledOptionalSlotIds: _enabledOptionalSlotIds,
           activitySessionId: persisted.sessionId,
           activityItemIds: persisted.activityItemIds,
+          canonicalProfileId: selectedProfile,
+          canonicalSetupId: widget.canonicalWorkoutSetupId,
         );
         stagedActivitySessionId = null;
       } else {
@@ -595,133 +655,199 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     );
   }
 
-  Future<void> _addExerciseToWorkout() async {
-    final allExercises = context.read<ExerciseProvider>().exercises;
-    final currentIds = _exercises.map((exercise) => exercise.id).toSet();
-    final available =
-        allExercises
-            .where((exercise) => !currentIds.contains(exercise.id))
-            .toList();
-
-    if (available.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.allExercisesAlreadyInWorkout),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
+  Future<Exercise?> _pickExercise({Exercise? replacing}) async {
+    if (_pickingExercise) return null;
+    _pickingExercise = true;
+    try {
+      return await _showExercisePicker(replacing: replacing);
+    } finally {
+      _pickingExercise = false;
     }
+  }
 
-    final exercise = await showModalBottomSheet<Exercise>(
+  Future<Exercise?> _showExercisePicker({Exercise? replacing}) async {
+    final provider = context.read<ExerciseProvider>();
+    final locale = Localizations.localeOf(context).languageCode;
+    final profileId =
+        widget.canonicalProfileId ??
+        context.read<ActiveWorkoutProvider>().canonicalProfileId;
+    Set<String>? equipment;
+    try {
+      final profiles = await TrainingProfileRepository().profiles();
+      equipment =
+          profiles.where((p) => p.id == profileId).firstOrNull?.equipmentCodes;
+    } catch (error, stack) {
+      debugPrint('Optional picker profile: $error\n$stack');
+    }
+    if (!mounted) return null;
+    final result = await showModalBottomSheet<ExercisePickerResult>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
-      builder: (_) => _ExercisePickerSheet(exercises: available),
+      builder:
+          (_) => WorkoutExercisePicker(
+            single: true,
+            availableEquipment: equipment,
+            preferredFamily:
+                CatalogRepository.instance
+                    .byId(replacing?.catalogId)
+                    ?.movementFamilyId,
+            excludedIds:
+                _exercises
+                    .where((e) => e.id != replacing?.id)
+                    .map((e) => e.id)
+                    .toSet(),
+          ),
     );
-    if (!mounted || exercise == null) return;
-
-    setState(() {
-      _exercises.add(exercise);
-      _workoutSlotIds.add(null);
-      _adHocExercises.add(exercise);
-    });
-    context.read<ActiveWorkoutProvider>().updateExercises(_exercises);
-    await context.read<ActiveWorkoutProvider>().ensurePersistedExercise(
-      exercise,
-    );
+    if (!mounted || result == null) return null;
+    final values = await result.materialize(provider, locale);
+    return values.firstOrNull;
   }
 
-  /// This intentionally changes only the in-progress session. The workout
-  /// setup stays untouched, so a temporary machine/free-weight replacement
-  /// cannot alter another profile's plan or its PR series.
+  Future<void> _addExerciseToWorkout() async {
+    try {
+      final exercise = await _pickExercise();
+      if (!mounted || exercise == null) return;
+      final active = context.read<ActiveWorkoutProvider>();
+      await active.ensurePersistedExercise(exercise);
+      if (!mounted) return;
+      setState(() {
+        _allExercisesById[exercise.id] = exercise;
+        _adHocExercises.add(exercise);
+        _exercises.add(exercise);
+        _workoutSlotIds.add(null);
+      });
+      active.updateExercises(_exercises);
+    } catch (error, stack) {
+      _showEditError(error, stack);
+    }
+  }
+
   Future<void> _chooseSessionReplacement(int index) async {
     if (index < 0 || index >= _exercises.length) return;
     final slotId = _workoutSlotIds[index];
     if (slotId == null) return;
-    final current = _exercises[index];
-    final currentFamily =
-        CatalogRepository.instance.byId(current.catalogId)?.movementFamilyId;
-    final profiles = await TrainingProfileRepository().profiles();
-    if (!mounted) return;
-    final equipment =
-        profiles
-            .where((profile) => profile.id == widget.canonicalProfileId)
-            .expand((profile) => profile.equipmentCodes)
-            .toSet();
-    bool matchesProfile(Exercise value) {
-      if (equipment.isEmpty) return false;
-      final required =
-          CatalogRepository.instance
-              .byId(value.catalogId)
-              ?.equipmentIds
-              .map(DatabaseSchemaV2.normalizeEquipmentCode)
-              .where(
-                (code) =>
-                    code != 'bodyweight' &&
-                    code != 'other' &&
-                    code != 'unknown',
-              )
-              .toSet();
-      return required == null ||
-          required.isEmpty ||
-          equipment.containsAll(required);
-    }
-
-    final candidates =
-        _allExercisesById.values
-            .where(
-              (exercise) =>
-                  exercise.id == current.id ||
-                  !_exercises.any((item) => item.id == exercise.id),
-            )
-            .toList()
-          ..sort((left, right) {
-            int rank(Exercise value) {
-              if (currentFamily != null &&
-                  CatalogRepository.instance
-                          .byId(value.catalogId)
-                          ?.movementFamilyId ==
-                      currentFamily) {
-                return 0;
-              }
-              if (matchesProfile(value)) {
-                return 1;
-              }
-              if (value.goalCodes
-                  .toSet()
-                  .intersection(current.goalCodes.toSet())
-                  .isNotEmpty) {
-                return 2;
-              }
-              return 3;
-            }
-
-            final byRank = rank(left).compareTo(rank(right));
-            return byRank != 0 ? byRank : left.name.compareTo(right.name);
-          });
-    final next = await showModalBottomSheet<Exercise>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder:
-          (_) => _ExercisePickerSheet(
-            exercises: candidates,
-            title: context.l10n.switchExerciseForSession,
-          ),
-    );
-    if (!mounted || next == null || next.id == current.id) return;
     final active = context.read<ActiveWorkoutProvider>();
-    setState(() {
-      _exercises[index] = next;
-      _slotSelections[slotId] = next.id;
-    });
-    active
-      ..updateExercises(_exercises)
-      ..selectSlotExercise(slotId, next.id);
-    await active.ensurePersistedExercise(next);
+    final current = _exercises[index];
+    if (active.setsByExercise[current.id]?.isNotEmpty == true) return;
+    try {
+      final next = await _pickExercise(replacing: current);
+      if (!mounted || next == null || next.id == current.id) return;
+      await active.ensurePersistedExercise(next);
+      if (!mounted) return;
+      setState(() {
+        _allExercisesById[next.id] = next;
+        _exercises[index] = next;
+        _slotSelections[slotId] = next.id;
+      });
+      active.updateExercises(_exercises);
+      active.selectSlotExercise(slotId, next.id);
+    } catch (error, stack) {
+      _showEditError(error, stack);
+    }
+  }
+
+  void _showEditError(Object error, StackTrace stack) {
+    debugPrint('Session edit: $error\n$stack');
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.workoutEditFailed)));
+    }
+  }
+
+  Map<String, Object?> get _selectionSnapshot => {
+    'exercises': _exercises.map((e) => e.id).toList(),
+    'groups': {for (final e in _groupSelections.entries) '${e.key}': e.value},
+    'slots': {for (final e in _slotSelections.entries) '${e.key}': e.value},
+    'optional': _enabledOptionalSlotIds.toList(),
+  };
+
+  List<Object> get _trainingRows {
+    final rows = <Object>[];
+    final used = <int>{};
+    for (final group in _sessionPlanGroups) {
+      final selected = group.variants.firstWhere(
+        (v) =>
+            v.id ==
+            (_groupSelections[group.workoutGroupId] ??
+                group.selectedGroupVariantId),
+      );
+      if (selected.slots.isEmpty &&
+          !group.variants.any((v) => v.slots.isNotEmpty)) {
+        continue;
+      }
+      rows.add(group);
+      final ids = selected.slots.map((s) => s.id).toSet();
+      for (var i = 0; i < _exercises.length; i++) {
+        if (ids.contains(_workoutSlotIds[i])) {
+          rows.add(i);
+          used.add(i);
+        }
+      }
+    }
+    rows.addAll([
+      for (var i = 0; i < _exercises.length; i++)
+        if (!used.contains(i)) i,
+    ]);
+    return rows;
+  }
+
+  Widget _groupHeader(WorkoutSessionPlanGroup group) {
+    final selected = group.variants.firstWhere(
+      (v) =>
+          v.id ==
+          (_groupSelections[group.workoutGroupId] ??
+              group.selectedGroupVariantId),
+    );
+    return GestureDetector(
+      onHorizontalDragEnd:
+          group.variants.length < 2
+              ? null
+              : (details) {
+                final speed = details.primaryVelocity ?? 0;
+                if (speed.abs() > 180) {
+                  _switchGroupVariant(group, speed < 0 ? 1 : -1);
+                }
+              },
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12, bottom: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                workoutGroupLabel(context, group.kind, group.name),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            if (group.variants.length > 1) ...[
+              IconButton(
+                tooltip: context.l10n.back,
+                onPressed: () => _switchGroupVariant(group, -1),
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Flexible(
+                child: TextButton(
+                  onPressed: () => _chooseGroupVariant(group),
+                  child: Text(selected.name),
+                ),
+              ),
+              IconButton(
+                tooltip: context.l10n.next,
+                onPressed: () => _switchGroupVariant(group, 1),
+                icon: const Icon(Icons.chevron_right),
+              ),
+            ],
+            if (selected.slots.any((s) => s.isOptional))
+              IconButton(
+                tooltip: context.l10n.optional,
+                onPressed: () => _editOptionalSlots(group),
+                icon: const Icon(Icons.add_task_outlined),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -793,44 +919,16 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                 ),
               ],
             ),
-          if (_sessionPlanGroups.isNotEmpty)
-            SizedBox(
-              height: 76,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                itemCount: _sessionPlanGroups.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final group = _sessionPlanGroups[index];
-                  final selectedId =
-                      _groupSelections[group.workoutGroupId] ??
-                      group.selectedGroupVariantId;
-                  final selected = group.variants.firstWhere(
-                    (variant) => variant.id == selectedId,
-                    orElse: () => group.variants.first,
-                  );
-                  return _GroupVariantSwitcher(
-                    groupName: group.name,
-                    variantName: selected.name,
-                    canSwitch: group.variants.length > 1,
-                    onPrevious: () => _switchGroupVariant(group, -1),
-                    onNext: () => _switchGroupVariant(group, 1),
-                    onTap: () => _chooseGroupVariant(group),
-                    hasOptionalSlots: selected.slots.any(
-                      (slot) => slot.isOptional,
-                    ),
-                    onEditOptionals: () => _editOptionalSlots(group),
-                  );
-                },
-              ),
-            ),
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-              itemCount: _exercises.length + 1,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+              itemCount: _trainingRows.length + 1,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, i) {
+              itemBuilder: (_, rowIndex) {
+                final rows = _trainingRows;
+                final row = rowIndex < rows.length ? rows[rowIndex] : null;
+                if (row is WorkoutSessionPlanGroup) return _groupHeader(row);
+                final i = row is int ? row : _exercises.length;
                 // Ghost card: "Übung hinzufügen"
                 if (i >= _exercises.length) {
                   return Opacity(
@@ -968,6 +1066,10 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                                                 Icons.check_circle_rounded,
                                                 key: ValueKey('done_${e.id}'),
                                                 color: scheme.tertiary,
+                                                semanticLabel:
+                                                    context
+                                                        .l10n
+                                                        .swapLockedAfterSets,
                                               )
                                               : Icon(
                                                 Icons
@@ -1083,223 +1185,6 @@ class _OptionalSlotsSheetState extends State<_OptionalSlotsSheet> {
             child: Text(context.l10n.save),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ExercisePickerSheet extends StatefulWidget {
-  const _ExercisePickerSheet({required this.exercises, this.title});
-
-  final List<Exercise> exercises;
-  final String? title;
-
-  @override
-  State<_ExercisePickerSheet> createState() => _ExercisePickerSheetState();
-}
-
-class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
-  late final TextEditingController _searchController;
-  String _query = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final query = _query.toLowerCase();
-    final filtered =
-        query.isEmpty
-            ? widget.exercises
-            : widget.exercises
-                .where(
-                  (exercise) =>
-                      displayExerciseName(
-                        context,
-                        exercise,
-                      ).toLowerCase().contains(query) ||
-                      exercise.name.toLowerCase().contains(query) ||
-                      exercise.mergedAliases.any(
-                        (alias) => alias.toLowerCase().contains(query),
-                      ),
-                )
-                .toList();
-    return SafeArea(
-      top: false,
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * .72,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                widget.title ?? context.l10n.addExercise,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: context.l10n.searchExercises,
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon:
-                      _query.isEmpty
-                          ? null
-                          : IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _query = '');
-                            },
-                          ),
-                ),
-                onChanged: (value) => setState(() => _query = value),
-              ),
-            ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                itemCount: filtered.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 4),
-                itemBuilder: (context, index) {
-                  final exercise = filtered[index];
-                  final alias = matchingAlias(exercise, _query);
-                  return Card(
-                    child: ListTile(
-                      title: Row(
-                        children: [
-                          Flexible(
-                            child: Text(displayExerciseName(context, exercise)),
-                          ),
-                          if (exercise.goal != null) ...[
-                            const SizedBox(width: 8),
-                            goalBadge(context, exercise.goal!, scheme),
-                          ],
-                        ],
-                      ),
-                      subtitle:
-                          alias == null
-                              ? null
-                              : Text(context.l10n.formerName(alias)),
-                      trailing: Icon(
-                        Icons.add_circle_outline_rounded,
-                        color: scheme.primary,
-                      ),
-                      onTap: () => Navigator.of(context).pop(exercise),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GroupVariantSwitcher extends StatelessWidget {
-  const _GroupVariantSwitcher({
-    required this.groupName,
-    required this.variantName,
-    required this.canSwitch,
-    required this.onPrevious,
-    required this.onNext,
-    required this.onTap,
-    required this.hasOptionalSlots,
-    required this.onEditOptionals,
-  });
-
-  final String groupName;
-  final String variantName;
-  final bool canSwitch;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
-  final VoidCallback onTap;
-  final bool hasOptionalSlots;
-  final VoidCallback onEditOptionals;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onHorizontalDragEnd:
-          canSwitch
-              ? (details) {
-                final velocity = details.primaryVelocity ?? 0;
-                if (velocity.abs() < 180) return;
-                if (velocity < 0) {
-                  onNext();
-                } else {
-                  onPrevious();
-                }
-              }
-              : null,
-      child: Card(
-        color: scheme.secondaryContainer.withValues(alpha: .55),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (canSwitch)
-                  IconButton(
-                    tooltip: context.l10n.back,
-                    onPressed: onPrevious,
-                    icon: const Icon(Icons.chevron_left_rounded),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        groupName,
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                      Text(
-                        variantName,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onSecondaryContainer.withValues(
-                            alpha: .72,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (canSwitch)
-                  IconButton(
-                    tooltip: context.l10n.next,
-                    onPressed: onNext,
-                    icon: const Icon(Icons.chevron_right_rounded),
-                  ),
-                if (hasOptionalSlots)
-                  IconButton(
-                    tooltip: context.l10n.optional,
-                    onPressed: onEditOptionals,
-                    icon: const Icon(Icons.add_task_outlined),
-                  ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

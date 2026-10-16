@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
+import '../models/workout_plan.dart';
 
 import '../services/database_service.dart';
 import '../utils/uuid_v4.dart';
@@ -157,6 +159,8 @@ class ActivityRepository {
     String? workoutVariantId,
     String? profileId,
     DateTime? startedAt,
+    List<WorkoutSessionPlanGroup> groups = const [],
+    Map<String, Object?>? selectionSnapshot,
   }) async {
     final normalizedTags = _validateTags(tags);
     final localStart = startedAt ?? DateTime.now();
@@ -199,6 +203,9 @@ class ActivityRepository {
           'sort_order': index,
         });
       }
+      if (selectionSnapshot != null) {
+        await _writePlanSnapshot(txn, sessionId, groups, selectionSnapshot);
+      }
     });
     return StartedWorkoutActivity(
       sessionId: sessionId,
@@ -218,6 +225,76 @@ class ActivityRepository {
       metrics: metrics,
     ),
   );
+
+  Future<void> savePlanSnapshot({
+    required String sessionId,
+    required List<WorkoutSessionPlanGroup> groups,
+    required Map<String, Object?> selection,
+  }) => _database.transaction((txn) async {
+    final session = await txn.query(
+      'activity_sessions',
+      columns: ['status'],
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+    if (session.isEmpty || session.single['status'] != 'active') {
+      throw StateError('Session is not active.');
+    }
+    await _writePlanSnapshot(txn, sessionId, groups, selection);
+  });
+
+  static Future<void> _writePlanSnapshot(
+    DatabaseExecutor txn,
+    String sessionId,
+    List<WorkoutSessionPlanGroup> groups,
+    Map<String, Object?> selection,
+  ) async {
+    await txn.update(
+      'activity_sessions',
+      {'selection_snapshot': jsonEncode(selection)},
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
+    final slotSelections = Map<String, dynamic>.from(
+      selection['slots'] as Map? ?? {},
+    );
+    final groupSelections = Map<String, dynamic>.from(
+      selection['groups'] as Map? ?? {},
+    );
+    for (var index = 0; index < groups.length; index++) {
+      final group = groups[index];
+      final id = '$sessionId:group:${group.workoutGroupId}';
+      final values = <String, Object?>{
+        'session_id': sessionId,
+        'name_snapshot': group.name,
+        'sort_order': index,
+        'plan_snapshot': jsonEncode(group.toJson()),
+      };
+      final changed = await txn.update(
+        'activity_session_groups',
+        values,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      if (changed == 0) {
+        await txn.insert('activity_session_groups', {'id': id, ...values});
+      }
+      final selected =
+          groupSelections['${group.workoutGroupId}'] ??
+          group.selectedGroupVariantId;
+      for (final variant in group.variants.where((v) => v.id == selected)) {
+        for (final slot in variant.slots) {
+          final exerciseId = slotSelections['${slot.id}'] ?? slot.exerciseId;
+          await txn.update(
+            'activity_items',
+            {'session_group_id': id},
+            where: 'session_id = ? AND source_local_id = ?',
+            whereArgs: [sessionId, '$exerciseId'],
+          );
+        }
+      }
+    }
+  }
 
   Future<void> completeSession(String sessionId, {DateTime? endedAt}) async {
     final ended = (endedAt ?? DateTime.now()).toUtc().millisecondsSinceEpoch;
@@ -255,6 +332,12 @@ class ActivityRepository {
     if (sessions.isEmpty) return null;
     final session = sessions.single;
     final sessionId = session['id'] as String;
+    final groupRows = await _database.query(
+      'activity_session_groups',
+      where: 'session_id = ?',
+      whereArgs: [sessionId],
+      orderBy: 'sort_order ASC, id ASC',
+    );
     final items = await _database.query(
       'activity_items',
       where: 'session_id = ?',
@@ -282,6 +365,23 @@ class ActivityRepository {
           ).toLocal(),
       items: items,
       efforts: efforts,
+      groups: [
+        for (final row in groupRows)
+          if (row['plan_snapshot'] != null)
+            WorkoutSessionPlanGroup.fromJson(
+              Map<String, dynamic>.from(
+                jsonDecode(row['plan_snapshot'] as String) as Map,
+              ),
+            ),
+      ],
+      selection:
+          session['selection_snapshot'] == null
+              ? const {}
+              : Map<String, dynamic>.from(
+                jsonDecode(session['selection_snapshot'] as String) as Map,
+              ),
+      setupId: session['workout_variant_id'] as String?,
+      nameSnapshot: session['name_snapshot'] as String,
     );
   }
 
@@ -361,11 +461,19 @@ class RestorableActivitySession {
     required this.items,
     required this.efforts,
     this.profileId,
+    this.setupId,
+    this.groups = const [],
+    this.selection = const {},
+    this.nameSnapshot,
   });
 
   final String sessionId;
   final int localWorkoutId;
   final String? profileId;
+  final String? setupId;
+  final String? nameSnapshot;
+  final List<WorkoutSessionPlanGroup> groups;
+  final Map<String, dynamic> selection;
   final DateTime startedAt;
   final List<Map<String, Object?>> items;
   final List<Map<String, Object?>> efforts;

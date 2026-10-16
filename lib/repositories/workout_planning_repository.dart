@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/training_profile.dart';
 import '../models/workout.dart';
 import '../models/workout_planning.dart';
+import '../services/database_schema_v2.dart';
 import '../services/database_service.dart';
 import '../utils/uuid_v4.dart';
 
@@ -463,6 +464,7 @@ class WorkoutPlanningRepository {
   Future<void> addExercisesToCore({
     required String setupId,
     required Iterable<int> exerciseIds,
+    String? groupId,
   }) async {
     final ids = exerciseIds.toSet().toList(growable: false);
     if (ids.isEmpty) return;
@@ -473,10 +475,11 @@ class WorkoutPlanningRepository {
         FROM workout_variant_group_selections_v2 selection
         INNER JOIN workout_groups_v2 group_row
           ON group_row.id = selection.workout_group_id
-        WHERE selection.workout_variant_id = ? AND group_row.group_kind = 'core'
+        WHERE selection.workout_variant_id = ? AND
+          ((? IS NULL AND group_row.group_kind = 'core') OR group_row.id = ?)
         LIMIT 1
         ''',
-        [setupId],
+        [setupId, groupId, groupId],
       );
       if (rows.isEmpty) throw StateError('Setup has no core group.');
       final groupVariantId = rows.single['group_variant_id'] as String;
@@ -574,13 +577,11 @@ class WorkoutPlanningRepository {
     });
   }
 
-  Future<void> setSlotOptional(String slotId, bool optional) =>
-      _database.update(
-        'workout_slots_v2',
-        {'slot_kind': optional ? 'optional' : 'core'},
-        where: 'id = ?',
-        whereArgs: [slotId],
-      );
+  Future<void> setSlotOptional(
+    String slotId,
+    bool optional, {
+    required String setupId,
+  }) => setSlotsOptional([slotId], optional, setupId: setupId);
 
   Future<void> createGroupFromSlots({
     required String setupId,
@@ -592,6 +593,7 @@ class WorkoutPlanningRepository {
     final selectedSlots = slotIds.toSet().toList(growable: false);
     if (selectedSlots.isEmpty) return;
     await _database.transaction((txn) async {
+      await _assertSetupSlots(txn, setupId, selectedSlots);
       final setupRows = await txn.query(
         'workout_variants_v2',
         columns: const ['workout_id'],
@@ -645,6 +647,7 @@ class WorkoutPlanningRepository {
           );
         }
       }
+      await DatabaseSchemaV2.normalizeWorkoutGroupOrder(txn);
     });
   }
 
@@ -655,6 +658,7 @@ class WorkoutPlanningRepository {
     int? targetIndex,
   }) async {
     await _database.transaction((txn) async {
+      await _assertSetupSlots(txn, setupId, [slotId]);
       final selection = await txn.query(
         'workout_variant_group_selections_v2',
         columns: const ['group_variant_id'],
@@ -683,6 +687,7 @@ class WorkoutPlanningRepository {
     final values = slotIds.toSet().toList(growable: false);
     if (values.isEmpty) return;
     await _database.transaction((txn) async {
+      await _assertSetupSlots(txn, setupId, values);
       final selection = await txn.query(
         'workout_variant_group_selections_v2',
         columns: const ['group_variant_id'],
@@ -700,16 +705,17 @@ class WorkoutPlanningRepository {
     });
   }
 
-  Future<void> removeSlot(String slotId) => _database.delete(
-    'workout_slots_v2',
-    where: 'id = ?',
-    whereArgs: [slotId],
-  );
+  Future<void> removeSlot(String slotId, {required String setupId}) =>
+      removeSlots([slotId], setupId: setupId);
 
-  Future<void> removeSlots(Iterable<String> slotIds) async {
+  Future<void> removeSlots(
+    Iterable<String> slotIds, {
+    required String setupId,
+  }) async {
     final values = slotIds.toSet().toList(growable: false);
     if (values.isEmpty) return;
     await _database.transaction((txn) async {
+      await _assertSetupSlots(txn, setupId, values);
       final placeholders = List.filled(values.length, '?').join(',');
       await txn.delete(
         'workout_slots_v2',
@@ -719,16 +725,66 @@ class WorkoutPlanningRepository {
     });
   }
 
-  Future<void> setSlotsOptional(Iterable<String> slotIds, bool optional) async {
+  Future<void> setSlotsOptional(
+    Iterable<String> slotIds,
+    bool optional, {
+    required String setupId,
+  }) async {
     final values = slotIds.toSet().toList(growable: false);
     if (values.isEmpty) return;
     final placeholders = List.filled(values.length, '?').join(',');
-    await _database.update(
-      'workout_slots_v2',
-      {'slot_kind': optional ? 'optional' : 'core'},
-      where: 'id IN ($placeholders)',
-      whereArgs: values,
+    await _database.transaction((txn) async {
+      await _assertSetupSlots(txn, setupId, values);
+      await txn.update(
+        'workout_slots_v2',
+        {'slot_kind': optional ? 'optional' : 'core'},
+        where: 'id IN ($placeholders)',
+        whereArgs: values,
+      );
+    });
+  }
+
+  Future<void> reorderGroups(String workoutId, List<String> orderedGroupIds) =>
+      _database.transaction((txn) async {
+        final middle = await txn.query(
+          'workout_groups_v2',
+          where: "workout_id = ? AND group_kind NOT IN ('warmup','cooldown')",
+          whereArgs: [workoutId],
+        );
+        final expected = middle.map((row) => row['id'] as String).toSet();
+        if (orderedGroupIds.length != expected.length ||
+            orderedGroupIds.toSet().length != expected.length ||
+            !expected.containsAll(orderedGroupIds)) {
+          throw ArgumentError(
+            'Group order must contain every middle group exactly once.',
+          );
+        }
+        for (var i = 0; i < orderedGroupIds.length; i++) {
+          await txn.update(
+            'workout_groups_v2',
+            {'sort_order': i},
+            where: 'id = ?',
+            whereArgs: [orderedGroupIds[i]],
+          );
+        }
+        await DatabaseSchemaV2.normalizeWorkoutGroupOrder(txn);
+      });
+
+  static Future<void> _assertSetupSlots(
+    DatabaseExecutor db,
+    String setupId,
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty) return;
+    final rows = await db.rawQuery(
+      '''SELECT slot.id FROM workout_slots_v2 slot
+      JOIN workout_variant_group_selections_v2 selection ON selection.group_variant_id = slot.group_variant_id
+      WHERE selection.workout_variant_id = ? AND slot.id IN (${List.filled(ids.length, '?').join(',')})''',
+      [setupId, ...ids],
     );
+    if (rows.length != ids.toSet().length) {
+      throw StateError('Selection does not belong to this setup.');
+    }
   }
 
   Future<void> addSlotAlternative({
@@ -916,7 +972,8 @@ class WorkoutPlanningRepository {
       'workout_groups_v2',
       where: 'workout_id = ?',
       whereArgs: [workoutId],
-      orderBy: 'sort_order ASC, name COLLATE NOCASE ASC',
+      orderBy:
+          "CASE group_kind WHEN 'warmup' THEN 0 WHEN 'cooldown' THEN 2 ELSE 1 END, sort_order ASC, id ASC",
     );
     final selectedRows = await _database.query(
       'workout_variant_group_selections_v2',
@@ -1104,15 +1161,21 @@ class WorkoutPlanningRepository {
       return;
     }
     final placeholders = List.filled(slotIds.length, '?').join(',');
-    final moving = await db.query(
-      'workout_slots_v2',
-      where: 'id IN ($placeholders)',
-      whereArgs: slotIds,
-      orderBy: 'sort_order ASC, id ASC',
-    );
+    final moving =
+        (await db.query(
+          'workout_slots_v2',
+          where: 'id IN ($placeholders)',
+          whereArgs: slotIds,
+          orderBy: 'sort_order ASC, id ASC',
+        )).toList();
     if (moving.length != slotIds.length) {
       throw StateError('An exercise is no longer available.');
     }
+    moving.sort(
+      (a, b) => slotIds
+          .indexOf(a['id'] as String)
+          .compareTo(slotIds.indexOf(b['id'] as String)),
+    );
     final movingIds = moving.map((value) => value['id'] as String).toSet();
     final target = (await db.query(
           'workout_slots_v2',
