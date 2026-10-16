@@ -59,6 +59,7 @@ class WorkoutRunScreen extends StatefulWidget {
 
 class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
   bool _isRunning = false;
+  bool _isStarting = false;
   late List<Exercise> _exercises;
   late List<int?> _workoutSlotIds;
   late Map<int, List<Exercise>> _slotAlternatives;
@@ -283,58 +284,86 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
   }
 
   Future<void> _start() async {
-    if (_isRunning) return;
+    if (_isRunning || _isStarting) return;
+    setState(() => _isStarting = true);
     final active = context.read<ActiveWorkoutProvider>();
-    if (!active.isActive) {
-      final goals = _validatedSessionGoals(widget.workout.goalCodes);
-      final itemSnapshots = [
-        for (final exercise in _exercises)
-          ActivityItemSnapshotInput(
-            localExerciseId: exercise.id,
-            displayName: displayExerciseName(context, exercise),
-            catalogId: exercise.catalogId,
-          ),
-      ];
-      final selectedProfile =
-          widget.profileId != null
-              ? 'legacy-profile:${widget.profileId}'
-              : await TrainingProfileRepository().selectedProfileId();
-      final persisted = await ActivityRepository().startWorkoutActivity(
-        localWorkoutId: widget.workout.id,
-        nameSnapshot: widget.workout.name,
-        activityType: _activityTypeForGoals(goals),
-        tags: goals,
-        profileId: selectedProfile,
-        items: itemSnapshots,
-      );
-      final session = await WorkoutPlanDatabase.instance.createSession(
-        workoutId: widget.workout.id,
-        executedExerciseIds: _exercises.map((exercise) => exercise.id).toList(),
-        workoutVariantId: widget.workoutVariantId,
-        profileId: widget.profileId,
-        groupSelections: _groupSelections,
-        slotSelections: _slotSelections,
-      );
-      if (!mounted) return;
-      active.start(
-        workout: widget.workout,
-        exercises: _exercises,
-        sessionId: session.id,
-        workoutVariantId: widget.workoutVariantId,
-        profileId: widget.profileId,
-        groupSelections: _groupSelections,
-        slotSelections: _slotSelections,
-        sessionPlanGroups: _sessionPlanGroups,
-        planExercisePool: _allExercisesById.values.toList(),
-        enabledOptionalSlotIds: _enabledOptionalSlotIds,
-        activitySessionId: persisted.sessionId,
-        activityItemIds: persisted.activityItemIds,
-      );
-    } else {
-      active.updateExercises(_exercises);
-      active.setEnabledOptionalSlotIds(_enabledOptionalSlotIds);
+    String? stagedActivitySessionId;
+    try {
+      if (!active.isActive) {
+        final goals = _validatedSessionGoals(widget.workout.goalCodes);
+        final itemSnapshots = [
+          for (final exercise in _exercises)
+            ActivityItemSnapshotInput(
+              localExerciseId: exercise.id,
+              displayName: displayExerciseName(context, exercise),
+              catalogId: exercise.catalogId,
+            ),
+        ];
+        final selectedProfile =
+            widget.profileId != null
+                ? 'legacy-profile:${widget.profileId}'
+                : await TrainingProfileRepository().selectedProfileId();
+        final persisted = await ActivityRepository().startWorkoutActivity(
+          localWorkoutId: widget.workout.id,
+          nameSnapshot: widget.workout.name,
+          activityType: _activityTypeForGoals(goals),
+          tags: goals,
+          profileId: selectedProfile,
+          items: itemSnapshots,
+        );
+        stagedActivitySessionId = persisted.sessionId;
+        final session = await WorkoutPlanDatabase.instance.createSession(
+          workoutId: widget.workout.id,
+          executedExerciseIds:
+              _exercises.map((exercise) => exercise.id).toList(),
+          workoutVariantId: widget.workoutVariantId,
+          profileId: widget.profileId,
+          groupSelections: _groupSelections,
+          slotSelections: _slotSelections,
+        );
+        if (!mounted) {
+          await ActivityRepository().discardSession(persisted.sessionId);
+          return;
+        }
+        active.start(
+          workout: widget.workout,
+          exercises: _exercises,
+          sessionId: session.id,
+          workoutVariantId: widget.workoutVariantId,
+          profileId: widget.profileId,
+          groupSelections: _groupSelections,
+          slotSelections: _slotSelections,
+          sessionPlanGroups: _sessionPlanGroups,
+          planExercisePool: _allExercisesById.values.toList(),
+          enabledOptionalSlotIds: _enabledOptionalSlotIds,
+          activitySessionId: persisted.sessionId,
+          activityItemIds: persisted.activityItemIds,
+        );
+        stagedActivitySessionId = null;
+      } else {
+        active.updateExercises(_exercises);
+        active.setEnabledOptionalSlotIds(_enabledOptionalSlotIds);
+      }
+      if (mounted) setState(() => _isRunning = true);
+    } catch (error, stackTrace) {
+      if (stagedActivitySessionId != null) {
+        try {
+          await ActivityRepository().discardSession(stagedActivitySessionId);
+        } catch (cleanupError, cleanupStackTrace) {
+          debugPrint('Could not discard staged activity: $cleanupError');
+          debugPrintStack(stackTrace: cleanupStackTrace);
+        }
+      }
+      debugPrint('Could not start workout: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
+      }
+    } finally {
+      if (mounted) setState(() => _isStarting = false);
     }
-    setState(() => _isRunning = true);
   }
 
   Future<void> _stopAndFinish() async {
@@ -993,8 +1022,14 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                 )
                 : FloatingActionButton.extended(
                   key: const ValueKey('fab_start'),
-                  onPressed: _start,
-                  icon: const Icon(Icons.play_arrow_rounded),
+                  onPressed: _isStarting ? null : _start,
+                  icon:
+                      _isStarting
+                          ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Icon(Icons.play_arrow_rounded),
                   label: Text(context.l10n.start),
                 ),
       ),

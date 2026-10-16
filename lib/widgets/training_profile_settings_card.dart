@@ -59,7 +59,11 @@ class _TrainingProfileSettingsCardState
 
   void _refresh() {
     if (!mounted) return;
-    setState(() => _profilesFuture = _load());
+    // A setState callback must be synchronous. Using the assignment expression
+    // directly would return the Future from _load() in debug builds.
+    setState(() {
+      _profilesFuture = _load();
+    });
   }
 
   Future<void> _showEditor([TrainingProfileRecord? existing]) async {

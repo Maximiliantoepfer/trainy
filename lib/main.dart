@@ -19,19 +19,16 @@ import 'widgets/data_recovery_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'firebase_options.dart';
-import 'services/catalog_repository.dart';
 import 'services/data_lifecycle_coordinator.dart';
-import 'services/app_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final startup = await DataLifecycleCoordinator.instance.ensureReady();
-  if (startup.isReady) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  }
+  // Firebase is optional storage, but its SDK must be initialized before a
+  // recovery retry can rebuild the normal provider tree. Initializing it does
+  // not read remote data and therefore does not weaken the local-first flow.
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   if (startup.isReady &&
       await DataLifecycleCoordinator.instance.hasPendingAccountDeletion()) {
     final current = FirebaseAuth.instance.currentUser;
@@ -52,13 +49,6 @@ Future<void> main() async {
         );
   }
   await initializeDateFormatting();
-  // Catalog loading is local-only and intentionally non-fatal while the
-  // editorial German catalog is not bundled yet.
-  if (startup.isReady && await CatalogRepository.instance.load()) {
-    await AppDatabase.instance.setCatalogVersion(
-      CatalogRepository.instance.catalogVersion ?? 'unknown',
-    );
-  }
   runApp(TrainyApp(initialStartupResult: startup));
 }
 

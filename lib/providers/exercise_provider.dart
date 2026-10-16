@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/exercise.dart';
 import '../services/exercise_database.dart';
 import '../services/catalog_repository.dart';
+import '../services/app_database.dart';
 import '../models/catalog_exercise.dart';
 
 class ExerciseProvider extends ChangeNotifier {
@@ -24,7 +25,10 @@ class ExerciseProvider extends ChangeNotifier {
             return aliases != null ? e.copyWith(mergedAliases: aliases) : e;
           }).toList();
       final catalog = CatalogRepository.instance;
-      if (catalog.isLoaded) {
+      if (await catalog.load()) {
+        await AppDatabase.instance.setCatalogVersion(
+          catalog.catalogVersion ?? 'unknown',
+        );
         await ExerciseDatabase.instance.refreshDuplicateSuggestions({
           for (final item in catalog.definitions)
             item.id: [

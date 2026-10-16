@@ -67,8 +67,10 @@ class _ExerciseScreenState extends State<ExerciseScreen>
         _profileName = profile!.name;
         _profileEquipment = profile.equipmentCodes;
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
       // The library remains fully usable without the optional profile filter.
+      debugPrint('Could not load selected training profile: $error');
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 
@@ -358,7 +360,11 @@ class _ExerciseScreenState extends State<ExerciseScreen>
     context.read<ProgressProvider>().refreshEntries();
     try {
       context.read<CloudSyncProvider>().scheduleBackupSoon();
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      // Cloud backup is optional; archiving has already succeeded locally.
+      debugPrint('Could not schedule optional cloud backup: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

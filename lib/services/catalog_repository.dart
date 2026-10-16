@@ -7,7 +7,7 @@ import '../models/catalog_exercise.dart';
 import 'database_schema_v2.dart';
 
 /// Read-only local catalog. It has no network dependency and is loaded once
-/// during app startup so display lookups stay synchronous in widgets.
+/// in the background with the exercise provider so first paint is not blocked.
 class CatalogRepository {
   CatalogRepository._();
 
@@ -16,6 +16,7 @@ class CatalogRepository {
   final Map<String, CatalogExercise> _definitions = {};
   final Map<String, Map<String, CatalogLocalizedContent>> _contentByLocale = {};
   bool _isLoaded = false;
+  Future<bool>? _loadInFlight;
   String? _loadError;
   String? _catalogVersion;
 
@@ -30,8 +31,14 @@ class CatalogRepository {
 
   /// Returns false when a release does not bundle a complete, reviewed
   /// catalog yet. Existing personal exercises keep working in that state.
-  Future<bool> load() async {
-    if (_isLoaded) return true;
+  Future<bool> load() {
+    if (_isLoaded) return Future<bool>.value(true);
+    return _loadInFlight ??= _loadOnce().whenComplete(() {
+      _loadInFlight = null;
+    });
+  }
+
+  Future<bool> _loadOnce() async {
     _definitions.clear();
     _contentByLocale.clear();
     _loadError = null;

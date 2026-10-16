@@ -128,10 +128,11 @@ class ActiveWorkoutProvider extends ChangeNotifier {
         'distance' => 'distance',
         _ => null,
       };
-      if (key != null)
+      if (key != null) {
         valuesByEffort.putIfAbsent(effortId, () => {})[key] = _formatNumber(
           value,
         );
+      }
     }
     final effortIds =
         effortExercise.keys.toList()..sort(

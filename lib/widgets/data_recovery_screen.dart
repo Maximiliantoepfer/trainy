@@ -18,9 +18,12 @@ class _DataRecoveryScreenState extends State<DataRecoveryScreen> {
     try {
       final target =
           await context.read<DataLifecycleProvider>().exportRecoveryCopy();
-      if (mounted)
+      if (mounted) {
         setState(() => _message = context.l10n.recoverySaved(target));
-    } catch (_) {
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Could not export recovery copy: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (mounted) setState(() => _message = context.l10n.recoveryExportFailed);
     }
   }
