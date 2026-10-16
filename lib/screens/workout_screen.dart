@@ -365,7 +365,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       existing: exercise,
       warnOnEdit: true,
     );
-    if (saved && mounted) {
+    if (saved != null && mounted) {
       setState(() {});
     }
   }

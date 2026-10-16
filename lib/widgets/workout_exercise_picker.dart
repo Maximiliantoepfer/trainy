@@ -10,6 +10,7 @@ import '../services/catalog_repository.dart';
 import '../services/database_schema_v2.dart';
 import '../utils/exercise_localization.dart';
 import '../utils/goal_utils.dart';
+import 'exercise_editor_sheet.dart';
 
 class ExercisePickerResult {
   ExercisePickerResult(Iterable<int> exerciseIds, Iterable<String> catalogIds)
@@ -58,6 +59,9 @@ class WorkoutExercisePicker extends StatefulWidget {
 
 class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
   final _search = TextEditingController();
+  final _scroll = ScrollController();
+  bool _creating = false;
+  int? _newExerciseId;
   late final Set<int> _selected = {...widget.selectedExerciseIds};
   late final Set<String> _catalog = {...widget.selectedCatalogIds};
   String? _goal;
@@ -65,7 +69,36 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
   @override
   void dispose() {
     _search.dispose();
+    _scroll.dispose();
     super.dispose();
+  }
+
+  Future<void> _createExercise() async {
+    if (_creating) return;
+    setState(() => _creating = true);
+    try {
+      final value = await showExerciseEditorSheet(
+        context,
+        initialName: _search.text.trim(),
+      );
+      if (!mounted || value == null) return;
+      if (widget.single) {
+        Navigator.pop(
+          context,
+          ExercisePickerResult([value.exerciseId], const []),
+        );
+        return;
+      }
+      setState(() {
+        _selected.add(value.exerciseId);
+        _newExerciseId = value.exerciseId;
+        _goal = null;
+        _search.clear();
+      });
+      if (_scroll.hasClients) _scroll.jumpTo(0);
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
   }
 
   @override
@@ -128,9 +161,27 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
         return byRank == 0 ? order[a]!.compareTo(order[b]!) : byRank;
       });
     }
+    // Reveal the explicitly created exercise without losing other selections.
+    // Normal ranking resumes as soon as the user enters a query or label.
+    if (_newExerciseId != null && normalized.isEmpty && _goal == null) {
+      final index = items.indexWhere(
+        (item) => item.exercise?.id == _newExerciseId,
+      );
+      if (index > 0) items.insert(0, items.removeAt(index));
+    }
     return FractionallySizedBox(
       heightFactor: .94,
       child: Scaffold(
+        bottomNavigationBar: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: OutlinedButton.icon(
+            key: const ValueKey('pickerCreateExercise'),
+            onPressed: _creating ? null : _createExercise,
+            icon: const Icon(Icons.add),
+            label: Text(context.l10n.newExercise),
+          ),
+        ),
         appBar: AppBar(
           automaticallyImplyLeading: false,
           title: Text(context.l10n.selectExercise),
@@ -195,6 +246,7 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
                   items.isEmpty
                       ? Center(child: Text(context.l10n.noExercisesFound))
                       : ListView.builder(
+                        controller: _scroll,
                         keyboardDismissBehavior:
                             ScrollViewKeyboardDismissBehavior.onDrag,
                         itemCount: items.length,

@@ -4,6 +4,40 @@ import '../l10n/l10n.dart';
 import '../models/training_profile.dart';
 import '../repositories/training_profile_repository.dart';
 import '../utils/uuid_v4.dart';
+import 'local_save_dialog.dart';
+
+/// Shared by settings, workout creation and the workout's profile chooser.
+Future<TrainingProfileRecord?> showTrainingProfileEditor(
+  BuildContext context, {
+  required TrainingProfileStore store,
+  TrainingProfileRecord? existing,
+  int sortOrder = 0,
+}) async {
+  final draft = await showDialog<TrainingProfileDraft>(
+    context: context,
+    builder: (_) => _TrainingProfileDialog(initial: existing),
+  );
+  if (draft == null || !context.mounted) return null;
+  final now = DateTime.now().toUtc();
+  final value =
+      existing?.copyWith(
+        name: draft.name,
+        equipmentCodes: draft.equipmentCodes,
+        updatedAtUtc: now,
+      ) ??
+      TrainingProfileRecord(
+        id: UuidV4.generate(),
+        name: draft.name,
+        equipmentCodes: draft.equipmentCodes,
+        sortOrder: sortOrder,
+        createdAtUtc: now,
+        updatedAtUtc: now,
+      );
+  return showLocalSave(context, () async {
+    await store.save(value);
+    return value;
+  });
+}
 
 @immutable
 class TrainingProfileDraft {
@@ -61,34 +95,19 @@ class _TrainingProfileSettingsCardState
   Future<void> _showEditor([TrainingProfileRecord? existing]) async {
     if (_modalOpen || _mutationRunning) return;
     setState(() => _modalOpen = true);
-    final result = await showDialog<TrainingProfileDraft>(
-      context: context,
-      builder: (_) => _TrainingProfileDialog(initial: existing),
-    );
-    if (!mounted) return;
-    setState(() => _modalOpen = false);
-    if (result == null) return;
-
-    final current = await _profilesFuture;
-    if (!mounted) return;
-    final now = DateTime.now().toUtc();
-    final value =
-        existing?.copyWith(
-          name: result.name,
-          equipmentCodes: Set.unmodifiable(result.equipmentCodes),
-          updatedAtUtc: now,
-        ) ??
-        TrainingProfileRecord(
-          id: UuidV4.generate(),
-          name: result.name,
-          equipmentCodes: Set.unmodifiable(result.equipmentCodes),
-          sortOrder: current.profiles.length,
-          createdAtUtc: now,
-          updatedAtUtc: now,
-        );
-    await _mutate(() async {
-      await widget.store.save(value);
-    });
+    try {
+      final current = await _profilesFuture;
+      if (!mounted) return;
+      final result = await showTrainingProfileEditor(
+        context,
+        store: widget.store,
+        existing: existing,
+        sortOrder: current.profiles.length,
+      );
+      if (result != null && mounted) _refresh();
+    } finally {
+      if (mounted) setState(() => _modalOpen = false);
+    }
   }
 
   Future<void> _archive(TrainingProfileRecord profile) async {
@@ -290,7 +309,9 @@ class _TrainingProfileDialogState extends State<_TrainingProfileDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedEquipment = {...?widget.initial?.equipmentCodes};
+    _selectedEquipment = {
+      ...(widget.initial?.equipmentCodes ?? {'bodyweight'}),
+    };
     _nameController = TextEditingController(text: widget.initial?.name);
     _nameFocusNode = FocusNode();
   }
@@ -316,6 +337,10 @@ class _TrainingProfileDialogState extends State<_TrainingProfileDialog> {
   Widget build(BuildContext context) {
     final editing = widget.initial != null;
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      titlePadding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      actionsPadding: const EdgeInsets.all(16),
       title: Text(
         editing
             ? context.l10n.editTrainingProfile
@@ -324,6 +349,7 @@ class _TrainingProfileDialogState extends State<_TrainingProfileDialog> {
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(
+          padding: const EdgeInsets.only(top: 8),
           child: Form(
             key: _formKey,
             child: Column(
@@ -354,11 +380,15 @@ class _TrainingProfileDialogState extends State<_TrainingProfileDialog> {
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
-                  runSpacing: 8,
+                  runSpacing: 0,
                   children: [
                     for (final code in TrainingProfileRepository.equipmentCodes)
                       FilterChip(
                         key: ValueKey('trainingProfileEquipment_$code'),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                        visualDensity: VisualDensity.standard,
+                        materialTapTargetSize: MaterialTapTargetSize.padded,
                         label: Text(equipmentLabel(context, code)),
                         selected: _selectedEquipment.contains(code),
                         onSelected: (selected) {

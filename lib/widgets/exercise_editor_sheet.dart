@@ -15,32 +15,42 @@ import '../utils/exercise_localization.dart';
 import '../services/exercise_image_service.dart';
 import '../l10n/l10n.dart';
 import 'exercise_editor_form.dart';
+import 'local_save_dialog.dart';
+
+@immutable
+class ExerciseEditorOutcome {
+  const ExerciseEditorOutcome(this.exerciseId);
+  final int exerciseId;
+}
 
 /// Shared BottomSheet zum Erstellen / Bearbeiten einer Übung.
 ///
 /// [warnOnEdit] zeigt vor dem Speichern einer bestehenden Übung eine
 /// Bestätigung, dass sich Änderungen auf alle Workouts auswirken.
-/// Gibt `true` zurück, wenn gespeichert oder zusammengeführt wurde.
-Future<bool> showExerciseEditorSheet(
+/// Returns the locally saved identity, or null when explicitly cancelled.
+Future<ExerciseEditorOutcome?> showExerciseEditorSheet(
   BuildContext context, {
   Exercise? existing,
   bool warnOnEdit = false,
+  String initialName = '',
 }) async {
-  final initialName =
-      existing == null ? '' : displayExerciseName(context, existing);
+  final displayedName =
+      existing == null ? initialName : displayExerciseName(context, existing);
   final result = await showModalBottomSheet<_ExerciseEditorResult>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
     builder:
-        (_) =>
-            _ExerciseEditorSheet(existing: existing, initialName: initialName),
+        (_) => _ExerciseEditorSheet(
+          existing: existing,
+          initialName: displayedName,
+        ),
   );
-  if (result == null) return false;
+  if (result == null) return null;
   if (!context.mounted) {
     await ExerciseImageService.instance.discardDraft(result.draftImagePath);
-    return false;
+    return null;
   }
 
   if (warnOnEdit && existing != null) {
@@ -64,7 +74,7 @@ Future<bool> showExerciseEditorSheet(
     );
     if (!context.mounted || confirmed != true) {
       await ExerciseImageService.instance.discardDraft(result.draftImagePath);
-      return false;
+      return null;
     }
   }
 
@@ -87,7 +97,7 @@ Future<bool> showExerciseEditorSheet(
         goalCodes: result.goalCodes,
         imagePaths: imagePaths,
         isNameCustom:
-            existing?.catalogId != null && result.name == initialName
+            existing?.catalogId != null && result.name == displayedName
                 ? false
                 : existing?.isNameCustom,
       );
@@ -95,31 +105,45 @@ Future<bool> showExerciseEditorSheet(
   final previousImages = List<String>.from(existing?.imagePaths ?? const []);
   final initialImages =
       result.removeExistingImage ? <String>[] : previousImages;
-  final exerciseId = await persist(initialImages);
-  if (result.draftImagePath case final draft?) {
-    final committed = await ExerciseImageService.instance.commitDraftCover(
-      draft,
-      exerciseId: exerciseId,
-    );
-    try {
-      await persist([committed], exerciseId: exerciseId);
+  int? savedId;
+  String? committedImage;
+  bool imageLinked = false;
+  final outcome = await showLocalSave(context, () async {
+    // Both identity and image destination survive failed later stages. Retrying
+    // a cover write must never create another exercise or rename a lost draft.
+    savedId ??= await persist(initialImages);
+    if (result.draftImagePath case final draft?) {
+      committedImage ??= await ExerciseImageService.instance.commitDraftCover(
+        draft,
+        exerciseId: savedId!,
+      );
+      await persist([committedImage!], exerciseId: savedId);
+      imageLinked = true;
+    }
+    return ExerciseEditorOutcome(savedId!);
+  });
+  // Cleanup is not a failed save: the database has already committed. Never
+  // encourage a second insertion just because an unused file could not go away.
+  try {
+    if (outcome != null && (imageLinked || result.removeExistingImage)) {
       for (final oldPath in previousImages) {
         await ExerciseImageService.instance.deleteRelative(oldPath);
       }
-    } catch (_) {
-      await ExerciseImageService.instance.deleteRelative(committed);
-      rethrow;
+    } else if (outcome == null) {
+      await ExerciseImageService.instance.discardDraft(result.draftImagePath);
+      if (!imageLinked) {
+        await ExerciseImageService.instance.deleteRelative(committedImage);
+      }
     }
-  } else if (result.removeExistingImage) {
-    for (final oldPath in previousImages) {
-      await ExerciseImageService.instance.deleteRelative(oldPath);
-    }
+  } catch (error, stack) {
+    debugPrint('Exercise image cleanup failed: $error');
+    debugPrintStack(stackTrace: stack);
   }
-  if (!context.mounted) return true;
+  if (outcome == null || !context.mounted) return outcome;
   try {
     context.read<CloudSyncProvider>().scheduleBackupSoon();
   } catch (_) {}
-  return true;
+  return outcome;
 }
 
 @immutable
@@ -179,6 +203,8 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
   String? _draftImagePath;
   bool _removeExistingImage = false;
   bool _submitted = false;
+  bool _pickingImage = false;
+  String? _validationError;
 
   @override
   void initState() {
@@ -226,19 +252,36 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
   }
 
   Future<void> _pickImage() async {
-    if (widget.existing?.catalogId != null) return;
-    final oldDraft = _draftImagePath;
-    final path = await ExerciseImageService.instance.pickDraftCover(
-      draftId: _draftId,
-    );
-    if (!mounted || path == null) return;
-    if (oldDraft != null && oldDraft != path) {
-      await ExerciseImageService.instance.discardDraft(oldDraft);
+    if (_pickingImage || widget.existing?.catalogId != null) return;
+    setState(() => _pickingImage = true);
+    try {
+      final oldDraft = _draftImagePath;
+      final path = await ExerciseImageService.instance.pickDraftCover(
+        draftId: _draftId,
+      );
+      if (!mounted) {
+        await ExerciseImageService.instance.discardDraft(path);
+        return;
+      }
+      if (path == null) return;
+      if (oldDraft != null && oldDraft != path) {
+        await ExerciseImageService.instance.discardDraft(oldDraft);
+      }
+      setState(() {
+        _draftImagePath = path;
+        _removeExistingImage = false;
+      });
+    } catch (error, stack) {
+      debugPrint('Image selection failed: $error');
+      debugPrintStack(stackTrace: stack);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.l10n.localSaveFailed)));
+      }
+    } finally {
+      if (mounted) setState(() => _pickingImage = false);
     }
-    setState(() {
-      _draftImagePath = path;
-      _removeExistingImage = false;
-    });
   }
 
   Future<void> _removeImage() async {
@@ -252,7 +295,11 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
 
   void _submit() {
     final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    if (_submitted || _pickingImage) return;
+    if (name.isEmpty) {
+      setState(() => _validationError = context.l10n.nameRequired);
+      return;
+    }
     _submitted = true;
     Navigator.of(context).pop(
       _ExerciseEditorResult(
@@ -284,7 +331,7 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -295,51 +342,63 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            if (existing?.catalogId == null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _ExerciseImageEditor(
-                  draftPath: _draftImagePath,
-                  existingPath:
-                      _removeExistingImage
-                          ? null
-                          : (existing == null || existing.imagePaths.isEmpty
-                              ? null
-                              : existing.imagePaths.first),
-                  onPick: _pickImage,
-                  onRemove:
-                      _draftImagePath != null ||
-                              (!_removeExistingImage &&
-                                  existing?.imagePaths.isNotEmpty == true)
-                          ? _removeImage
-                          : null,
-                ),
-              ),
+            const SizedBox(height: 12),
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: ExerciseEditorForm(
-                  nameCtrl: _nameController,
-                  descCtrl: _descriptionController,
-                  trackSets: _trackSets,
-                  trackReps: _trackReps,
-                  trackWeight: _trackWeight,
-                  trackDuration: _trackDuration,
-                  trackDistance: _trackDistance,
-                  goal: _goal,
-                  goalCodes: _goalCodes,
-                  autofocusName: existing == null,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Column(
+                  children: [
+                    if (existing?.catalogId == null)
+                      Padding(
+                        padding: EdgeInsets.zero,
+                        child: _ExerciseImageEditor(
+                          draftPath: _draftImagePath,
+                          existingPath:
+                              _removeExistingImage
+                                  ? null
+                                  : (existing == null ||
+                                          existing.imagePaths.isEmpty
+                                      ? null
+                                      : existing.imagePaths.first),
+                          onPick: _pickImage,
+                          onRemove:
+                              _draftImagePath != null ||
+                                      (!_removeExistingImage &&
+                                          existing?.imagePaths.isNotEmpty ==
+                                              true)
+                                  ? _removeImage
+                                  : null,
+                        ),
+                      ),
+                    ExerciseEditorForm(
+                      nameCtrl: _nameController,
+                      descCtrl: _descriptionController,
+                      trackSets: _trackSets,
+                      trackReps: _trackReps,
+                      trackWeight: _trackWeight,
+                      trackDuration: _trackDuration,
+                      trackDistance: _trackDistance,
+                      goal: _goal,
+                      goalCodes: _goalCodes,
+                      autofocusName: existing == null,
+                    ),
+                    if (_validationError != null)
+                      Text(
+                        _validationError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: Row(
                 children: [
                   Expanded(
                     child: SizedBox(
-                      height: 48,
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: Text(context.l10n.cancel),
@@ -349,10 +408,9 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: SizedBox(
-                      height: 48,
                       child: FilledButton(
                         key: const ValueKey('exerciseEditorSubmit'),
-                        onPressed: _submit,
+                        onPressed: _pickingImage ? null : _submit,
                         child: Text(
                           existing == null
                               ? context.l10n.create
