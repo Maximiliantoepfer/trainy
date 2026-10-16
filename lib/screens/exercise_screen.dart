@@ -7,12 +7,14 @@ import 'package:provider/provider.dart';
 import '../models/exercise.dart';
 import '../models/catalog_exercise.dart';
 import '../models/training_profile.dart';
+import '../models/library_exercise_item.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/exercise_editor_sheet.dart';
+import '../widgets/exercise_library_filter_sheet.dart';
 import '../widgets/app_bar_title.dart';
 import '../widgets/screen_info_dialog.dart';
 import '../widgets/tap_scale.dart';
@@ -34,12 +36,8 @@ class ExerciseScreen extends StatefulWidget {
 class _ExerciseScreenState extends State<ExerciseScreen>
     with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchCtrl = TextEditingController();
-  String _query = '';
-  String? _goalFilter;
-  bool _showActivities = false;
-  bool _profileFilter = false;
-  String? _profileName;
-  Set<String> _profileEquipment = const {};
+  CatalogQuery _catalogQuery = const CatalogQuery();
+  List<TrainingProfileRecord> _profiles = const [];
 
   @override
   bool get wantKeepAlive => true;
@@ -50,23 +48,15 @@ class _ExerciseScreenState extends State<ExerciseScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<ExerciseProvider>().loadExercises();
     });
-    _loadSelectedProfile();
+    _loadProfiles();
   }
 
-  Future<void> _loadSelectedProfile() async {
+  Future<void> _loadProfiles() async {
     final repository = TrainingProfileRepository();
     try {
-      final selected = await repository.selectedProfileId();
       final profiles = await repository.profiles();
-      TrainingProfileRecord? profile;
-      for (final candidate in profiles) {
-        if (candidate.id == selected) profile = candidate;
-      }
-      if (!mounted || profile == null) return;
-      setState(() {
-        _profileName = profile!.name;
-        _profileEquipment = profile.equipmentCodes;
-      });
+      if (!mounted) return;
+      setState(() => _profiles = profiles);
     } catch (error, stackTrace) {
       // The library remains fully usable without the optional profile filter.
       debugPrint('Could not load selected training profile: $error');
@@ -87,55 +77,66 @@ class _ExerciseScreenState extends State<ExerciseScreen>
     final list = [...provider.exercises];
     final scheme = Theme.of(context).colorScheme;
     final catalog = CatalogRepository.instance;
-    final q = _query.toLowerCase();
-    final materializedCatalogIds =
-        list.map((value) => value.catalogId).whereType<String>().toSet();
-    final customAndMaterialized =
-        _showActivities
-            ? <Exercise>[]
-            : list.where((exercise) {
-              if (_goalFilter != null &&
-                  !exercise.goalCodes.contains(_goalFilter) &&
-                  exercise.goal != _goalFilter) {
-                return false;
-              }
-              if (q.isEmpty) return true;
-              return displayExerciseName(
-                    context,
-                    exercise,
-                  ).toLowerCase().contains(q) ||
-                  exercise.name.toLowerCase().contains(q) ||
-                  exercise.description.toLowerCase().contains(q) ||
-                  exercise.mergedAliases.any(
-                    (alias) => alias.toLowerCase().contains(q),
-                  );
-            }).toList();
+    final normalizedQuery = CatalogRepository.normalizeSearchText(
+      _catalogQuery.text,
+    );
+    final materializedByCatalogId = <String, Exercise>{
+      for (final exercise in list)
+        if (exercise.catalogId != null) exercise.catalogId!: exercise,
+    };
+    final customExercises =
+        list.where((exercise) {
+            if (exercise.catalogId != null && catalog.isLoaded) return false;
+            if (_catalogQuery.source == ExerciseSourceFilter.standard &&
+                exercise.catalogId == null) {
+              return false;
+            }
+            if (_catalogQuery.source == ExerciseSourceFilter.custom &&
+                exercise.catalogId != null) {
+              return false;
+            }
+            if (_catalogQuery.goalCode != null &&
+                !exercise.goalCodes.contains(_catalogQuery.goalCode) &&
+                exercise.goal != _catalogQuery.goalCode) {
+              return false;
+            }
+            if (normalizedQuery.isEmpty) return true;
+            final haystack = CatalogRepository.normalizeSearchText(
+              [
+                displayExerciseName(context, exercise),
+                exercise.name,
+                exercise.description,
+                ...exercise.mergedAliases,
+              ].join(' '),
+            );
+            return haystack.contains(normalizedQuery) ||
+                haystack
+                    .replaceAll(' ', '')
+                    .contains(normalizedQuery.replaceAll(' ', ''));
+          }).toList()
+          ..sort(
+            (a, b) => displayExerciseName(context, a).toLowerCase().compareTo(
+              displayExerciseName(context, b).toLowerCase(),
+            ),
+          );
     final catalogValues =
         catalog.isLoaded
             ? catalog
                 .search(
                   Localizations.localeOf(context).languageCode,
-                  _query,
-                  goalCode: _goalFilter,
-                  activitiesOnly: _showActivities,
-                  availableEquipment: _profileFilter ? _profileEquipment : null,
-                )
-                .where(
-                  (item) =>
-                      !materializedCatalogIds.contains(item.definition.id),
+                  _catalogQuery,
                 )
                 .toList()
             : <LocalizedCatalogExercise>[];
-    final libraryItems = <_LibraryItem>[
-      for (final exercise in customAndMaterialized)
-        _LibraryItem.exercise(exercise),
-      for (final item in catalogValues) _LibraryItem.catalog(item),
-    ]..sort(
-      (a, b) => a
-          .name(context)
-          .toLowerCase()
-          .compareTo(b.name(context).toLowerCase()),
-    );
+    final libraryItems = <LibraryExerciseItem>[
+      for (final item in catalogValues)
+        if (materializedByCatalogId[item.definition.id] case final exercise?)
+          LibraryExerciseItem.catalog(item, exercise: exercise)
+        else
+          LibraryExerciseItem.catalog(item),
+      for (final exercise in customExercises)
+        LibraryExerciseItem.custom(exercise),
+    ];
 
     final isActive = context.watch<ActiveWorkoutProvider>().isActive;
 
@@ -172,95 +173,86 @@ class _ExerciseScreenState extends State<ExerciseScreen>
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: context.l10n.searchExercises,
-                prefixIcon: Icon(
-                  Icons.search_rounded,
-                  color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    decoration: InputDecoration(
+                      hintText: context.l10n.searchExercises,
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                      suffixIcon:
+                          _catalogQuery.text.isNotEmpty
+                              ? IconButton(
+                                icon: Icon(
+                                  Icons.close_rounded,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _catalogQuery = _catalogQuery.copyWith(
+                                      text: '',
+                                    );
+                                    _searchCtrl.clear();
+                                  });
+                                },
+                              )
+                              : null,
+                    ),
+                    onChanged:
+                        (value) => setState(
+                          () =>
+                              _catalogQuery = _catalogQuery.copyWith(
+                                text: value,
+                              ),
+                        ),
+                  ),
                 ),
-                suffixIcon:
-                    _query.isNotEmpty
-                        ? IconButton(
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _query = '';
-                              _searchCtrl.clear();
-                            });
-                          },
-                        )
-                        : null,
-              ),
-              onChanged: (v) => setState(() => _query = v),
+                const SizedBox(width: 8),
+                Semantics(
+                  button: true,
+                  label: context.l10n.filters,
+                  child: Badge(
+                    isLabelVisible: _catalogQuery.activeFilterCount > 0,
+                    label: Text('${_catalogQuery.activeFilterCount}'),
+                    child: IconButton.filledTonal(
+                      onPressed: _openFilters,
+                      tooltip: context.l10n.filters,
+                      icon: const Icon(Icons.tune_rounded),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           if (catalog.isLoaded) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: SegmentedButton<bool>(
-                showSelectedIcon: false,
-                segments: [
-                  ButtonSegment(
-                    value: false,
-                    label: Text(context.l10n.exerciseLibrary),
+            if (_catalogQuery.activeFilterCount > 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _activeFilterChips(context),
                   ),
-                  ButtonSegment(
-                    value: true,
-                    label: Text(context.l10n.activities),
-                  ),
-                ],
-                selected: {_showActivities},
-                onSelectionChanged:
-                    (value) => setState(() => _showActivities = value.first),
+                ),
               ),
-            ),
-            SizedBox(
-              height: 44,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                children: [
-                  for (final filter in <String?>[
-                    null,
-                    'strength',
-                    'cardio',
-                    'endurance',
-                    'mobility',
-                  ]) ...[
-                    ChoiceChip(
-                      label: Text(
-                        filter == null
-                            ? context.l10n.all
-                            : context.l10n.goalLabel(filter),
-                      ),
-                      selected: _goalFilter == filter,
-                      onSelected: (_) => setState(() => _goalFilter = filter),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  if (_profileName != null)
-                    FilterChip(
-                      label: Text(context.l10n.matchesProfile(_profileName!)),
-                      selected: _profileFilter,
-                      onSelected:
-                          (value) => setState(() => _profileFilter = value),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 4),
           ],
           Expanded(
             child:
                 provider.isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : libraryItems.isEmpty
-                    ? _EmptyState(onAdd: () => _openEditor(context))
+                    ? _EmptyState(
+                      hasQueryOrFilters:
+                          _catalogQuery.text.isNotEmpty ||
+                          _catalogQuery.activeFilterCount > 0,
+                      onReset: _resetLibraryFilters,
+                    )
                     : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
                       itemCount: libraryItems.length,
@@ -284,8 +276,11 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                         return _ExerciseTile(
                           exercise: e,
                           tags: tags,
-                          aliasHint: matchingAlias(e, _query),
-                          onTap: () => _openEditor(context, existing: e),
+                          aliasHint: matchingAlias(e, _catalogQuery.text),
+                          onTap:
+                              item.catalog != null
+                                  ? () => _showCatalogDetails(item.catalog!)
+                                  : () => _openEditor(context, existing: e),
                           onLongPress: () => _confirmAndDeleteExercise(e),
                         );
                       },
@@ -299,6 +294,67 @@ class _ExerciseScreenState extends State<ExerciseScreen>
         label: Text(context.l10n.newExercise),
       ),
     );
+  }
+
+  List<Widget> _activeFilterChips(BuildContext context) {
+    TrainingProfileRecord? selectedProfile;
+    for (final profile in _profiles) {
+      if (profile.id == _catalogQuery.profileId) selectedProfile = profile;
+    }
+    return [
+      if (_catalogQuery.goalCode case final goal?)
+        InputChip(
+          label: Text(context.l10n.goalLabel(goal)),
+          onDeleted:
+              () => setState(
+                () => _catalogQuery = _catalogQuery.copyWith(clearGoal: true),
+              ),
+        ),
+      if (selectedProfile != null)
+        InputChip(
+          label: Text(selectedProfile.name),
+          onDeleted:
+              () => setState(
+                () =>
+                    _catalogQuery = _catalogQuery.copyWith(
+                      clearProfile: true,
+                      clearEquipment: true,
+                    ),
+              ),
+        ),
+      if (_catalogQuery.source != ExerciseSourceFilter.all)
+        InputChip(
+          label: Text(
+            _catalogQuery.source == ExerciseSourceFilter.standard
+                ? context.l10n.standard
+                : context.l10n.own,
+          ),
+          onDeleted:
+              () => setState(
+                () =>
+                    _catalogQuery = _catalogQuery.copyWith(
+                      source: ExerciseSourceFilter.all,
+                    ),
+              ),
+        ),
+    ];
+  }
+
+  Future<void> _openFilters() async {
+    final result = await showExerciseLibraryFilterSheet(
+      context,
+      initialQuery: _catalogQuery,
+      profiles: _profiles,
+    );
+    if (!mounted || result == null) return;
+    setState(() => _catalogQuery = result);
+  }
+
+  void _resetLibraryFilters() {
+    setState(() {
+      _catalogQuery = const CatalogQuery();
+      _searchCtrl.clear();
+    });
   }
 
   Future<void> _showCatalogDetails(LocalizedCatalogExercise item) async {
@@ -485,20 +541,20 @@ class _ExerciseTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Text(
+                        displayExerciseName(context, exercise),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
                         children: [
-                          Flexible(
-                            child: Text(
-                              displayExerciseName(context, exercise),
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
                           _OriginLabel(isCatalog: exercise.catalogId != null),
-                          if (exercise.goal != null) ...[
-                            const SizedBox(width: 8),
-                            goalBadge(context, exercise.goal!, scheme),
-                          ],
+                          for (final goal in exercise.goalCodes.take(2))
+                            goalBadge(context, goal, scheme),
                         ],
                       ),
                       if (tags.isNotEmpty) ...[
@@ -600,19 +656,6 @@ class _OriginLabel extends StatelessWidget {
   }
 }
 
-class _LibraryItem {
-  const _LibraryItem.exercise(this.exercise) : catalog = null;
-  const _LibraryItem.catalog(this.catalog) : exercise = null;
-
-  final Exercise? exercise;
-  final LocalizedCatalogExercise? catalog;
-
-  String name(BuildContext context) =>
-      exercise != null
-          ? displayExerciseName(context, exercise!)
-          : catalog!.content.name;
-}
-
 class _CatalogExerciseTile extends StatelessWidget {
   const _CatalogExerciseTile({required this.item, required this.onTap});
 
@@ -620,56 +663,72 @@ class _CatalogExerciseTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Card(
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: SizedBox(
-        height: 92,
-        child: Row(
-          children: [
-            AspectRatio(
-              aspectRatio: 1,
-              child: Image.asset(
-                item.definition.imageAssetPath,
-                fit: BoxFit.cover,
-                errorBuilder:
-                    (_, __, ___) =>
-                        const Center(child: Icon(Icons.fitness_center_rounded)),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.content.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.content.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 104),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 104,
+                height: 104,
+                child: Image.asset(
+                  item.definition.imageAssetPath,
+                  fit: BoxFit.cover,
+                  errorBuilder:
+                      (_, __, ___) => const Center(
+                        child: Icon(Icons.fitness_center_rounded),
+                      ),
                 ),
               ),
-            ),
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Icon(Icons.chevron_right_rounded),
-            ),
-          ],
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.content.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        item.content.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          const _OriginLabel(isCatalog: true),
+                          for (final goal in item.definition.goalCodes.take(2))
+                            goalBadge(context, goal, scheme),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _CatalogDetailsSheet extends StatelessWidget {
@@ -703,6 +762,24 @@ class _CatalogDetailsSheet extends StatelessWidget {
               item.content.name,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
+            if (Localizations.localeOf(context).languageCode == 'de' &&
+                CatalogRepository.instance
+                        .content(item.definition.id, 'en')
+                        ?.name !=
+                    item.content.name) ...[
+              const SizedBox(height: 4),
+              Text(
+                context.l10n.englishSynonym(
+                  CatalogRepository.instance
+                          .content(item.definition.id, 'en')
+                          ?.name ??
+                      '',
+                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Text(item.content.description),
             const SizedBox(height: 20),
@@ -739,8 +816,9 @@ class _CatalogDetailsSheet extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  final VoidCallback onAdd;
-  const _EmptyState({required this.onAdd});
+  final bool hasQueryOrFilters;
+  final VoidCallback onReset;
+  const _EmptyState({required this.hasQueryOrFilters, required this.onReset});
 
   @override
   Widget build(BuildContext context) {
@@ -767,16 +845,28 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              context.l10n.noExercises,
+              hasQueryOrFilters
+                  ? context.l10n.noMatchingExercises
+                  : context.l10n.noExercises,
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
-              context.l10n.noExercisesDescription,
+              hasQueryOrFilters
+                  ? context.l10n.noMatchingExercisesDescription
+                  : context.l10n.noExercisesDescription,
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
+            if (hasQueryOrFilters) ...[
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: onReset,
+                icon: const Icon(Icons.filter_alt_off_rounded),
+                label: Text(context.l10n.resetFilters),
+              ),
+            ],
           ],
         ),
       ),

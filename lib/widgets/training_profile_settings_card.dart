@@ -437,5 +437,7 @@ String equipmentLabel(BuildContext context, String code) => switch (code) {
   'ez_bar' => context.l10n.equipmentEzBar,
   'mat' => context.l10n.equipmentMat,
   'cardio_machine' => context.l10n.equipmentCardioMachine,
+  'bicycle' => context.l10n.equipmentBicycle,
+  'pool' => context.l10n.equipmentPool,
   _ => context.l10n.equipmentOther,
 };

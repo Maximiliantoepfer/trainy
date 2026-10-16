@@ -1212,4 +1212,48 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get workoutAutosaveFailed => 'Eine Änderung konnte nicht lokal gespeichert werden. Deine Eingabe bleibt erhalten; versuche es vor dem Beenden erneut.';
+
+  @override
+  String get filters => 'Filter';
+
+  @override
+  String get resetFilters => 'Zurücksetzen';
+
+  @override
+  String get label => 'Label';
+
+  @override
+  String get source => 'Quelle';
+
+  @override
+  String get allProfiles => 'Alle Profile';
+
+  @override
+  String get noMatchingExercises => 'Keine passenden Übungen';
+
+  @override
+  String get noMatchingExercisesDescription => 'Ändere deine Suche oder setze die aktiven Filter zurück.';
+
+  @override
+  String englishSynonym(String name) {
+    return 'Englisch: $name';
+  }
+
+  @override
+  String get selectImage => 'Bild auswählen';
+
+  @override
+  String get replaceImage => 'Bild ersetzen';
+
+  @override
+  String get removeImage => 'Bild entfernen';
+
+  @override
+  String get exerciseCover => 'Übungsbild';
+
+  @override
+  String get equipmentBicycle => 'Fahrrad';
+
+  @override
+  String get equipmentPool => 'Schwimmbecken';
 }

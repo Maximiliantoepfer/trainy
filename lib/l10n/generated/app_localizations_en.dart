@@ -1212,4 +1212,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workoutAutosaveFailed => 'A change could not be saved locally. Your input remains here; retry before finishing.';
+
+  @override
+  String get filters => 'Filters';
+
+  @override
+  String get resetFilters => 'Reset';
+
+  @override
+  String get label => 'Label';
+
+  @override
+  String get source => 'Source';
+
+  @override
+  String get allProfiles => 'All profiles';
+
+  @override
+  String get noMatchingExercises => 'No matching exercises';
+
+  @override
+  String get noMatchingExercisesDescription => 'Change your search or reset the active filters.';
+
+  @override
+  String englishSynonym(String name) {
+    return 'English: $name';
+  }
+
+  @override
+  String get selectImage => 'Select image';
+
+  @override
+  String get replaceImage => 'Replace image';
+
+  @override
+  String get removeImage => 'Remove image';
+
+  @override
+  String get exerciseCover => 'Exercise image';
+
+  @override
+  String get equipmentBicycle => 'Bicycle';
+
+  @override
+  String get equipmentPool => 'Swimming pool';
 }

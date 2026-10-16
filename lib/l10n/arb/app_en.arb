@@ -375,5 +375,20 @@
   "finishingLocally": "Finishing locally …",
   "savedLocally": "Saved locally",
   "workoutSaveFailed": "The workout is still available as a local draft. Saving failed; please retry.",
-  "workoutAutosaveFailed": "A change could not be saved locally. Your input remains here; retry before finishing."
+  "workoutAutosaveFailed": "A change could not be saved locally. Your input remains here; retry before finishing.",
+  "filters": "Filters",
+  "resetFilters": "Reset",
+  "label": "Label",
+  "source": "Source",
+  "allProfiles": "All profiles",
+  "noMatchingExercises": "No matching exercises",
+  "noMatchingExercisesDescription": "Change your search or reset the active filters.",
+  "englishSynonym": "English: {name}",
+  "@englishSynonym": {"placeholders": {"name": {"type": "String"}}},
+  "selectImage": "Select image",
+  "replaceImage": "Replace image",
+  "removeImage": "Remove image",
+  "exerciseCover": "Exercise image",
+  "equipmentBicycle": "Bicycle",
+  "equipmentPool": "Swimming pool"
 }

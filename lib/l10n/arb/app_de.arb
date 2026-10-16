@@ -375,5 +375,20 @@
   "finishingLocally": "Wird lokal abgeschlossen …",
   "savedLocally": "Lokal gespeichert",
   "workoutSaveFailed": "Das Workout ist weiterhin als lokaler Entwurf vorhanden. Speichern fehlgeschlagen; bitte erneut versuchen.",
-  "workoutAutosaveFailed": "Eine Änderung konnte nicht lokal gespeichert werden. Deine Eingabe bleibt erhalten; versuche es vor dem Beenden erneut."
+  "workoutAutosaveFailed": "Eine Änderung konnte nicht lokal gespeichert werden. Deine Eingabe bleibt erhalten; versuche es vor dem Beenden erneut.",
+  "filters": "Filter",
+  "resetFilters": "Zurücksetzen",
+  "label": "Label",
+  "source": "Quelle",
+  "allProfiles": "Alle Profile",
+  "noMatchingExercises": "Keine passenden Übungen",
+  "noMatchingExercisesDescription": "Ändere deine Suche oder setze die aktiven Filter zurück.",
+  "englishSynonym": "Englisch: {name}",
+  "@englishSynonym": {"placeholders": {"name": {"type": "String"}}},
+  "selectImage": "Bild auswählen",
+  "replaceImage": "Bild ersetzen",
+  "removeImage": "Bild entfernen",
+  "exerciseCover": "Übungsbild",
+  "equipmentBicycle": "Fahrrad",
+  "equipmentPool": "Schwimmbecken"
 }

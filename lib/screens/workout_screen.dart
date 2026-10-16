@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
 import '../models/exercise.dart';
+import '../models/catalog_exercise.dart';
 import '../utils/exercise_localization.dart';
 import '../providers/workout_provider.dart';
 import '../providers/cloud_sync_provider.dart';
@@ -1147,8 +1148,7 @@ class _AddExercisesSheetState extends State<_AddExercisesSheet>
         CatalogRepository.instance
             .search(
               Localizations.localeOf(context).languageCode,
-              _query,
-              activitiesOnly: false,
+              CatalogQuery(text: _query),
             )
             .where(
               (item) => !materializedCatalogIds.contains(item.definition.id),

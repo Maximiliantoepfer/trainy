@@ -2152,6 +2152,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A change could not be saved locally. Your input remains here; retry before finishing.'**
   String get workoutAutosaveFailed;
+
+  /// No description provided for @filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get filters;
+
+  /// No description provided for @resetFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get resetFilters;
+
+  /// No description provided for @label.
+  ///
+  /// In en, this message translates to:
+  /// **'Label'**
+  String get label;
+
+  /// No description provided for @source.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get source;
+
+  /// No description provided for @allProfiles.
+  ///
+  /// In en, this message translates to:
+  /// **'All profiles'**
+  String get allProfiles;
+
+  /// No description provided for @noMatchingExercises.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching exercises'**
+  String get noMatchingExercises;
+
+  /// No description provided for @noMatchingExercisesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Change your search or reset the active filters.'**
+  String get noMatchingExercisesDescription;
+
+  /// No description provided for @englishSynonym.
+  ///
+  /// In en, this message translates to:
+  /// **'English: {name}'**
+  String englishSynonym(String name);
+
+  /// No description provided for @selectImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Select image'**
+  String get selectImage;
+
+  /// No description provided for @replaceImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace image'**
+  String get replaceImage;
+
+  /// No description provided for @removeImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove image'**
+  String get removeImage;
+
+  /// No description provided for @exerciseCover.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercise image'**
+  String get exerciseCover;
+
+  /// No description provided for @equipmentBicycle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bicycle'**
+  String get equipmentBicycle;
+
+  /// No description provided for @equipmentPool.
+  ///
+  /// In en, this message translates to:
+  /// **'Swimming pool'**
+  String get equipmentPool;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

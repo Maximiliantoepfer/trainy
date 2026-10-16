@@ -39,6 +39,8 @@ class TrainingProfileRepository implements TrainingProfileStore {
     'ez_bar',
     'mat',
     'cardio_machine',
+    'bicycle',
+    'pool',
     'other',
   };
 

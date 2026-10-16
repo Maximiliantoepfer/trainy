@@ -217,6 +217,9 @@ abstract final class DatabaseSchemaV2 {
       'e_z_curl_bar' || 'ez_bar' => 'ez_bar',
       'mat' || 'yoga_mat' => 'mat',
       'cardio_machine' || 'cardio_equipment' => 'cardio_machine',
+      'bicycle' || 'bike' || 'stationary_bike' => 'bicycle',
+      'pool' || 'swimming_pool' => 'pool',
+      'none' || 'unknown' => 'unknown',
       _ => 'other',
     };
   }
