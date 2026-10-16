@@ -1,6 +1,7 @@
 // lib/services/settings_database.dart
 
 import 'package:sqflite/sqflite.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app_database.dart';
 
 class SettingsDatabase {
@@ -8,6 +9,9 @@ class SettingsDatabase {
   SettingsDatabase._init();
 
   Future<Database> get _db async => AppDatabase.instance.database;
+
+  static const syncEnabledPreferenceKey = 'cloud_sync_enabled';
+  static const lastSyncPreferenceKey = 'cloud_last_sync_millis';
 
   Future<int> getWeeklyGoal() async {
     final db = await _db;
@@ -37,42 +41,23 @@ class SettingsDatabase {
 
   // --- Cloud Sync Flags ---
   Future<bool> getSyncEnabled() async {
-    final db = await _db;
-    final r = await db.query('user_settings', limit: 1);
-    if (r.isNotEmpty) {
-      final v = (r.first['sync_enabled'] ?? 0) as int;
-      return v == 1;
-    }
-    return false;
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getBool(syncEnabledPreferenceKey) ?? false;
   }
 
   Future<void> setSyncEnabled(bool enabled) async {
-    final db = await _db;
-    await db.update(
-      'user_settings',
-      {'sync_enabled': enabled ? 1 : 0},
-      where: 'id = ?',
-      whereArgs: [0],
-    );
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(syncEnabledPreferenceKey, enabled);
   }
 
   Future<int> getLastSyncMillis() async {
-    final db = await _db;
-    final r = await db.query('user_settings', limit: 1);
-    if (r.isNotEmpty) {
-      return (r.first['last_sync_millis'] ?? 0) as int;
-    }
-    return 0;
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getInt(lastSyncPreferenceKey) ?? 0;
   }
 
   Future<void> setLastSyncMillis(int tsMillis) async {
-    final db = await _db;
-    await db.update(
-      'user_settings',
-      {'last_sync_millis': tsMillis},
-      where: 'id = ?',
-      whereArgs: [0],
-    );
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setInt(lastSyncPreferenceKey, tsMillis);
   }
 
   // ----- Training Days -----

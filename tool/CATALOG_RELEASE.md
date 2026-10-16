@@ -12,10 +12,14 @@
    dart run tool/import_free_exercise_db.dart C:\path\to\free-exercise-db tool\catalog_translations_de.json --replace
    ```
 
-5. Re-add `assets/catalog/` and `assets/catalog/images/` to `pubspec.yaml`,
-   then run `flutter gen-l10n`, `flutter test` and `flutter build apk --debug`.
+5. Verify that the generated catalog contains 882 records: 876 pinned Free
+   Exercise DB records plus the six curated `trainy:` core activities retained
+   by the importer. `assets/catalog/` is already registered in `pubspec.yaml`.
+6. Run `flutter gen-l10n`, `flutter analyze`, `flutter test` and
+   `flutter build apk --debug`.
 
 The import is atomic. It rejects a changed upstream commit, missing picture,
-missing or unreviewed German content, non-876 record count and duplicate IDs.
+missing or unreviewed German content, a non-876 upstream record count and
+duplicate IDs.
 It keeps the three known image-less upstream records through the local neutral
 fallback cover.

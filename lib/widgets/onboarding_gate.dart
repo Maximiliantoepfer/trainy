@@ -88,32 +88,12 @@ class _OnboardingGateState extends State<OnboardingGate> {
                 onPressed: () => Navigator.pop(ctx, 'load'),
                 child: Text(ctx.l10n.loadAndReplace),
               ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, 'merge'),
-                child: Text(ctx.l10n.mergeRecommended),
-              ),
             ],
           ),
     );
     if (!mounted) return;
 
-    if (choice == 'merge') {
-      try {
-        await cloud.mergeFromCloud();
-        if (!mounted) return;
-        await _reloadProviders();
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.l10n.merged)));
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
-        }
-      }
-    } else if (choice == 'load') {
+    if (choice == 'load') {
       try {
         await cloud.restoreNow();
         if (!mounted) return;

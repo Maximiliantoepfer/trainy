@@ -1804,6 +1804,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{key, select, kraft_bankdruecken{Bench press} kraft_kniebeugen{Squats} kraft_kreuzheben{Deadlift} kraft_schulterdruecken{Shoulder press} kraft_langhantelrudern{Barbell row} kraft_bizeps_curls{Biceps curls} kraft_trizepsdruecken{Triceps press} kraft_beinpresse{Leg press} kraft_ausfallschritte{Lunges} kraft_wadenheben{Calf raises} kraft_russian_twist{Russian twist} kraft_latzug{Lat pulldown} kraft_butterfly{Butterfly} kraft_beinbeuger{Leg curl} kraft_beinstrecker{Leg extension} kraft_seitheben{Lateral raise} kraft_facepulls{Face pulls} kraft_brustpresse{Chest press} kraft_hip_thrusts{Hip thrusts} kraft_reverse_flys{Reverse flyes} kraft_bulgarian_split_squats{Bulgarian split squats} kraft_klimmzuege{Pull-ups} kraft_liegestuetze{Push-ups} kraft_dips{Dips} kraft_sit_ups{Sit-ups} kraft_push_ups{Push-ups} kraft_pull_ups{Pull-ups} cardio_joggen{Jogging} cardio_laufen{Running} cardio_radfahren{Cycling} cardio_intervallaeufe{Interval running} cardio_schwimmen{Swimming} ausdauer_plank{Plank} ausdauer_seilspringen{Jump rope} mobilitaet_dehnen{Stretching} mobilitaet_yoga{Yoga} other{Exercise}}'**
   String standardExerciseName(String key);
+
+  /// No description provided for @dataAndPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Data & privacy'**
+  String get dataAndPrivacy;
+
+  /// No description provided for @resetLocalTrainingData.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset local training data'**
+  String get resetLocalTrainingData;
+
+  /// No description provided for @resetLocalTrainingDataDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Deletes workouts, progress and personal exercise images on this device.'**
+  String get resetLocalTrainingDataDescription;
+
+  /// No description provided for @resetLocalTrainingDataConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Your local training data and personal exercise images will be deleted. Your login, language and appearance stay unchanged.'**
+  String get resetLocalTrainingDataConfirm;
+
+  /// No description provided for @confirmResetAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Really reset local data?'**
+  String get confirmResetAgain;
+
+  /// No description provided for @confirmResetAgainDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'This cannot be undone. Automatic cloud backup will be disabled.'**
+  String get confirmResetAgainDescription;
+
+  /// No description provided for @resetNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset now'**
+  String get resetNow;
+
+  /// No description provided for @deleteCloudData.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete cloud data'**
+  String get deleteCloudData;
+
+  /// No description provided for @deleteCloudDataDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Deletes every Trainy backup stored for this account. Local data and the account remain.'**
+  String get deleteCloudDataDescription;
+
+  /// No description provided for @deleteCloudDataConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'All Trainy cloud objects for your account will be deleted.'**
+  String get deleteCloudDataConfirm;
+
+  /// No description provided for @confirmCloudDeleteAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete cloud data?'**
+  String get confirmCloudDeleteAgain;
+
+  /// No description provided for @confirmCloudDeleteAgainDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The operation can be retried if the connection is interrupted.'**
+  String get confirmCloudDeleteAgainDescription;
+
+  /// No description provided for @cloudDataDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud data deleted'**
+  String get cloudDataDeleted;
+
+  /// No description provided for @deleteAccountAndData.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account and all data'**
+  String get deleteAccountAndData;
+
+  /// No description provided for @deleteAccountAndDataDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Deletes cloud data, the Firebase account and all local app data.'**
+  String get deleteAccountAndDataDescription;
+
+  /// No description provided for @deleteAccountAndDataConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'You will be asked to sign in with Google again. Then the account and all Trainy data will be deleted.'**
+  String get deleteAccountAndDataConfirm;
+
+  /// No description provided for @confirmAccountDeleteAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently delete your account?'**
+  String get confirmAccountDeleteAgain;
+
+  /// No description provided for @confirmAccountDeleteAgainDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'This action cannot be undone.'**
+  String get confirmAccountDeleteAgainDescription;
+
+  /// No description provided for @deletePermanently.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently'**
+  String get deletePermanently;
+
+  /// No description provided for @activeWorkoutMustEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'Active workout'**
+  String get activeWorkoutMustEnd;
+
+  /// No description provided for @activeWorkoutMustEndDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The current workout must be completed or discarded before data can be deleted.'**
+  String get activeWorkoutMustEndDescription;
+
+  /// No description provided for @discardAndContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard & continue'**
+  String get discardAndContinue;
+
+  /// No description provided for @continueLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueLabel;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

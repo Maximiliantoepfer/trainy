@@ -10,7 +10,7 @@ Eine native Flutter-App für Android und iOS zum Erstellen, Durchführen und Aus
 - **Live-Session** – Timer, Set-by-Set-Eingabe, überlebt Navigation zwischen Screens
 - **Exercise-Bibliothek** – Konfigurierbare Tracking-Felder (Sets, Reps, Gewicht, Dauer)
 - **Fortschritts-Auswertung** – Charts, Wochenziel, Trainingskalender, Session-Details
-- **Cloud-Backup** – Google Sign-In → JSON-Backup in Firebase Storage
+- **Cloud-Backup** – Google Sign-In → geprüftes v2-ZIP in Firebase Storage
 - **Individuelles Theme** – Light/Dark/System + freie Akzentfarbenauswahl
 
 ---
@@ -31,7 +31,10 @@ Eine native Flutter-App für Android und iOS zum Erstellen, Durchführen und Aus
 
 ## Architektur
 
-Die App folgt einem klaren vierschichtigen Aufbau:
+Die App stellt auf einen vierschichtigen Aufbau um. Neue Epoch-2-Funktionen
+verwenden Repositories; bestehende Oberflächen laufen bis zu ihrer fachlichen
+Umstellung über eine klar markierte Kompatibilitätsfassade in derselben
+`trainy_v2.db`:
 
 ```
 ┌─────────────────────────────────────┐
@@ -45,24 +48,24 @@ Die App folgt einem klaren vierschichtigen Aufbau:
 └──────────────┬──────────────────────┘
                │ async/await
 ┌──────────────▼──────────────────────┐
-│        Service / DAO-Schicht        │  ← Datenzugriff & Persistence
-│  ExerciseDB · WorkoutDB · EntryDB  │
-│  SettingsDB · LocalBackupService    │
+│       Repository-/Service-Schicht   │  ← Transaktionen & Persistence
+│ Exercise · Workout · Activity       │
+│ TrainingPlan · Database · Backup   │
 └──────────────┬──────────────────────┘
                │
 ┌──────────────▼──────────────────────┐
-│   SQLite (trainy.db)  ←→  Firebase  │  ← Persistenz
+│ SQLite (trainy_v2.db) ←→ Firebase   │  ← Persistenz
 └─────────────────────────────────────┘
 ```
 
-**Pattern:** Models → Services/DAOs → Providers → Screens/Widgets
+**Ziel-Pattern:** Models → Repositories → Providers → Screens/Widgets
 
 ### Datenfluss
 
-1. App-Start: Providers laden Daten asynchron aus SQLite
+1. App-Start: Der Lifecycle-Koordinator prüft Datenepoch und Integrität
 2. UI reagiert reaktiv via `Consumer<T>` / `context.watch<T>()`
-3. Schreiboperationen laufen über Provider → DAO → SQLite
-4. Optional: CloudSyncProvider synchronisiert JSON-Backup mit Firebase Storage
+3. Neue Schreiboperationen laufen transaktional über Repositories nach SQLite
+4. Optional: CloudSyncProvider synchronisiert ein versioniertes ZIP-Backup mit Firebase Storage
 
 ---
 
@@ -87,6 +90,12 @@ lib/
 │   ├── theme_provider.dart                 # ThemeMode + Akzentfarbe (SharedPreferences)
 │   └── locale_provider.dart               # Sprachauswahl (SharedPreferences)
 │
+├── repositories/                           # Fachliche Transaktionen auf Datenepoch 2
+│   ├── exercise_repository.dart            # Katalogmaterialisierung, Tags, Merge/Undo
+│   ├── workout_repository.dart             # Dauerhafte Workout-Vorlagen und Varianten
+│   ├── training_plan_repository.dart       # Unabhängige Plan-/Workout-Zuordnung
+│   └── activity_repository.dart            # Sessions, Efforts und typisierte Messwerte
+│
 ├── screens/
 │   ├── home_screen.dart                    # Dashboard: Workout-Liste, Wochenübersicht
 │   ├── exercise_screen.dart                # Übungsbibliothek mit Suche
@@ -106,12 +115,14 @@ lib/
 │   └── app_title.dart                      # App-Titel-Widget
 │
 ├── services/
-│   ├── app_database.dart                   # SQLite-Setup, Schema v4, Migrations
+│   ├── app_database.dart                   # Verbindung, FK- und Integritätsprüfung
+│   ├── database_schema_v2.dart             # Kanonisches Epoch-2-Schema
+│   ├── data_lifecycle_coordinator.dart      # Epochreset und lokale Löschung
 │   ├── exercise_database.dart              # Exercise CRUD
 │   ├── workout_database.dart               # Workout CRUD + Exercise-Zuordnungen
 │   ├── workout_entry_database.dart         # Session-Einträge CRUD
 │   ├── settings_database.dart              # User-Settings Persistence
-│   └── local_backup_service.dart           # Export/Import aller Daten als JSON
+│   └── local_backup_service.dart           # Geprüftes, versioniertes ZIP-Backup
 │
 ├── navigation/
 │   └── main_navigation.dart               # Bottom Nav (4 Tabs, PageView-basiert)
@@ -126,57 +137,34 @@ lib/
 
 ---
 
-## Datenbank-Schema (SQLite v4)
+## Datenbank-Schema (Datenepoch 2)
 
 ### Tabellen
 
-**`exercises`**
-| Spalte | Typ | Beschreibung |
+| Gruppe | Zentrale Tabellen | Zweck |
 |---|---|---|
-| id | INTEGER PK | Timestamp-basierte ID |
-| name | TEXT | Übungsname |
-| description | TEXT | Beschreibung |
-| trackedFields | TEXT (JSON) | `{sets, reps, weight, duration}` – Bool-Flags |
-| defaultValues | TEXT (JSON) | Vorbelegte Standardwerte |
-| lastValues | TEXT (JSON) | Letzte Werte für Auto-Prefill |
-| units | TEXT (JSON) | Einheiten pro Feld, z. B. `{"weight": "kg"}` |
-| icon | INTEGER? | Material Icon codePoint |
-
-**`workouts`**
-| Spalte | Typ | Beschreibung |
-|---|---|---|
-| id | INTEGER PK | Timestamp-basierte ID |
-| name | TEXT | Workout-Name |
-| description | TEXT | Beschreibung |
-
-**`exercises_in_workouts`** (N:M-Tabelle)
-| Spalte | Typ | Beschreibung |
-|---|---|---|
-| id | INTEGER PK | Auto-Increment |
-| workoutId | INTEGER FK | → workouts (Cascade Delete) |
-| exerciseId | INTEGER FK | → exercises (Cascade Delete) |
-| sort | INTEGER | Sortierreihenfolge |
-
-**`workout_entries`** (aufgezeichnete Sessions)
-| Spalte | Typ | Beschreibung |
-|---|---|---|
-| id | INTEGER PK | Timestamp-basierte ID |
-| workoutId | INTEGER | Zugehöriges Workout |
-| exerciseId | INTEGER | Zugehörige Übung |
-| timestamp | INTEGER | Unix-Millisekunden |
-| valuesJson | TEXT (JSON) | Aggregierte Metriken `{sets, reps, weight, duration}` |
-| durationSeconds | INTEGER | Gesamtdauer der Session |
-
-**`user_settings`** (Singleton, id=0)
-| Spalte | Typ | Beschreibung |
-|---|---|---|
-| weekly_goal | INTEGER | Wochenziel (1–7, default 2) |
-| sync_enabled | INTEGER | 0/1 Bool |
-| last_sync_millis | INTEGER | Zeitstempel des letzten Backups |
-| onboarding_done | INTEGER | 0/1 Bool |
+| Referenzen | `app_meta`, `tag_definitions`, `metric_definitions` | Epoch-/Schema-Metadaten und stabile Codes |
+| Übungen | `exercise_items`, `exercise_tags`, `exercise_metric_configs`, `exercise_images_v2` | Katalogreferenzen, eigene Inhalte und frei kombinierbare Metriken |
+| Profile | `training_profiles_v2`, `training_profile_equipment` | Normalisierte verfügbare Ausstattung |
+| Workouts | `workout_templates`, `workout_variants_v2`, `workout_groups_v2`, `workout_slots_v2` | Dauerhafte Vorlagen und Profil-/Variantenlogik |
+| Pläne | `training_plans`, `training_plan_workouts` | Plan-Zuordnung ohne Besitz der Workout-Vorlage |
+| Aktivitäten | `activity_sessions`, `activity_items`, `activity_efforts`, `activity_metric_values` | Unveränderliche Ausführungssnapshots und typisierte Messwerte |
+| Integration | `health_record_links` | Stabile Verweise für spätere Health-Connect-/HealthKit-Synchronisierung |
+| Deduplizierung | `duplicate_suggestions_v2`, `exercise_redirects_v2` | Persistente Vorschläge und reversible Weiterleitungen |
 
 ### Migrationsstrategie
-Schema-Updates sind idempotent (`CREATE TABLE IF NOT EXISTS`, `ALTER TABLE` in try/catch). Migration von v1→v4 inkrementell in `onUpgrade`.
+
+Epoch 2 verwendet `trainy_v2.db`, UUID-Text-IDs, normalisierte Tags/Metriken
+und ein gemeinsames Aktivitätsmodell für Kraft, Cardio und Mobilität. Beim
+ersten Start wird die alte Trainingsdatenbank bewusst verworfen. Der Marker
+wird erst nach erfolgreichem `integrity_check` und `foreign_key_check`
+geschrieben; ein unterbrochener Reset wiederholt sich dadurch sicher.
+
+`PRAGMA foreign_keys = ON` wird für jede Verbindung in `onConfigure` gesetzt.
+Das kanonische Schema steht in `lib/services/database_schema_v2.dart`. Einige
+leere Kompatibilitätstabellen halten die vorhandenen Screens während der
+schrittweisen Repository-Umstellung funktionsfähig und werden entfernt, sobald
+kein Screen mehr auf die alten Integer-DAOs zugreift.
 
 ---
 
@@ -249,11 +237,16 @@ HomeScreen
               ├─ Nutzer gibt Sets ein (Reps/Gewicht/Dauer)
               │
               └─ Speichern → ProgressProvider.saveSession()
-                   ├─ Aggregiert Sets → einen Eintrag pro Übung
-                   └─ INSERT in workout_entries
+                   └─ derzeit Kompatibilitätsfassade; Zielmodell:
+                        ActivitySession → Items → Efforts → Metrics
 ```
 
 **Session-Persistenz:** Der `ActiveWorkoutProvider` lebt im Provider-Baum – die Session überlebt Navigation und App-Lifecycle-Events.
+
+Die normalisierte Activity-API ist bereits vorhanden und schemaseitig
+abgesichert. Die bestehende Kraft-UI wird separat auf diese API umgestellt;
+bis dahin werden ihre historischen Integer-Tabellen nicht als neue öffentliche
+Schnittstelle erweitert.
 
 ---
 
@@ -261,22 +254,27 @@ HomeScreen
 
 ### Backup-Struktur (Firebase Storage)
 ```
-users/{uid}/backup/
-  ├─ latest.json         # Aktuellstes Backup
-  └─ {timestamp}.json    # Versionierte Kopien
+users/{uid}/backups/v2/
+  ├─ latest.zip         # Aktuellstes vollständiges v2-Backup
+  └─ {timestamp}.zip    # Versionierte Kopien
 ```
 
 ### Sync-Logik
 | Trigger | Verhalten |
 |---|---|
-| App-Start / Resume | Auto-Backup wenn >24h seit letztem Backup |
-| Lokale Änderung | Debounced Backup (2s Verzögerung) |
-| Periodisch | Check alle 2 Stunden |
-| Manuell | Direktes Backup/Restore in Einstellungen |
+| App-Start / Resume | Auto-Backup nur bei ausdrücklich aktivierter Synchronisierung |
+| Lokale Änderung | Debounced Backup nach relevanten Änderungen |
+| Periodisch | Check alle 2 Stunden, solange Sync aktiviert ist |
+| Manuell | Vollständiges Backup oder validierter Vollrestore |
 
-### Restore-Modi
-- **Replace** – Alle lokalen Daten werden durch Cloud-Daten ersetzt
-- **Merge** – Cloud-Daten werden zu lokalen Daten zusammengeführt
+### Restore-Verhalten
+
+Backups enthalten Manifest, Datenepoch, Schema-/Katalogversion, Tabellen,
+persönliche Bilder und Prüfsummen. Vor einem Restore werden Pfade,
+Größenlimits, Checksummen und Fremdschlüssel in einer temporären Datenbank
+geprüft. Erst dann ersetzt das Backup die lokale Datenbank als Ganzes. Ein
+zeilenweises Zusammenführen sowie v1-/JSON-Backups werden bewusst nicht mehr
+unterstützt.
 
 ---
 
@@ -309,7 +307,7 @@ users/{uid}/backup/
 
 - **Offline-first:** Die App funktioniert vollständig ohne Cloud-Verbindung
 - **Sprache:** Deutsch und Englisch über lokale ARB-Dateien und Flutter `gen-l10n`; die Auswahl kann dem System folgen
-- **IDs:** Timestamp-basiert (`DateTime.now().millisecondsSinceEpoch`)
+- **IDs:** Kanonische v2-Entitäten verwenden UUID v4; die alte UI-Fassade bleibt nur während der Umstellung Integer-basiert
 - **Tests:** Unit- und Widget-Tests für Lokalisierung, Katalog-/Zielregeln, Icons und kritische Modal-Flows
 - **Keine CI/CD:** Kein automatisierter Build-Prozess
 
@@ -366,6 +364,24 @@ Diagnosehilfe und keine Produktbeschränkung:
 ```powershell
 .\tool\verify_android_launch.ps1 -DeviceId <device-id> -ExpectedAvdName <avd-name>
 ```
+
+### Firebase-Datenschutzkonfiguration
+
+Cloud-Backups liegen ausschließlich unter `users/{uid}/backups/v2/` und
+werden durch `storage.rules` auf den angemeldeten UID-Inhaber begrenzt. Regeln
+und die deklarierte Delete-User-Data-Extension werden vor einem Release
+explizit ausgerollt:
+
+```powershell
+firebase deploy --only storage,extensions --project trainy-39fd1
+```
+
+Die Extension löscht nach einem Auth-Delete als zusätzliche Absicherung
+`{DEFAULT}/users/{UID}`. Die App versucht diese Löschung bereits vorher und
+kann einen unterbrochenen lokalen Abschluss über einen persistenten Marker
+fortsetzen. Die versionierte Datei `extensions/delete-user-data.env` enthält
+nur nicht-geheime Extension-Parameter; persönliche `.env`-Dateien bleiben
+weiterhin ignoriert.
 
 ### Versionskontrolle
 

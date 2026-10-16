@@ -1,200 +1,215 @@
 import 'dart:async';
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
-import '../services/settings_database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+import '../services/data_lifecycle_coordinator.dart';
 import '../services/local_backup_service.dart';
-import '../services/exercise_database.dart';
+import '../services/settings_database.dart';
 
 class CloudSyncProvider extends ChangeNotifier {
-  final SettingsDatabase _settings = SettingsDatabase.instance;
-
-  bool _syncEnabled = false;
-  int _lastSyncMillis = 0;
-  bool _isBusy = false;
-
-  // Auto-Backup
-  static const int _autoThresholdMillis = 24 * 60 * 60 * 1000; // 24h
-  Timer? _periodicCheck;
-  bool _disposed = false;
-
   CloudSyncProvider() {
     _init();
   }
 
+  final SettingsDatabase _settings = SettingsDatabase.instance;
+  bool _syncEnabled = false;
+  int _lastSyncMillis = 0;
+  bool _isBusy = false;
+  bool _disposed = false;
+  Timer? _periodicCheck;
+  Timer? _immediateDebounce;
+  StreamSubscription<User?>? _authSubscription;
+
+  static const int _autoThresholdMillis = 24 * 60 * 60 * 1000;
+  static const int _maximumBackupBytes = 96 * 1024 * 1024;
+
   bool get syncEnabled => _syncEnabled;
   bool get isBusy => _isBusy;
   int get lastSyncMillis => _lastSyncMillis;
-
   User? get user => FirebaseAuth.instance.currentUser;
   bool get isSignedIn => user != null;
 
   Future<void> _init() async {
     _syncEnabled = await _settings.getSyncEnabled();
     _lastSyncMillis = await _settings.getLastSyncMillis();
-
-    FirebaseAuth.instance.authStateChanges().listen((_) {
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((_) {
       _attachAutoChecks();
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     });
-
     _attachAutoChecks();
-    notifyListeners();
+    if (!_disposed) notifyListeners();
   }
 
   Future<void> setSyncEnabled(bool value) async {
     _syncEnabled = value;
     await _settings.setSyncEnabled(value);
     _attachAutoChecks();
-    if (value) {
-      await maybeAutoBackup(reason: 'sync_enabled_toggle');
-    }
-    notifyListeners();
+    if (value) await maybeAutoBackup(reason: 'sync_enabled_toggle');
+    if (!_disposed) notifyListeners();
   }
 
   Future<void> signInWithGoogle() async {
-    _isBusy = true;
-    notifyListeners();
-    try {
+    await _withBusy(() async {
       if (kIsWeb) {
         await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
       } else {
-        final GoogleSignInAccount? gUser = await GoogleSignIn().signIn();
-        if (gUser == null) return;
-        final gAuth = await gUser.authentication;
-        final credential = GoogleAuthProvider.credential(
-          accessToken: gAuth.accessToken,
-          idToken: gAuth.idToken,
+        final googleUser = await GoogleSignIn().signIn();
+        if (googleUser == null) return;
+        final authentication = await googleUser.authentication;
+        await FirebaseAuth.instance.signInWithCredential(
+          GoogleAuthProvider.credential(
+            accessToken: authentication.accessToken,
+            idToken: authentication.idToken,
+          ),
         );
-        await FirebaseAuth.instance.signInWithCredential(credential);
       }
-      // Enable auto sync on login by default, but DO NOT auto-upload
-      // to avoid accidentally overwriting an existing cloud backup.
-      await setSyncEnabled(true);
-    } finally {
-      _isBusy = false;
-      notifyListeners();
-    }
+      // Never upload immediately after login: an existing cloud backup may be
+      // the only remaining copy of the user's data.
+      _syncEnabled = false;
+      await _settings.setSyncEnabled(false);
+      _attachAutoChecks();
+    });
   }
 
   Future<void> signOut() async {
-    _isBusy = true;
-    notifyListeners();
-    try {
-      if (!kIsWeb) {
-        await GoogleSignIn().signOut();
-      }
+    await _withBusy(() async {
+      _syncEnabled = false;
+      await _settings.setSyncEnabled(false);
+      if (!kIsWeb) await GoogleSignIn().signOut();
       await FirebaseAuth.instance.signOut();
-    } finally {
-      _isBusy = false;
       _attachAutoChecks();
-      notifyListeners();
-    }
+    });
   }
 
   Future<void> backupNow() async {
-    if (!isSignedIn) throw Exception('Nicht angemeldet');
-    _isBusy = true;
-    notifyListeners();
-    try {
-      final data = await LocalBackupService.instance.exportAll();
-      final jsonStr = jsonEncode(data);
-
+    if (!isSignedIn) throw StateError('Not signed in.');
+    await _withBusy(() async {
+      final archive = await LocalBackupService.instance.exportZip();
       final uid = user!.uid;
-      final storage = FirebaseStorage.instance;
-
-      final latestRef = storage.ref('users/$uid/backup/latest.json');
-      await latestRef.putString(
-        jsonStr,
-        format: PutStringFormat.raw,
-        metadata: SettableMetadata(contentType: 'application/json'),
+      final root = FirebaseStorage.instance.ref('users/$uid/backups/v2');
+      final metadata = SettableMetadata(
+        contentType: 'application/zip',
+        customMetadata: const {'dataEpoch': '2', 'formatVersion': '2'},
       );
-
-      final ts = DateTime.now().millisecondsSinceEpoch;
-      final tsRef = storage.ref('users/$uid/backup/$ts.json');
-      await tsRef.putString(
-        jsonStr,
-        format: PutStringFormat.raw,
-        metadata: SettableMetadata(contentType: 'application/json'),
-      );
-
-      _lastSyncMillis = ts;
-      await _settings.setLastSyncMillis(ts);
-    } finally {
-      _isBusy = false;
-      notifyListeners();
-    }
+      await root.child('latest.zip').putData(archive, metadata);
+      final timestamp = DateTime.now().toUtc().millisecondsSinceEpoch;
+      await root.child('$timestamp.zip').putData(archive, metadata);
+      _lastSyncMillis = timestamp;
+      await _settings.setLastSyncMillis(timestamp);
+    });
   }
 
   Future<void> restoreNow() async {
-    if (!isSignedIn) throw Exception('Nicht angemeldet');
-    _isBusy = true;
-    notifyListeners();
-    try {
+    if (!isSignedIn) throw StateError('Not signed in.');
+    await _withBusy(() async {
       final uid = user!.uid;
-      final latestRef = FirebaseStorage.instance.ref(
-        'users/$uid/backup/latest.json',
-      );
-
-      final bytes = await latestRef.getData(20 * 1024 * 1024);
+      final bytes = await FirebaseStorage.instance
+          .ref('users/$uid/backups/v2/latest.zip')
+          .getData(_maximumBackupBytes);
       if (bytes == null || bytes.isEmpty) {
-        throw Exception('Kein Backup gefunden.');
+        throw StateError('No compatible backup found.');
       }
-      final decoded = jsonDecode(utf8.decode(bytes));
-      if (decoded is! Map<String, dynamic>) {
-        throw Exception('Ungültiges Backup-Format.');
-      }
-      await LocalBackupService.instance.restoreAll(decoded, replace: true);
-      await ExerciseDatabase.instance.ensureStandardExercises();
-    } finally {
-      _isBusy = false;
-      notifyListeners();
-    }
+      await LocalBackupService.instance.restoreZip(bytes);
+      _syncEnabled = false;
+      await _settings.setSyncEnabled(false);
+    });
   }
 
-  /// Returns true if a cloud backup (latest.json) exists for the current user.
   Future<bool> remoteBackupExists() async {
     if (!isSignedIn) return false;
     try {
-      final uid = user!.uid;
-      final latestRef = FirebaseStorage.instance.ref(
-        'users/$uid/backup/latest.json',
-      );
-      await latestRef.getMetadata();
+      await FirebaseStorage.instance
+          .ref('users/${user!.uid}/backups/v2/latest.zip')
+          .getMetadata();
       return true;
-    } on FirebaseException catch (e) {
-      if (e.code == 'object-not-found') return false;
+    } on FirebaseException catch (error) {
+      if (error.code == 'object-not-found') return false;
       rethrow;
     }
   }
 
-  /// Merge cloud data into local DB (conflicts resolved by REPLACE -> cloud wins per row).
-  Future<void> mergeFromCloud() async {
-    if (!isSignedIn) throw Exception('Nicht angemeldet');
-    _isBusy = true;
-    notifyListeners();
-    try {
-      final uid = user!.uid;
-      final latestRef = FirebaseStorage.instance.ref(
-        'users/$uid/backup/latest.json',
+  /// Deletes all objects below users/{uid}. Local data and Auth remain intact.
+  Future<void> deleteCloudData() async {
+    if (!isSignedIn) throw StateError('Not signed in.');
+    await _withBusy(() async {
+      _syncEnabled = false;
+      await _settings.setSyncEnabled(false);
+      await _deleteStorageTree(
+        FirebaseStorage.instance.ref('users/${user!.uid}'),
       );
-      final bytes = await latestRef.getData(20 * 1024 * 1024);
-      if (bytes == null || bytes.isEmpty) return;
-      final decoded = jsonDecode(utf8.decode(bytes));
-      if (decoded is! Map<String, dynamic>) return;
-      await LocalBackupService.instance.restoreAll(decoded, replace: false);
-      await ExerciseDatabase.instance.ensureStandardExercises();
-    } finally {
-      _isBusy = false;
-      notifyListeners();
+      _attachAutoChecks();
+    });
+  }
+
+  /// Reauthenticates, deletes remote objects and Auth, then clears all local
+  /// state. The pending marker makes the local half crash-resumable.
+  Future<void> deleteAccountAndAllData() async {
+    final current = user;
+    if (current == null) throw StateError('Not signed in.');
+    var authDeleted = false;
+    await DataLifecycleCoordinator.instance.markAccountDeletionPending();
+    try {
+      await _withBusy(() async {
+        _syncEnabled = false;
+        await _settings.setSyncEnabled(false);
+        await _reauthenticateWithGoogle(current);
+        await _deleteStorageTree(
+          FirebaseStorage.instance.ref('users/${current.uid}'),
+        );
+        await current.delete();
+        authDeleted = true;
+        if (!kIsWeb) {
+          try {
+            await GoogleSignIn().disconnect();
+          } catch (_) {
+            await GoogleSignIn().signOut();
+          }
+        }
+        await DataLifecycleCoordinator.instance.deleteAllLocalData();
+      });
+    } catch (_) {
+      if (!authDeleted) {
+        await DataLifecycleCoordinator.instance.clearAccountDeletionPending();
+      }
+      rethrow;
     }
   }
 
-  // Debounced immediate backup after local changes.
-  Timer? _immediateDebounce;
+  Future<void> _reauthenticateWithGoogle(User current) async {
+    if (kIsWeb) {
+      await current.reauthenticateWithPopup(GoogleAuthProvider());
+      return;
+    }
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) throw StateError('Reauthentication cancelled.');
+    final authentication = await googleUser.authentication;
+    await current.reauthenticateWithCredential(
+      GoogleAuthProvider.credential(
+        accessToken: authentication.accessToken,
+        idToken: authentication.idToken,
+      ),
+    );
+  }
+
+  Future<void> _deleteStorageTree(Reference root) async {
+    String? pageToken;
+    do {
+      final page = await root.list(
+        ListOptions(maxResults: 100, pageToken: pageToken),
+      );
+      for (final item in page.items) {
+        await item.delete();
+      }
+      for (final prefix in page.prefixes) {
+        await _deleteStorageTree(prefix);
+      }
+      pageToken = page.nextPageToken;
+    } while (pageToken != null);
+  }
+
   void scheduleBackupSoon({Duration delay = const Duration(seconds: 2)}) {
     if (!_syncEnabled || !isSignedIn || _disposed) return;
     _immediateDebounce?.cancel();
@@ -203,38 +218,41 @@ class CloudSyncProvider extends ChangeNotifier {
       try {
         await backupNow();
       } catch (_) {
-        // silent error
+        // Manual backup remains available with visible error reporting.
       }
     });
   }
 
-  // ---------- Auto-Backup ----------
-  Future<void> onAppResumed() async {
-    await maybeAutoBackup(reason: 'app_resume');
-  }
+  Future<void> onAppResumed() => maybeAutoBackup(reason: 'app_resume');
 
   Future<void> maybeAutoBackup({String reason = 'auto'}) async {
     if (!_syncEnabled || !isSignedIn || _isBusy) return;
-
     final now = DateTime.now().millisecondsSinceEpoch;
     if (now - _lastSyncMillis < _autoThresholdMillis) return;
-
     try {
       await backupNow();
     } catch (_) {
-      // bewusst still – manueller Button bleibt verfügbar
+      // Auto backup must never block app startup/resume.
+    }
+  }
+
+  Future<void> _withBusy(Future<void> Function() action) async {
+    if (_isBusy) throw StateError('Another cloud operation is in progress.');
+    _isBusy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      await action();
+    } finally {
+      _isBusy = false;
+      if (!_disposed) notifyListeners();
     }
   }
 
   void _attachAutoChecks() {
     _periodicCheck?.cancel();
     _periodicCheck = null;
-
     if (!_syncEnabled || !isSignedIn || _disposed) return;
-
-    // alle 6h prüfen (sichert max. 1x/24h)
     _periodicCheck = Timer.periodic(const Duration(hours: 2), (_) {
-      // ignore: discarded_futures
       maybeAutoBackup(reason: 'periodic_check');
     });
   }
@@ -243,6 +261,8 @@ class CloudSyncProvider extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _periodicCheck?.cancel();
+    _immediateDebounce?.cancel();
+    _authSubscription?.cancel();
     super.dispose();
   }
 }

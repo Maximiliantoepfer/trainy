@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "locale": "en",
+  "exercises": {
+    "trainy:running": {
+      "name": "Running",
+      "description": "Steady running for cardiovascular fitness and aerobic endurance.",
+      "instructions": ["Start at an easy pace with a stable posture.", "Increase duration and pace gradually.", "Finish with a few easy minutes."],
+      "searchTerms": ["Running", "Jogging", "Distance run", "Endurance"],
+      "reviewed": true
+    },
+    "trainy:walking": {
+      "name": "Walking",
+      "description": "Low-impact endurance activity at a brisk or relaxed walking pace.",
+      "instructions": ["Choose a pace you can sustain with good form.", "Stay upright and roll through each step.", "Adjust distance and duration to your goal."],
+      "searchTerms": ["Walking", "Walk", "Hike", "Endurance"],
+      "reviewed": true
+    },
+    "trainy:cycling": {
+      "name": "Cycling",
+      "description": "Endurance training on a bicycle or indoor bike.",
+      "instructions": ["Adjust the saddle and resistance before starting.", "Maintain a controlled cadence.", "Lower the resistance for a short cool-down."],
+      "searchTerms": ["Cycling", "Bicycle", "Bike", "Ergometer"],
+      "reviewed": true
+    },
+    "trainy:swimming": {
+      "name": "Swimming",
+      "description": "Full-body cardiovascular training in water.",
+      "instructions": ["Warm up with a few easy lengths.", "Keep breathing and technique consistent.", "Finish with relaxed swimming."],
+      "searchTerms": ["Swimming", "Pool", "Lengths", "Endurance"],
+      "reviewed": true
+    },
+    "trainy:interval_running": {
+      "name": "Interval running",
+      "description": "Running session alternating work and recovery intervals.",
+      "instructions": ["Warm up before the first interval.", "Follow the planned work and recovery durations.", "Finish with an easy cool-down."],
+      "searchTerms": ["Intervals", "Interval running", "Running", "Speed"],
+      "reviewed": true
+    },
+    "trainy:mobility_session": {
+      "name": "Mobility session",
+      "description": "Guided or free session for maintaining comfortable range of motion.",
+      "instructions": ["Move slowly within a controllable range.", "Avoid bouncing and painful positions.", "Breathe calmly and evenly."],
+      "searchTerms": ["Mobility", "Flexibility", "Stretching", "Recovery"],
+      "reviewed": true
+    }
+  }
+}

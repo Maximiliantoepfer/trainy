@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "dataEpoch": 2,
+  "catalogVersion": "core-1",
+  "exerciseCount": 6,
+  "releaseStatus": "trainy-core",
+  "assetChecksums": {
+    "catalog.json": "770942b84beb83d0ecc35b7a55b04f386cb1961430d1df8740dd27e679870a67",
+    "catalog_de.json": "45071f181378efa5d37cb6183db0bdab7d8a2cde935d5d4fa95849c0a5afd709",
+    "catalog_en.json": "6f9501571ad4e8d36b7b5c82213ff967b6cf885900a96502e97a11c339079550"
+  }
+}

@@ -4,23 +4,27 @@ import 'dart:convert';
 class CatalogExercise {
   final String id;
   final String movementFamilyId;
+  final String activityTypeCode;
   final List<String> primaryMuscleIds;
   final List<String> secondaryMuscleIds;
   final List<String> equipmentIds;
   final List<String> goalCodes;
   final CatalogTrackingProfile tracking;
   final String imageAssetPath;
+  final String iconKey;
   final List<String> aliases;
 
   const CatalogExercise({
     required this.id,
     required this.movementFamilyId,
+    required this.activityTypeCode,
     required this.primaryMuscleIds,
     required this.secondaryMuscleIds,
     required this.equipmentIds,
     required this.goalCodes,
     required this.tracking,
     required this.imageAssetPath,
+    required this.iconKey,
     required this.aliases,
   });
 
@@ -28,6 +32,7 @@ class CatalogExercise {
       CatalogExercise(
         id: json['id'] as String,
         movementFamilyId: json['movementFamilyId'] as String,
+        activityTypeCode: json['activityTypeCode'] as String? ?? 'strength',
         primaryMuscleIds: List<String>.from(
           json['primaryMuscleIds'] ?? const [],
         ),
@@ -40,6 +45,7 @@ class CatalogExercise {
           Map<String, dynamic>.from(json['tracking'] ?? const {}),
         ),
         imageAssetPath: json['imageAssetPath'] as String,
+        iconKey: json['iconKey'] as String? ?? 'exercise',
         aliases: List<String>.from(json['aliases'] ?? const []),
       );
 }

@@ -15,7 +15,7 @@ class WorkoutDatabase {
       'id': workout.id,
       'name': workout.name,
       'description': workout.description,
-      'goalCodes': jsonEncode(workout.goalCodes),
+      'goalCodes': jsonEncode(_validatedGoalCodes(workout.goalCodes)),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     if (workout.exerciseIds.isNotEmpty) {
@@ -65,13 +65,20 @@ class WorkoutDatabase {
 
     for (final row in rows) {
       final workoutId = (row['id'] as num).toInt();
-      final mapping = await db.query(
-        'exercises_in_workouts',
-        where: 'workoutId = ?',
-        whereArgs: [workoutId],
-        orderBy: 'sort ASC',
+      final mapping = await db.rawQuery(
+        '''SELECT COALESCE(r.targetExerciseId, m.exerciseId) AS exerciseId
+           FROM exercises_in_workouts m
+           LEFT JOIN exercise_redirects r
+             ON r.sourceExerciseId = m.exerciseId AND r.undoneAt IS NULL
+           WHERE m.workoutId = ?
+           ORDER BY m.sort ASC''',
+        [workoutId],
       );
-      final ids = mapping.map((m) => (m['exerciseId'] as num).toInt()).toList();
+      final ids = <int>[];
+      for (final item in mapping) {
+        final id = (item['exerciseId'] as num).toInt();
+        if (!ids.contains(id)) ids.add(id);
+      }
       result.add(
         Workout(
           id: workoutId,
@@ -168,14 +175,7 @@ class WorkoutDatabase {
     int workoutId,
     List<String> goalCodes,
   ) async {
-    const allowed = {'strength', 'endurance', 'cardio', 'mobility'};
-    final normalized = <String>[];
-    for (final code in goalCodes) {
-      if (allowed.contains(code) && !normalized.contains(code)) {
-        normalized.add(code);
-      }
-      if (normalized.length == 2) break;
-    }
+    final normalized = _validatedGoalCodes(goalCodes);
     await (await _db).update(
       'workouts',
       {'goalCodes': jsonEncode(normalized)},
@@ -186,9 +186,32 @@ class WorkoutDatabase {
 
   static List<String> _goalCodes(Object? raw) {
     try {
-      return List<String>.from(jsonDecode(raw as String? ?? '[]') as List);
+      return _validatedGoalCodes(
+        List<String>.from(jsonDecode(raw as String? ?? '[]') as List),
+      );
     } catch (_) {
-      return const [];
+      return const ['strength'];
     }
+  }
+
+  static List<String> _validatedGoalCodes(Iterable<String> values) {
+    const allowed = {'strength', 'endurance', 'cardio', 'mobility'};
+    const domains = {'strength', 'cardio', 'mobility'};
+    final normalized = <String>[];
+    for (final code in values) {
+      if (allowed.contains(code) && !normalized.contains(code)) {
+        normalized.add(code);
+      }
+      if (normalized.length == 2) break;
+    }
+    if (normalized.isEmpty) return const ['strength'];
+    if (!normalized.any(domains.contains)) normalized.insert(0, 'cardio');
+    if (normalized.length > 2) normalized.removeLast();
+    normalized.sort((a, b) {
+      final ad = domains.contains(a);
+      final bd = domains.contains(b);
+      return ad == bd ? 0 : (ad ? -1 : 1);
+    });
+    return normalized;
   }
 }

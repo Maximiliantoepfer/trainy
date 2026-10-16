@@ -65,4 +65,12 @@ class ExerciseImageService {
     }
     return output;
   }
+
+  Future<void> deleteAllImages() async {
+    final root = await getApplicationDocumentsDirectory();
+    final directory = Directory(path.join(root.path, 'exercise_images'));
+    if (await directory.exists()) {
+      await directory.delete(recursive: true);
+    }
+  }
 }

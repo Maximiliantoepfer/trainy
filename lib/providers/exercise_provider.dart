@@ -16,7 +16,6 @@ class ExerciseProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      await ExerciseDatabase.instance.ensureStandardExercises();
       final exercises = await ExerciseDatabase.instance.getAllExercises();
       final aliasMap = await ExerciseDatabase.instance.getAllMergeAliases();
       _exercises =

@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "core-1",
+  "exerciseCount": 6,
+  "releaseStatus": "trainy-core",
+  "sources": [
+    {
+      "id": "trainy-core",
+      "license": "Trainy project content",
+      "exerciseCount": 6
+    }
+  ],
+  "exercises": [
+    {
+      "id": "trainy:running",
+      "activityTypeCode": "running",
+      "movementFamilyId": "running",
+      "primaryMuscleIds": ["cardiovascular_system", "legs"],
+      "secondaryMuscleIds": ["core"],
+      "equipmentIds": ["running_shoes"],
+      "goalCodes": ["cardio", "endurance"],
+      "tracking": {"sets": false, "reps": false, "weight": false, "duration": true, "distance": true},
+      "imageAssetPath": "assets/icons/muskel.png",
+      "iconKey": "running",
+      "aliases": ["run", "jogging", "joggen"]
+    },
+    {
+      "id": "trainy:walking",
+      "activityTypeCode": "walking",
+      "movementFamilyId": "walking",
+      "primaryMuscleIds": ["cardiovascular_system", "legs"],
+      "secondaryMuscleIds": [],
+      "equipmentIds": ["walking_shoes"],
+      "goalCodes": ["cardio", "endurance"],
+      "tracking": {"sets": false, "reps": false, "weight": false, "duration": true, "distance": true},
+      "imageAssetPath": "assets/icons/muskel.png",
+      "iconKey": "walking",
+      "aliases": ["walk", "gehen", "spazieren"]
+    },
+    {
+      "id": "trainy:cycling",
+      "activityTypeCode": "cycling",
+      "movementFamilyId": "cycling",
+      "primaryMuscleIds": ["cardiovascular_system", "quadriceps"],
+      "secondaryMuscleIds": ["glutes", "calves"],
+      "equipmentIds": ["bicycle"],
+      "goalCodes": ["cardio", "endurance"],
+      "tracking": {"sets": false, "reps": false, "weight": false, "duration": true, "distance": true},
+      "imageAssetPath": "assets/icons/muskel.png",
+      "iconKey": "cycling",
+      "aliases": ["bike", "radfahren", "fahrrad"]
+    },
+    {
+      "id": "trainy:swimming",
+      "activityTypeCode": "swimming",
+      "movementFamilyId": "swimming",
+      "primaryMuscleIds": ["cardiovascular_system", "full_body"],
+      "secondaryMuscleIds": [],
+      "equipmentIds": ["pool"],
+      "goalCodes": ["cardio", "endurance"],
+      "tracking": {"sets": false, "reps": false, "weight": false, "duration": true, "distance": true},
+      "imageAssetPath": "assets/icons/muskel.png",
+      "iconKey": "swimming",
+      "aliases": ["swim", "schwimmen"]
+    },
+    {
+      "id": "trainy:interval_running",
+      "activityTypeCode": "running",
+      "movementFamilyId": "interval_running",
+      "primaryMuscleIds": ["cardiovascular_system", "legs"],
+      "secondaryMuscleIds": ["core"],
+      "equipmentIds": ["running_shoes"],
+      "goalCodes": ["cardio", "endurance"],
+      "tracking": {"sets": true, "reps": false, "weight": false, "duration": true, "distance": true},
+      "imageAssetPath": "assets/icons/muskel.png",
+      "iconKey": "interval_running",
+      "aliases": ["interval run", "intervalle", "intervalllauf"]
+    },
+    {
+      "id": "trainy:mobility_session",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "mobility_session",
+      "primaryMuscleIds": ["full_body"],
+      "secondaryMuscleIds": [],
+      "equipmentIds": ["mat"],
+      "goalCodes": ["mobility"],
+      "tracking": {"sets": false, "reps": false, "weight": false, "duration": true, "distance": false},
+      "imageAssetPath": "assets/icons/sofa.png",
+      "iconKey": "mobility",
+      "aliases": ["mobility", "beweglichkeit", "mobilität"]
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 
 import '../models/catalog_exercise.dart';
@@ -15,9 +16,14 @@ class CatalogRepository {
   final Map<String, Map<String, CatalogLocalizedContent>> _contentByLocale = {};
   bool _isLoaded = false;
   String? _loadError;
+  String? _catalogVersion;
+
+  static const _freeExerciseDbCommit =
+      'a859101d633a01c4a1a920d6a8ce41dabba0705f';
 
   bool get isLoaded => _isLoaded;
   String? get loadError => _loadError;
+  String? get catalogVersion => _catalogVersion;
   Iterable<CatalogExercise> get definitions => _definitions.values;
   CatalogExercise? byId(String? id) => id == null ? null : _definitions[id];
 
@@ -28,16 +34,22 @@ class CatalogRepository {
     _definitions.clear();
     _contentByLocale.clear();
     _loadError = null;
+    _catalogVersion = null;
     try {
-      final catalogJson =
-          jsonDecode(await rootBundle.loadString('assets/catalog/catalog.json'))
-              as Map<String, dynamic>;
-      final source = Map<String, dynamic>.from(
-        catalogJson['source'] ?? const {},
+      final catalogRaw = await rootBundle.loadString(
+        'assets/catalog/catalog.json',
+      );
+      final catalogJson = jsonDecode(catalogRaw) as Map<String, dynamic>;
+      final exerciseCount = (catalogJson['exerciseCount'] as num? ?? 0).toInt();
+      final sources = List<dynamic>.from(
+        catalogJson['sources'] ??
+            (catalogJson['source'] == null
+                ? const []
+                : [catalogJson['source']]),
       );
       if (catalogJson['schemaVersion'] != 1 ||
-          source['license'] != 'Unlicense' ||
-          (source['exerciseCount'] as num? ?? 0).toInt() <= 0) {
+          exerciseCount <= 0 ||
+          sources.isEmpty) {
         throw const FormatException('Invalid catalog manifest.');
       }
       for (final raw in List<dynamic>.from(
@@ -50,6 +62,24 @@ class CatalogRepository {
           throw FormatException('Duplicate catalog ID ${definition.id}.');
         }
         _definitions[definition.id] = definition;
+      }
+      if (_definitions.length != exerciseCount) {
+        throw const FormatException('Catalog exercise count mismatch.');
+      }
+      final freeDefinitions =
+          _definitions.keys.where((id) => id.startsWith('free:')).length;
+      final freeSource =
+          sources
+              .map((value) => Map<String, dynamic>.from(value as Map))
+              .where((value) => value['id'] == 'free-exercise-db')
+              .firstOrNull;
+      if (freeDefinitions > 0 &&
+          (freeSource == null ||
+              freeSource['license'] != 'Unlicense' ||
+              freeSource['commit'] != _freeExerciseDbCommit ||
+              freeSource['exerciseCount'] != 876 ||
+              freeDefinitions != 876)) {
+        throw const FormatException('Invalid Free Exercise DB source pin.');
       }
       await Future.wait(['de', 'en'].map(_loadLocale));
       for (final id in _definitions.keys) {
@@ -66,13 +96,59 @@ class CatalogRepository {
           }
         }
       }
+      await _validateManifest(
+        catalogRaw: catalogRaw,
+        catalogVersion: catalogJson['catalogVersion']?.toString(),
+        exerciseCount: exerciseCount,
+      );
       _isLoaded = true;
+      _catalogVersion = catalogJson['catalogVersion']?.toString();
       return true;
     } catch (error) {
       _definitions.clear();
       _contentByLocale.clear();
       _loadError = error.toString();
+      _catalogVersion = null;
       return false;
+    }
+  }
+
+  Future<void> _validateManifest({
+    required String catalogRaw,
+    required String? catalogVersion,
+    required int exerciseCount,
+  }) async {
+    final raw = await rootBundle.loadString('assets/catalog/manifest.json');
+    final manifest = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    if (manifest['schemaVersion'] != 1 ||
+        manifest['catalogVersion']?.toString() != catalogVersion ||
+        (manifest['exerciseCount'] != null &&
+            manifest['exerciseCount'] != exerciseCount) ||
+        (manifest['sourceCommit'] != null &&
+            manifest['sourceCommit'] != _freeExerciseDbCommit)) {
+      throw const FormatException('Invalid catalog release manifest.');
+    }
+    final checksums = Map<String, dynamic>.from(
+      manifest['assetChecksums'] as Map? ?? const {},
+    );
+    if (checksums.isEmpty) {
+      throw const FormatException('Catalog checksums are missing.');
+    }
+    final assets = <String, String>{
+      'catalog.json': catalogRaw,
+      'catalog_de.json': await rootBundle.loadString(
+        'assets/catalog/catalog_de.json',
+      ),
+      'catalog_en.json': await rootBundle.loadString(
+        'assets/catalog/catalog_en.json',
+      ),
+    };
+    for (final asset in assets.entries) {
+      final expected = checksums[asset.key]?.toString().toLowerCase();
+      final actual = sha256.convert(utf8.encode(asset.value)).toString();
+      if (expected == null || expected != actual) {
+        throw FormatException('Catalog checksum mismatch: ${asset.key}.');
+      }
     }
   }
 

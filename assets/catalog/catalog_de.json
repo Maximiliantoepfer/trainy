@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "locale": "de",
+  "exercises": {
+    "trainy:running": {
+      "name": "Joggen",
+      "description": "Gleichmäßiges Lauftraining für Herz-Kreislauf-System und Grundlagenausdauer.",
+      "instructions": ["Beginne mit lockerem Tempo und stabiler Haltung.", "Steigere Umfang und Tempo kontrolliert.", "Beende die Einheit mit einigen ruhigen Minuten."],
+      "searchTerms": ["Laufen", "Joggen", "Dauerlauf", "Ausdauer"],
+      "reviewed": true
+    },
+    "trainy:walking": {
+      "name": "Gehen",
+      "description": "Niedrig belastende Ausdauereinheit im zügigen oder entspannten Gehtempo.",
+      "instructions": ["Wähle ein Tempo, das du sauber halten kannst.", "Gehe aufrecht und rolle den Fuß kontrolliert ab.", "Passe Strecke und Dauer an dein Tagesziel an."],
+      "searchTerms": ["Gehen", "Walking", "Spazieren", "Ausdauer"],
+      "reviewed": true
+    },
+    "trainy:cycling": {
+      "name": "Radfahren",
+      "description": "Ausdauertraining auf Fahrrad oder Ergometer.",
+      "instructions": ["Stelle Sitzhöhe und Widerstand passend ein.", "Halte eine kontrollierte Trittfrequenz.", "Reduziere den Widerstand zum Ausfahren."],
+      "searchTerms": ["Radfahren", "Fahrrad", "Ergometer", "Bike"],
+      "reviewed": true
+    },
+    "trainy:swimming": {
+      "name": "Schwimmen",
+      "description": "Ganzkörper-Ausdauertraining im Wasser.",
+      "instructions": ["Wärme dich mit ruhigen Bahnen auf.", "Achte auf gleichmäßige Atmung und saubere Technik.", "Schwimme zum Abschluss locker aus."],
+      "searchTerms": ["Schwimmen", "Pool", "Bahnen", "Ausdauer"],
+      "reviewed": true
+    },
+    "trainy:interval_running": {
+      "name": "Intervalllauf",
+      "description": "Laufeinheit mit abwechselnden Belastungs- und Erholungsabschnitten.",
+      "instructions": ["Laufe dich vor dem ersten Intervall ein.", "Halte Belastung und Erholung wie geplant ein.", "Beende die Einheit mit lockerem Auslaufen."],
+      "searchTerms": ["Intervalllauf", "Intervalle", "Laufen", "Tempo"],
+      "reviewed": true
+    },
+    "trainy:mobility_session": {
+      "name": "Mobilitätseinheit",
+      "description": "Geführte oder freie Einheit zur Pflege der Beweglichkeit.",
+      "instructions": ["Bewege dich langsam in den kontrollierbaren Bewegungsumfang.", "Vermeide ruckartige Bewegungen und Schmerzen.", "Atme ruhig und gleichmäßig."],
+      "searchTerms": ["Mobilität", "Beweglichkeit", "Mobility", "Dehnen"],
+      "reviewed": true
+    }
+  }
+}

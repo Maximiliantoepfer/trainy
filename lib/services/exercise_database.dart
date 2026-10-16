@@ -124,10 +124,12 @@ class ExerciseDatabase {
       where: 'exerciseId = ?',
       whereArgs: [e.id],
     );
-    for (final goalCode in _validatedGoals(e.goalCodes)) {
+    final validatedGoals = _validatedGoals(e.goalCodes);
+    for (var index = 0; index < validatedGoals.length; index++) {
       await db.insert('exercise_goal_labels', {
         'exerciseId': e.id,
-        'goalCode': goalCode,
+        'goalCode': validatedGoals[index],
+        'position': index,
       });
     }
     await db.delete(
@@ -440,38 +442,9 @@ class ExerciseDatabase {
         throw StateError('Source exercise no longer exists.');
       }
       final source = Map<String, Object?>.from(sourceRows.single);
-      final sourceLinks = await txn.query(
-        'exercises_in_workouts',
-        where: 'exerciseId = ?',
-        whereArgs: [sourceId],
-      );
-      final changedLinks = <Map<String, Object?>>[];
-      int movedWorkouts = 0;
-      for (final link in sourceLinks) {
-        final workoutId = link['workoutId'] as int;
-        final targetExists = await txn.query(
-          'exercises_in_workouts',
-          where: 'workoutId = ? AND exerciseId = ?',
-          whereArgs: [workoutId, targetId],
-        );
-        if (targetExists.isNotEmpty) {
-          await txn.delete(
-            'exercises_in_workouts',
-            where: 'id = ?',
-            whereArgs: [link['id']],
-          );
-          changedLinks.add({...link, 'redirectAction': 'deleted_source_link'});
-        } else {
-          await txn.update(
-            'exercises_in_workouts',
-            {'exerciseId': targetId},
-            where: 'id = ?',
-            whereArgs: [link['id']],
-          );
-          movedWorkouts++;
-          changedLinks.add({...link, 'redirectAction': 'retargeted_link'});
-        }
-      }
+      // Workout definitions and historical entries remain untouched. Active
+      // redirects are resolved when a workout is loaded for its next run.
+      const changedLinks = <Map<String, Object?>>[];
       final sourceName = source['name'] as String? ?? 'Unknown';
       final now = DateTime.now().millisecondsSinceEpoch;
       await txn.update(
@@ -496,7 +469,7 @@ class ExerciseDatabase {
         'targetId': targetId,
         'mergedAt': DateTime.now().toUtc().toIso8601String(),
       });
-      return MergeResult(movedEntries: 0, movedWorkouts: movedWorkouts);
+      return const MergeResult(movedEntries: 0, movedWorkouts: 0);
     });
   }
 
@@ -628,6 +601,17 @@ class ExerciseDatabase {
       if (allowed.contains(value) && !result.contains(value)) result.add(value);
       if (result.length == 2) break;
     }
+    if (result.isEmpty) return const ['strength'];
+    const domains = {'strength', 'cardio', 'mobility'};
+    if (!result.any(domains.contains)) {
+      result.insert(0, 'cardio');
+      if (result.length > 2) result.removeLast();
+    }
+    result.sort((a, b) {
+      final ad = domains.contains(a);
+      final bd = domains.contains(b);
+      return ad == bd ? 0 : (ad ? -1 : 1);
+    });
     return result;
   }
 

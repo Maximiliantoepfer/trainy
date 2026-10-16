@@ -1030,4 +1030,73 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get dataAndPrivacy => 'Data & privacy';
+
+  @override
+  String get resetLocalTrainingData => 'Reset local training data';
+
+  @override
+  String get resetLocalTrainingDataDescription => 'Deletes workouts, progress and personal exercise images on this device.';
+
+  @override
+  String get resetLocalTrainingDataConfirm => 'Your local training data and personal exercise images will be deleted. Your login, language and appearance stay unchanged.';
+
+  @override
+  String get confirmResetAgain => 'Really reset local data?';
+
+  @override
+  String get confirmResetAgainDescription => 'This cannot be undone. Automatic cloud backup will be disabled.';
+
+  @override
+  String get resetNow => 'Reset now';
+
+  @override
+  String get deleteCloudData => 'Delete cloud data';
+
+  @override
+  String get deleteCloudDataDescription => 'Deletes every Trainy backup stored for this account. Local data and the account remain.';
+
+  @override
+  String get deleteCloudDataConfirm => 'All Trainy cloud objects for your account will be deleted.';
+
+  @override
+  String get confirmCloudDeleteAgain => 'Permanently delete cloud data?';
+
+  @override
+  String get confirmCloudDeleteAgainDescription => 'The operation can be retried if the connection is interrupted.';
+
+  @override
+  String get cloudDataDeleted => 'Cloud data deleted';
+
+  @override
+  String get deleteAccountAndData => 'Delete account and all data';
+
+  @override
+  String get deleteAccountAndDataDescription => 'Deletes cloud data, the Firebase account and all local app data.';
+
+  @override
+  String get deleteAccountAndDataConfirm => 'You will be asked to sign in with Google again. Then the account and all Trainy data will be deleted.';
+
+  @override
+  String get confirmAccountDeleteAgain => 'Permanently delete your account?';
+
+  @override
+  String get confirmAccountDeleteAgainDescription => 'This action cannot be undone.';
+
+  @override
+  String get deletePermanently => 'Delete permanently';
+
+  @override
+  String get activeWorkoutMustEnd => 'Active workout';
+
+  @override
+  String get activeWorkoutMustEndDescription => 'The current workout must be completed or discarded before data can be deleted.';
+
+  @override
+  String get discardAndContinue => 'Discard & continue';
+
+  @override
+  String get continueLabel => 'Continue';
 }

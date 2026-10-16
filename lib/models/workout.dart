@@ -14,7 +14,7 @@ class Workout {
     this.description = '',
     this.exerciseIds = const [],
     this.assignedDays = const {},
-    this.goalCodes = const [],
+    this.goalCodes = const ['strength'],
   });
 
   Workout copyWith({

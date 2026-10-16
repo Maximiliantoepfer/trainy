@@ -10,6 +10,7 @@ import 'providers/progress_provider.dart';
 import 'providers/cloud_sync_provider.dart';
 import 'providers/active_workout_provider.dart';
 import 'providers/locale_provider.dart';
+import 'providers/data_lifecycle_provider.dart';
 import 'l10n/l10n.dart';
 import 'navigation/main_navigation.dart';
 import 'widgets/onboarding_gate.dart';
@@ -18,14 +19,38 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'firebase_options.dart';
 import 'services/catalog_repository.dart';
+import 'services/data_lifecycle_coordinator.dart';
+import 'services/app_database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await DataLifecycleCoordinator.instance.applyDataEpoch();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (await DataLifecycleCoordinator.instance.hasPendingAccountDeletion()) {
+    final current = FirebaseAuth.instance.currentUser;
+    if (current != null) {
+      try {
+        await current.reload();
+      } on FirebaseAuthException catch (error) {
+        if (error.code == 'user-not-found' || error.code == 'user-disabled') {
+          await FirebaseAuth.instance.signOut();
+        }
+      }
+    }
+  }
+  await DataLifecycleCoordinator.instance
+      .completePendingAccountDeletionIfNeeded(
+        isSignedIn: FirebaseAuth.instance.currentUser != null,
+      );
   await initializeDateFormatting();
   // Catalog loading is local-only and intentionally non-fatal while the
   // editorial German catalog is not bundled yet.
-  await CatalogRepository.instance.load();
+  if (await CatalogRepository.instance.load()) {
+    await AppDatabase.instance.setCatalogVersion(
+      CatalogRepository.instance.catalogVersion ?? 'unknown',
+    );
+  }
   runApp(const TrainyApp());
 }
 
@@ -38,6 +63,22 @@ class TrainyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => LocaleProvider()..init()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => DataLifecycleProvider()),
+      ],
+      child: const _DataProviders(),
+    );
+  }
+}
+
+class _DataProviders extends StatelessWidget {
+  const _DataProviders();
+
+  @override
+  Widget build(BuildContext context) {
+    final generation = context.watch<DataLifecycleProvider>().generation;
+    return MultiProvider(
+      key: ValueKey(generation),
+      providers: [
         ChangeNotifierProvider(
           create: (_) => ExerciseProvider()..loadExercises(),
         ),

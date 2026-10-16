@@ -68,6 +68,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  sqflite_common_ffi: ^2.3.6
   flutter_launcher_icons: ^0.13.1 # Dein Icon-Paket
 
 
@@ -92,6 +93,7 @@ flutter:
     - assets/icons/die-einstellungen.png
     - assets/icons/muskel.png
     - assets/icons/sofa.png
+    - assets/catalog/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -910,6 +910,7 @@ class _GoalSelectionDialog extends StatefulWidget {
 }
 
 class _GoalSelectionDialogState extends State<_GoalSelectionDialog> {
+  static const _domains = {'strength', 'cardio', 'mobility'};
   late final Set<String> _selected;
 
   @override
@@ -932,9 +933,20 @@ class _GoalSelectionDialogState extends State<_GoalSelectionDialog> {
               onChanged: (checked) {
                 setState(() {
                   if (checked == true && _selected.length < 2) {
-                    _selected.add(goal);
+                    if (goal == 'endurance' &&
+                        !_selected.any(_domains.contains)) {
+                      _selected
+                        ..add('cardio')
+                        ..add('endurance');
+                    } else {
+                      _selected.add(goal);
+                    }
                   } else if (checked != true) {
                     _selected.remove(goal);
+                    if (_domains.contains(goal) &&
+                        !_selected.any(_domains.contains)) {
+                      _selected.remove('endurance');
+                    }
                   }
                 });
               },
@@ -948,8 +960,11 @@ class _GoalSelectionDialogState extends State<_GoalSelectionDialog> {
         ),
         FilledButton(
           onPressed:
-              () =>
-                  Navigator.of(context).pop(_selected.toList(growable: false)),
+              _selected.any(_domains.contains)
+                  ? () => Navigator.of(
+                    context,
+                  ).pop(_selected.toList(growable: false))
+                  : null,
           child: Text(context.l10n.save),
         ),
       ],

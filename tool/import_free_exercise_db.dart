@@ -75,6 +75,43 @@ Future<void> main(List<String> args) async {
     final english = <String, dynamic>{};
     final german = <String, dynamic>{};
 
+    // Trainy core activities are curated in-repository and are retained when
+    // the pinned Free Exercise DB release replaces the generated catalog.
+    if (await target.exists()) {
+      final existingCatalog = File(_join(target.path, 'catalog.json'));
+      final existingEnglish = File(_join(target.path, 'catalog_en.json'));
+      final existingGerman = File(_join(target.path, 'catalog_de.json'));
+      if (await existingCatalog.exists() &&
+          await existingEnglish.exists() &&
+          await existingGerman.exists()) {
+        final catalogRoot = Map<String, dynamic>.from(
+          jsonDecode(await existingCatalog.readAsString()) as Map,
+        );
+        for (final raw in List<dynamic>.from(
+          catalogRoot['exercises'] ?? const [],
+        )) {
+          final item = Map<String, dynamic>.from(raw as Map);
+          if ((item['id'] as String).startsWith('trainy:')) {
+            definitions.add(item);
+          }
+        }
+        final englishRoot = Map<String, dynamic>.from(
+          jsonDecode(await existingEnglish.readAsString()) as Map,
+        );
+        final germanRoot = Map<String, dynamic>.from(
+          jsonDecode(await existingGerman.readAsString()) as Map,
+        );
+        english.addAll(
+          Map<String, dynamic>.from(englishRoot['exercises'] as Map),
+        );
+        german.addAll(
+          Map<String, dynamic>.from(germanRoot['exercises'] as Map),
+        );
+        english.removeWhere((id, _) => !id.startsWith('trainy:'));
+        german.removeWhere((id, _) => !id.startsWith('trainy:'));
+      }
+    }
+
     for (final raw in source) {
       final item = Map<String, dynamic>.from(raw as Map);
       final upstreamId = item['id'] as String;
@@ -105,6 +142,7 @@ Future<void> main(List<String> args) async {
       );
       definitions.add({
         'id': catalogId,
+        'activityTypeCode': _activityType(category, name),
         'movementFamilyId':
             override['movementFamilyId'] ??
             'free:${_safeFileName(upstreamId).toLowerCase()}',
@@ -123,6 +161,7 @@ Future<void> main(List<String> args) async {
             imagePaths.isEmpty
                 ? 'assets/catalog/images/_fallback.webp'
                 : 'assets/catalog/images/$imageFile',
+        'iconKey': _iconKey(category, name),
         'aliases': [name, upstreamId.replaceAll('_', ' ')],
       });
       final instructions = List<String>.from(item['instructions'] ?? const []);
@@ -141,14 +180,24 @@ Future<void> main(List<String> args) async {
     await _writeJson(File(_join(temporary.path, 'catalog.json')), {
       'schemaVersion': 1,
       'catalogVersion': _catalogVersion,
-      'source': {
-        'name': 'Free Exercise DB',
-        'repository': 'https://github.com/yuhonas/free-exercise-db',
-        'commit': commit,
-        'license': 'Unlicense',
-        'exerciseCount': definitions.length,
-        'sourceSha256': await _sha256(sourceFile),
-      },
+      'exerciseCount': definitions.length,
+      'releaseStatus': 'complete',
+      'sources': [
+        {
+          'id': 'free-exercise-db',
+          'name': 'Free Exercise DB',
+          'repository': 'https://github.com/yuhonas/free-exercise-db',
+          'commit': commit,
+          'license': 'Unlicense',
+          'exerciseCount': _expectedExerciseCount,
+          'sourceSha256': await _sha256(sourceFile),
+        },
+        {
+          'id': 'trainy-core',
+          'license': 'Trainy project content',
+          'exerciseCount': definitions.length - _expectedExerciseCount,
+        },
+      ],
       'exercises': definitions,
     });
     await _writeJson(File(_join(temporary.path, 'catalog_en.json')), {
@@ -338,8 +387,22 @@ List<String> _goals(String category, String name) {
   if (lower.contains('stretch') || lower.contains('yoga')) {
     return const ['mobility'];
   }
-  if (lower.contains('plank') || lower.contains('jump rope')) {
-    return const ['endurance'];
-  }
+  if (lower.contains('jump rope')) return const ['cardio', 'endurance'];
+  if (lower.contains('plank')) return const ['strength', 'endurance'];
   return const ['strength'];
+}
+
+String _activityType(String category, String name) {
+  final lower = name.toLowerCase();
+  if (category == 'cardio' || lower.contains('jump rope')) return 'cardio';
+  if (lower.contains('stretch') || lower.contains('yoga')) return 'mobility';
+  return 'strength';
+}
+
+String _iconKey(String category, String name) {
+  return switch (_activityType(category, name)) {
+    'cardio' => 'heart',
+    'mobility' => 'mobility',
+    _ => 'muscle_arm',
+  };
 }

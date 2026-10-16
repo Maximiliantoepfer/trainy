@@ -1030,4 +1030,73 @@ class AppLocalizationsDe extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get dataAndPrivacy => 'Daten & Datenschutz';
+
+  @override
+  String get resetLocalTrainingData => 'Lokale Trainingsdaten zurücksetzen';
+
+  @override
+  String get resetLocalTrainingDataDescription => 'Löscht Workouts, Fortschritt und persönliche Übungsbilder auf diesem Gerät.';
+
+  @override
+  String get resetLocalTrainingDataConfirm => 'Deine lokalen Trainingsdaten und persönlichen Übungsbilder werden gelöscht. Anmeldung, Sprache und Design bleiben erhalten.';
+
+  @override
+  String get confirmResetAgain => 'Lokale Daten wirklich zurücksetzen?';
+
+  @override
+  String get confirmResetAgainDescription => 'Das kann nicht rückgängig gemacht werden. Das automatische Cloud-Backup wird deaktiviert.';
+
+  @override
+  String get resetNow => 'Jetzt zurücksetzen';
+
+  @override
+  String get deleteCloudData => 'Cloud-Daten löschen';
+
+  @override
+  String get deleteCloudDataDescription => 'Löscht alle Trainy-Backups dieses Kontos. Lokale Daten und das Konto bleiben erhalten.';
+
+  @override
+  String get deleteCloudDataConfirm => 'Alle Trainy-Cloudobjekte deines Kontos werden gelöscht.';
+
+  @override
+  String get confirmCloudDeleteAgain => 'Cloud-Daten endgültig löschen?';
+
+  @override
+  String get confirmCloudDeleteAgainDescription => 'Bei einer unterbrochenen Verbindung kann der Vorgang sicher wiederholt werden.';
+
+  @override
+  String get cloudDataDeleted => 'Cloud-Daten gelöscht';
+
+  @override
+  String get deleteAccountAndData => 'Konto und alle Daten löschen';
+
+  @override
+  String get deleteAccountAndDataDescription => 'Löscht Cloud-Daten, das Firebase-Konto und alle lokalen App-Daten.';
+
+  @override
+  String get deleteAccountAndDataConfirm => 'Du meldest dich erneut mit Google an. Danach werden das Konto und alle Trainy-Daten gelöscht.';
+
+  @override
+  String get confirmAccountDeleteAgain => 'Konto endgültig löschen?';
+
+  @override
+  String get confirmAccountDeleteAgainDescription => 'Diese Aktion kann nicht rückgängig gemacht werden.';
+
+  @override
+  String get deletePermanently => 'Endgültig löschen';
+
+  @override
+  String get activeWorkoutMustEnd => 'Aktives Workout';
+
+  @override
+  String get activeWorkoutMustEndDescription => 'Das aktuelle Workout muss beendet oder verworfen werden, bevor Daten gelöscht werden können.';
+
+  @override
+  String get discardAndContinue => 'Verwerfen & fortfahren';
+
+  @override
+  String get continueLabel => 'Weiter';
 }
