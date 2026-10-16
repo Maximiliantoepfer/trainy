@@ -18,10 +18,9 @@ class TrainingProfileDraft {
 
 @immutable
 class _ProfileViewData {
-  const _ProfileViewData(this.profiles, this.selectedId);
+  const _ProfileViewData(this.profiles);
 
   final List<TrainingProfileRecord> profiles;
-  final String? selectedId;
 }
 
 class TrainingProfileSettingsCard extends StatefulWidget {
@@ -47,14 +46,7 @@ class _TrainingProfileSettingsCardState
   }
 
   Future<_ProfileViewData> _load() async {
-    final values = await Future.wait<Object?>([
-      widget.store.profiles(),
-      widget.store.selectedProfileId(),
-    ]);
-    return _ProfileViewData(
-      values[0] as List<TrainingProfileRecord>,
-      values[1] as String?,
-    );
+    return _ProfileViewData(await widget.store.profiles());
   }
 
   void _refresh() {
@@ -96,14 +88,7 @@ class _TrainingProfileSettingsCardState
         );
     await _mutate(() async {
       await widget.store.save(value);
-      if (existing == null && current.selectedId == null) {
-        await widget.store.select(value.id);
-      }
     });
-  }
-
-  Future<void> _select(String profileId) async {
-    await _mutate(() => widget.store.select(profileId));
   }
 
   Future<void> _archive(TrainingProfileRecord profile) async {
@@ -203,9 +188,7 @@ class _TrainingProfileSettingsCardState
                 for (final profile in data.profiles)
                   _ProfileTile(
                     profile: profile,
-                    selected: data.selectedId == profile.id,
                     enabled: !_mutationRunning,
-                    onSelect: () => _select(profile.id),
                     onEdit: () => _showEditor(profile),
                     onArchive: () => _archive(profile),
                   ),
@@ -250,29 +233,20 @@ class _ProfileError extends StatelessWidget {
 class _ProfileTile extends StatelessWidget {
   const _ProfileTile({
     required this.profile,
-    required this.selected,
     required this.enabled,
-    required this.onSelect,
     required this.onEdit,
     required this.onArchive,
   });
 
   final TrainingProfileRecord profile;
-  final bool selected;
   final bool enabled;
-  final VoidCallback onSelect;
   final VoidCallback onEdit;
   final VoidCallback onArchive;
 
   @override
   Widget build(BuildContext context) => ListTile(
     key: ValueKey('trainingProfile_${profile.id}'),
-    selected: selected,
-    onTap: enabled ? onSelect : null,
-    leading: Icon(
-      selected ? Icons.check_circle_rounded : Icons.circle_outlined,
-      color: selected ? Theme.of(context).colorScheme.primary : null,
-    ),
+    leading: const Icon(Icons.fitness_center_rounded),
     title: Text(profile.name, maxLines: 1, overflow: TextOverflow.ellipsis),
     subtitle: Text(
       profile.equipmentCodes.isEmpty

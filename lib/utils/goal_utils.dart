@@ -10,8 +10,8 @@ const List<String> exerciseGoals = [
 ];
 const List<String> goalPriority = [
   'strength',
-  'cardio',
   'endurance',
+  'cardio',
   'mobility',
 ];
 

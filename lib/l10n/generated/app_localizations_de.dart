@@ -270,7 +270,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get catalog => 'Katalog';
 
   @override
-  String get own => 'Eigen';
+  String get own => 'Eigene';
 
   @override
   String get reviewDuplicates => 'Dubletten prüfen';
@@ -353,7 +353,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get alternatives => 'Alternativen';
 
   @override
-  String get addAlternative => 'Alternativen hinzufügen';
+  String get addAlternative => 'Alternativübung hinzufügen';
 
   @override
   String get core => 'Kern';
@@ -1256,4 +1256,105 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get equipmentPool => 'Schwimmbecken';
+
+  @override
+  String get workoutBasics => 'Grundlagen';
+
+  @override
+  String get workoutSetup => 'Setup';
+
+  @override
+  String get workoutExercises => 'Übungen';
+
+  @override
+  String get choosePrimaryGoal => 'Wähle das Hauptziel dieses Workouts';
+
+  @override
+  String get primaryGoal => 'Hauptziel';
+
+  @override
+  String get setupName => 'Setup-Name';
+
+  @override
+  String get withoutProfile => 'Ohne Trainingsprofil';
+
+  @override
+  String get createSetup => 'Setup hinzufügen';
+
+  @override
+  String get selectSetup => 'Setup auswählen';
+
+  @override
+  String get setups => 'Setups';
+
+  @override
+  String get weeklyPlanner => 'Wochenplan';
+
+  @override
+  String get editWeeklyPlanner => 'Wochenplan bearbeiten';
+
+  @override
+  String get addToWeeklyPlanner => 'In Wochenplan eintragen';
+
+  @override
+  String get addWorkoutToDay => 'Workout hinzufügen';
+
+  @override
+  String get noWorkoutPlanned => 'Kein Workout geplant';
+
+  @override
+  String get moveWorkout => 'Workout verschieben';
+
+  @override
+  String get moveUp => 'Nach oben';
+
+  @override
+  String get moveDown => 'Nach unten';
+
+  @override
+  String get coreExercise => 'Kernübung';
+
+  @override
+  String get optionalExercise => 'Optional';
+
+  @override
+  String get makeOptional => 'Als optional markieren';
+
+  @override
+  String get makeCore => 'Als Kernübung markieren';
+
+  @override
+  String get moveToGroup => 'In andere Gruppe verschieben';
+
+  @override
+  String stepOf(int current, int total) {
+    return 'Schritt $current von $total';
+  }
+
+  @override
+  String get saveWorkout => 'Workout speichern';
+
+  @override
+  String get noSetups => 'Noch kein Setup angelegt';
+
+  @override
+  String setupExercisesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Übungen',
+      one: '1 Übung',
+      zero: 'Keine Übungen',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get plannedWorkouts => 'Geplante Workouts';
+
+  @override
+  String get dayDetails => 'Tagesübersicht';
+
+  @override
+  String get workoutAlreadyPlanned => 'Dieses Workout ist an diesem Tag bereits geplant.';
 }

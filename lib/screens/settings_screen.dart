@@ -18,6 +18,8 @@ import '../widgets/language_preference_picker.dart';
 import '../repositories/training_profile_repository.dart';
 import '../l10n/l10n.dart';
 import '../widgets/training_profile_settings_card.dart';
+import '../utils/goal_utils.dart';
+import 'weekly_planner_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -207,35 +209,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                         (v) => context.read<ProgressProvider>().setWeeklyGoal(
                           v.first.clamp(1, 7),
                         ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.trainingDays,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _TrainingDaysPicker(
-                    selected:
-                        progress.trainingDays.isEmpty
-                            ? progress.effectiveTrainingDays
-                            : progress.trainingDays,
-                    onChanged:
-                        (days) => context
-                            .read<ProgressProvider>()
-                            .setTrainingDays(days),
                   ),
                 ],
               ),
@@ -838,41 +811,35 @@ class _WorkoutScheduleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final workouts = context.watch<WorkoutProvider>().workouts;
-    final progress = context.watch<ProgressProvider>();
-    final trainingDays =
-        progress.trainingDays.isEmpty
-            ? progress.effectiveTrainingDays
-            : progress.trainingDays;
-
-    if (workouts.isEmpty) return const SizedBox.shrink();
-
-    // Tage mit mindestens einem zugewiesenen Workout
-    final workoutAssignedDays = <int>{};
-    for (final w in workouts) {
-      workoutAssignedDays.addAll(w.assignedDays);
-    }
-
+    final workoutProvider = context.watch<WorkoutProvider>();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              context.l10n.trainingPlan,
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
+            Row(
+              children: [
+                Text(
+                  context.l10n.trainingPlan,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const WeeklyPlannerScreen()),
+                  ),
+                  child: Text(context.l10n.editWeeklyPlanner),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             ...List.generate(7, (i) {
               final day = i + 1;
-              final isTrainingDay = trainingDays.contains(day);
-              final hasWorkoutAssigned = workoutAssignedDays.contains(day);
-              final showChips = isTrainingDay || hasWorkoutAssigned;
               final assignedWorkouts =
-                  workouts.where((w) => w.assignedDays.contains(day)).toList();
+                  workoutProvider.workoutsForDay(day);
 
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -892,60 +859,28 @@ class _WorkoutScheduleCard extends StatelessWidget {
                         ][i],
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color:
-                              showChips
-                                  ? scheme.onSurface
-                                  : scheme.onSurfaceVariant.withValues(
-                                    alpha: 0.4,
-                                  ),
+                          color: assignedWorkouts.isNotEmpty
+                              ? scheme.onSurface
+                              : scheme.onSurfaceVariant.withValues(alpha: 0.4),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child:
-                          showChips
+                          assignedWorkouts.isNotEmpty
                               ? Wrap(
                                 spacing: 6,
                                 runSpacing: 6,
                                 children: [
-                                  for (final w in workouts)
-                                    FilterChip(
+                                  for (final w in assignedWorkouts.take(2))
+                                    Chip(
+                                      avatar: GoalIcon(w.primaryGoalCode, size: 15),
                                       label: Text(w.name),
-                                      selected: assignedWorkouts.contains(w),
-                                      onSelected: (_) {
-                                        final current = Set<int>.from(
-                                          w.assignedDays,
-                                        );
-                                        if (current.contains(day)) {
-                                          current.remove(day);
-                                        } else {
-                                          current.add(day);
-                                          // Auto-Sync: Tag zu globalen Trainingstagen hinzufügen
-                                          if (!trainingDays.contains(day)) {
-                                            final updatedDays = Set<int>.from(
-                                              trainingDays,
-                                            )..add(day);
-                                            context
-                                                .read<ProgressProvider>()
-                                                .setTrainingDays(updatedDays);
-                                          }
-                                        }
-                                        context
-                                            .read<WorkoutProvider>()
-                                            .setWorkoutDays(w.id, current);
-                                        try {
-                                          context
-                                              .read<CloudSyncProvider>()
-                                              .scheduleBackupSoon();
-                                        } catch (_) {}
-                                      },
                                       visualDensity: VisualDensity.compact,
-                                      labelStyle:
-                                          Theme.of(
-                                            context,
-                                          ).textTheme.labelSmall,
                                     ),
+                                  if (assignedWorkouts.length > 2)
+                                    Chip(label: Text('+${assignedWorkouts.length - 2}')),
                                 ],
                               )
                               : Text(
@@ -966,77 +901,6 @@ class _WorkoutScheduleCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _TrainingDaysPicker extends StatelessWidget {
-  final Set<int> selected;
-  final ValueChanged<Set<int>> onChanged;
-
-  const _TrainingDaysPicker({required this.selected, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(7, (i) {
-        final day = i + 1;
-        final isSelected = selected.contains(day);
-        return GestureDetector(
-          onTap: () {
-            final next = Set<int>.from(selected);
-            if (isSelected) {
-              next.remove(day);
-            } else {
-              next.add(day);
-            }
-            onChanged(next);
-          },
-          child: SizedBox(
-            width: 48,
-            height: 48,
-            child: Center(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color:
-                      isSelected
-                          ? scheme.primaryContainer
-                          : scheme.surfaceContainerHighest.withValues(
-                            alpha: 0.5,
-                          ),
-                  shape: BoxShape.circle,
-                  border:
-                      isSelected
-                          ? Border.all(color: scheme.primary, width: 1.5)
-                          : null,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  [
-                    context.l10n.monday,
-                    context.l10n.tuesday,
-                    context.l10n.wednesday,
-                    context.l10n.thursday,
-                    context.l10n.friday,
-                    context.l10n.saturday,
-                    context.l10n.sunday,
-                  ][i],
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color:
-                        isSelected ? scheme.primary : scheme.onSurfaceVariant,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      }),
     );
   }
 }

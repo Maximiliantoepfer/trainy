@@ -596,7 +596,7 @@ abstract class AppLocalizations {
   /// No description provided for @own.
   ///
   /// In en, this message translates to:
-  /// **'Own'**
+  /// **'Custom'**
   String get own;
 
   /// No description provided for @reviewDuplicates.
@@ -758,7 +758,7 @@ abstract class AppLocalizations {
   /// No description provided for @addAlternative.
   ///
   /// In en, this message translates to:
-  /// **'Add alternatives'**
+  /// **'Add alternative exercise'**
   String get addAlternative;
 
   /// No description provided for @core.
@@ -2236,6 +2236,186 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Swimming pool'**
   String get equipmentPool;
+
+  /// No description provided for @workoutBasics.
+  ///
+  /// In en, this message translates to:
+  /// **'Basics'**
+  String get workoutBasics;
+
+  /// No description provided for @workoutSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Setup'**
+  String get workoutSetup;
+
+  /// No description provided for @workoutExercises.
+  ///
+  /// In en, this message translates to:
+  /// **'Exercises'**
+  String get workoutExercises;
+
+  /// No description provided for @choosePrimaryGoal.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose this workout\'s primary goal'**
+  String get choosePrimaryGoal;
+
+  /// No description provided for @primaryGoal.
+  ///
+  /// In en, this message translates to:
+  /// **'Primary goal'**
+  String get primaryGoal;
+
+  /// No description provided for @setupName.
+  ///
+  /// In en, this message translates to:
+  /// **'Setup name'**
+  String get setupName;
+
+  /// No description provided for @withoutProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'No training profile'**
+  String get withoutProfile;
+
+  /// No description provided for @createSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Add setup'**
+  String get createSetup;
+
+  /// No description provided for @selectSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose setup'**
+  String get selectSetup;
+
+  /// No description provided for @setups.
+  ///
+  /// In en, this message translates to:
+  /// **'Setups'**
+  String get setups;
+
+  /// No description provided for @weeklyPlanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly planner'**
+  String get weeklyPlanner;
+
+  /// No description provided for @editWeeklyPlanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit weekly planner'**
+  String get editWeeklyPlanner;
+
+  /// No description provided for @addToWeeklyPlanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to weekly planner'**
+  String get addToWeeklyPlanner;
+
+  /// No description provided for @addWorkoutToDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Add workout'**
+  String get addWorkoutToDay;
+
+  /// No description provided for @noWorkoutPlanned.
+  ///
+  /// In en, this message translates to:
+  /// **'No workout planned'**
+  String get noWorkoutPlanned;
+
+  /// No description provided for @moveWorkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Move workout'**
+  String get moveWorkout;
+
+  /// No description provided for @moveUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Move up'**
+  String get moveUp;
+
+  /// No description provided for @moveDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Move down'**
+  String get moveDown;
+
+  /// No description provided for @coreExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Core exercise'**
+  String get coreExercise;
+
+  /// No description provided for @optionalExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get optionalExercise;
+
+  /// No description provided for @makeOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark optional'**
+  String get makeOptional;
+
+  /// No description provided for @makeCore.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark core'**
+  String get makeCore;
+
+  /// No description provided for @moveToGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to another group'**
+  String get moveToGroup;
+
+  /// No description provided for @stepOf.
+  ///
+  /// In en, this message translates to:
+  /// **'Step {current} of {total}'**
+  String stepOf(int current, int total);
+
+  /// No description provided for @saveWorkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Save workout'**
+  String get saveWorkout;
+
+  /// No description provided for @noSetups.
+  ///
+  /// In en, this message translates to:
+  /// **'No setup yet'**
+  String get noSetups;
+
+  /// No description provided for @setupExercisesCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No exercises} =1{1 exercise} other{{count} exercises}}'**
+  String setupExercisesCount(int count);
+
+  /// No description provided for @plannedWorkouts.
+  ///
+  /// In en, this message translates to:
+  /// **'Planned workouts'**
+  String get plannedWorkouts;
+
+  /// No description provided for @dayDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Day overview'**
+  String get dayDetails;
+
+  /// No description provided for @workoutAlreadyPlanned.
+  ///
+  /// In en, this message translates to:
+  /// **'This workout is already planned for this day.'**
+  String get workoutAlreadyPlanned;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

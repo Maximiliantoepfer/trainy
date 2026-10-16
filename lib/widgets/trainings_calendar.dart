@@ -1,15 +1,26 @@
 // lib/widgets/trainings_calendar.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../models/workout.dart';
+import '../models/workout_planning.dart';
 import '../models/workout_entry.dart';
 import '../l10n/l10n.dart';
+import '../utils/goal_utils.dart';
 
 /// Simpler Monatskalender mit Markierungen für Tage, an denen Workouts getrackt wurden.
 /// Design-Update: Statt Zahl nun ein kräftiger, gefüllter grüner Haken.
 /// Count bleibt für Semantics/Screenreader erhalten.
 class TrainingsCalendar extends StatefulWidget {
   final List<WorkoutEntry> entries;
-  const TrainingsCalendar({super.key, required this.entries});
+  final List<Workout> plannedWorkouts;
+  final ValueChanged<CalendarDaySummary>? onDayTap;
+
+  const TrainingsCalendar({
+    super.key,
+    required this.entries,
+    this.plannedWorkouts = const [],
+    this.onDayTap,
+  });
 
   @override
   State<TrainingsCalendar> createState() => _TrainingsCalendarState();
@@ -109,46 +120,102 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
             final d = days[i];
             final isCurrentMonth = d.month == _visibleMonthFirstDay.month;
             final cnt = activityMap[_key(d)] ?? 0;
+            final planned = _plannedForWeekday(d.weekday);
+            final goalCode = prioritizedGoal(
+              planned.expand((workout) => workout.goalCodes),
+            );
+            final summary = CalendarDaySummary(
+              date: d,
+              plannedWorkoutIds: planned
+                  .map((workout) => workout.canonicalId)
+                  .toList(growable: false),
+              primaryGoal: goalCode == null
+                  ? null
+                  : WorkoutPrimaryGoal.fromCode(goalCode),
+              completedCount: cnt,
+            );
+            final semantics = <String>[
+              '${d.day}',
+              context.l10n.workoutsRecordedOnDay(cnt),
+              if (planned.isNotEmpty) context.l10n.plannedWorkouts,
+            ].join(': ');
 
             return AnimatedOpacity(
               duration: const Duration(milliseconds: 150),
               opacity: isCurrentMonth ? 1.0 : 0.4,
               child: Semantics(
-                label:
-                    cnt > 0
-                        ? '${d.day}: ${context.l10n.workoutsRecordedOnDay(cnt)}'
-                        : '${d.day}: ${context.l10n.workoutsRecordedOnDay(0)}',
-                child: Container(
-                  decoration: BoxDecoration(
+                button: widget.onDayTap != null,
+                label: semantics,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.55),
-                  ),
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 8,
-                        top: 6,
-                        child: Text('${d.day}', style: bigLabel),
+                    onTap: widget.onDayTap == null
+                        ? null
+                        : () => widget.onDayTap!(summary),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.55),
                       ),
-                      // Kräftiger, gefüllter Haken statt Zahl
-                      Positioned.fill(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 180),
-                          switchInCurve: Curves.easeOut,
-                          switchOutCurve: Curves.easeIn,
-                          child:
-                              cnt > 0
-                                  ? Center(
-                                    key: const ValueKey('done'),
-                                    child: _DoneCheck(),
-                                  )
-                                  : const SizedBox.shrink(
-                                    key: ValueKey('empty'),
-                                  ),
-                        ),
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            left: 8,
+                            top: 6,
+                            child: Text('${d.day}', style: bigLabel),
+                          ),
+                          Positioned.fill(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 180),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              child: cnt > 0
+                                  ? const Center(
+                                      key: ValueKey('done'),
+                                      child: _DoneCheck(),
+                                    )
+                                  : summary.primaryGoal == null
+                                  ? const SizedBox.shrink(
+                                      key: ValueKey('empty'),
+                                    )
+                                  : Center(
+                                      key: ValueKey(
+                                        'planned-${summary.primaryGoal!.code}',
+                                      ),
+                                      child: GoalIcon(
+                                        summary.primaryGoal!.code,
+                                        size: 25,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          if (summary.additionalWorkoutCount > 0)
+                            Positioned(
+                              right: 5,
+                              bottom: 4,
+                              child: Text(
+                                '+${summary.additionalWorkoutCount}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -182,6 +249,19 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
       map.update(key, (v) => v + 1, ifAbsent: () => 1);
     }
     return map;
+  }
+
+  List<Workout> _plannedForWeekday(int weekday) {
+    final result = widget.plannedWorkouts
+        .where((workout) => workout.assignedDays.contains(weekday))
+        .toList()
+      ..sort(
+        (a, b) =>
+            (a.scheduleOrderByDay[weekday] ?? 0).compareTo(
+              b.scheduleOrderByDay[weekday] ?? 0,
+            ),
+      );
+    return result;
   }
 
   String _key(DateTime d) {

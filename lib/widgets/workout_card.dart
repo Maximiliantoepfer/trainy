@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/workout.dart';
 import 'tap_scale.dart';
 import '../l10n/l10n.dart';
+import '../utils/goal_utils.dart';
 
 class WorkoutCard extends StatelessWidget {
   final Workout workout;
@@ -53,8 +54,8 @@ class WorkoutCard extends StatelessWidget {
                       color: scheme.primaryContainer,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: ImageIcon(
-                      const AssetImage('assets/icons/hantel.png'),
+                    child: GoalIcon(
+                      workout.primaryGoalCode,
                       size: 22,
                       color: scheme.onPrimaryContainer,
                     ),

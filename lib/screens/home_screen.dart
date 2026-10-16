@@ -9,7 +9,7 @@ import '../providers/progress_provider.dart';
 import '../widgets/workout_card.dart';
 import '../widgets/app_bar_title.dart';
 import '../widgets/screen_info_dialog.dart';
-import 'workout_screen.dart';
+import 'workout_detail_screen.dart';
 import 'backdate_workout_screen.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/animated_flame_icon.dart';
@@ -19,7 +19,6 @@ import '../providers/exercise_provider.dart';
 import '../models/exercise.dart';
 import '../utils/goal_utils.dart';
 import '../l10n/l10n.dart';
-import '../widgets/modal_form_dialogs.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,23 +56,15 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _createWorkout() async {
     final provider = context.read<WorkoutProvider>();
-    final name = await showTextPromptDialog(
-      context: context,
-      title: context.l10n.newWorkout,
-      label: context.l10n.workoutName,
-      submitLabel: context.l10n.create,
-      cancelLabel: context.l10n.cancel,
-      requiredMessage: context.l10n.nameRequired,
+    final w = await Navigator.of(context).push<Workout>(
+      MaterialPageRoute(builder: (_) => const WorkoutEditorScreen()),
     );
     if (!mounted) return;
-    if (name == null) return;
-
-    final w = await provider.createWorkout(name: name);
-    if (!mounted) return;
+    if (w == null) return;
 
     await Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (_) => WorkoutScreen(workout: w)));
+    ).push(MaterialPageRoute(builder: (_) => WorkoutDetailScreen(workout: w)));
     if (!mounted) return;
     await provider.loadWorkouts();
     if (!mounted) return;
@@ -140,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
     await Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (_) => WorkoutScreen(workout: workout)));
+    ).push(MaterialPageRoute(builder: (_) => WorkoutDetailScreen(workout: workout)));
     if (!mounted) return;
     await context.read<WorkoutProvider>().loadWorkouts();
   }
@@ -196,7 +187,6 @@ class _HomeScreenState extends State<HomeScreen>
     final progress = context.watch<ProgressProvider>();
     final trainedWeekdays = _trainedWeekdaysForSelectedWeek(progress.entries);
     final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
-    final effectiveTrainingDays = progress.effectiveTrainingDays;
     final isProgressLoading = progress.isLoading;
     final streak = progress.currentStreak;
 
@@ -318,7 +308,6 @@ class _HomeScreenState extends State<HomeScreen>
                     trainedWeekdays:
                         isProgressLoading ? const {} : trainedWeekdays,
                     weeklyGoal: weeklyGoal,
-                    trainingDays: effectiveTrainingDays,
                     workoutDays: workoutAssignedDays,
                     plannedGoalByDay: plannedGoalByDay,
                     streak: streak,
@@ -493,6 +482,21 @@ class _TodaysWorkoutCard extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: GoalIcon(
+                      w.primaryGoalCode,
+                      color: scheme.onPrimaryContainer,
+                      size: 23,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -593,8 +597,8 @@ class _TodaysWorkoutCard extends StatelessWidget {
                               color: scheme.primary.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: ImageIcon(
-                              const AssetImage('assets/icons/hantel.png'),
+                            child: GoalIcon(
+                              w.primaryGoalCode,
                               color: scheme.onPrimaryContainer,
                               size: 16,
                             ),
@@ -713,7 +717,6 @@ class _EmptyState extends StatelessWidget {
 class _WeeklyOverviewCard extends StatelessWidget {
   final Set<int> trainedWeekdays;
   final int weeklyGoal;
-  final Set<int> trainingDays;
   final Set<int> workoutDays;
   final Map<int, String> plannedGoalByDay;
   final int streak;
@@ -723,7 +726,6 @@ class _WeeklyOverviewCard extends StatelessWidget {
   const _WeeklyOverviewCard({
     required this.trainedWeekdays,
     required this.weeklyGoal,
-    required this.trainingDays,
     required this.workoutDays,
     required this.plannedGoalByDay,
     required this.streak,
@@ -846,9 +848,7 @@ class _WeeklyOverviewCard extends StatelessWidget {
               children: List.generate(7, (i) {
                 final weekday = i + 1;
                 final done = trainedWeekdays.contains(weekday);
-                final isTrainingDay =
-                    trainingDays.contains(weekday) ||
-                    workoutDays.contains(weekday);
+                final isTrainingDay = workoutDays.contains(weekday);
                 return _DayDot(
                   label: labels[i],
                   done: done,

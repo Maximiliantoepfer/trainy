@@ -6,6 +6,7 @@ import '../providers/progress_provider.dart';
 import '../providers/workout_provider.dart';
 import '../models/workout_entry.dart';
 import '../models/workout.dart';
+import '../models/workout_planning.dart';
 import '../widgets/weekly_activity_chart.dart';
 import 'workout_entry_detail_screen.dart';
 import '../widgets/active_workout_banner.dart';
@@ -21,6 +22,7 @@ import '../widgets/app_bar_title.dart';
 import '../widgets/screen_info_dialog.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../l10n/l10n.dart';
+import '../utils/goal_utils.dart';
 
 class ProgressScreen extends StatefulWidget {
   final VoidCallback? onSwipePastStart;
@@ -197,6 +199,7 @@ class _ProgressScreenState extends State<ProgressScreen>
   Widget _buildInsightsTab(List<WorkoutEntry> entries) {
     final provider = context.watch<ProgressProvider>();
     final allExercises = context.watch<ExerciseProvider>().exercises;
+    final workouts = context.watch<WorkoutProvider>().workouts;
     final order = provider.effectiveInsightsOrder;
     final rec = _findRecommendation(entries, allExercises);
 
@@ -234,7 +237,12 @@ class _ProgressScreenState extends State<ProgressScreen>
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-                child: TrainingsCalendar(entries: entries),
+                child: TrainingsCalendar(
+                  entries: entries,
+                  plannedWorkouts: workouts,
+                  onDayTap: (summary) =>
+                      _showCalendarDay(summary, workouts, entries),
+                ),
               ),
             ),
           );
@@ -285,6 +293,100 @@ class _ProgressScreenState extends State<ProgressScreen>
 
         return SizedBox.shrink(key: ValueKey(item));
       },
+    );
+  }
+
+  Future<void> _showCalendarDay(
+    CalendarDaySummary summary,
+    List<Workout> workouts,
+    List<WorkoutEntry> entries,
+  ) async {
+    final planned = summary.plannedWorkoutIds
+        .map(
+          (id) => workouts.where((workout) => workout.canonicalId == id),
+        )
+        .expand((items) => items)
+        .toList();
+    final completed = entries
+        .where(
+          (entry) =>
+              entry.date.year == summary.date.year &&
+              entry.date.month == summary.date.month &&
+              entry.date.day == summary.date.day,
+        )
+        .toList();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.72,
+          ),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+            children: [
+              Text(
+                DateFormat.yMMMMd(
+                  Localizations.localeOf(sheetContext).toLanguageTag(),
+                ).format(summary.date), style: Theme.of(sheetContext).textTheme.titleLarge),
+              const SizedBox(height: 18),
+              Text(
+                sheetContext.l10n.plannedWorkouts,
+                style: Theme.of(sheetContext).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              if (planned.isEmpty)
+                Text(sheetContext.l10n.noWorkoutPlanned)
+              else
+                ...planned.map(
+                  (workout) => Card(
+                    child: ListTile(
+                      leading: GoalIcon(workout.primaryGoalCode, size: 22),
+                      title: Text(workout.name),
+                      subtitle: Text(
+                        goalLabel(sheetContext, workout.primaryGoalCode),
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 18),
+              Text(
+                sheetContext.l10n.history,
+                style: Theme.of(sheetContext).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              if (completed.isEmpty)
+                Text(sheetContext.l10n.workoutsRecordedOnDay(0))
+              else
+                ...completed.map((entry) {
+                  final workout = workouts.where(
+                    (candidate) => candidate.id == entry.workoutId,
+                  );
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.check_circle_rounded),
+                      title: Text(
+                        workout.isEmpty
+                            ? sheetContext.l10n.workout
+                            : workout.first.name,
+                      ),
+                      subtitle: Text(
+                        DateFormat.Hm(
+                          Localizations.localeOf(
+                            sheetContext,
+                          ).toLanguageTag(),
+                        ).format(entry.date),
+                      ),
+                    ),
+                  );
+                }),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

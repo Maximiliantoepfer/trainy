@@ -270,7 +270,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get catalog => 'Catalog';
 
   @override
-  String get own => 'Own';
+  String get own => 'Custom';
 
   @override
   String get reviewDuplicates => 'Review duplicates';
@@ -353,7 +353,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get alternatives => 'Alternatives';
 
   @override
-  String get addAlternative => 'Add alternatives';
+  String get addAlternative => 'Add alternative exercise';
 
   @override
   String get core => 'Core';
@@ -1256,4 +1256,105 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get equipmentPool => 'Swimming pool';
+
+  @override
+  String get workoutBasics => 'Basics';
+
+  @override
+  String get workoutSetup => 'Setup';
+
+  @override
+  String get workoutExercises => 'Exercises';
+
+  @override
+  String get choosePrimaryGoal => 'Choose this workout\'s primary goal';
+
+  @override
+  String get primaryGoal => 'Primary goal';
+
+  @override
+  String get setupName => 'Setup name';
+
+  @override
+  String get withoutProfile => 'No training profile';
+
+  @override
+  String get createSetup => 'Add setup';
+
+  @override
+  String get selectSetup => 'Choose setup';
+
+  @override
+  String get setups => 'Setups';
+
+  @override
+  String get weeklyPlanner => 'Weekly planner';
+
+  @override
+  String get editWeeklyPlanner => 'Edit weekly planner';
+
+  @override
+  String get addToWeeklyPlanner => 'Add to weekly planner';
+
+  @override
+  String get addWorkoutToDay => 'Add workout';
+
+  @override
+  String get noWorkoutPlanned => 'No workout planned';
+
+  @override
+  String get moveWorkout => 'Move workout';
+
+  @override
+  String get moveUp => 'Move up';
+
+  @override
+  String get moveDown => 'Move down';
+
+  @override
+  String get coreExercise => 'Core exercise';
+
+  @override
+  String get optionalExercise => 'Optional';
+
+  @override
+  String get makeOptional => 'Mark optional';
+
+  @override
+  String get makeCore => 'Mark core';
+
+  @override
+  String get moveToGroup => 'Move to another group';
+
+  @override
+  String stepOf(int current, int total) {
+    return 'Step $current of $total';
+  }
+
+  @override
+  String get saveWorkout => 'Save workout';
+
+  @override
+  String get noSetups => 'No setup yet';
+
+  @override
+  String setupExercisesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count exercises',
+      one: '1 exercise',
+      zero: 'No exercises',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get plannedWorkouts => 'Planned workouts';
+
+  @override
+  String get dayDetails => 'Day overview';
+
+  @override
+  String get workoutAlreadyPlanned => 'This workout is already planned for this day.';
 }
