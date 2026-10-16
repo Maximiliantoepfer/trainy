@@ -95,57 +95,59 @@ class ExerciseDatabase {
 
   Future<void> upsertExercise(Exercise e) async {
     final db = await _db;
-    await db.insert('exercises', {
-      'id': e.id,
-      'name': e.name,
-      'description': e.description,
-      'trackedFields': jsonEncode({
-        'sets': e.trackSets,
-        'reps': e.trackReps,
-        'weight': e.trackWeight,
-        'duration': e.trackDuration,
-        'distance': e.trackDistance,
-      }),
-      'defaultValues': jsonEncode(e.defaultValues),
-      'lastValues': jsonEncode(e.lastValues),
-      'units': jsonEncode(e.units),
-      'icon': e.icon,
-      'goal': e.goal,
-      'standardKey': e.standardKey,
-      'catalogId': e.catalogId,
-      'origin': e.catalogId == null ? 'custom' : 'catalog',
-      'alias': e.alias,
-      'notes': e.notes,
-      'isArchived': e.isArchived ? 1 : 0,
-      'isNameCustom': e.isNameCustom ? 1 : 0,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
-    await db.delete(
-      'exercise_goal_labels',
-      where: 'exerciseId = ?',
-      whereArgs: [e.id],
-    );
-    final validatedGoals = _validatedGoals(e.goalCodes);
-    for (var index = 0; index < validatedGoals.length; index++) {
-      await db.insert('exercise_goal_labels', {
-        'exerciseId': e.id,
-        'goalCode': validatedGoals[index],
-        'position': index,
-      });
-    }
-    await db.delete(
-      'exercise_images',
-      where: 'exerciseId = ?',
-      whereArgs: [e.id],
-    );
-    for (var index = 0; index < e.imagePaths.length; index++) {
-      await db.insert('exercise_images', {
-        'id': DateTime.now().microsecondsSinceEpoch + index,
-        'exerciseId': e.id,
-        'relativePath': e.imagePaths[index],
-        'isCover': index == 0 ? 1 : 0,
-        'sort': index,
-      });
-    }
+    await db.transaction((txn) async {
+      await txn.insert('exercises', {
+        'id': e.id,
+        'name': e.name,
+        'description': e.description,
+        'trackedFields': jsonEncode({
+          'sets': e.trackSets,
+          'reps': e.trackReps,
+          'weight': e.trackWeight,
+          'duration': e.trackDuration,
+          'distance': e.trackDistance,
+        }),
+        'defaultValues': jsonEncode(e.defaultValues),
+        'lastValues': jsonEncode(e.lastValues),
+        'units': jsonEncode(e.units),
+        'icon': e.icon,
+        'goal': e.goal,
+        'standardKey': e.standardKey,
+        'catalogId': e.catalogId,
+        'origin': e.catalogId == null ? 'custom' : 'catalog',
+        'alias': e.alias,
+        'notes': e.notes,
+        'isArchived': e.isArchived ? 1 : 0,
+        'isNameCustom': e.isNameCustom ? 1 : 0,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await txn.delete(
+        'exercise_goal_labels',
+        where: 'exerciseId = ?',
+        whereArgs: [e.id],
+      );
+      final validatedGoals = _validatedGoals(e.goalCodes);
+      for (var index = 0; index < validatedGoals.length; index++) {
+        await txn.insert('exercise_goal_labels', {
+          'exerciseId': e.id,
+          'goalCode': validatedGoals[index],
+          'position': index,
+        });
+      }
+      await txn.delete(
+        'exercise_images',
+        where: 'exerciseId = ?',
+        whereArgs: [e.id],
+      );
+      for (var index = 0; index < e.imagePaths.length; index++) {
+        await txn.insert('exercise_images', {
+          'id': DateTime.now().microsecondsSinceEpoch + index,
+          'exerciseId': e.id,
+          'relativePath': e.imagePaths[index],
+          'isCover': index == 0 ? 1 : 0,
+          'sort': index,
+        });
+      }
+    });
   }
 
   Future<void> updateLastValues(

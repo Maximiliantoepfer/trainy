@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -35,7 +37,11 @@ Future<bool> showExerciseEditorSheet(
         (_) =>
             _ExerciseEditorSheet(existing: existing, initialName: initialName),
   );
-  if (!context.mounted || result == null) return false;
+  if (result == null) return false;
+  if (!context.mounted) {
+    await ExerciseImageService.instance.discardDraft(result.draftImagePath);
+    return false;
+  }
 
   if (warnOnEdit && existing != null) {
     final confirmed = await showDialog<bool>(
@@ -56,30 +62,59 @@ Future<bool> showExerciseEditorSheet(
             ],
           ),
     );
-    if (!context.mounted || confirmed != true) return false;
+    if (!context.mounted || confirmed != true) {
+      await ExerciseImageService.instance.discardDraft(result.draftImagePath);
+      return false;
+    }
   }
 
-  await context.read<ExerciseProvider>().addOrUpdateExercise(
-    id: existing?.id,
-    name: result.name,
-    description: result.description,
-    trackSets: result.trackSets,
-    trackReps: result.trackReps,
-    trackWeight: result.trackWeight,
-    trackDuration: result.trackDuration,
-    trackDistance: result.trackDistance,
-    goal: result.goal,
-    standardKey: existing?.standardKey,
-    catalogId: existing?.catalogId,
-    alias: existing?.alias,
-    notes: existing?.notes ?? '',
-    goalCodes: result.goalCodes,
-    imagePaths: result.imagePaths,
-    isNameCustom:
-        existing?.catalogId != null && result.name == initialName
-            ? false
-            : existing?.isNameCustom,
-  );
+  final provider = context.read<ExerciseProvider>();
+  Future<int> persist(List<String> imagePaths, {int? exerciseId}) =>
+      provider.addOrUpdateExercise(
+        id: exerciseId ?? existing?.id,
+        name: result.name,
+        description: result.description,
+        trackSets: result.trackSets,
+        trackReps: result.trackReps,
+        trackWeight: result.trackWeight,
+        trackDuration: result.trackDuration,
+        trackDistance: result.trackDistance,
+        goal: result.goal,
+        standardKey: existing?.standardKey,
+        catalogId: existing?.catalogId,
+        alias: existing?.alias,
+        notes: existing?.notes ?? '',
+        goalCodes: result.goalCodes,
+        imagePaths: imagePaths,
+        isNameCustom:
+            existing?.catalogId != null && result.name == initialName
+                ? false
+                : existing?.isNameCustom,
+      );
+
+  final previousImages = List<String>.from(existing?.imagePaths ?? const []);
+  final initialImages =
+      result.removeExistingImage ? <String>[] : previousImages;
+  final exerciseId = await persist(initialImages);
+  if (result.draftImagePath case final draft?) {
+    final committed = await ExerciseImageService.instance.commitDraftCover(
+      draft,
+      exerciseId: exerciseId,
+    );
+    try {
+      await persist([committed], exerciseId: exerciseId);
+      for (final oldPath in previousImages) {
+        await ExerciseImageService.instance.deleteRelative(oldPath);
+      }
+    } catch (_) {
+      await ExerciseImageService.instance.deleteRelative(committed);
+      rethrow;
+    }
+  } else if (result.removeExistingImage) {
+    for (final oldPath in previousImages) {
+      await ExerciseImageService.instance.deleteRelative(oldPath);
+    }
+  }
   if (!context.mounted) return true;
   try {
     context.read<CloudSyncProvider>().scheduleBackupSoon();
@@ -99,7 +134,8 @@ class _ExerciseEditorResult {
     required this.trackDistance,
     required this.goal,
     required this.goalCodes,
-    required this.imagePaths,
+    required this.draftImagePath,
+    required this.removeExistingImage,
   });
 
   final String name;
@@ -111,7 +147,8 @@ class _ExerciseEditorResult {
   final bool trackDistance;
   final String? goal;
   final List<String> goalCodes;
-  final List<String> imagePaths;
+  final String? draftImagePath;
+  final bool removeExistingImage;
 }
 
 class _ExerciseEditorSheet extends StatefulWidget {
@@ -137,8 +174,11 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
   late final ValueNotifier<bool> _trackDistance;
   late final ValueNotifier<String?> _goal;
   late final ValueNotifier<List<String>> _goalCodes;
-  late final ValueNotifier<List<String>> _imagePaths;
   late final Future<List<Map<String, dynamic>>>? _mergeHistory;
+  late final String _draftId;
+  String? _draftImagePath;
+  bool _removeExistingImage = false;
+  bool _submitted = false;
 
   @override
   void initState() {
@@ -159,9 +199,9 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
           ? List<String>.from(existing!.goalCodes)
           : (existing?.goal == null ? <String>[] : [existing!.goal!]),
     );
-    _imagePaths = ValueNotifier(
-      List<String>.from(existing?.imagePaths ?? const []),
-    );
+    _draftId =
+        'exercise-${existing?.id ?? 'new'}-${DateTime.now().microsecondsSinceEpoch}';
+    unawaited(ExerciseImageService.instance.cleanupStaleDrafts());
     _mergeHistory =
         existing == null
             ? null
@@ -179,23 +219,41 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
     _trackDistance.dispose();
     _goal.dispose();
     _goalCodes.dispose();
-    _imagePaths.dispose();
+    if (!_submitted) {
+      unawaited(ExerciseImageService.instance.discardDraft(_draftImagePath));
+    }
     super.dispose();
   }
 
   Future<void> _pickImage() async {
-    final existing = widget.existing;
-    if (existing == null) return;
-    final path = await ExerciseImageService.instance.pickAndStoreCover(
-      exerciseId: existing.id,
+    if (widget.existing?.catalogId != null) return;
+    final oldDraft = _draftImagePath;
+    final path = await ExerciseImageService.instance.pickDraftCover(
+      draftId: _draftId,
     );
     if (!mounted || path == null) return;
-    _imagePaths.value = [path, ..._imagePaths.value];
+    if (oldDraft != null && oldDraft != path) {
+      await ExerciseImageService.instance.discardDraft(oldDraft);
+    }
+    setState(() {
+      _draftImagePath = path;
+      _removeExistingImage = false;
+    });
+  }
+
+  Future<void> _removeImage() async {
+    await ExerciseImageService.instance.discardDraft(_draftImagePath);
+    if (!mounted) return;
+    setState(() {
+      _draftImagePath = null;
+      _removeExistingImage = true;
+    });
   }
 
   void _submit() {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
+    _submitted = true;
     Navigator.of(context).pop(
       _ExerciseEditorResult(
         name: name,
@@ -207,7 +265,8 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
         trackDistance: _trackDistance.value,
         goal: _goal.value,
         goalCodes: List.unmodifiable(_goalCodes.value),
-        imagePaths: List.unmodifiable(_imagePaths.value),
+        draftImagePath: _draftImagePath,
+        removeExistingImage: _removeExistingImage,
       ),
     );
   }
@@ -237,17 +296,24 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            if (existing != null)
+            if (existing?.catalogId == null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: ValueListenableBuilder<List<String>>(
-                  valueListenable: _imagePaths,
-                  builder:
-                      (context, paths, _) => OutlinedButton.icon(
-                        onPressed: _pickImage,
-                        icon: const Icon(Icons.add_photo_alternate_outlined),
-                        label: Text('${context.l10n.add} (${paths.length})'),
-                      ),
+                child: _ExerciseImageEditor(
+                  draftPath: _draftImagePath,
+                  existingPath:
+                      _removeExistingImage
+                          ? null
+                          : (existing == null || existing.imagePaths.isEmpty
+                              ? null
+                              : existing.imagePaths.first),
+                  onPick: _pickImage,
+                  onRemove:
+                      _draftImagePath != null ||
+                              (!_removeExistingImage &&
+                                  existing?.imagePaths.isNotEmpty == true)
+                          ? _removeImage
+                          : null,
                 ),
               ),
             Flexible(
@@ -331,6 +397,74 @@ class _ExerciseEditorSheetState extends State<_ExerciseEditorSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ExerciseImageEditor extends StatelessWidget {
+  const _ExerciseImageEditor({
+    required this.draftPath,
+    required this.existingPath,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  final String? draftPath;
+  final String? existingPath;
+  final VoidCallback onPick;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedPath = draftPath ?? existingPath;
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (selectedPath != null) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: FutureBuilder<File>(
+                future: ExerciseImageService.instance.resolve(selectedPath),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return Image.file(snapshot.data!, fit: BoxFit.cover);
+                  }
+                  return ColoredBox(
+                    color: scheme.surfaceContainerHighest,
+                    child: const Center(child: CircularProgressIndicator()),
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: onPick,
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              label: Text(
+                selectedPath == null
+                    ? context.l10n.selectImage
+                    : context.l10n.replaceImage,
+              ),
+            ),
+            if (onRemove != null)
+              TextButton.icon(
+                onPressed: onRemove,
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: Text(context.l10n.removeImage),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+      ],
     );
   }
 }
