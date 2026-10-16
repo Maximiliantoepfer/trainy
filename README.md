@@ -7,8 +7,8 @@ Eine native Flutter-App für Android und iOS zum Erstellen, Durchführen und Aus
 ## Features
 
 - **Workout-Management** – Workouts erstellen, Übungen per Drag & Drop sortieren
-- **Live-Session** – Timer, Set-by-Set-Eingabe, überlebt Navigation zwischen Screens
-- **Exercise-Bibliothek** – Konfigurierbare Tracking-Felder (Sets, Reps, Gewicht, Dauer)
+- **Live-Session** – Timer und lokales Set-by-Set-Autosave mit Wiederherstellung nach einem Prozessabbruch
+- **Übungsbibliothek** – 876 mitgelieferte Offline-Übungen, eigene Übungen, gemeinsame Suche und Ziel-/Profilfilter
 - **Fortschritts-Auswertung** – Charts, Wochenziel, Trainingskalender, Session-Details
 - **Cloud-Backup** – Google Sign-In → geprüftes v2-ZIP in Firebase Storage
 - **Individuelles Theme** – Light/Dark/System + freie Akzentfarbenauswahl
@@ -65,7 +65,11 @@ Umstellung über eine klar markierte Kompatibilitätsfassade in derselben
 1. App-Start: Der Lifecycle-Koordinator prüft Datenepoch und Integrität
 2. UI reagiert reaktiv via `Consumer<T>` / `context.watch<T>()`
 3. Neue Schreiboperationen laufen transaktional über Repositories nach SQLite
-4. Optional: CloudSyncProvider synchronisiert ein versioniertes ZIP-Backup mit Firebase Storage
+4. Optional: CloudSyncProvider sichert einen lokalen Stand als versioniertes ZIP in Firebase Storage
+
+SQLite ist dabei stets die operative Quelle. Die Cloud wird niemals zum
+Starten eines Workouts, Speichern eines Satzes oder Anzeigen lokaler Daten
+benötigt.
 
 ---
 
@@ -152,13 +156,19 @@ lib/
 | Integration | `health_record_links` | Stabile Verweise für spätere Health-Connect-/HealthKit-Synchronisierung |
 | Deduplizierung | `duplicate_suggestions_v2`, `exercise_redirects_v2` | Persistente Vorschläge und reversible Weiterleitungen |
 
-### Migrationsstrategie
+### Migrations- und Startstrategie
 
 Epoch 2 verwendet `trainy_v2.db`, UUID-Text-IDs, normalisierte Tags/Metriken
-und ein gemeinsames Aktivitätsmodell für Kraft, Cardio und Mobilität. Beim
-ersten Start wird die alte Trainingsdatenbank bewusst verworfen. Der Marker
-wird erst nach erfolgreichem `integrity_check` und `foreign_key_check`
-geschrieben; ein unterbrochener Reset wiederholt sich dadurch sicher.
+und ein gemeinsames Aktivitätsmodell für Kraft, Cardio und Mobilität. Nur der
+einmalige Wechsel von einer echten älteren Datenepoch darf die vorherige
+Trainingsdatenbank ersetzen. Danach ist `app_meta.data_epoch` in SQLite die
+maßgebliche Wahrheit; ein fehlender Preference-Marker wird aus der Datenbank
+wiederhergestellt und führt nicht zu einem Reset.
+
+Änderungen innerhalb der Epoch 2 laufen ausschließlich über fortlaufende
+SQLite-Schemaversionen. Eine beschädigte oder unvollständige v2-Datenbank wird
+nicht automatisch gelöscht: Trainy zeigt einen Recovery-Zustand mit Retry,
+Rohdatenexport und einem separat bestätigten lokalen Reset.
 
 `PRAGMA foreign_keys = ON` wird für jede Verbindung in `onConfigure` gesetzt.
 Das kanonische Schema steht in `lib/services/database_schema_v2.dart`. Einige
@@ -230,23 +240,47 @@ HomeScreen
   └─► WorkoutScreen (Workout auswählen / bearbeiten)
         └─► WorkoutRunScreen (Live-Session starten)
               │
+              ├─ ActivityRepository.startSession()
+              │    └─ persistente lokale Session mit Übungs-Snapshots
               ├─ ActiveWorkoutProvider.start()
               │    ├─ Timer (1s-Ticker, screen-unabhängig)
-              │    └─ In-Memory Set-Liste pro Übung
+              │    └─ serialisiertes Autosave jeder Satzänderung
               │
               ├─ Nutzer gibt Sets ein (Reps/Gewicht/Dauer)
               │
-              └─ Speichern → ProgressProvider.saveSession()
-                   └─ derzeit Kompatibilitätsfassade; Zielmodell:
-                        ActivitySession → Items → Efforts → Metrics
+              └─ Fertig → sofortiger Erfolgsbildschirm
+                   ├─ lokaler Sessionstatus wird abgeschlossen
+                   └─ danach: Progress-Projektion und optionales Cloud-Backup
 ```
 
-**Session-Persistenz:** Der `ActiveWorkoutProvider` lebt im Provider-Baum – die Session überlebt Navigation und App-Lifecycle-Events.
+**Session-Persistenz:** Jeder neue Satz wird sofort in
+`activity_sessions → activity_items → activity_efforts → activity_metric_values`
+gespeichert. Schreibvorgänge werden serialisiert. Eine aktive Session kann nach
+einem Prozessende aus SQLite rekonstruiert werden; ein Cloud-Ausfall beeinflusst
+diese lokale Speicherung nicht.
 
-Die normalisierte Activity-API ist bereits vorhanden und schemaseitig
-abgesichert. Die bestehende Kraft-UI wird separat auf diese API umgestellt;
-bis dahin werden ihre historischen Integer-Tabellen nicht als neue öffentliche
-Schnittstelle erweitert.
+---
+
+## Offline-Übungskatalog
+
+- Quelle: Free Exercise DB, fest auf Commit
+  `a859101d633a01c4a1a920d6a8ce41dabba0705f` gepinnt (Unlicense)
+- Inhalt: exakt 876 Standardübungen sowie fünf getrennte grobe Trainy-
+  Aktivitäten für Laufen, Gehen, Radfahren, Schwimmen und Intervalllauf
+- Medien: 873 lokale Übungscover plus ein lokales Ersatzbild als WebP; kein
+  Download zur Laufzeit
+- Sprache: englische Originaltexte sind vollständig. Redaktionell geprüfte
+  deutsche Felder werden bevorzugt; andernfalls wird sichtbar und im Manifest
+  nachvollziehbar auf Englisch zurückgefallen.
+- Datenhaltung: Assets bleiben unveränderliche Standarddaten. Erst beim
+  Hinzufügen zu einem Workout wird eine Katalogübung lokal materialisiert.
+  Eigene Übungen liegen daneben in SQLite und werden nie automatisch gemergt.
+
+Die Bibliothek zeigt Standard- und eigene Übungen gemeinsam. Suche, Zielchips
+(`Kraft`, `Cardio`, `Ausdauer`, `Mobilität`) und ein optionaler Equipmentfilter
+für das gewählte Trainingsprofil werden kombiniert angewandt. Grobe
+Ausdaueraktivitäten stehen in einem eigenen Aktivitätsbereich; Mobilität
+enthält konkrete Übungen statt einer unspezifischen „Mobilitätseinheit“.
 
 ---
 
@@ -267,6 +301,11 @@ users/{uid}/backups/v2/
 | Periodisch | Check alle 2 Stunden, solange Sync aktiviert ist |
 | Manuell | Vollständiges Backup oder validierter Vollrestore |
 
+Cloud-Sync ist optional und standardmäßig kein Bestandteil einer lokalen
+Schreibtransaktion. Fehler wie fehlende Berechtigungen blockieren weder
+Onboarding noch lokale Nutzung; sie werden als eigener, wiederholbarer
+Cloud-Status angezeigt.
+
 ### Restore-Verhalten
 
 Backups enthalten Manifest, Datenepoch, Schema-/Katalogversion, Tabellen,
@@ -285,7 +324,7 @@ unterstützt.
 | `ExerciseProvider` | Exercise CRUD, alphabetische Sortierung, lastValues-Update |
 | `WorkoutProvider` | Workout CRUD, Exercise-Zuordnungen, Sortierung |
 | `ProgressProvider` | Session-Aggregation, Wochenziel, Eintrags-History |
-| `ActiveWorkoutProvider` | Live-Session State, 1s-Timer, Set-Verwaltung |
+| `ActiveWorkoutProvider` | Live-Session, Timer, serialisiertes lokales Satz-Autosave und Restore |
 | `CloudSyncProvider` | Firebase Auth (Google), Backup/Restore, Auto-Sync |
 | `ThemeProvider` | ThemeMode (System/Light/Dark), Akzentfarbe |
 | `LocaleProvider` | Sprachauswahl |
