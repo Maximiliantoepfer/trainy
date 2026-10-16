@@ -469,11 +469,12 @@ void main() {
         ),
       );
 
-      final template = (await database.query(
-        'workout_templates',
-        where: 'id = ?',
-        whereArgs: [run.canonicalId],
-      )).single;
+      final template =
+          (await database.query(
+            'workout_templates',
+            where: 'id = ?',
+            whereArgs: [run.canonicalId],
+          )).single;
       expect(template['primary_goal_code'], 'endurance');
       expect(
         (await database.query(
@@ -486,28 +487,28 @@ void main() {
       );
 
       await repository.assignToDay(workoutId: run.canonicalId, weekday: 1);
-      await repository.assignToDay(
-        workoutId: strength.canonicalId,
-        weekday: 1,
-      );
-      var monday = (await repository.weeklyPlacements())
-          .where((placement) => placement.weekday == 1)
-          .toList();
+      await repository.assignToDay(workoutId: strength.canonicalId, weekday: 1);
+      var monday =
+          (await repository.weeklyPlacements())
+              .where((placement) => placement.weekday == 1)
+              .toList();
       expect(monday.map((placement) => placement.workoutId), [
         run.canonicalId,
         strength.canonicalId,
       ]);
 
       await repository.movePlacement(
-        placementId: strength.canonicalId == monday.last.workoutId
-            ? monday.last.id
-            : monday.first.id,
+        placementId:
+            strength.canonicalId == monday.last.workoutId
+                ? monday.last.id
+                : monday.first.id,
         targetWeekday: 1,
         targetIndex: 0,
       );
-      monday = (await repository.weeklyPlacements())
-          .where((placement) => placement.weekday == 1)
-          .toList();
+      monday =
+          (await repository.weeklyPlacements())
+              .where((placement) => placement.weekday == 1)
+              .toList();
       expect(monday.first.workoutId, strength.canonicalId);
 
       await repository.movePlacement(
@@ -517,8 +518,100 @@ void main() {
       );
       final placements = await repository.weeklyPlacements();
       expect(
-        placements.where((placement) => placement.weekday == 5).single.workoutId,
+        placements
+            .where((placement) => placement.weekday == 5)
+            .single
+            .workoutId,
         strength.canonicalId,
+      );
+      expect(await database.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+    },
+  );
+
+  test(
+    'mobile setup contents are isolated and provide stable standard groups',
+    () async {
+      const homeId = '00000000-0000-4000-8000-000000000101';
+      const studioId = '00000000-0000-4000-8000-000000000102';
+      await database.insert('exercises', {
+        'id': 2001,
+        'name': 'Bench press',
+        'description': '',
+        'trackedFields': '{}',
+        'defaultValues': '{}',
+        'lastValues': '{}',
+        'units': '{}',
+        'origin': 'custom',
+      });
+      for (final profile in [(homeId, 'Homegym'), (studioId, 'Studio')]) {
+        await database.insert('training_profiles_v2', {
+          'id': profile.$1,
+          'name': profile.$2,
+          'created_at_utc': 1,
+          'updated_at_utc': 1,
+        });
+      }
+      final repository = WorkoutPlanningRepository(
+        database: DatabaseService(database: database),
+      );
+      final workout = await repository.createWorkout(
+        WorkoutEditorDraft(
+          name: 'Upper body',
+          primaryGoal: WorkoutPrimaryGoal.strength,
+          setupName: 'Homegym',
+          profileId: homeId,
+          exerciseIds: const [2001],
+        ),
+      );
+      final home =
+          (await repository.setupsForWorkout(workout.canonicalId)).single;
+      expect(
+        home.groups.map((group) => group.kind),
+        containsAll([
+          WorkoutGroupKind.warmup,
+          WorkoutGroupKind.core,
+          WorkoutGroupKind.cooldown,
+        ]),
+      );
+
+      final studio = await repository.createSetup(
+        workoutId: workout.canonicalId,
+        name: 'Studio',
+        profileId: studioId,
+        copyFromSetupId: home.id,
+      );
+      final both = await repository.setupsForWorkout(workout.canonicalId);
+      final restoredHome = both.firstWhere((value) => value.id == home.id);
+      final restoredStudio = both.firstWhere((value) => value.id == studio.id);
+      final homeCore = restoredHome.groups.firstWhere(
+        (group) => group.kind == WorkoutGroupKind.core,
+      );
+      final studioCore = restoredStudio.groups.firstWhere(
+        (group) => group.kind == WorkoutGroupKind.core,
+      );
+      expect(homeCore.selectedVariant.id, isNot(studioCore.selectedVariant.id));
+
+      await repository.createGroupFromSlots(
+        setupId: home.id,
+        name: 'Chest',
+        slotIds: homeCore.selectedVariant.slots.map((slot) => slot.id),
+      );
+      final split = await repository.setupsForWorkout(workout.canonicalId);
+      final splitHome = split.firstWhere((value) => value.id == home.id);
+      final splitStudio = split.firstWhere((value) => value.id == studio.id);
+      expect(
+        splitHome.groups
+            .firstWhere((group) => group.kind == WorkoutGroupKind.custom)
+            .selectedVariant
+            .slots,
+        hasLength(1),
+      );
+      expect(
+        splitStudio.groups
+            .firstWhere((group) => group.kind == WorkoutGroupKind.custom)
+            .selectedVariant
+            .slots,
+        isEmpty,
       );
       expect(await database.rawQuery('PRAGMA foreign_key_check'), isEmpty);
     },

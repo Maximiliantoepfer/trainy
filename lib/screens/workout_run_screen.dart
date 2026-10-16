@@ -19,6 +19,9 @@ import '../utils/utils.dart';
 import 'workout_success_screen.dart';
 import '../l10n/l10n.dart';
 import '../services/workout_plan_database.dart';
+import '../services/catalog_repository.dart';
+import '../repositories/training_profile_repository.dart';
+import '../services/database_schema_v2.dart';
 import '../repositories/activity_repository.dart';
 import '../widgets/modal_form_dialogs.dart';
 
@@ -67,7 +70,6 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
   bool _isStarting = false;
   late List<Exercise> _exercises;
   late List<int?> _workoutSlotIds;
-  late Map<int, List<Exercise>> _slotAlternatives;
   late Map<int, int> _slotSelections;
   late Map<int, int> _groupSelections;
   late Map<int, Exercise> _allExercisesById;
@@ -83,10 +85,6 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     while (_workoutSlotIds.length < _exercises.length) {
       _workoutSlotIds.add(null);
     }
-    _slotAlternatives = {
-      for (final entry in widget.slotAlternatives.entries)
-        entry.key: List<Exercise>.from(entry.value),
-    };
     _slotSelections = Map<int, int>.from(widget.initialSlotSelections);
     _groupSelections = Map<int, int>.from(widget.initialGroupSelections);
     _allExercisesById = {
@@ -120,7 +118,6 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
   void _rebuildExercisesFromPlan() {
     final exercises = <Exercise>[];
     final slotIds = <int?>[];
-    final alternativesBySlot = <int, List<Exercise>>{};
     for (final group in _sessionPlanGroups) {
       final selectedVariantId =
           _groupSelections[group.workoutGroupId] ??
@@ -137,32 +134,19 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
         if (slot.isOptional && !_enabledOptionalSlotIds.contains(slot.id)) {
           continue;
         }
-        final candidates = <Exercise>[];
-        final candidateIds = [slot.exerciseId, ...slot.alternativeExerciseIds];
-        for (final exerciseId in candidateIds) {
-          final exercise = _allExercisesById[exerciseId];
-          if (exercise != null &&
-              !candidates.any((item) => item.id == exercise.id)) {
-            candidates.add(exercise);
-          }
-        }
-        if (candidates.isEmpty) continue;
+        final exercise = _allExercisesById[slot.exerciseId];
+        if (exercise == null) continue;
         final selectedExerciseId = _slotSelections[slot.id];
-        final current = candidates.firstWhere(
-          (item) => item.id == selectedExerciseId,
-          orElse: () => candidates.first,
-        );
+        final current = _allExercisesById[selectedExerciseId] ?? exercise;
         exercises.add(current);
         slotIds.add(slot.id);
         _slotSelections[slot.id] = current.id;
-        if (candidates.length > 1) alternativesBySlot[slot.id] = candidates;
       }
     }
     exercises.addAll(_adHocExercises);
     slotIds.addAll(List<int?>.filled(_adHocExercises.length, null));
     _exercises = exercises;
     _workoutSlotIds = slotIds;
-    _slotAlternatives = alternativesBySlot;
   }
 
   Future<void> _selectGroupVariant(
@@ -320,17 +304,18 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
           items: itemSnapshots,
         );
         stagedActivitySessionId = persisted.sessionId;
-        final session = widget.persistLegacyPlanSelections
-            ? await WorkoutPlanDatabase.instance.createSession(
-                workoutId: widget.workout.id,
-                executedExerciseIds:
-                    _exercises.map((exercise) => exercise.id).toList(),
-                workoutVariantId: widget.workoutVariantId,
-                profileId: widget.profileId,
-                groupSelections: _groupSelections,
-                slotSelections: _slotSelections,
-              )
-            : null;
+        final session =
+            widget.persistLegacyPlanSelections
+                ? await WorkoutPlanDatabase.instance.createSession(
+                  workoutId: widget.workout.id,
+                  executedExerciseIds:
+                      _exercises.map((exercise) => exercise.id).toList(),
+                  workoutVariantId: widget.workoutVariantId,
+                  profileId: widget.profileId,
+                  groupSelections: _groupSelections,
+                  slotSelections: _slotSelections,
+                )
+                : null;
         if (!mounted) {
           await ActivityRepository().discardSession(persisted.sessionId);
           return;
@@ -648,29 +633,86 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
     );
   }
 
-  Future<void> _switchSlotExercise(int index, int direction) async {
+  /// This intentionally changes only the in-progress session. The workout
+  /// setup stays untouched, so a temporary machine/free-weight replacement
+  /// cannot alter another profile's plan or its PR series.
+  Future<void> _chooseSessionReplacement(int index) async {
     if (index < 0 || index >= _exercises.length) return;
     final slotId = _workoutSlotIds[index];
     if (slotId == null) return;
-    final candidates = _slotAlternatives[slotId];
-    if (candidates == null || candidates.length < 2) return;
-
     final current = _exercises[index];
-    final currentIndex = candidates.indexWhere(
-      (exercise) => exercise.id == current.id,
-    );
-    final nextIndex =
-        (currentIndex < 0 ? 0 : currentIndex + direction) % candidates.length;
-    final normalizedIndex =
-        nextIndex < 0 ? nextIndex + candidates.length : nextIndex;
-    final next = candidates[normalizedIndex];
-    if (next.id == current.id ||
-        _exercises.asMap().entries.any(
-          (entry) => entry.key != index && entry.value.id == next.id,
-        )) {
-      return;
+    final currentFamily =
+        CatalogRepository.instance.byId(current.catalogId)?.movementFamilyId;
+    final profiles = await TrainingProfileRepository().profiles();
+    if (!mounted) return;
+    final equipment =
+        profiles
+            .where((profile) => profile.id == widget.canonicalProfileId)
+            .expand((profile) => profile.equipmentCodes)
+            .toSet();
+    bool matchesProfile(Exercise value) {
+      if (equipment.isEmpty) return false;
+      final required =
+          CatalogRepository.instance
+              .byId(value.catalogId)
+              ?.equipmentIds
+              .map(DatabaseSchemaV2.normalizeEquipmentCode)
+              .where(
+                (code) =>
+                    code != 'bodyweight' &&
+                    code != 'other' &&
+                    code != 'unknown',
+              )
+              .toSet();
+      return required == null ||
+          required.isEmpty ||
+          equipment.containsAll(required);
     }
 
+    final candidates =
+        _allExercisesById.values
+            .where(
+              (exercise) =>
+                  exercise.id == current.id ||
+                  !_exercises.any((item) => item.id == exercise.id),
+            )
+            .toList()
+          ..sort((left, right) {
+            int rank(Exercise value) {
+              if (currentFamily != null &&
+                  CatalogRepository.instance
+                          .byId(value.catalogId)
+                          ?.movementFamilyId ==
+                      currentFamily) {
+                return 0;
+              }
+              if (matchesProfile(value)) {
+                return 1;
+              }
+              if (value.goalCodes
+                  .toSet()
+                  .intersection(current.goalCodes.toSet())
+                  .isNotEmpty) {
+                return 2;
+              }
+              return 3;
+            }
+
+            final byRank = rank(left).compareTo(rank(right));
+            return byRank != 0 ? byRank : left.name.compareTo(right.name);
+          });
+    final next = await showModalBottomSheet<Exercise>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder:
+          (_) => _ExercisePickerSheet(
+            exercises: candidates,
+            title: context.l10n.switchExerciseForSession,
+          ),
+    );
+    if (!mounted || next == null || next.id == current.id) return;
     final active = context.read<ActiveWorkoutProvider>();
     setState(() {
       _exercises[index] = next;
@@ -680,14 +722,6 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       ..updateExercises(_exercises)
       ..selectSlotExercise(slotId, next.id);
     await active.ensurePersistedExercise(next);
-    final sessionId = active.sessionId;
-    if (sessionId != null && widget.persistLegacyPlanSelections) {
-      await WorkoutPlanDatabase.instance.selectSessionSlotExercise(
-        sessionId: sessionId,
-        workoutSlotId: slotId,
-        exerciseId: next.id,
-      );
-    }
   }
 
   @override
@@ -828,187 +862,125 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                 }
                 final e = _exercises[i];
                 final slotId = _workoutSlotIds[i];
-                final alternatives =
-                    slotId == null
-                        ? const <Exercise>[]
-                        : _slotAlternatives[slotId] ?? const <Exercise>[];
-                final canSwitch = alternatives.length > 1;
                 final sets = active.setsByExercise[e.id] ?? const [];
                 final hasSets = sets.isNotEmpty;
-                return GestureDetector(
-                  onHorizontalDragEnd:
-                      canSwitch
-                          ? (details) {
-                            final velocity = details.primaryVelocity ?? 0;
-                            if (velocity.abs() < 180) return;
-                            _switchSlotExercise(i, velocity < 0 ? 1 : -1);
-                          }
-                          : null,
-                  child: Card(
-                    color:
-                        hasSets
-                            ? scheme.tertiary.withValues(alpha: 0.08)
-                            : null,
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => _addSet(context, e),
-                      borderRadius: BorderRadius.circular(16),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          children: [
-                            if (e.goal != null)
-                              Container(
-                                width: 4,
-                                color: goalColor(e.goal!, scheme),
+                return Card(
+                  color:
+                      hasSets ? scheme.tertiary.withValues(alpha: 0.08) : null,
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => _addSet(context, e),
+                    borderRadius: BorderRadius.circular(16),
+                    child: IntrinsicHeight(
+                      child: Row(
+                        children: [
+                          if (e.goal != null)
+                            Container(
+                              width: 4,
+                              color: goalColor(e.goal!, scheme),
+                            ),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
                               ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Flexible(
-                                                child: Text(
-                                                  displayExerciseName(
-                                                    context,
-                                                    e,
-                                                  ),
-                                                  style:
-                                                      Theme.of(
-                                                        context,
-                                                      ).textTheme.titleMedium,
-                                                ),
-                                              ),
-                                              if (e.goal != null) ...[
-                                                const SizedBox(width: 8),
-                                                goalBadge(
-                                                  context,
-                                                  e.goal!,
-                                                  scheme,
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                          const SizedBox(height: 2),
-                                          if (hasSets)
-                                            Text(
-                                              context.l10n.recordedSets(
-                                                sets.length,
-                                              ),
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall?.copyWith(
-                                                color: scheme.tertiary,
-                                              ),
-                                            )
-                                          else
-                                            Text(
-                                              [
-                                                if (e.trackSets)
-                                                  context.l10n.sets,
-                                                if (e.trackReps)
-                                                  context.l10n.repetitions,
-                                                if (e.trackWeight)
-                                                  context.l10n.weight,
-                                                if (e.trackDistance)
-                                                  context.l10n.distance,
-                                                if (e.trackDuration)
-                                                  context.l10n.duration,
-                                              ].join(' · '),
-                                              style:
-                                                  Theme.of(
-                                                    context,
-                                                  ).textTheme.bodySmall,
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (canSwitch)
-                                      Semantics(
-                                        label: context.l10n.change,
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
                                           children: [
-                                            IconButton(
-                                              tooltip: context.l10n.back,
-                                              icon: const Icon(
-                                                Icons.chevron_left_rounded,
+                                            Flexible(
+                                              child: Text(
+                                                displayExerciseName(context, e),
+                                                style:
+                                                    Theme.of(
+                                                      context,
+                                                    ).textTheme.titleMedium,
                                               ),
-                                              onPressed:
-                                                  () => _switchSlotExercise(
-                                                    i,
-                                                    -1,
-                                                  ),
                                             ),
-                                            AnimatedSwitcher(
-                                              duration: const Duration(
-                                                milliseconds: 200,
+                                            if (e.goal != null) ...[
+                                              const SizedBox(width: 8),
+                                              goalBadge(
+                                                context,
+                                                e.goal!,
+                                                scheme,
                                               ),
-                                              child:
-                                                  hasSets
-                                                      ? Icon(
-                                                        Icons
-                                                            .check_circle_rounded,
-                                                        key: ValueKey(
-                                                          'done_${e.id}',
-                                                        ),
-                                                        color: scheme.tertiary,
-                                                      )
-                                                      : Icon(
-                                                        Icons
-                                                            .swap_horiz_rounded,
-                                                        key: ValueKey(
-                                                          'swap_${e.id}',
-                                                        ),
-                                                        color: scheme.primary,
-                                                      ),
-                                            ),
-                                            IconButton(
-                                              tooltip: context.l10n.next,
-                                              icon: const Icon(
-                                                Icons.chevron_right_rounded,
-                                              ),
-                                              onPressed:
-                                                  () =>
-                                                      _switchSlotExercise(i, 1),
-                                            ),
+                                            ],
                                           ],
                                         ),
-                                      )
-                                    else
-                                      AnimatedSwitcher(
-                                        duration: const Duration(
-                                          milliseconds: 200,
-                                        ),
-                                        child:
-                                            hasSets
-                                                ? Icon(
-                                                  Icons.check_circle_rounded,
-                                                  key: ValueKey('done_${e.id}'),
-                                                  color: scheme.tertiary,
-                                                )
-                                                : Icon(
-                                                  Icons
-                                                      .add_circle_outline_rounded,
-                                                  key: ValueKey('add_${e.id}'),
-                                                  color: scheme.primary,
-                                                ),
+                                        const SizedBox(height: 2),
+                                        if (hasSets)
+                                          Text(
+                                            context.l10n.recordedSets(
+                                              sets.length,
+                                            ),
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall?.copyWith(
+                                              color: scheme.tertiary,
+                                            ),
+                                          )
+                                        else
+                                          Text(
+                                            [
+                                              if (e.trackSets)
+                                                context.l10n.sets,
+                                              if (e.trackReps)
+                                                context.l10n.repetitions,
+                                              if (e.trackWeight)
+                                                context.l10n.weight,
+                                              if (e.trackDistance)
+                                                context.l10n.distance,
+                                              if (e.trackDuration)
+                                                context.l10n.duration,
+                                            ].join(' · '),
+                                            style:
+                                                Theme.of(
+                                                  context,
+                                                ).textTheme.bodySmall,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (slotId != null && !hasSets)
+                                    IconButton(
+                                      tooltip:
+                                          context.l10n.switchExerciseForSession,
+                                      icon: const Icon(
+                                        Icons.swap_horiz_rounded,
                                       ),
-                                  ],
-                                ),
+                                      onPressed:
+                                          () => _chooseSessionReplacement(i),
+                                    )
+                                  else
+                                    AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 200,
+                                      ),
+                                      child:
+                                          hasSets
+                                              ? Icon(
+                                                Icons.check_circle_rounded,
+                                                key: ValueKey('done_${e.id}'),
+                                                color: scheme.tertiary,
+                                              )
+                                              : Icon(
+                                                Icons
+                                                    .add_circle_outline_rounded,
+                                                key: ValueKey('add_${e.id}'),
+                                                color: scheme.primary,
+                                              ),
+                                    ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1117,9 +1089,10 @@ class _OptionalSlotsSheetState extends State<_OptionalSlotsSheet> {
 }
 
 class _ExercisePickerSheet extends StatefulWidget {
-  const _ExercisePickerSheet({required this.exercises});
+  const _ExercisePickerSheet({required this.exercises, this.title});
 
   final List<Exercise> exercises;
+  final String? title;
 
   @override
   State<_ExercisePickerSheet> createState() => _ExercisePickerSheetState();
@@ -1170,7 +1143,7 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
-                context.l10n.addExercise,
+                widget.title ?? context.l10n.addExercise,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
