@@ -7,6 +7,7 @@ Eine native Flutter-App für Android und iOS zum Erstellen, Durchführen und Aus
 ## Features
 
 - **Workout-Management** – Workouts erstellen, Übungen per Drag & Drop sortieren
+- **Direkte Einrichtung** – kompakter Drei-Schritt-Assistent mit Profilerstellung und eigenen Übungen direkt aus der Auswahl
 - **Live-Session** – Timer und lokales Set-by-Set-Autosave mit Wiederherstellung nach einem Prozessabbruch
 - **Übungsbibliothek** – 883 mitgelieferte Offline-Übungen, eigene Übungen, gemeinsame Suche und Ziel-/Profil-/Quellenfilter
 - **Fortschritts-Auswertung** – Charts, Wochenziel, Trainingskalender, Session-Details
@@ -401,6 +402,10 @@ flutter build ipa --release
 ```
 
 ### Android-Debug-Gerät
+
+Formularabläufe, Regressionstests und die nicht-destruktive Prüfung deutscher
+Emulator-Tastaturlayouts sind unter [Workout-Einrichtung v6](docs/workout-setup-v6.md)
+dokumentiert.
 
 Trainy ist nicht an ein bestimmtes Emulator- oder Pixel-Modell gebunden. In
 Android Studio wird das gewünschte laufende Gerät im Geräte-Dropdown gewählt.

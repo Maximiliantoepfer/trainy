@@ -335,7 +335,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('studio · Ohne Trainingsprofil').last);
+    await tester.tap(find.text('studio · Ohne Profil').last);
     await tester.pumpAndSettle();
     expect(find.text('Gruppieren'), findsNothing);
     expect(tester.takeException(), isNull);
