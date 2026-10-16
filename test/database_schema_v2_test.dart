@@ -7,8 +7,10 @@ import 'package:trainy/repositories/activity_repository.dart';
 import 'package:trainy/repositories/exercise_repository.dart';
 import 'package:trainy/repositories/training_plan_repository.dart';
 import 'package:trainy/repositories/workout_repository.dart';
+import 'package:trainy/repositories/workout_planning_repository.dart';
 import 'package:trainy/providers/active_workout_provider.dart';
 import 'package:trainy/models/workout.dart';
+import 'package:trainy/models/workout_planning.dart';
 import 'package:trainy/models/exercise.dart';
 import 'package:trainy/services/database_schema_v2.dart';
 import 'package:trainy/services/database_service.dart';
@@ -431,6 +433,94 @@ void main() {
         'completed',
       );
       provider.dispose();
+    },
+  );
+
+  test(
+    'canonical workout planning stores one visible goal and ordered weekly placements',
+    () async {
+      await database.insert('exercises', {
+        'id': 1001,
+        'name': 'Squat',
+        'description': '',
+        'trackedFields': '{}',
+        'defaultValues': '{}',
+        'lastValues': '{}',
+        'units': '{}',
+        'origin': 'custom',
+      });
+      final repository = WorkoutPlanningRepository(
+        database: DatabaseService(database: database),
+      );
+      final run = await repository.createWorkout(
+        const WorkoutEditorDraft(
+          name: 'Easy run',
+          primaryGoal: WorkoutPrimaryGoal.endurance,
+          setupName: 'Outdoor',
+          exerciseIds: [1001],
+        ),
+      );
+      final strength = await repository.createWorkout(
+        const WorkoutEditorDraft(
+          name: 'Strength',
+          primaryGoal: WorkoutPrimaryGoal.strength,
+          setupName: 'Homegym',
+          exerciseIds: [1001],
+        ),
+      );
+
+      final template = (await database.query(
+        'workout_templates',
+        where: 'id = ?',
+        whereArgs: [run.canonicalId],
+      )).single;
+      expect(template['primary_goal_code'], 'endurance');
+      expect(
+        (await database.query(
+          'workout_tags',
+          where: 'workout_id = ?',
+          whereArgs: [run.canonicalId],
+          orderBy: 'position',
+        )).map((row) => row['tag_code']),
+        ['cardio', 'endurance'],
+      );
+
+      await repository.assignToDay(workoutId: run.canonicalId, weekday: 1);
+      await repository.assignToDay(
+        workoutId: strength.canonicalId,
+        weekday: 1,
+      );
+      var monday = (await repository.weeklyPlacements())
+          .where((placement) => placement.weekday == 1)
+          .toList();
+      expect(monday.map((placement) => placement.workoutId), [
+        run.canonicalId,
+        strength.canonicalId,
+      ]);
+
+      await repository.movePlacement(
+        placementId: strength.canonicalId == monday.last.workoutId
+            ? monday.last.id
+            : monday.first.id,
+        targetWeekday: 1,
+        targetIndex: 0,
+      );
+      monday = (await repository.weeklyPlacements())
+          .where((placement) => placement.weekday == 1)
+          .toList();
+      expect(monday.first.workoutId, strength.canonicalId);
+
+      await repository.movePlacement(
+        placementId: monday.first.id,
+        targetWeekday: 5,
+        targetIndex: 0,
+      );
+      final placements = await repository.weeklyPlacements();
+      expect(
+        placements.where((placement) => placement.weekday == 5).single.workoutId,
+        strength.canonicalId,
+      );
+      expect(await database.rawQuery('PRAGMA foreign_key_check'), isEmpty);
     },
   );
 }

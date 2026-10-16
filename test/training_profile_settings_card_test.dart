@@ -86,7 +86,7 @@ Widget _host({
 );
 
 void main() {
-  testWidgets('selecting an existing profile refreshes synchronously', (
+  testWidgets('profiles are managed without changing a global selection', (
     tester,
   ) async {
     final now = DateTime.utc(2026, 1, 1);
@@ -116,8 +116,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('trainingProfile_gym')));
     await tester.pumpAndSettle();
 
-    expect(store.selected, 'gym');
-    expect(store.loads, 2);
+    expect(store.selected, 'home');
+    expect(store.loads, 1);
     expect(tester.takeException(), isNull);
   });
 
@@ -145,7 +145,7 @@ void main() {
     expect(store.loads, 2);
     expect(store.values.single.name, 'Studio');
     expect(store.values.single.equipmentCodes, contains('dumbbell'));
-    expect(store.selected, store.values.single.id);
+    expect(store.selected, isNull);
     expect(find.text('Studio'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

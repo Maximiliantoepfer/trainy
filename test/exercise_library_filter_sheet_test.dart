@@ -65,7 +65,7 @@ void main() {
 
       await tester.tap(find.text('Kraft'));
       await tester.tap(find.text('Studio'));
-      await tester.tap(find.text('Eigen'));
+      await tester.tap(find.text('Eigene'));
       await tester.tap(find.text('Übernehmen'));
       await tester.pumpAndSettle();
 
