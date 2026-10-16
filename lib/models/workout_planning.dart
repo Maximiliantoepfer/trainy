@@ -24,6 +24,25 @@ enum WorkoutPrimaryGoal {
   };
 }
 
+/// Stable, localized-in-the-view group semantics.  The database stores the
+/// code rather than a translated label so a workout looks correct after a
+/// language change as well.
+enum WorkoutGroupKind {
+  warmup('warmup'),
+  core('core'),
+  cooldown('cooldown'),
+  custom('custom');
+
+  const WorkoutGroupKind(this.code);
+
+  final String code;
+
+  static WorkoutGroupKind fromCode(String? value) => values.firstWhere(
+    (kind) => kind.code == value,
+    orElse: () => WorkoutGroupKind.custom,
+  );
+}
+
 @immutable
 class WorkoutSetupSlot {
   const WorkoutSetupSlot({
@@ -67,6 +86,7 @@ class WorkoutSetupGroup {
   const WorkoutSetupGroup({
     required this.id,
     required this.name,
+    required this.kind,
     required this.sortOrder,
     required this.selectedVariantId,
     required this.variants,
@@ -75,6 +95,7 @@ class WorkoutSetupGroup {
 
   final String id;
   final String name;
+  final WorkoutGroupKind kind;
   final String? muscleGroupCode;
   final int sortOrder;
   final String selectedVariantId;

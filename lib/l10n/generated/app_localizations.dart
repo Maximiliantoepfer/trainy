@@ -2416,6 +2416,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This workout is already planned for this day.'**
   String get workoutAlreadyPlanned;
+
+  /// No description provided for @defaultSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Default setup'**
+  String get defaultSetup;
+
+  /// No description provided for @chooseSetupProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Which training environment is this setup for?'**
+  String get chooseSetupProfile;
+
+  /// No description provided for @profileSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this profile'**
+  String get profileSetup;
+
+  /// No description provided for @makeDefaultSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Make default setup'**
+  String get makeDefaultSetup;
+
+  /// No description provided for @warmupGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Warm-up'**
+  String get warmupGroup;
+
+  /// No description provided for @coreExercisesGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Main exercises'**
+  String get coreExercisesGroup;
+
+  /// No description provided for @cooldownGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Cooldown'**
+  String get cooldownGroup;
+
+  /// No description provided for @dropExercisesHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop exercises here'**
+  String get dropExercisesHere;
+
+  /// No description provided for @dragExercise.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag exercise'**
+  String get dragExercise;
+
+  /// No description provided for @selectedExercises.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 exercise selected} other{{count} exercises selected}}'**
+  String selectedExercises(int count);
+
+  /// No description provided for @groupSelectedExercises.
+  ///
+  /// In en, this message translates to:
+  /// **'Group selected exercises'**
+  String get groupSelectedExercises;
+
+  /// No description provided for @group.
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get group;
+
+  /// No description provided for @showAllExercises.
+  ///
+  /// In en, this message translates to:
+  /// **'Show all'**
+  String get showAllExercises;
+
+  /// No description provided for @prioritizeProfileExercises.
+  ///
+  /// In en, this message translates to:
+  /// **'Prioritize matching'**
+  String get prioritizeProfileExercises;
+
+  /// No description provided for @switchExerciseForSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch exercise for this session'**
+  String get switchExerciseForSession;
+
+  /// No description provided for @removeFromWeeklyPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from weekly plan'**
+  String get removeFromWeeklyPlan;
+
+  /// No description provided for @weeklyPlacementRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Workout removed from weekly plan'**
+  String get weeklyPlacementRemoved;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

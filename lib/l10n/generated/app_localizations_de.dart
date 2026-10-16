@@ -1357,4 +1357,63 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get workoutAlreadyPlanned => 'Dieses Workout ist an diesem Tag bereits geplant.';
+
+  @override
+  String get defaultSetup => 'Standard-Setup';
+
+  @override
+  String get chooseSetupProfile => 'Für welche Trainingsumgebung ist dieses Setup?';
+
+  @override
+  String get profileSetup => 'Dieses Profil verwenden';
+
+  @override
+  String get makeDefaultSetup => 'Als Standard-Setup festlegen';
+
+  @override
+  String get warmupGroup => 'Aufwärmen';
+
+  @override
+  String get coreExercisesGroup => 'Kernübungen';
+
+  @override
+  String get cooldownGroup => 'Cooldown';
+
+  @override
+  String get dropExercisesHere => 'Übungen hierher ziehen';
+
+  @override
+  String get dragExercise => 'Übung ziehen';
+
+  @override
+  String selectedExercises(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Übungen ausgewählt',
+      one: '1 Übung ausgewählt',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get groupSelectedExercises => 'Ausgewählte Übungen gruppieren';
+
+  @override
+  String get group => 'Gruppieren';
+
+  @override
+  String get showAllExercises => 'Alle anzeigen';
+
+  @override
+  String get prioritizeProfileExercises => 'Passende zuerst';
+
+  @override
+  String get switchExerciseForSession => 'Übung für diese Einheit wechseln';
+
+  @override
+  String get removeFromWeeklyPlan => 'Aus Wochenplan entfernen';
+
+  @override
+  String get weeklyPlacementRemoved => 'Workout aus Wochenplan entfernt';
 }

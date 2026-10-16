@@ -428,4 +428,24 @@
   "plannedWorkouts": "Geplante Workouts",
   "dayDetails": "Tagesübersicht",
   "workoutAlreadyPlanned": "Dieses Workout ist an diesem Tag bereits geplant."
+  ,"defaultSetup": "Standard-Setup"
+  ,"chooseSetupProfile": "Für welche Trainingsumgebung ist dieses Setup?"
+  ,"profileSetup": "Dieses Profil verwenden"
+  ,"makeDefaultSetup": "Als Standard-Setup festlegen"
+  ,"warmupGroup": "Aufwärmen"
+  ,"coreExercisesGroup": "Kernübungen"
+  ,"cooldownGroup": "Cooldown"
+  ,"dropExercisesHere": "Übungen hierher ziehen"
+  ,"dragExercise": "Übung ziehen"
+  ,"addExercises": "Übungen hinzufügen"
+  ,"selectedExercises": "{count, plural, =1{1 Übung ausgewählt} other{{count} Übungen ausgewählt}}"
+  ,"@selectedExercises": {"placeholders": {"count": {"type": "int"}}}
+  ,"groupSelectedExercises": "Ausgewählte Übungen gruppieren"
+  ,"group": "Gruppieren"
+  ,"showAllExercises": "Alle anzeigen"
+  ,"prioritizeProfileExercises": "Passende zuerst"
+  ,"switchExerciseForSession": "Übung für diese Einheit wechseln"
+  ,"removeFromWeeklyPlan": "Aus Wochenplan entfernen"
+  ,"weeklyPlacementRemoved": "Workout aus Wochenplan entfernt"
+  ,"undo": "Rückgängig"
 }

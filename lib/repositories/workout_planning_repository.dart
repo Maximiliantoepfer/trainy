@@ -47,9 +47,10 @@ class WorkoutPlanningRepository {
           name: row['name'] as String,
           description: row['description'] as String? ?? '',
           exerciseIds: exerciseIds,
-          assignedDays: schedule
-              .map((value) => (value['weekday'] as num).toInt())
-              .toSet(),
+          assignedDays:
+              schedule
+                  .map((value) => (value['weekday'] as num).toInt())
+                  .toSet(),
           primaryGoalCode: row['primary_goal_code'] as String? ?? 'strength',
           scheduleOrderByDay: {
             for (final value in schedule)
@@ -71,8 +72,6 @@ class WorkoutPlanningRepository {
     }
     final canonicalId = UuidV4.generate();
     final setupId = UuidV4.generate();
-    final groupId = UuidV4.generate();
-    final groupVariantId = UuidV4.generate();
     final localId = DateTime.now().microsecondsSinceEpoch;
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _database.transaction((txn) async {
@@ -101,24 +100,41 @@ class WorkoutPlanningRepository {
         'is_default': 1,
         'sort_order': 0,
       });
-      await txn.insert('workout_groups_v2', {
-        'id': groupId,
-        'workout_id': canonicalId,
-        'name': 'Main',
-        'sort_order': 0,
-      });
-      await txn.insert('workout_group_variants_v2', {
-        'id': groupVariantId,
-        'workout_group_id': groupId,
-        'profile_id': draft.profileId,
-        'name': cleanSetupName,
-        'sort_order': 0,
-      });
-      await txn.insert('workout_variant_group_selections_v2', {
-        'workout_variant_id': setupId,
-        'workout_group_id': groupId,
-        'group_variant_id': groupVariantId,
-      });
+      final groupIds = <WorkoutGroupKind, String>{};
+      for (final entry in const [
+        (WorkoutGroupKind.warmup, 0),
+        (WorkoutGroupKind.core, 1),
+        (WorkoutGroupKind.cooldown, 999999),
+      ]) {
+        final groupId = UuidV4.generate();
+        final groupVariantId = UuidV4.generate();
+        groupIds[entry.$1] = groupId;
+        await txn.insert('workout_groups_v2', {
+          'id': groupId,
+          'workout_id': canonicalId,
+          'name': entry.$1.code,
+          'group_kind': entry.$1.code,
+          'sort_order': entry.$2,
+        });
+        await txn.insert('workout_group_variants_v2', {
+          'id': groupVariantId,
+          'workout_group_id': groupId,
+          'profile_id': draft.profileId,
+          'owner_setup_id': setupId,
+          'name': entry.$1.code,
+          'sort_order': 0,
+        });
+        await txn.insert('workout_variant_group_selections_v2', {
+          'workout_variant_id': setupId,
+          'workout_group_id': groupId,
+          'group_variant_id': groupVariantId,
+        });
+      }
+      final coreVariant = await _selectedGroupVariantId(
+        txn,
+        setupId: setupId,
+        groupId: groupIds[WorkoutGroupKind.core]!,
+      );
       for (var index = 0; index < draft.exerciseIds.length; index++) {
         final canonicalExerciseId = await _ensureCanonicalExercise(
           txn,
@@ -128,7 +144,7 @@ class WorkoutPlanningRepository {
         if (canonicalExerciseId == null) continue;
         await txn.insert('workout_slots_v2', {
           'id': UuidV4.generate(),
-          'group_variant_id': groupVariantId,
+          'group_variant_id': coreVariant,
           'exercise_id': canonicalExerciseId,
           'slot_kind': 'core',
           'sort_order': index,
@@ -161,7 +177,8 @@ class WorkoutPlanningRepository {
     if (cleanName.isEmpty) throw ArgumentError.value(name, 'name');
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _database.transaction((txn) async {
-      final nextGoal = primaryGoal ?? WorkoutPrimaryGoal.fromCode(workout.primaryGoalCode);
+      final nextGoal =
+          primaryGoal ?? WorkoutPrimaryGoal.fromCode(workout.primaryGoalCode);
       await txn.update(
         'workout_templates',
         {
@@ -206,7 +223,8 @@ class WorkoutPlanningRepository {
   }
 
   Future<List<WorkoutSetup>> setupsForWorkout(String workoutId) async {
-    final setupRows = await _database.rawQuery('''
+    final setupRows = await _database.rawQuery(
+      '''
       SELECT setup.*, profile.name AS profile_name, profile.is_archived AS profile_archived,
              profile.sort_order AS profile_sort, profile.created_at_utc AS profile_created,
              profile.updated_at_utc AS profile_updated
@@ -214,9 +232,13 @@ class WorkoutPlanningRepository {
       LEFT JOIN training_profiles_v2 profile ON profile.id = setup.profile_id
       WHERE setup.workout_id = ?
       ORDER BY setup.is_default DESC, setup.sort_order ASC, setup.name COLLATE NOCASE ASC
-      ''', [workoutId]);
+      ''',
+      [workoutId],
+    );
     final profiles = <String, TrainingProfileRecord>{};
-    final profileEquipment = await _database.query('training_profile_equipment');
+    final profileEquipment = await _database.query(
+      'training_profile_equipment',
+    );
     final equipmentByProfile = <String, Set<String>>{};
     for (final row in profileEquipment) {
       equipmentByProfile
@@ -233,7 +255,9 @@ class WorkoutPlanningRepository {
           () => TrainingProfileRecord(
             id: profileId,
             name: setup['profile_name'] as String,
-            equipmentCodes: Set.unmodifiable(equipmentByProfile[profileId] ?? const <String>{}),
+            equipmentCodes: Set.unmodifiable(
+              equipmentByProfile[profileId] ?? const <String>{},
+            ),
             isArchived: (setup['profile_archived'] as num?)?.toInt() == 1,
             sortOrder: (setup['profile_sort'] as num?)?.toInt() ?? 0,
             createdAtUtc: DateTime.fromMillisecondsSinceEpoch(
@@ -272,6 +296,18 @@ class WorkoutPlanningRepository {
     if (cleanName.isEmpty) throw ArgumentError.value(name, 'name');
     final setupId = UuidV4.generate();
     await _database.transaction((txn) async {
+      if (profileId != null) {
+        final existingProfileSetup = await txn.query(
+          'workout_variants_v2',
+          columns: const ['id'],
+          where: 'workout_id = ? AND profile_id = ?',
+          whereArgs: [workoutId, profileId],
+          limit: 1,
+        );
+        if (existingProfileSetup.isNotEmpty) {
+          throw StateError('This training profile already has a setup.');
+        }
+      }
       final countRows = await txn.rawQuery(
         'SELECT COUNT(*) AS count FROM workout_variants_v2 WHERE workout_id = ?',
         [workoutId],
@@ -292,32 +328,48 @@ class WorkoutPlanningRepository {
       );
       for (final group in groups) {
         final groupId = group['id'] as String;
+        final sourceSetupId =
+            copyFromSetupId ?? await _defaultSetupId(txn, workoutId);
         String? sourceVariantId;
-        if (copyFromSetupId != null) {
+        if (sourceSetupId != null) {
           final selected = await txn.query(
             'workout_variant_group_selections_v2',
             columns: const ['group_variant_id'],
             where: 'workout_variant_id = ? AND workout_group_id = ?',
-            whereArgs: [copyFromSetupId, groupId],
+            whereArgs: [sourceSetupId, groupId],
             limit: 1,
           );
-          sourceVariantId = selected.isEmpty
-              ? null
-              : selected.single['group_variant_id'] as String;
+          sourceVariantId =
+              selected.isEmpty
+                  ? null
+                  : selected.single['group_variant_id'] as String;
         }
-        sourceVariantId ??= await _firstGroupVariantId(txn, groupId);
+        final variantId = UuidV4.generate();
+        await txn.insert('workout_group_variants_v2', {
+          'id': variantId,
+          'workout_group_id': groupId,
+          'profile_id': profileId,
+          'owner_setup_id': setupId,
+          'name': group['name'] as String,
+          'sort_order': 0,
+        });
+        await txn.insert('workout_variant_group_selections_v2', {
+          'workout_variant_id': setupId,
+          'workout_group_id': groupId,
+          'group_variant_id': variantId,
+        });
         if (sourceVariantId != null) {
-          await txn.insert('workout_variant_group_selections_v2', {
-            'workout_variant_id': setupId,
-            'workout_group_id': groupId,
-            'group_variant_id': sourceVariantId,
-          });
+          await _cloneSlots(
+            txn,
+            sourceGroupVariantId: sourceVariantId,
+            targetGroupVariantId: variantId,
+          );
         }
       }
     });
-    return (await setupsForWorkout(workoutId)).firstWhere(
-      (setup) => setup.id == setupId,
-    );
+    return (await setupsForWorkout(
+      workoutId,
+    )).firstWhere((setup) => setup.id == setupId);
   }
 
   Future<void> replaceSetupExercises({
@@ -330,7 +382,11 @@ class WorkoutPlanningRepository {
         columns: const ['workout_group_id', 'group_variant_id'],
         where: 'workout_variant_id = ?',
         whereArgs: [setupId],
-        orderBy: 'workout_group_id ASC',
+        orderBy: '''
+          CASE (SELECT group_kind FROM workout_groups_v2 group_row
+            WHERE group_row.id = workout_group_id)
+            WHEN 'core' THEN 0 ELSE 1 END,
+          workout_group_id ASC''',
         limit: 1,
       );
       if (selected.isEmpty) throw StateError('Setup has no exercise group.');
@@ -342,7 +398,11 @@ class WorkoutPlanningRepository {
       );
       final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       for (var index = 0; index < exerciseIds.length; index++) {
-        final canonicalId = await _ensureCanonicalExercise(txn, exerciseIds[index], now);
+        final canonicalId = await _ensureCanonicalExercise(
+          txn,
+          exerciseIds[index],
+          now,
+        );
         if (canonicalId == null) continue;
         await txn.insert('workout_slots_v2', {
           'id': UuidV4.generate(),
@@ -369,7 +429,11 @@ class WorkoutPlanningRepository {
       );
       final localWorkoutId = localRows.single['legacy_local_id'] as int?;
       if (localWorkoutId != null) {
-        await txn.delete('exercises_in_workouts', where: 'workoutId = ?', whereArgs: [localWorkoutId]);
+        await txn.delete(
+          'exercises_in_workouts',
+          where: 'workoutId = ?',
+          whereArgs: [localWorkoutId],
+        );
         for (var index = 0; index < exerciseIds.length; index++) {
           await txn.insert('exercises_in_workouts', {
             'id': localWorkoutId + index + 1,
@@ -388,7 +452,86 @@ class WorkoutPlanningRepository {
   }) async {
     final setups = await setupsForWorkout(workoutId);
     if (setups.isEmpty) throw StateError('Workout has no setup.');
-    await replaceSetupExercises(setupId: setups.first.id, exerciseIds: exerciseIds);
+    await replaceSetupExercises(
+      setupId: setups.first.id,
+      exerciseIds: exerciseIds,
+    );
+  }
+
+  /// Appends rather than replaces: selection in the mobile picker must not
+  /// silently erase a setup that already contains exercises.
+  Future<void> addExercisesToCore({
+    required String setupId,
+    required Iterable<int> exerciseIds,
+  }) async {
+    final ids = exerciseIds.toSet().toList(growable: false);
+    if (ids.isEmpty) return;
+    await _database.transaction((txn) async {
+      final rows = await txn.rawQuery(
+        '''
+        SELECT selection.group_variant_id
+        FROM workout_variant_group_selections_v2 selection
+        INNER JOIN workout_groups_v2 group_row
+          ON group_row.id = selection.workout_group_id
+        WHERE selection.workout_variant_id = ? AND group_row.group_kind = 'core'
+        LIMIT 1
+        ''',
+        [setupId],
+      );
+      if (rows.isEmpty) throw StateError('Setup has no core group.');
+      final groupVariantId = rows.single['group_variant_id'] as String;
+      final count = await txn.rawQuery(
+        'SELECT COUNT(*) AS count FROM workout_slots_v2 WHERE group_variant_id = ?',
+        [groupVariantId],
+      );
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      var sortOrder = (count.single['count'] as num).toInt();
+      for (final localId in ids) {
+        final canonicalId = await _ensureCanonicalExercise(txn, localId, now);
+        if (canonicalId == null) continue;
+        final duplicate = await txn.query(
+          'workout_slots_v2',
+          columns: const ['id'],
+          where: 'group_variant_id = ? AND exercise_id = ?',
+          whereArgs: [groupVariantId, canonicalId],
+          limit: 1,
+        );
+        if (duplicate.isNotEmpty) continue;
+        await txn.insert('workout_slots_v2', {
+          'id': UuidV4.generate(),
+          'group_variant_id': groupVariantId,
+          'exercise_id': canonicalId,
+          'slot_kind': 'core',
+          'sort_order': sortOrder++,
+        });
+      }
+    });
+  }
+
+  Future<void> setDefaultSetup(String setupId) async {
+    await _database.transaction((txn) async {
+      final setup = await txn.query(
+        'workout_variants_v2',
+        columns: const ['workout_id'],
+        where: 'id = ?',
+        whereArgs: [setupId],
+        limit: 1,
+      );
+      if (setup.isEmpty) throw StateError('Workout setup no longer exists.');
+      final workoutId = setup.single['workout_id'] as String;
+      await txn.update(
+        'workout_variants_v2',
+        {'is_default': 0},
+        where: 'workout_id = ?',
+        whereArgs: [workoutId],
+      );
+      await txn.update(
+        'workout_variants_v2',
+        {'is_default': 1},
+        where: 'id = ?',
+        whereArgs: [setupId],
+      );
+    });
   }
 
   Future<void> replaceWorkoutDays({
@@ -439,43 +582,68 @@ class WorkoutPlanningRepository {
         whereArgs: [slotId],
       );
 
-  Future<void> createGroup({
-    required String workoutId,
+  Future<void> createGroupFromSlots({
+    required String setupId,
     required String name,
+    required Iterable<String> slotIds,
   }) async {
     final cleanName = name.trim();
     if (cleanName.isEmpty) throw ArgumentError.value(name, 'name');
+    final selectedSlots = slotIds.toSet().toList(growable: false);
+    if (selectedSlots.isEmpty) return;
     await _database.transaction((txn) async {
+      final setupRows = await txn.query(
+        'workout_variants_v2',
+        columns: const ['workout_id'],
+        where: 'id = ?',
+        whereArgs: [setupId],
+        limit: 1,
+      );
+      if (setupRows.isEmpty) {
+        throw StateError('Workout setup no longer exists.');
+      }
+      final workoutId = setupRows.single['workout_id'] as String;
       final count = await txn.rawQuery(
         'SELECT COUNT(*) AS count FROM workout_groups_v2 WHERE workout_id = ?',
         [workoutId],
       );
       final groupId = UuidV4.generate();
-      final groupVariantId = UuidV4.generate();
       await txn.insert('workout_groups_v2', {
         'id': groupId,
         'workout_id': workoutId,
         'name': cleanName,
+        'group_kind': WorkoutGroupKind.custom.code,
         'sort_order': (count.single['count'] as num).toInt(),
-      });
-      await txn.insert('workout_group_variants_v2', {
-        'id': groupVariantId,
-        'workout_group_id': groupId,
-        'name': cleanName,
-        'sort_order': 0,
       });
       final setups = await txn.query(
         'workout_variants_v2',
-        columns: const ['id'],
+        columns: const ['id', 'profile_id'],
         where: 'workout_id = ?',
         whereArgs: [workoutId],
       );
       for (final setup in setups) {
+        final variantId = UuidV4.generate();
+        await txn.insert('workout_group_variants_v2', {
+          'id': variantId,
+          'workout_group_id': groupId,
+          'profile_id': setup['profile_id'],
+          'owner_setup_id': setup['id'],
+          'name': cleanName,
+          'sort_order': 0,
+        });
         await txn.insert('workout_variant_group_selections_v2', {
           'workout_variant_id': setup['id'],
           'workout_group_id': groupId,
-          'group_variant_id': groupVariantId,
+          'group_variant_id': variantId,
         });
+        if (setup['id'] == setupId) {
+          await _moveSlotsToVariant(
+            txn,
+            slotIds: selectedSlots,
+            targetGroupVariantId: variantId,
+            targetIndex: 0,
+          );
+        }
       }
     });
   }
@@ -484,6 +652,7 @@ class WorkoutPlanningRepository {
     required String slotId,
     required String setupId,
     required String targetGroupId,
+    int? targetIndex,
   }) async {
     await _database.transaction((txn) async {
       final selection = await txn.query(
@@ -493,12 +662,40 @@ class WorkoutPlanningRepository {
         whereArgs: [setupId, targetGroupId],
         limit: 1,
       );
+      if (selection.isEmpty) {
+        throw StateError('Target group is unavailable.');
+      }
+      await _moveSlotsToVariant(
+        txn,
+        slotIds: [slotId],
+        targetGroupVariantId: selection.single['group_variant_id'] as String,
+        targetIndex: targetIndex,
+      );
+    });
+  }
+
+  Future<void> moveSlotsToGroup({
+    required String setupId,
+    required Iterable<String> slotIds,
+    required String targetGroupId,
+    int? targetIndex,
+  }) async {
+    final values = slotIds.toSet().toList(growable: false);
+    if (values.isEmpty) return;
+    await _database.transaction((txn) async {
+      final selection = await txn.query(
+        'workout_variant_group_selections_v2',
+        columns: const ['group_variant_id'],
+        where: 'workout_variant_id = ? AND workout_group_id = ?',
+        whereArgs: [setupId, targetGroupId],
+        limit: 1,
+      );
       if (selection.isEmpty) throw StateError('Target group is unavailable.');
-      await txn.update(
-        'workout_slots_v2',
-        {'group_variant_id': selection.single['group_variant_id']},
-        where: 'id = ?',
-        whereArgs: [slotId],
+      await _moveSlotsToVariant(
+        txn,
+        slotIds: values,
+        targetGroupVariantId: selection.single['group_variant_id'] as String,
+        targetIndex: targetIndex,
       );
     });
   }
@@ -508,6 +705,31 @@ class WorkoutPlanningRepository {
     where: 'id = ?',
     whereArgs: [slotId],
   );
+
+  Future<void> removeSlots(Iterable<String> slotIds) async {
+    final values = slotIds.toSet().toList(growable: false);
+    if (values.isEmpty) return;
+    await _database.transaction((txn) async {
+      final placeholders = List.filled(values.length, '?').join(',');
+      await txn.delete(
+        'workout_slots_v2',
+        where: 'id IN ($placeholders)',
+        whereArgs: values,
+      );
+    });
+  }
+
+  Future<void> setSlotsOptional(Iterable<String> slotIds, bool optional) async {
+    final values = slotIds.toSet().toList(growable: false);
+    if (values.isEmpty) return;
+    final placeholders = List.filled(values.length, '?').join(',');
+    await _database.update(
+      'workout_slots_v2',
+      {'slot_kind': optional ? 'optional' : 'core'},
+      where: 'id IN ($placeholders)',
+      whereArgs: values,
+    );
+  }
 
   Future<void> addSlotAlternative({
     required String slotId,
@@ -573,7 +795,10 @@ class WorkoutPlanningRepository {
         await _dayRows(txn, weekday),
       );
       final insertion = (index ?? rows.length).clamp(0, rows.length);
-      rows.insert(insertion, {'id': UuidV4.generate(), 'workout_id': workoutId});
+      rows.insert(insertion, {
+        'id': UuidV4.generate(),
+        'workout_id': workoutId,
+      });
       await _writeDayRows(txn, weekday, rows);
     });
   }
@@ -588,7 +813,11 @@ class WorkoutPlanningRepository {
       );
       if (current.isEmpty) return;
       final weekday = (current.single['weekday'] as num).toInt();
-      await txn.delete('workout_weekly_schedule', where: 'id = ?', whereArgs: [placementId]);
+      await txn.delete(
+        'workout_weekly_schedule',
+        where: 'id = ?',
+        whereArgs: [placementId],
+      );
       await _writeDayRows(txn, weekday, await _dayRows(txn, weekday));
     });
   }
@@ -606,7 +835,9 @@ class WorkoutPlanningRepository {
         whereArgs: [placementId],
         limit: 1,
       );
-      if (current.isEmpty) throw StateError('Weekly placement no longer exists.');
+      if (current.isEmpty) {
+        throw StateError('Weekly placement no longer exists.');
+      }
       final sourceWeekday = (current.single['weekday'] as num).toInt();
       final workoutId = current.single['workout_id'] as String;
       final alreadyAtTarget = await txn.query(
@@ -699,10 +930,14 @@ class WorkoutPlanningRepository {
     final result = <WorkoutSetupGroup>[];
     for (final group in groups) {
       final groupId = group['id'] as String;
+      final selectedId = selectedByGroup[groupId];
       final variantRows = await _database.query(
         'workout_group_variants_v2',
-        where: 'workout_group_id = ?',
-        whereArgs: [groupId],
+        where:
+            selectedId == null
+                ? 'workout_group_id = ?'
+                : 'workout_group_id = ? AND id = ?',
+        whereArgs: selectedId == null ? [groupId] : [groupId, selectedId],
         orderBy: 'sort_order ASC, name COLLATE NOCASE ASC',
       );
       final variants = <WorkoutSetupGroupVariant>[];
@@ -724,6 +959,7 @@ class WorkoutPlanningRepository {
         WorkoutSetupGroup(
           id: groupId,
           name: group['name'] as String,
+          kind: WorkoutGroupKind.fromCode(group['group_kind'] as String?),
           muscleGroupCode: group['muscle_group_code'] as String?,
           sortOrder: (group['sort_order'] as num).toInt(),
           selectedVariantId: selectedByGroup[groupId] ?? variants.first.id,
@@ -734,15 +970,21 @@ class WorkoutPlanningRepository {
     return result;
   }
 
-  Future<List<WorkoutSetupSlot>> _slotsForGroupVariant(String groupVariantId) async {
-    final slots = await _database.rawQuery('''
+  Future<List<WorkoutSetupSlot>> _slotsForGroupVariant(
+    String groupVariantId,
+  ) async {
+    final slots = await _database.rawQuery(
+      '''
       SELECT slot.*, item.legacy_local_id
       FROM workout_slots_v2 slot
       INNER JOIN exercise_items item ON item.id = slot.exercise_id
       WHERE slot.group_variant_id = ?
       ORDER BY slot.sort_order ASC, slot.id ASC
-      ''', [groupVariantId]);
-    final alternatives = await _database.rawQuery('''
+      ''',
+      [groupVariantId],
+    );
+    final alternatives = await _database.rawQuery(
+      '''
       SELECT alternative.workout_slot_id, item.legacy_local_id
       FROM workout_slot_alternatives_v2 alternative
       INNER JOIN exercise_items item ON item.id = alternative.exercise_id
@@ -750,13 +992,18 @@ class WorkoutPlanningRepository {
         SELECT id FROM workout_slots_v2 WHERE group_variant_id = ?
       )
       ORDER BY alternative.sort_order ASC, alternative.id ASC
-      ''', [groupVariantId]);
+      ''',
+      [groupVariantId],
+    );
     final alternativesBySlot = <String, List<int>>{};
     for (final alternative in alternatives) {
       final localId = alternative['legacy_local_id'] as int?;
       if (localId != null) {
         alternativesBySlot
-            .putIfAbsent(alternative['workout_slot_id'] as String, () => <int>[])
+            .putIfAbsent(
+              alternative['workout_slot_id'] as String,
+              () => <int>[],
+            )
             .add(localId);
       }
     }
@@ -777,19 +1024,142 @@ class WorkoutPlanningRepository {
         .toList(growable: false);
   }
 
-  static Future<String?> _firstGroupVariantId(
+  static Future<String> _selectedGroupVariantId(
+    DatabaseExecutor db, {
+    required String setupId,
+    required String groupId,
+  }) async {
+    final rows = await db.query(
+      'workout_variant_group_selections_v2',
+      columns: const ['group_variant_id'],
+      where: 'workout_variant_id = ? AND workout_group_id = ?',
+      whereArgs: [setupId, groupId],
+      limit: 1,
+    );
+    if (rows.isEmpty) throw StateError('Setup group is unavailable.');
+    return rows.single['group_variant_id'] as String;
+  }
+
+  static Future<String?> _defaultSetupId(
     DatabaseExecutor db,
-    String groupId,
+    String workoutId,
   ) async {
     final rows = await db.query(
-      'workout_group_variants_v2',
+      'workout_variants_v2',
       columns: const ['id'],
-      where: 'workout_group_id = ?',
-      whereArgs: [groupId],
-      orderBy: 'sort_order ASC',
+      where: 'workout_id = ?',
+      whereArgs: [workoutId],
+      orderBy: 'is_default DESC, sort_order ASC, id ASC',
       limit: 1,
     );
     return rows.isEmpty ? null : rows.single['id'] as String;
+  }
+
+  static Future<void> _cloneSlots(
+    DatabaseExecutor db, {
+    required String sourceGroupVariantId,
+    required String targetGroupVariantId,
+  }) async {
+    final slots = await db.query(
+      'workout_slots_v2',
+      where: 'group_variant_id = ?',
+      whereArgs: [sourceGroupVariantId],
+      orderBy: 'sort_order ASC, id ASC',
+    );
+    for (final slot in slots) {
+      final oldId = slot['id'] as String;
+      final id = UuidV4.generate();
+      await db.insert('workout_slots_v2', {
+        'id': id,
+        'group_variant_id': targetGroupVariantId,
+        'exercise_id': slot['exercise_id'],
+        'movement_family_id': slot['movement_family_id'],
+        'slot_kind': slot['slot_kind'],
+        'sort_order': slot['sort_order'],
+      });
+      final alternatives = await db.query(
+        'workout_slot_alternatives_v2',
+        where: 'workout_slot_id = ?',
+        whereArgs: [oldId],
+      );
+      for (final alternative in alternatives) {
+        await db.insert('workout_slot_alternatives_v2', {
+          'id': UuidV4.generate(),
+          'workout_slot_id': id,
+          'exercise_id': alternative['exercise_id'],
+          'profile_id': alternative['profile_id'],
+          'sort_order': alternative['sort_order'],
+        });
+      }
+    }
+  }
+
+  static Future<void> _moveSlotsToVariant(
+    DatabaseExecutor db, {
+    required List<String> slotIds,
+    required String targetGroupVariantId,
+    int? targetIndex,
+  }) async {
+    if (slotIds.isEmpty) {
+      return;
+    }
+    final placeholders = List.filled(slotIds.length, '?').join(',');
+    final moving = await db.query(
+      'workout_slots_v2',
+      where: 'id IN ($placeholders)',
+      whereArgs: slotIds,
+      orderBy: 'sort_order ASC, id ASC',
+    );
+    if (moving.length != slotIds.length) {
+      throw StateError('An exercise is no longer available.');
+    }
+    final movingIds = moving.map((value) => value['id'] as String).toSet();
+    final target = (await db.query(
+          'workout_slots_v2',
+          where: 'group_variant_id = ?',
+          whereArgs: [targetGroupVariantId],
+          orderBy: 'sort_order ASC, id ASC',
+        ))
+        .where((value) => !movingIds.contains(value['id']))
+        .toList(growable: false);
+    final insertion = (targetIndex ?? target.length).clamp(0, target.length);
+    final reordered = <Map<String, Object?>>[
+      ...target.take(insertion),
+      ...moving,
+      ...target.skip(insertion),
+    ];
+    for (var index = 0; index < reordered.length; index++) {
+      await db.update(
+        'workout_slots_v2',
+        {'group_variant_id': targetGroupVariantId, 'sort_order': index},
+        where: 'id = ?',
+        whereArgs: [reordered[index]['id']],
+      );
+    }
+    final sourceVariants =
+        moving
+            .map((value) => value['group_variant_id'] as String)
+            .where((value) => value != targetGroupVariantId)
+            .toSet();
+    for (final sourceId in sourceVariants) {
+      final remaining = await db.query(
+        'workout_slots_v2',
+        where: 'group_variant_id = ?',
+        whereArgs: [sourceId],
+        orderBy: 'sort_order ASC, id ASC',
+      );
+      var order = 0;
+      for (final row in remaining.where(
+        (row) => !movingIds.contains(row['id']),
+      )) {
+        await db.update(
+          'workout_slots_v2',
+          {'sort_order': order++},
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      }
+    }
   }
 
   static Future<void> _replaceWorkoutTags(
@@ -797,7 +1167,11 @@ class WorkoutPlanningRepository {
     String workoutId,
     WorkoutPrimaryGoal goal,
   ) async {
-    await db.delete('workout_tags', where: 'workout_id = ?', whereArgs: [workoutId]);
+    await db.delete(
+      'workout_tags',
+      where: 'workout_id = ?',
+      whereArgs: [workoutId],
+    );
     for (var index = 0; index < goal.statisticTags.length; index++) {
       await db.insert('workout_tags', {
         'workout_id': workoutId,
@@ -829,16 +1203,20 @@ class WorkoutPlanningRepository {
     if (legacy.isEmpty) return null;
     final row = legacy.single;
     final catalogId = row['catalogId'] as String?;
-    final byCatalog = catalogId == null
-        ? const <Map<String, Object?>>[]
-        : await db.query(
-            'exercise_items',
-            columns: const ['id'],
-            where: 'catalog_id = ?',
-            whereArgs: [catalogId],
-            limit: 1,
-          );
-    final id = byCatalog.isEmpty ? 'legacy-exercise:$legacyExerciseId' : byCatalog.single['id'] as String;
+    final byCatalog =
+        catalogId == null
+            ? const <Map<String, Object?>>[]
+            : await db.query(
+              'exercise_items',
+              columns: const ['id'],
+              where: 'catalog_id = ?',
+              whereArgs: [catalogId],
+              limit: 1,
+            );
+    final id =
+        byCatalog.isEmpty
+            ? 'legacy-exercise:$legacyExerciseId'
+            : byCatalog.single['id'] as String;
     final goal = _legacyGoal(row['goalCodes'], row['goal']);
     if (byCatalog.isEmpty) {
       final isCatalog = catalogId != null && catalogId.isNotEmpty;
@@ -848,16 +1226,27 @@ class WorkoutPlanningRepository {
         'source_type': isCatalog ? 'catalog' : 'custom',
         'catalog_id': isCatalog ? catalogId : null,
         'custom_name': isCatalog ? null : row['name'] as String,
-        'custom_description': isCatalog ? null : row['description'] as String? ?? '',
+        'custom_description':
+            isCatalog ? null : row['description'] as String? ?? '',
         'personal_alias': row['alias'] as String?,
         'notes': row['notes'] as String? ?? '',
-        'tracking_mode': goal == WorkoutPrimaryGoal.mobility ? 'mobility' : goal == WorkoutPrimaryGoal.strength ? 'strength' : 'cardio',
+        'tracking_mode':
+            goal == WorkoutPrimaryGoal.mobility
+                ? 'mobility'
+                : goal == WorkoutPrimaryGoal.strength
+                ? 'strength'
+                : 'cardio',
         'is_archived': (row['isArchived'] as num?)?.toInt() ?? 0,
         'created_at_utc': now,
         'updated_at_utc': now,
       });
     } else {
-      await db.update('exercise_items', {'legacy_local_id': legacyExerciseId}, where: 'id = ?', whereArgs: [id]);
+      await db.update(
+        'exercise_items',
+        {'legacy_local_id': legacyExerciseId},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     }
     await db.delete('exercise_tags', where: 'exercise_id = ?', whereArgs: [id]);
     for (var index = 0; index < goal.statisticTags.length; index++) {
@@ -887,9 +1276,11 @@ class WorkoutPlanningRepository {
     ]) {
       if (values.contains(goal.code) ||
           (goal == WorkoutPrimaryGoal.strength && values.contains('Kraft')) ||
-          (goal == WorkoutPrimaryGoal.endurance && values.contains('Ausdauer')) ||
+          (goal == WorkoutPrimaryGoal.endurance &&
+              values.contains('Ausdauer')) ||
           (goal == WorkoutPrimaryGoal.cardio && values.contains('Cardio')) ||
-          (goal == WorkoutPrimaryGoal.mobility && values.contains('Mobilität'))) {
+          (goal == WorkoutPrimaryGoal.mobility &&
+              values.contains('Mobilität'))) {
         return goal;
       }
     }

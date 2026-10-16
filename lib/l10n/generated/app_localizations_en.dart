@@ -1357,4 +1357,63 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workoutAlreadyPlanned => 'This workout is already planned for this day.';
+
+  @override
+  String get defaultSetup => 'Default setup';
+
+  @override
+  String get chooseSetupProfile => 'Which training environment is this setup for?';
+
+  @override
+  String get profileSetup => 'Use this profile';
+
+  @override
+  String get makeDefaultSetup => 'Make default setup';
+
+  @override
+  String get warmupGroup => 'Warm-up';
+
+  @override
+  String get coreExercisesGroup => 'Main exercises';
+
+  @override
+  String get cooldownGroup => 'Cooldown';
+
+  @override
+  String get dropExercisesHere => 'Drop exercises here';
+
+  @override
+  String get dragExercise => 'Drag exercise';
+
+  @override
+  String selectedExercises(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count exercises selected',
+      one: '1 exercise selected',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get groupSelectedExercises => 'Group selected exercises';
+
+  @override
+  String get group => 'Group';
+
+  @override
+  String get showAllExercises => 'Show all';
+
+  @override
+  String get prioritizeProfileExercises => 'Prioritize matching';
+
+  @override
+  String get switchExerciseForSession => 'Switch exercise for this session';
+
+  @override
+  String get removeFromWeeklyPlan => 'Remove from weekly plan';
+
+  @override
+  String get weeklyPlacementRemoved => 'Workout removed from weekly plan';
 }
