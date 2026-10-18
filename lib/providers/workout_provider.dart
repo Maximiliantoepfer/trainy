@@ -41,6 +41,7 @@ class WorkoutProvider extends ChangeNotifier {
     String setupName = 'Standard',
     String? profileId,
     List<int> exerciseIds = const [],
+    String? creationId,
   }) async {
     final workout = await _repository.createWorkout(
       WorkoutEditorDraft(
@@ -50,10 +51,13 @@ class WorkoutProvider extends ChangeNotifier {
         setupName: setupName,
         profileId: profileId,
         exerciseIds: exerciseIds,
+        creationId: creationId,
       ),
     );
-    _workouts = [..._workouts, workout]
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    _workouts = [
+      ..._workouts.where((value) => value.canonicalId != workout.canonicalId),
+      workout,
+    ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     notifyListeners();
     return workout;
   }
@@ -107,10 +111,7 @@ class WorkoutProvider extends ChangeNotifier {
   /// A workout now has one visible primary goal, selected deterministically.
   Future<void> setWorkoutGoalCodes(int workoutId, List<String> values) async {
     const priority = ['strength', 'endurance', 'cardio', 'mobility'];
-    final goal = priority.firstWhere(
-      values.contains,
-      orElse: () => 'strength',
-    );
+    final goal = priority.firstWhere(values.contains, orElse: () => 'strength');
     final workout = _find(workoutId);
     await _repository.updateBasics(
       workout: workout,
@@ -121,7 +122,9 @@ class WorkoutProvider extends ChangeNotifier {
   }
 
   List<Workout> workoutsForDay(int dayOfWeek) =>
-      _workouts.where((workout) => workout.assignedDays.contains(dayOfWeek)).toList()
+      _workouts
+          .where((workout) => workout.assignedDays.contains(dayOfWeek))
+          .toList()
         ..sort((a, b) {
           final order = (a.scheduleOrderByDay[dayOfWeek] ?? 0).compareTo(
             b.scheduleOrderByDay[dayOfWeek] ?? 0,

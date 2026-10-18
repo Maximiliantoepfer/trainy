@@ -11,7 +11,11 @@ import '../providers/exercise_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../widgets/workout_group_editor.dart';
 import '../widgets/workout_exercise_picker.dart';
+import '../widgets/library_exercise_thumbnail.dart';
 import '../providers/workout_provider.dart';
+import '../providers/training_profile_provider.dart';
+import '../utils/uuid_v4.dart';
+import '../utils/exercise_localization.dart';
 import '../repositories/training_profile_repository.dart';
 import '../repositories/workout_planning_repository.dart';
 import '../services/catalog_repository.dart';
@@ -40,19 +44,32 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
   String? _profileId;
   List<TrainingProfileRecord> _profiles = const [];
   late final TrainingProfileStore _profileStore =
-      widget.profileStore ?? TrainingProfileRepository();
+      widget.profileStore ??
+      context.read<TrainingProfileProvider?>() ??
+      TrainingProfileRepository();
   bool _profilesLoading = true;
   bool _profileEditorOpen = false;
   bool _pickerOpen = false;
   Object? _profileError;
   Object? _saveError;
-  Set<int> _exerciseIds = <int>{};
-  Set<String> _catalogIds = <String>{};
+  List<ExerciseSelectionRef> _selection = [];
+  final _creationId = UuidV4.generate();
+  bool _preferenceLoaded = false;
+  bool _allowExit = false;
 
   @override
   void initState() {
     super.initState();
     _loadProfiles();
+    if (_profileStore is Listenable) {
+      (_profileStore as Listenable).addListener(_profilesChanged);
+    }
+  }
+
+  void _profilesChanged() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadProfiles();
+    });
   }
 
   Future<void> _loadProfiles() async {
@@ -62,7 +79,24 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
     });
     try {
       final profiles = await _profileStore.profiles();
-      if (mounted) setState(() => _profiles = profiles);
+      final preferred =
+          !_preferenceLoaded ? await _profileStore.selectedProfileId() : null;
+      if (mounted) {
+        setState(() {
+          _profiles = profiles;
+          if (!_preferenceLoaded) {
+            _profileId =
+                profiles.any((p) => p.id == preferred) ? preferred : null;
+            _preferenceLoaded = true;
+          } else if (!profiles.any((p) => p.id == _profileId)) {
+            _profileId = null;
+          }
+          if (_profileId != null) {
+            _setupName.text =
+                profiles.firstWhere((p) => p.id == _profileId).name;
+          }
+        });
+      }
     } catch (error, stack) {
       debugPrint('Loading workout profiles failed: $error');
       debugPrintStack(stackTrace: stack);
@@ -80,18 +114,27 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
             : _profiles.firstWhere((profile) => profile.id == id).name;
   });
 
-  Future<void> _createProfile() async {
+  Future<void> _chooseProfile() async {
     if (_profileEditorOpen) return;
     setState(() => _profileEditorOpen = true);
     try {
-      final value = await showTrainingProfileEditor(
-        context,
-        store: _profileStore,
-        sortOrder: _profiles.length,
+      final value = await showModalBottomSheet<_SetupDraft>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder:
+            (_) => _SetupEditorSheet(
+              excludedProfileIds: const {},
+              store: _profileStore,
+            ),
       );
       if (!mounted || value == null) return;
-      setState(() => _profiles = [..._profiles, value]);
-      _selectProfile(value.id);
+      final profiles = await _profileStore.profiles();
+      if (!mounted) return;
+      setState(() => _profiles = profiles);
+      _selectProfile(value.profileId);
+    } catch (error) {
+      if (mounted) setState(() => _profileError = error);
     } finally {
       if (mounted) setState(() => _profileEditorOpen = false);
     }
@@ -99,6 +142,9 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
 
   @override
   void dispose() {
+    if (_profileStore is Listenable) {
+      (_profileStore as Listenable).removeListener(_profilesChanged);
+    }
     _name.dispose();
     _description.dispose();
     _setupName.dispose();
@@ -108,6 +154,14 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
   Future<void> _continue() async {
     if (_saving) return;
     if (_step == 0 && !(_formKey.currentState?.validate() ?? false)) return;
+    if (_step >= 1 &&
+        !_profiles.any((p) => p.id == _profileId && !p.isArchived)) {
+      setState(() => _step = 1);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.profileRequired)));
+      return;
+    }
     if (_step < 2) {
       setState(() => _step++);
       return;
@@ -119,13 +173,9 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
     try {
       final exerciseProvider = context.read<ExerciseProvider>();
       final locale = Localizations.localeOf(context).languageCode;
-      final ids = <int>{..._exerciseIds};
-      for (final catalogId in _catalogIds) {
-        final item = CatalogRepository.instance.localized(catalogId, locale);
-        if (item != null) {
-          ids.add(await exerciseProvider.addCatalogExercise(item));
-        }
-      }
+      final exercises = await ExercisePickerResult.ordered(
+        _selection,
+      ).materialize(exerciseProvider, locale);
       if (!mounted || !context.mounted) return;
       final workout = await context.read<WorkoutProvider>().createWorkout(
         name: _name.text,
@@ -133,9 +183,11 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
         primaryGoal: _goal,
         setupName: _setupName.text,
         profileId: _profileId,
-        exerciseIds: ids.toList(growable: false),
+        exerciseIds: exercises.map((e) => e.id).toList(growable: false),
+        creationId: _creationId,
       );
       if (mounted) {
+        _allowExit = true;
         Navigator.of(context).pop(workout);
       }
     } catch (error, stack) {
@@ -158,8 +210,7 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
         showDragHandle: true,
         builder:
             (_) => WorkoutExercisePicker(
-              selectedExerciseIds: _exerciseIds,
-              selectedCatalogIds: _catalogIds,
+              selectedReferences: _selection,
               availableEquipment:
                   _profiles
                       .where((p) => p.id == _profileId)
@@ -169,8 +220,7 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
       );
       if (result != null && mounted) {
         setState(() {
-          _exerciseIds = result.exerciseIds;
-          _catalogIds = result.catalogIds;
+          _selection = result.references.toList();
         });
       }
     } finally {
@@ -178,118 +228,182 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
     }
   }
 
+  Future<void> _back() async {
+    if (_saving) return;
+    if (_step > 0) {
+      setState(() => _step--);
+      return;
+    }
+    final dirty =
+        _name.text.trim().isNotEmpty ||
+        _description.text.isNotEmpty ||
+        _selection.isNotEmpty;
+    if (dirty) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder:
+            (c) => AlertDialog(
+              title: Text(c.l10n.discardWorkoutDraft),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(c, false),
+                  child: Text(c.l10n.cancel),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(c, true),
+                  child: Text(c.l10n.discard),
+                ),
+              ],
+            ),
+      );
+      if (discard != true || !mounted) return;
+    }
+    _allowExit = true;
+    if (mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final l10n = context.l10n;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.newWorkout),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(36),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Column(
-              children: [
-                LinearProgressIndicator(value: (_step + 1) / 3),
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    l10n.stepOf(_step + 1, 3),
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return PopScope(
+      canPop: _allowExit,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _back();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: BackButton(onPressed: _saving ? null : _back),
+          title: Text(
+            _step > 0 && _name.text.trim().isNotEmpty
+                ? _name.text.trim()
+                : l10n.newWorkout,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Padding(
-                  key: ValueKey(_step),
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                  child: switch (_step) {
-                    0 => _BasicsStep(
-                      formKey: _formKey,
-                      name: _name,
-                      description: _description,
-                      goal: _goal,
-                      onGoalChanged: (goal) => setState(() => _goal = goal),
-                    ),
-                    1 => _SetupStep(
-                      profiles: _profiles,
-                      profileId: _profileId,
-                      loading: _profilesLoading,
-                      error: _profileError,
-                      onRetry: _loadProfiles,
-                      onCreate:
-                          _profileEditorOpen || _profilesLoading
-                              ? null
-                              : _createProfile,
-                      onProfileChanged: _selectProfile,
-                    ),
-                    _ => _ExercisesStep(
-                      count: _exerciseIds.length + _catalogIds.length,
-                      onSelect: _selectExercises,
-                    ),
-                  },
-                ),
-              ),
-            ),
-            if (_saveError != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  l10n.localSaveFailed,
-                  style: TextStyle(color: scheme.error),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Row(
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(36),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Column(
                 children: [
-                  if (_step > 0)
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed:
-                            _saving ? null : () => setState(() => _step--),
-                        child: Text(l10n.back),
+                  LinearProgressIndicator(value: (_step + 1) / 3),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      l10n.stepOf(_step + 1, 3),
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
                       ),
-                    ),
-                  if (_step > 0) const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _saving ? null : _continue,
-                      child:
-                          _saving
-                              ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                              : Text(
-                                _saveError != null && _step == 2
-                                    ? l10n.retry
-                                    : _step == 2
-                                    ? l10n.saveWorkout
-                                    : l10n.next,
-                              ),
                     ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration:
+                      MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 200),
+                  child: Padding(
+                    key: ValueKey(_step),
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                    child: switch (_step) {
+                      0 => _BasicsStep(
+                        formKey: _formKey,
+                        name: _name,
+                        description: _description,
+                        goal: _goal,
+                        onGoalChanged: (goal) => setState(() => _goal = goal),
+                      ),
+                      1 => _SetupStep(
+                        profiles: _profiles,
+                        profileId: _profileId,
+                        loading: _profilesLoading,
+                        error: _profileError,
+                        onRetry: _loadProfiles,
+                        onCreate:
+                            _profileEditorOpen || _profilesLoading
+                                ? null
+                                : _chooseProfile,
+                        onProfileChanged: _selectProfile,
+                      ),
+                      _ => _ExercisesStep(
+                        selection: _selection,
+                        profileName:
+                            _profiles
+                                .where((p) => p.id == _profileId)
+                                .firstOrNull
+                                ?.name ??
+                            '',
+                        goal: _goal,
+                        onSelect: _selectExercises,
+                        onRemove:
+                            (index) =>
+                                setState(() => _selection.removeAt(index)),
+                        onReorder:
+                            (from, to) => setState(() {
+                              if (to > from) to--;
+                              _selection.insert(to, _selection.removeAt(from));
+                            }),
+                      ),
+                    },
+                  ),
+                ),
+              ),
+              if (_saveError != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    l10n.localSaveFailed,
+                    style: TextStyle(color: scheme.error),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Row(
+                  children: [
+                    if (_step > 0)
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _saving ? null : _back,
+                          child: Text(l10n.back),
+                        ),
+                      ),
+                    if (_step > 0) const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _saving ? null : _continue,
+                        child:
+                            _saving
+                                ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                                : Text(
+                                  _saveError != null && _step == 2
+                                      ? l10n.retry
+                                      : _step == 2
+                                      ? l10n.saveWorkout
+                                      : l10n.next,
+                                ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -322,6 +436,10 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   bool _loading = true;
   bool _busy = false;
   Object? _error;
+  late final TrainingProfileStore _profileStore =
+      widget.profileStore ??
+      context.read<TrainingProfileProvider?>() ??
+      TrainingProfileRepository();
 
   WorkoutSetup? get _currentSetup =>
       _setups.where((s) => s.id == _setupId).firstOrNull ?? _setups.firstOrNull;
@@ -337,10 +455,22 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   void initState() {
     super.initState();
     _load();
+    if (_profileStore is Listenable) {
+      (_profileStore as Listenable).addListener(_profileChanged);
+    }
+  }
+
+  void _profileChanged() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
   }
 
   @override
   void dispose() {
+    if (_profileStore is Listenable) {
+      (_profileStore as Listenable).removeListener(_profileChanged);
+    }
     _scroll.dispose();
     super.dispose();
   }
@@ -438,19 +568,79 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       showDragHandle: true,
       builder:
           (_) => _SetupEditorSheet(
-            store: widget.profileStore ?? TrainingProfileRepository(),
+            store: _profileStore,
+            setups: _setups,
+            selectedSetupId: _setupId,
             excludedProfileIds:
                 _setups.map((s) => s.profile?.id).whereType<String>().toSet(),
           ),
     );
     if (!mounted || result == null) return;
+    if (result.setupId != null) {
+      if (result.makeDefault) {
+        await _mutate(() => _repository.setDefaultSetup(result.setupId!));
+      }
+      if (mounted) {
+        setState(() {
+          _setupId = result.setupId;
+          _selectedSlotIds.clear();
+        });
+      }
+      return;
+    }
     final copyId = _currentSetup?.id;
+    final mode = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder:
+          (c) => SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    c.l10n.configureWorkoutProfile,
+                    style: Theme.of(c).textTheme.titleMedium,
+                  ),
+                ),
+                if (_currentSetup?.profile == null && copyId != null)
+                  ListTile(
+                    leading: const Icon(Icons.link),
+                    title: Text(c.l10n.linkWorkoutProfile),
+                    onTap: () => Navigator.pop(c, 'link'),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.copy_outlined),
+                  title: Text(c.l10n.copyWorkoutExercises),
+                  onTap: () => Navigator.pop(c, 'copy'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.add),
+                  title: Text(c.l10n.emptyWorkoutProfile),
+                  onTap: () => Navigator.pop(c, 'empty'),
+                ),
+              ],
+            ),
+          ),
+    );
+    if (!mounted || mode == null) return;
+    final creationId = UuidV4.generate();
     await _mutate(() async {
+      if (mode == 'link') {
+        await _repository.bindProfileToSetup(
+          setupId: copyId!,
+          profileId: result.profileId!,
+        );
+        return;
+      }
       final created = await _repository.createSetup(
         workoutId: widget.workout.canonicalId,
         name: result.name,
         profileId: result.profileId,
         copyFromSetupId: copyId,
+        contents: mode == 'empty' ? SetupContents.empty : SetupContents.copy,
+        creationId: creationId,
       );
       if (mounted) {
         setState(() {
@@ -649,37 +839,14 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       );
       return;
     }
-    WorkoutSetup? selected;
-    if (_setups.length == 1) {
-      selected = _setups.single;
-    } else {
-      selected = await showModalBottomSheet<WorkoutSetup>(
-        context: context,
-        showDragHandle: true,
-        builder:
-            (c) => SafeArea(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final setup in _setups)
-                    ListTile(
-                      leading: Icon(
-                        setup.isDefault
-                            ? Icons.star_rounded
-                            : Icons.fitness_center,
-                      ),
-                      title: Text(_setupLabel(setup)),
-                      subtitle: Text(
-                        c.l10n.setupExercisesCount(setup.exerciseCount),
-                      ),
-                      onTap: () => Navigator.pop(c, setup),
-                    ),
-                ],
-              ),
-            ),
-      );
+    final selected = _currentSetup;
+    if (selected == null || selected.exerciseCount == 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.noExercisesToStart)));
+      return;
     }
-    if (!mounted || selected == null) return;
+    if (!mounted) return;
     try {
       await _startSetup(selected);
     } catch (error, stack) {
@@ -701,11 +868,11 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         'Default setup',
         'Default',
       }.contains(setup.name)) {
-        return context.l10n.withoutProfile;
+        return context.l10n.selectSetup;
       }
-      return '${setup.name} · ${context.l10n.withoutProfile}';
+      return setup.name;
     }
-    return profile == setup.name ? profile : '${setup.name} · $profile';
+    return profile;
   }
 
   Future<void> _addToWeek() async {
@@ -827,56 +994,18 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                         ],
                       ),
                     ),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: setup?.id,
-                            isExpanded: true,
-                            decoration: InputDecoration(
-                              labelText: l10n.selectSetup,
-                            ),
-                            items: [
-                              for (final value in _setups)
-                                DropdownMenuItem(
-                                  value: value.id,
-                                  child: Text(
-                                    _setupLabel(value),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                            ],
-                            onChanged:
-                                _busy
-                                    ? null
-                                    : (id) => setState(() {
-                                      _setupId = id;
-                                      _selectedSlotIds.clear();
-                                    }),
-                          ),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        key: const ValueKey('workoutProfileChooser'),
+                        leading: const Icon(Icons.home_work_outlined),
+                        title: Text(
+                          setup == null ? l10n.selectSetup : _setupLabel(setup),
                         ),
-                        IconButton(
-                          tooltip: l10n.createSetup,
-                          onPressed: _busy ? null : _addSetup,
-                          icon: const Icon(Icons.add),
-                        ),
-                      ],
-                    ),
-                    if (setup != null && !setup.isDefault)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          onPressed:
-                              _busy
-                                  ? null
-                                  : () => _mutate(
-                                    () => _repository.setDefaultSetup(setup.id),
-                                  ),
-                          icon: const Icon(Icons.star_outline, size: 18),
-                          label: Text(l10n.makeDefaultSetup),
-                        ),
+                        trailing: const Icon(Icons.expand_more_rounded),
+                        onTap: _busy ? null : _addSetup,
                       ),
+                    ),
                     const SizedBox(height: 16),
                     if (setup != null)
                       WorkoutGroupEditor(
@@ -981,7 +1110,11 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                     : FilledButton.icon(
                       onPressed: _busy || setup == null ? null : _launch,
                       icon: const Icon(Icons.play_arrow),
-                      label: Text(l10n.start),
+                      label: Text(
+                        setup?.profile == null
+                            ? l10n.start
+                            : l10n.startWithProfile(setup!.profile!.name),
+                      ),
                     ),
           ),
         ),
@@ -1207,86 +1340,165 @@ class _SetupStep extends StatelessWidget {
       const SizedBox(height: 20),
       if (loading) const LinearProgressIndicator(),
       if (error != null) _ProfileLoadRetry(onRetry: onRetry),
-      DropdownButtonFormField<String?>(
-        key: ValueKey('workoutProfile_$profileId'),
-        value: profileId,
-        isExpanded: true,
-        decoration: InputDecoration(labelText: context.l10n.trainingProfile),
-        items: [
-          DropdownMenuItem(
-            value: null,
-            child: Text(context.l10n.withoutProfile),
+      Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          key: const ValueKey('createWorkoutProfile'),
+          leading: const Icon(Icons.home_work_outlined),
+          title: Text(
+            profiles.where((p) => p.id == profileId).firstOrNull?.name ??
+                context.l10n.selectSetup,
           ),
-          for (final profile in profiles)
-            DropdownMenuItem(value: profile.id, child: Text(profile.name)),
-        ],
-        onChanged: onProfileChanged,
-      ),
-      const SizedBox(height: 12),
-      OutlinedButton.icon(
-        key: const ValueKey('createWorkoutProfile'),
-        onPressed: onCreate,
-        icon: const Icon(Icons.add),
-        label: Text(context.l10n.addTrainingProfile),
+          trailing: const Icon(Icons.expand_more_rounded),
+          onTap: onCreate,
+        ),
       ),
     ],
   );
 }
 
 class _ExercisesStep extends StatelessWidget {
-  const _ExercisesStep({required this.count, required this.onSelect});
-  final int count;
+  const _ExercisesStep({
+    required this.selection,
+    required this.profileName,
+    required this.goal,
+    required this.onSelect,
+    required this.onRemove,
+    required this.onReorder,
+  });
+  final List<ExerciseSelectionRef> selection;
+  final String profileName;
+  final WorkoutPrimaryGoal goal;
   final VoidCallback onSelect;
+  final ValueChanged<int> onRemove;
+  final ReorderCallback onReorder;
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    child: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) {
+    final local = context.watch<ExerciseProvider>().exercises;
+    final locale = Localizations.localeOf(context).languageCode;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Icon(
-              Icons.format_list_bulleted_rounded,
-              size: 48,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              context.l10n.workoutExercises,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              context.l10n.setupExercisesCount(count),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: onSelect,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(context.l10n.addExercise),
-            ),
+            GoalIcon(goal.code, color: Theme.of(context).colorScheme.primary),
+            Text(goalLabel(context, goal.code)),
+            Text(profileName, style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
-      ),
-    ),
-  );
+        const SizedBox(height: 12),
+        Expanded(
+          child:
+              selection.isEmpty
+                  ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.format_list_bulleted_rounded,
+                          size: 40,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(context.l10n.noExercisesToStart),
+                      ],
+                    ),
+                  )
+                  : ReorderableListView.builder(
+                    buildDefaultDragHandles: false,
+                    itemCount: selection.length,
+                    onReorder: onReorder,
+                    itemBuilder: (c, i) {
+                      final ref = selection[i];
+                      final exercise =
+                          local
+                              .where((e) => e.id == ref.exerciseId)
+                              .firstOrNull;
+                      final catalog =
+                          ref.catalogId == null
+                              ? null
+                              : CatalogRepository.instance.localized(
+                                ref.catalogId!,
+                                locale,
+                              );
+                      return Card(
+                        key: ValueKey(ref.key),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: LibraryExerciseThumbnail(
+                            assetPath: catalog?.definition.imageAssetPath,
+                            personalPath: exercise?.imagePaths.firstOrNull,
+                          ),
+                          title: Text(
+                            catalog?.content.name ??
+                                (exercise == null
+                                    ? context.l10n.exercise
+                                    : displayExerciseName(context, exercise)),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: context.l10n.remove,
+                                onPressed: () => onRemove(i),
+                                icon: const Icon(Icons.close),
+                              ),
+                              ReorderableDragStartListener(
+                                index: i,
+                                child: Semantics(
+                                  label: context.l10n.dragExercise,
+                                  child: const SizedBox(
+                                    width: 48,
+                                    height: 48,
+                                    child: Icon(Icons.drag_indicator),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: onSelect,
+          icon: const Icon(Icons.add),
+          label: Text(context.l10n.addExercises),
+        ),
+      ],
+    );
+  }
 }
 
 class _SetupDraft {
-  const _SetupDraft(this.name, this.profileId);
+  const _SetupDraft(
+    this.name,
+    this.profileId, {
+    this.setupId,
+    this.makeDefault = false,
+  });
   final String name;
   final String? profileId;
+  final String? setupId;
+  final bool makeDefault;
 }
 
 class _SetupEditorSheet extends StatefulWidget {
   const _SetupEditorSheet({
     required this.excludedProfileIds,
     required this.store,
+    this.setups = const [],
+    this.selectedSetupId,
   });
   final Set<String> excludedProfileIds;
   final TrainingProfileStore store;
+  final List<WorkoutSetup> setups;
+  final String? selectedSetupId;
   @override
   State<_SetupEditorSheet> createState() => _SetupEditorSheetState();
 }
@@ -1354,21 +1566,111 @@ class _SetupEditorSheetState extends State<_SetupEditorSheet> {
           const SizedBox(height: 12),
           if (_loading) const LinearProgressIndicator(),
           if (_error != null) _ProfileLoadRetry(onRetry: _load),
-          ListTile(
-            leading: const Icon(Icons.person_outline_rounded),
-            title: Text(context.l10n.withoutProfile),
-            onTap:
-                () => Navigator.pop(
-                  context,
-                  _SetupDraft(context.l10n.defaultSetup, null),
-                ),
-          ),
+          for (final setup in widget.setups)
+            ListTile(
+              leading: Icon(
+                setup.id == widget.selectedSetupId
+                    ? Icons.check_circle
+                    : Icons.home_work_outlined,
+              ),
+              title: Text(
+                _profiles
+                        .where((p) => p.id == setup.profile?.id)
+                        .firstOrNull
+                        ?.name ??
+                    setup.profile?.name ??
+                    ({
+                          'Standard',
+                          'Default',
+                          'Standard-Setup',
+                          'Default setup',
+                        }.contains(setup.name)
+                        ? context.l10n.withoutProfile
+                        : setup.name),
+              ),
+              subtitle: Text(
+                '${context.l10n.setupExercisesCount(setup.exerciseCount)}${setup.profile?.isArchived == true ? ' · ${context.l10n.profileArchived}' : ''}',
+              ),
+              onTap:
+                  () => Navigator.pop(
+                    context,
+                    _SetupDraft(
+                      setup.name,
+                      setup.profile?.id,
+                      setupId: setup.id,
+                    ),
+                  ),
+              trailing:
+                  setup.profile == null && setup.isDefault
+                      ? null
+                      : PopupMenuButton<String>(
+                        onSelected: (action) async {
+                          if (action == 'default') {
+                            Navigator.pop(
+                              context,
+                              _SetupDraft(
+                                setup.name,
+                                setup.profile?.id,
+                                setupId: setup.id,
+                                makeDefault: true,
+                              ),
+                            );
+                          } else if (setup.profile != null) {
+                            final p =
+                                _profiles
+                                    .where((p) => p.id == setup.profile!.id)
+                                    .firstOrNull ??
+                                setup.profile!;
+                            await showTrainingProfileEditor(
+                              context,
+                              store: widget.store,
+                              existing: p,
+                            );
+                            if (mounted) await _load();
+                          }
+                        },
+                        itemBuilder:
+                            (c) => [
+                              if (setup.profile != null)
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text(c.l10n.edit),
+                                ),
+                              if (!setup.isDefault)
+                                PopupMenuItem(
+                                  value: 'default',
+                                  child: Text(c.l10n.makeDefaultSetup),
+                                ),
+                            ],
+                      ),
+            ),
+          if (widget.setups.isNotEmpty &&
+              _profiles.any((p) => !widget.excludedProfileIds.contains(p.id)))
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                context.l10n.moreWorkoutProfiles,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
           for (final profile in _profiles.where(
             (value) => !widget.excludedProfileIds.contains(value.id),
           ))
             ListTile(
               leading: const Icon(Icons.home_work_outlined),
               title: Text(profile.name),
+              trailing: IconButton(
+                tooltip: context.l10n.edit,
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () async {
+                  await showTrainingProfileEditor(
+                    context,
+                    store: widget.store,
+                    existing: profile,
+                  );
+                  if (mounted) await _load();
+                },
+              ),
               onTap:
                   () => Navigator.pop(
                     context,

@@ -6,6 +6,9 @@ import '../providers/cloud_sync_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/workout_provider.dart';
 import '../providers/progress_provider.dart';
+import '../providers/training_profile_provider.dart';
+import '../models/training_profile.dart';
+import '../screens/profile_onboarding_screen.dart';
 import '../l10n/l10n.dart';
 
 class OnboardingGate extends StatefulWidget {
@@ -28,11 +31,80 @@ class _OnboardingGateState extends State<OnboardingGate> {
   Future<void> _maybeShowOnboarding() async {
     if (!mounted || _checked) return;
     _checked = true;
-    final done = await SettingsDatabase.instance.getOnboardingDone();
-    if (done || !mounted) return;
+    try {
+      await _showOnboarding();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.genericError),
+          duration: const Duration(seconds: 15),
+          action: SnackBarAction(
+            label: context.l10n.retry,
+            onPressed: () {
+              _checked = false;
+              _maybeShowOnboarding();
+            },
+          ),
+        ),
+      );
+    }
+  }
 
-    await _runOnboarding();
-    await SettingsDatabase.instance.setOnboardingDone(true);
+  Future<void> _showOnboarding() async {
+    final done = await SettingsDatabase.instance.getOnboardingDone();
+    if (!mounted) return;
+    if (!done) {
+      try {
+        await _runOnboarding();
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
+        }
+      }
+      await SettingsDatabase.instance.setOnboardingDone(true);
+    }
+    if (!mounted) return;
+    final profiles = context.read<TrainingProfileProvider>();
+    await profiles.reload();
+    if (!mounted) return;
+    if (profiles.error != null) throw profiles.error!;
+    final required = profiles.onboardingState == ProfileSetupState.required;
+    if (!required && profiles.onboardingState != ProfileSetupState.offer) {
+      return;
+    }
+    if (!required) {
+      final configure = await showDialog<bool>(
+        context: context,
+        builder:
+            (c) => AlertDialog(
+              title: Text(c.l10n.profileIntroTitle),
+              content: Text(c.l10n.profileIntroBody),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(c, false),
+                  child: Text(c.l10n.later),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(c, true),
+                  child: Text(c.l10n.configure),
+                ),
+              ],
+            ),
+      );
+      await profiles.dismissSetupOffer();
+      if (configure != true || !mounted) return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder:
+            (_) =>
+                ProfileOnboardingScreen(profiles: profiles, required: required),
+      ),
+    );
   }
 
   Future<void> _runOnboarding() async {
@@ -150,9 +222,11 @@ class _OnboardingGateState extends State<OnboardingGate> {
   }
 
   Future<void> _reloadProviders() async {
+    final profiles = context.read<TrainingProfileProvider>();
     final exercises = context.read<ExerciseProvider>();
     final workouts = context.read<WorkoutProvider>();
     final progress = context.read<ProgressProvider>();
+    await profiles.reload();
     await exercises.loadExercises();
     await workouts.loadWorkouts();
     await progress.loadData();

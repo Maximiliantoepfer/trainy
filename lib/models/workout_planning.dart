@@ -157,6 +157,7 @@ class WorkoutEditorDraft {
     this.description = '',
     this.profileId,
     this.exerciseIds = const [],
+    this.creationId,
   });
 
   final String name;
@@ -165,7 +166,10 @@ class WorkoutEditorDraft {
   final String setupName;
   final String? profileId;
   final List<int> exerciseIds;
+  final String? creationId;
 }
+
+enum SetupContents { copy, empty }
 
 @immutable
 class WorkoutLaunchPlan {

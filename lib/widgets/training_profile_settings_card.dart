@@ -13,10 +13,7 @@ Future<TrainingProfileRecord?> showTrainingProfileEditor(
   TrainingProfileRecord? existing,
   int sortOrder = 0,
 }) async {
-  final draft = await showDialog<TrainingProfileDraft>(
-    context: context,
-    builder: (_) => _TrainingProfileDialog(initial: existing),
-  );
+  final draft = await showTrainingProfileDraft(context, existing: existing);
   if (draft == null || !context.mounted) return null;
   final now = DateTime.now().toUtc();
   final value =
@@ -39,6 +36,14 @@ Future<TrainingProfileRecord?> showTrainingProfileEditor(
   });
 }
 
+Future<TrainingProfileDraft?> showTrainingProfileDraft(
+  BuildContext context, {
+  TrainingProfileRecord? existing,
+}) => showDialog<TrainingProfileDraft>(
+  context: context,
+  builder: (_) => _TrainingProfileDialog(initial: existing),
+);
+
 @immutable
 class TrainingProfileDraft {
   const TrainingProfileDraft({
@@ -52,9 +57,10 @@ class TrainingProfileDraft {
 
 @immutable
 class _ProfileViewData {
-  const _ProfileViewData(this.profiles);
+  const _ProfileViewData(this.profiles, this.preferredId);
 
   final List<TrainingProfileRecord> profiles;
+  final String? preferredId;
 }
 
 class TrainingProfileSettingsCard extends StatefulWidget {
@@ -77,10 +83,37 @@ class _TrainingProfileSettingsCardState
   void initState() {
     super.initState();
     _profilesFuture = _load();
+    if (widget.store is Listenable) {
+      (widget.store as Listenable).addListener(_refresh);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant TrainingProfileSettingsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.store == widget.store) return;
+    if (oldWidget.store is Listenable) {
+      (oldWidget.store as Listenable).removeListener(_refresh);
+    }
+    if (widget.store is Listenable) {
+      (widget.store as Listenable).addListener(_refresh);
+    }
+    _profilesFuture = _load();
+  }
+
+  @override
+  void dispose() {
+    if (widget.store is Listenable) {
+      (widget.store as Listenable).removeListener(_refresh);
+    }
+    super.dispose();
   }
 
   Future<_ProfileViewData> _load() async {
-    return _ProfileViewData(await widget.store.profiles());
+    return _ProfileViewData(
+      await widget.store.profiles(),
+      await widget.store.selectedProfileId(),
+    );
   }
 
   void _refresh() {
@@ -184,9 +217,7 @@ class _TrainingProfileSettingsCardState
             key: const ValueKey('trainingProfileCard'),
             children: [
               ListTile(
-                leading: const Icon(Icons.fitness_center_rounded),
-                title: Text(context.l10n.trainingProfile),
-                subtitle: Text(context.l10n.trainingProfileDescription),
+                title: Text(context.l10n.profilesTitle),
                 trailing: IconButton(
                   key: const ValueKey('addTrainingProfile'),
                   tooltip: context.l10n.add,
@@ -210,6 +241,9 @@ class _TrainingProfileSettingsCardState
                     enabled: !_mutationRunning,
                     onEdit: () => _showEditor(profile),
                     onArchive: () => _archive(profile),
+                    preferred: data.preferredId == profile.id,
+                    onPrefer:
+                        () => _mutate(() => widget.store.select(profile.id)),
                   ),
               if (_mutationRunning) const LinearProgressIndicator(minHeight: 2),
             ],
@@ -255,24 +289,25 @@ class _ProfileTile extends StatelessWidget {
     required this.enabled,
     required this.onEdit,
     required this.onArchive,
+    required this.preferred,
+    required this.onPrefer,
   });
 
   final TrainingProfileRecord profile;
   final bool enabled;
   final VoidCallback onEdit;
   final VoidCallback onArchive;
+  final bool preferred;
+  final VoidCallback onPrefer;
 
   @override
   Widget build(BuildContext context) => ListTile(
     key: ValueKey('trainingProfile_${profile.id}'),
     leading: const Icon(Icons.fitness_center_rounded),
-    title: Text(profile.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+    onTap: enabled ? onEdit : null,
+    title: Text(profile.name),
     subtitle: Text(
-      profile.equipmentCodes.isEmpty
-          ? context.l10n.noEquipmentSelected
-          : profile.equipmentCodes
-              .map((code) => equipmentLabel(context, code))
-              .join(' · '),
+      '${context.l10n.equipmentSelectionCount(profile.equipmentCodes.length)}${preferred ? ' · ${context.l10n.defaultSetup}' : ''}',
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
     ),
@@ -281,10 +316,16 @@ class _ProfileTile extends StatelessWidget {
       onSelected: (value) {
         if (value == 'edit') onEdit();
         if (value == 'archive') onArchive();
+        if (value == 'prefer') onPrefer();
       },
       itemBuilder:
           (context) => [
             PopupMenuItem(value: 'edit', child: Text(context.l10n.edit)),
+            if (!preferred)
+              PopupMenuItem(
+                value: 'prefer',
+                child: Text(context.l10n.preferredProfile),
+              ),
             PopupMenuItem(value: 'archive', child: Text(context.l10n.archive)),
           ],
     ),
@@ -305,6 +346,7 @@ class _TrainingProfileDialogState extends State<_TrainingProfileDialog> {
   late final Set<String> _selectedEquipment;
   late final TextEditingController _nameController;
   late final FocusNode _nameFocusNode;
+  String _template = 'custom';
 
   @override
   void initState() {
@@ -356,6 +398,38 @@ class _TrainingProfileDialogState extends State<_TrainingProfileDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (!editing) ...[
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final entry in [
+                        ('home', context.l10n.homeGym),
+                        ('gym', context.l10n.gym),
+                        ('custom', context.l10n.individualProfile),
+                      ])
+                        ChoiceChip(
+                          label: Text(entry.$2),
+                          selected: _template == entry.$1,
+                          onSelected:
+                              (_) => setState(() {
+                                _template = entry.$1;
+                                if (_template != 'custom') {
+                                  _nameController.text = entry.$2;
+                                }
+                                _selectedEquipment
+                                  ..clear()
+                                  ..addAll(
+                                    _template == 'gym'
+                                        ? TrainingProfileRepository.gymEquipment
+                                        : TrainingProfileRepository
+                                            .homeEquipment,
+                                  );
+                              }),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 TextFormField(
                   key: const ValueKey('trainingProfileName'),
                   controller: _nameController,
@@ -372,12 +446,43 @@ class _TrainingProfileDialogState extends State<_TrainingProfileDialog> {
                               ? context.l10n.nameRequired
                               : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                if (editing) ...[
+                  Text(
+                    context.l10n.profileSharedHint,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Text(
                   context.l10n.equipment,
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
                 const SizedBox(height: 8),
+                Text(
+                  context.l10n.equipmentSelectionCount(
+                    _selectedEquipment.length,
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton(
+                      onPressed:
+                          () => setState(
+                            () => _selectedEquipment.addAll(
+                              TrainingProfileRepository.equipmentCodes,
+                            ),
+                          ),
+                      child: Text(context.l10n.selectAllEquipment),
+                    ),
+                    TextButton(
+                      onPressed: () => setState(_selectedEquipment.clear),
+                      child: Text(context.l10n.clearEquipment),
+                    ),
+                  ],
+                ),
                 Wrap(
                   spacing: 8,
                   runSpacing: 0,

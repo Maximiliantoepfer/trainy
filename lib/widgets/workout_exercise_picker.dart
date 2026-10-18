@@ -11,23 +11,53 @@ import '../services/database_schema_v2.dart';
 import '../utils/exercise_localization.dart';
 import '../utils/goal_utils.dart';
 import 'exercise_editor_sheet.dart';
+import 'library_exercise_thumbnail.dart';
+
+@immutable
+class ExerciseSelectionRef {
+  const ExerciseSelectionRef({this.exerciseId, this.catalogId})
+    : assert(exerciseId != null || catalogId != null);
+  final int? exerciseId;
+  final String? catalogId;
+  String get key => catalogId ?? 'local:$exerciseId';
+}
 
 class ExercisePickerResult {
   ExercisePickerResult(Iterable<int> exerciseIds, Iterable<String> catalogIds)
-    : exerciseIds = Set.unmodifiable(exerciseIds),
-      catalogIds = Set.unmodifiable(catalogIds);
-  final Set<int> exerciseIds;
-  final Set<String> catalogIds;
+    : references = List.unmodifiable([
+        for (final id in exerciseIds) ExerciseSelectionRef(exerciseId: id),
+        for (final id in catalogIds) ExerciseSelectionRef(catalogId: id),
+      ]);
+  ExercisePickerResult.ordered(Iterable<ExerciseSelectionRef> values)
+    : references = List.unmodifiable(values);
+  final List<ExerciseSelectionRef> references;
+  Set<int> get exerciseIds =>
+      references.map((r) => r.exerciseId).whereType<int>().toSet();
+  Set<String> get catalogIds =>
+      references
+          .where((r) => r.exerciseId == null)
+          .map((r) => r.catalogId)
+          .whereType<String>()
+          .toSet();
 
   Future<List<Exercise>> materialize(
     ExerciseProvider provider,
     String locale,
   ) async {
-    final ids = <int>{...exerciseIds};
-    for (final id in catalogIds) {
-      final item = CatalogRepository.instance.localized(id, locale);
-      if (item == null) throw StateError('Catalog exercise unavailable: $id');
-      ids.add(await provider.addCatalogExercise(item));
+    final ids = <int>{};
+    for (final ref in references) {
+      if (ref.exerciseId != null) {
+        ids.add(ref.exerciseId!);
+      } else {
+        final item = CatalogRepository.instance.localized(
+          ref.catalogId!,
+          locale,
+        );
+        if (item == null) {
+          throw StateError('Catalog exercise unavailable: ${ref.catalogId}');
+        }
+        ids.add(await provider.addCatalogExercise(item));
+      }
     }
     return [
       for (final id in ids) provider.exercises.firstWhere((e) => e.id == id),
@@ -45,6 +75,7 @@ class WorkoutExercisePicker extends StatefulWidget {
     this.preferredFamily,
     this.single = false,
     this.excludedIds = const {},
+    this.selectedReferences,
   });
   final Set<int> selectedExerciseIds;
   final Set<String> selectedCatalogIds;
@@ -52,6 +83,7 @@ class WorkoutExercisePicker extends StatefulWidget {
   final String? preferredFamily;
   final bool single;
   final Set<int> excludedIds;
+  final List<ExerciseSelectionRef>? selectedReferences;
 
   @override
   State<WorkoutExercisePicker> createState() => _WorkoutExercisePickerState();
@@ -62,9 +94,45 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
   final _scroll = ScrollController();
   bool _creating = false;
   int? _newExerciseId;
-  late final Set<int> _selected = {...widget.selectedExerciseIds};
-  late final Set<String> _catalog = {...widget.selectedCatalogIds};
+  late final List<ExerciseSelectionRef> _selection = [
+    ...?widget.selectedReferences,
+    if (widget.selectedReferences == null) ...[
+      for (final id in widget.selectedExerciseIds)
+        ExerciseSelectionRef(exerciseId: id),
+      for (final id in widget.selectedCatalogIds)
+        ExerciseSelectionRef(catalogId: id),
+    ],
+  ];
   String? _goal;
+  bool _normalizedSelection = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_normalizedSelection) return;
+    _normalizedSelection = true;
+    final local = context.read<ExerciseProvider>().exercises;
+    final seen = <String>{};
+    final normalized = <ExerciseSelectionRef>[];
+    for (final ref in _selection) {
+      final exercise =
+          local
+              .where(
+                (e) =>
+                    ref.exerciseId == e.id ||
+                    (ref.catalogId != null && ref.catalogId == e.catalogId),
+              )
+              .firstOrNull;
+      final next = ExerciseSelectionRef(
+        exerciseId: exercise?.id ?? ref.exerciseId,
+        catalogId: ref.catalogId ?? exercise?.catalogId,
+      );
+      if (seen.add(next.key)) normalized.add(next);
+    }
+    _selection
+      ..clear()
+      ..addAll(normalized);
+  }
 
   @override
   void dispose() {
@@ -90,7 +158,9 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
         return;
       }
       setState(() {
-        _selected.add(value.exerciseId);
+        if (!_selection.any((r) => r.exerciseId == value.exerciseId)) {
+          _selection.add(ExerciseSelectionRef(exerciseId: value.exerciseId));
+        }
         _newExerciseId = value.exerciseId;
         _goal = null;
         _search.clear();
@@ -175,36 +245,48 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
         bottomNavigationBar: SafeArea(
           top: false,
           minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: OutlinedButton.icon(
-            key: const ValueKey('pickerCreateExercise'),
-            onPressed: _creating ? null : _createExercise,
-            icon: const Icon(Icons.add),
-            label: Text(context.l10n.newExercise),
-          ),
+          child:
+              widget.single
+                  ? _createButton()
+                  : FilledButton(
+                    key: const ValueKey('pickerApply'),
+                    onPressed:
+                        _creating
+                            ? null
+                            : () => Navigator.pop(
+                              context,
+                              ExercisePickerResult.ordered(_selection),
+                            ),
+                    child: Text(
+                      context.l10n.applyExerciseSelection(_selection.length),
+                    ),
+                  ),
         ),
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          title: Text(context.l10n.selectExercise),
+          title: Text(context.l10n.exercises),
           leading: IconButton(
             tooltip: context.l10n.cancel,
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.close),
           ),
           actions: [
-            if (!widget.single)
-              TextButton(
-                onPressed:
-                    () => Navigator.pop(
-                      context,
-                      ExercisePickerResult(_selected, _catalog),
-                    ),
-                child: Text(context.l10n.apply),
-              ),
+            if (!widget.single &&
+                MediaQuery.sizeOf(context).width >= 380 &&
+                MediaQuery.textScalerOf(context).scale(14) <= 21)
+              _createButton(),
           ],
         ),
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (!widget.single &&
+                (MediaQuery.sizeOf(context).width < 380 ||
+                    MediaQuery.textScalerOf(context).scale(14) > 21))
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _createButton(),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: TextField(
@@ -257,10 +339,11 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
                           final id = exercise?.id;
                           final disabled =
                               id != null && widget.excludedIds.contains(id);
-                          final selected =
-                              (id != null && _selected.contains(id)) ||
-                              (catalogId != null &&
-                                  _catalog.contains(catalogId));
+                          final selected = _selection.any(
+                            (r) =>
+                                (id != null && r.exerciseId == id) ||
+                                (catalogId != null && r.catalogId == catalogId),
+                          );
                           final name =
                               exercise == null
                                   ? item.catalog!.content.name
@@ -279,12 +362,19 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
                             } else {
                               setState(() {
                                 if (selected) {
-                                  _selected.remove(id);
-                                  _catalog.remove(catalogId);
-                                } else if (id != null) {
-                                  _selected.add(id);
-                                } else if (catalogId != null) {
-                                  _catalog.add(catalogId);
+                                  _selection.removeWhere(
+                                    (r) =>
+                                        (id != null && r.exerciseId == id) ||
+                                        (catalogId != null &&
+                                            r.catalogId == catalogId),
+                                  );
+                                } else {
+                                  _selection.add(
+                                    ExerciseSelectionRef(
+                                      exerciseId: id,
+                                      catalogId: catalogId,
+                                    ),
+                                  );
                                 }
                               });
                             }
@@ -302,22 +392,11 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
                             ),
                             enabled: !disabled,
                             onTap: disabled ? null : toggle,
-                            leading:
-                                item.catalog == null
-                                    ? const Icon(Icons.fitness_center)
-                                    : ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.asset(
-                                        item.catalog!.definition.imageAssetPath,
-                                        width: 48,
-                                        height: 48,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (_, e, s) => const Icon(
-                                              Icons.fitness_center,
-                                            ),
-                                      ),
-                                    ),
+                            leading: LibraryExerciseThumbnail(
+                              assetPath:
+                                  item.catalog?.definition.imageAssetPath,
+                              personalPath: exercise?.imagePaths.firstOrNull,
+                            ),
                             trailing:
                                 widget.single
                                     ? const Icon(Icons.chevron_right)
@@ -335,4 +414,11 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
       ),
     );
   }
+
+  Widget _createButton() => TextButton.icon(
+    key: const ValueKey('pickerCreateExercise'),
+    onPressed: _creating ? null : _createExercise,
+    icon: const Icon(Icons.add),
+    label: Text(context.l10n.newExercise),
+  );
 }

@@ -71,11 +71,26 @@ class WorkoutPlanningRepository {
     if (cleanSetupName.isEmpty) {
       throw ArgumentError.value(draft.setupName, 'setupName');
     }
-    final canonicalId = UuidV4.generate();
+    final canonicalId = draft.creationId ?? UuidV4.generate();
     final setupId = UuidV4.generate();
     final localId = DateTime.now().microsecondsSinceEpoch;
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await _database.transaction((txn) async {
+      if (draft.profileId == null) {
+        throw ArgumentError('An active profile is required.');
+      }
+      final profile = await txn.query(
+        'training_profiles_v2',
+        where: 'id = ? AND is_archived = 0',
+        whereArgs: [draft.profileId],
+      );
+      if (profile.isEmpty) throw StateError('Profile is not active.');
+      final previous = await txn.query(
+        'workout_templates',
+        where: 'id = ?',
+        whereArgs: [canonicalId],
+      );
+      if (previous.isNotEmpty) return;
       await txn.insert('workout_templates', {
         'id': canonicalId,
         'legacy_local_id': localId,
@@ -158,6 +173,9 @@ class WorkoutPlanningRepository {
         }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
     });
+    if (draft.creationId != null) {
+      return (await workouts()).firstWhere((w) => w.canonicalId == canonicalId);
+    }
     return Workout(
       id: localId,
       canonicalId: canonicalId,
@@ -292,12 +310,26 @@ class WorkoutPlanningRepository {
     required String name,
     String? profileId,
     String? copyFromSetupId,
+    SetupContents contents = SetupContents.copy,
+    String? creationId,
   }) async {
     final cleanName = name.trim();
     if (cleanName.isEmpty) throw ArgumentError.value(name, 'name');
-    final setupId = UuidV4.generate();
+    final setupId = creationId ?? UuidV4.generate();
     await _database.transaction((txn) async {
+      final prior = await txn.query(
+        'workout_variants_v2',
+        where: 'id = ? AND workout_id = ?',
+        whereArgs: [setupId, workoutId],
+      );
+      if (prior.isNotEmpty) return;
       if (profileId != null) {
+        final active = await txn.query(
+          'training_profiles_v2',
+          where: 'id = ? AND is_archived = 0',
+          whereArgs: [profileId],
+        );
+        if (active.isEmpty) throw StateError('Profile is not active.');
         final existingProfileSetup = await txn.query(
           'workout_variants_v2',
           columns: const ['id'],
@@ -330,7 +362,9 @@ class WorkoutPlanningRepository {
       for (final group in groups) {
         final groupId = group['id'] as String;
         final sourceSetupId =
-            copyFromSetupId ?? await _defaultSetupId(txn, workoutId);
+            contents == SetupContents.empty
+                ? null
+                : copyFromSetupId ?? await _defaultSetupId(txn, workoutId);
         String? sourceVariantId;
         if (sourceSetupId != null) {
           final selected = await txn.query(
@@ -371,6 +405,49 @@ class WorkoutPlanningRepository {
     return (await setupsForWorkout(
       workoutId,
     )).firstWhere((setup) => setup.id == setupId);
+  }
+
+  Future<void> bindProfileToSetup({
+    required String setupId,
+    required String profileId,
+  }) async {
+    await _database.transaction((txn) async {
+      final rows = await txn.query(
+        'workout_variants_v2',
+        where: 'id = ?',
+        whereArgs: [setupId],
+      );
+      if (rows.isEmpty) throw StateError('Setup no longer exists.');
+      final setup = rows.single;
+      if (setup['profile_id'] == profileId) return;
+      if (setup['profile_id'] != null) {
+        throw StateError('Only an unlinked setup can be bound.');
+      }
+      final profiles = await txn.query(
+        'training_profiles_v2',
+        where: 'id = ? AND is_archived = 0',
+        whereArgs: [profileId],
+      );
+      if (profiles.isEmpty) throw StateError('Profile is not active.');
+      final duplicate = await txn.query(
+        'workout_variants_v2',
+        where: 'workout_id = ? AND profile_id = ?',
+        whereArgs: [setup['workout_id'], profileId],
+      );
+      if (duplicate.isNotEmpty) throw StateError('Profile already configured.');
+      await txn.update(
+        'workout_variants_v2',
+        {'profile_id': profileId},
+        where: 'id = ?',
+        whereArgs: [setupId],
+      );
+      await txn.update(
+        'workout_group_variants_v2',
+        {'profile_id': profileId},
+        where: 'owner_setup_id = ?',
+        whereArgs: [setupId],
+      );
+    });
   }
 
   Future<void> replaceSetupExercises({

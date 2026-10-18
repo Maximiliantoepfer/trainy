@@ -6,6 +6,7 @@ import 'themes/app_theme.dart';
 
 import 'providers/exercise_provider.dart';
 import 'providers/workout_provider.dart';
+import 'providers/training_profile_provider.dart';
 import 'providers/progress_provider.dart';
 import 'providers/cloud_sync_provider.dart';
 import 'providers/active_workout_provider.dart';
@@ -86,6 +87,9 @@ class _DataProviders extends StatelessWidget {
     return MultiProvider(
       key: ValueKey(generation),
       providers: [
+        ChangeNotifierProvider(
+          create: (_) => TrainingProfileProvider()..reload(),
+        ),
         ChangeNotifierProvider(
           create: (_) => ExerciseProvider()..loadExercises(),
         ),

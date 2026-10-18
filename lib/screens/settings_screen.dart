@@ -8,6 +8,7 @@ import '../providers/progress_provider.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/workout_provider.dart';
+import '../providers/training_profile_provider.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/app_bar_title.dart';
 import '../widgets/screen_info_dialog.dart';
@@ -175,9 +176,10 @@ class _SettingsScreenState extends State<SettingsScreen>
 
           const SizedBox(height: 24),
 
-          _SectionHeader(title: l10n.trainingProfile),
-          const SizedBox(height: 12),
-          TrainingProfileSettingsCard(store: _trainingProfiles),
+          TrainingProfileSettingsCard(
+            store:
+                context.read<TrainingProfileProvider?>() ?? _trainingProfiles,
+          ),
 
           const SizedBox(height: 24),
 
@@ -699,9 +701,11 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _reloadAll() async {
+    final profiles = context.read<TrainingProfileProvider?>();
     final exercises = context.read<ExerciseProvider>();
     final workouts = context.read<WorkoutProvider>();
     final progress = context.read<ProgressProvider>();
+    await profiles?.reload();
     await exercises.loadExercises();
     await workouts.loadWorkouts();
     await progress.loadData();
@@ -828,9 +832,12 @@ class _WorkoutScheduleCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 TextButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const WeeklyPlannerScreen()),
-                  ),
+                  onPressed:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const WeeklyPlannerScreen(),
+                        ),
+                      ),
                   child: Text(context.l10n.editWeeklyPlanner),
                 ),
               ],
@@ -838,8 +845,7 @@ class _WorkoutScheduleCard extends StatelessWidget {
             const SizedBox(height: 8),
             ...List.generate(7, (i) {
               final day = i + 1;
-              final assignedWorkouts =
-                  workoutProvider.workoutsForDay(day);
+              final assignedWorkouts = workoutProvider.workoutsForDay(day);
 
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -859,9 +865,12 @@ class _WorkoutScheduleCard extends StatelessWidget {
                         ][i],
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: assignedWorkouts.isNotEmpty
-                              ? scheme.onSurface
-                              : scheme.onSurfaceVariant.withValues(alpha: 0.4),
+                          color:
+                              assignedWorkouts.isNotEmpty
+                                  ? scheme.onSurface
+                                  : scheme.onSurfaceVariant.withValues(
+                                    alpha: 0.4,
+                                  ),
                         ),
                       ),
                     ),
@@ -875,12 +884,19 @@ class _WorkoutScheduleCard extends StatelessWidget {
                                 children: [
                                   for (final w in assignedWorkouts.take(2))
                                     Chip(
-                                      avatar: GoalIcon(w.primaryGoalCode, size: 15),
+                                      avatar: GoalIcon(
+                                        w.primaryGoalCode,
+                                        size: 15,
+                                      ),
                                       label: Text(w.name),
                                       visualDensity: VisualDensity.compact,
                                     ),
                                   if (assignedWorkouts.length > 2)
-                                    Chip(label: Text('+${assignedWorkouts.length - 2}')),
+                                    Chip(
+                                      label: Text(
+                                        '+${assignedWorkouts.length - 2}',
+                                      ),
+                                    ),
                                 ],
                               )
                               : Text(

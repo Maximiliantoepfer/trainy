@@ -2578,6 +2578,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Please resume or finish the active session first.'**
   String get finishActiveWorkoutFirst;
+
+  /// No description provided for @profilesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profiles'**
+  String get profilesTitle;
+
+  /// No description provided for @profileTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Template'**
+  String get profileTemplate;
+
+  /// No description provided for @homeGym.
+  ///
+  /// In en, this message translates to:
+  /// **'Home Gym'**
+  String get homeGym;
+
+  /// No description provided for @gym.
+  ///
+  /// In en, this message translates to:
+  /// **'Gym'**
+  String get gym;
+
+  /// No description provided for @individualProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get individualProfile;
+
+  /// No description provided for @selectAllEquipment.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all'**
+  String get selectAllEquipment;
+
+  /// No description provided for @clearEquipment.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear selection'**
+  String get clearEquipment;
+
+  /// No description provided for @profileRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a profile for this workout.'**
+  String get profileRequired;
+
+  /// No description provided for @profileSharedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Equipment changes apply to all workouts using this profile.'**
+  String get profileSharedHint;
+
+  /// No description provided for @profileOnboardingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Where do you train?'**
+  String get profileOnboardingTitle;
+
+  /// No description provided for @profileOnboardingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your default for new workouts and check your equipment. You can add more profiles anytime.'**
+  String get profileOnboardingHint;
+
+  /// No description provided for @profileIntroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up profiles'**
+  String get profileIntroTitle;
+
+  /// No description provided for @profileIntroBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Home Gym and Gym templates and choose your default.'**
+  String get profileIntroBody;
+
+  /// No description provided for @later.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get later;
+
+  /// No description provided for @configure.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up'**
+  String get configure;
+
+  /// No description provided for @preferredProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Default for new workouts'**
+  String get preferredProfile;
+
+  /// No description provided for @useExistingProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an existing profile'**
+  String get useExistingProfile;
+
+  /// No description provided for @moreWorkoutProfiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Use another profile'**
+  String get moreWorkoutProfiles;
+
+  /// No description provided for @copyWorkoutExercises.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy exercises'**
+  String get copyWorkoutExercises;
+
+  /// No description provided for @emptyWorkoutProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Start empty'**
+  String get emptyWorkoutProfile;
+
+  /// No description provided for @configureWorkoutProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'How would you like to set up this profile?'**
+  String get configureWorkoutProfile;
+
+  /// No description provided for @linkWorkoutProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Link existing exercises'**
+  String get linkWorkoutProfile;
+
+  /// No description provided for @discardWorkoutDraft.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard workout draft?'**
+  String get discardWorkoutDraft;
+
+  /// No description provided for @discard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get discard;
+
+  /// No description provided for @noExercisesToStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Add exercises before starting.'**
+  String get noExercisesToStart;
+
+  /// No description provided for @duplicateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate check unavailable.'**
+  String get duplicateCheckFailed;
+
+  /// No description provided for @weeklyRecurrence.
+  ///
+  /// In en, this message translates to:
+  /// **'This plan repeats every week.'**
+  String get weeklyRecurrence;
+
+  /// No description provided for @allWorkoutsPlanned.
+  ///
+  /// In en, this message translates to:
+  /// **'All workouts are already planned for this day.'**
+  String get allWorkoutsPlanned;
+
+  /// No description provided for @noWorkoutsToPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a workout first.'**
+  String get noWorkoutsToPlan;
+
+  /// No description provided for @profileArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived'**
+  String get profileArchived;
+
+  /// No description provided for @equipmentSelectionCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String equipmentSelectionCount(int count);
+
+  /// No description provided for @startWithProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Start with {name}'**
+  String startWithProfile(String name);
+
+  /// No description provided for @applyExerciseSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply ({count})'**
+  String applyExerciseSelection(int count);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

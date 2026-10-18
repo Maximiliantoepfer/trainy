@@ -1446,4 +1446,109 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get finishActiveWorkoutFirst => 'Please resume or finish the active session first.';
+
+  @override
+  String get profilesTitle => 'Profiles';
+
+  @override
+  String get profileTemplate => 'Template';
+
+  @override
+  String get homeGym => 'Home Gym';
+
+  @override
+  String get gym => 'Gym';
+
+  @override
+  String get individualProfile => 'Custom';
+
+  @override
+  String get selectAllEquipment => 'Select all';
+
+  @override
+  String get clearEquipment => 'Clear selection';
+
+  @override
+  String get profileRequired => 'Choose a profile for this workout.';
+
+  @override
+  String get profileSharedHint => 'Equipment changes apply to all workouts using this profile.';
+
+  @override
+  String get profileOnboardingTitle => 'Where do you train?';
+
+  @override
+  String get profileOnboardingHint => 'Choose your default for new workouts and check your equipment. You can add more profiles anytime.';
+
+  @override
+  String get profileIntroTitle => 'Set up profiles';
+
+  @override
+  String get profileIntroBody => 'Use Home Gym and Gym templates and choose your default.';
+
+  @override
+  String get later => 'Later';
+
+  @override
+  String get configure => 'Set up';
+
+  @override
+  String get preferredProfile => 'Default for new workouts';
+
+  @override
+  String get useExistingProfile => 'Use an existing profile';
+
+  @override
+  String get moreWorkoutProfiles => 'Use another profile';
+
+  @override
+  String get copyWorkoutExercises => 'Copy exercises';
+
+  @override
+  String get emptyWorkoutProfile => 'Start empty';
+
+  @override
+  String get configureWorkoutProfile => 'How would you like to set up this profile?';
+
+  @override
+  String get linkWorkoutProfile => 'Link existing exercises';
+
+  @override
+  String get discardWorkoutDraft => 'Discard workout draft?';
+
+  @override
+  String get discard => 'Discard';
+
+  @override
+  String get noExercisesToStart => 'Add exercises before starting.';
+
+  @override
+  String get duplicateCheckFailed => 'Duplicate check unavailable.';
+
+  @override
+  String get weeklyRecurrence => 'This plan repeats every week.';
+
+  @override
+  String get allWorkoutsPlanned => 'All workouts are already planned for this day.';
+
+  @override
+  String get noWorkoutsToPlan => 'Create a workout first.';
+
+  @override
+  String get profileArchived => 'Archived';
+
+  @override
+  String equipmentSelectionCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String startWithProfile(String name) {
+    return 'Start with $name';
+  }
+
+  @override
+  String applyExerciseSelection(int count) {
+    return 'Apply ($count)';
+  }
 }
