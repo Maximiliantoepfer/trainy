@@ -44,3 +44,16 @@ abstract interface class TrainingProfileStore {
   Future<void> select(String? profileId);
   Future<void> archive(String profileId);
 }
+
+enum ProfileSetupState { required, offer, dismissed, completed }
+
+/// Optional preference contract keeps small injected stores usable in forms.
+abstract interface class TrainingProfilePreferencesStore
+    implements TrainingProfileStore {
+  Future<ProfileSetupState> setupState();
+  Future<void> dismissSetupOffer();
+  Future<void> completeSetup({
+    required List<TrainingProfileRecord> profiles,
+    required String preferredProfileId,
+  });
+}

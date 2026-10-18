@@ -211,6 +211,9 @@ class LocalBackupService {
             if (table == 'user_settings') {
               row['sync_enabled'] = 0;
               row['last_sync_millis'] = 0;
+              if ((data['schemaVersion'] as int) < 6) {
+                row['profile_setup_state'] = 'offer';
+              }
             }
             await txn.insert(
               table,
@@ -320,6 +323,7 @@ class LocalBackupService {
   static bool isCompatibleSchema(Object? version, Object? revision) =>
       (version == DatabaseSchemaV2.schemaVersion &&
           revision == DatabaseSchemaV2.schemaRevision) ||
+      (version == 5 && revision == '2026-10-16.5') ||
       (version == 4 && revision == '2026-10-16.4');
 
   static void _validateArchivePath(String value) {

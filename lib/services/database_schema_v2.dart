@@ -10,8 +10,8 @@ import 'package:sqflite/sqflite.dart';
 /// here so the application remains usable during that transition.
 abstract final class DatabaseSchemaV2 {
   static const int dataEpoch = 2;
-  static const int schemaVersion = 5;
-  static const String schemaRevision = '2026-10-16.5';
+  static const int schemaVersion = 6;
+  static const String schemaRevision = '2026-10-19.6';
 
   static const userDataTables = <String>[
     'health_record_links',
@@ -154,6 +154,14 @@ abstract final class DatabaseSchemaV2 {
         );
       }
       await normalizeWorkoutGroupOrder(db);
+    }
+    if (oldVersion < 6) {
+      if (!await _columnExists(db, 'user_settings', 'profile_setup_state')) {
+        await db.execute(
+          "ALTER TABLE user_settings ADD COLUMN profile_setup_state TEXT NOT NULL DEFAULT 'required' CHECK(profile_setup_state IN ('required','offer','dismissed','completed'))",
+        );
+      }
+      await db.update('user_settings', {'profile_setup_state': 'offer'});
     }
     await _writeCurrentMetadata(db);
   }
@@ -1046,7 +1054,8 @@ abstract final class DatabaseSchemaV2 {
       last_sync_millis INTEGER NOT NULL DEFAULT 0 CHECK(last_sync_millis >= 0),
       training_days TEXT NOT NULL DEFAULT '',
       insights_order TEXT NOT NULL DEFAULT '',
-      onboarding_done INTEGER NOT NULL DEFAULT 0 CHECK(onboarding_done IN (0,1))
+      onboarding_done INTEGER NOT NULL DEFAULT 0 CHECK(onboarding_done IN (0,1)),
+      profile_setup_state TEXT NOT NULL DEFAULT 'required' CHECK(profile_setup_state IN ('required','offer','dismissed','completed'))
     )''',
 
     // Canonical profile and exercise model.
