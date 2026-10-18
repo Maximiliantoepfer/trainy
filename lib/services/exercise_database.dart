@@ -96,7 +96,7 @@ class ExerciseDatabase {
   Future<void> upsertExercise(Exercise e) async {
     final db = await _db;
     await db.transaction((txn) async {
-      await txn.insert('exercises', {
+      final values = <String, Object?>{
         'id': e.id,
         'name': e.name,
         'description': e.description,
@@ -119,7 +119,16 @@ class ExerciseDatabase {
         'notes': e.notes,
         'isArchived': e.isArchived ? 1 : 0,
         'isNameCustom': e.isNameCustom ? 1 : 0,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      };
+      // REPLACE deletes the old row and cascades decided duplicate suggestions
+      // and history links. Updating in place preserves these references.
+      final count = await txn.update(
+        'exercises',
+        values,
+        where: 'id = ?',
+        whereArgs: [e.id],
+      );
+      if (count == 0) await txn.insert('exercises', values);
       await txn.delete(
         'exercise_goal_labels',
         where: 'exerciseId = ?',
@@ -264,7 +273,7 @@ class ExerciseDatabase {
         catalogByName.putIfAbsent(normalized, () => <String>{}).add(entry.key);
       }
     }
-    await db.delete('duplicate_suggestions', where: "status = 'open'");
+    final candidates = <int, String>{};
     for (final exercise in exercises.where((item) => item.catalogId == null)) {
       final matches = <String>{};
       for (final value in [exercise.name, exercise.alias]) {
@@ -277,15 +286,40 @@ class ExerciseDatabase {
       // safer to show no automatic proposal than to point at the wrong one.
       if (matches.length != 1) continue;
       final targetCatalogId = matches.single;
-      await db.insert('duplicate_suggestions', {
-        'id': DateTime.now().microsecondsSinceEpoch + exercise.id,
-        'sourceExerciseId': exercise.id,
-        'targetCatalogId': targetCatalogId,
-        'confidence': 'exact_name_or_alias',
-        'status': 'open',
-        'createdAt': DateTime.now().millisecondsSinceEpoch,
-      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      candidates[exercise.id] = targetCatalogId;
     }
+    await db.transaction((txn) async {
+      final existing = await txn.query(
+        'duplicate_suggestions',
+        orderBy: "CASE WHEN status = 'open' THEN 1 ELSE 0 END, id",
+      );
+      final known = <String>{};
+      for (final row in existing) {
+        final source = (row['sourceExerciseId'] as num).toInt();
+        final target = row['targetCatalogId'];
+        final key = '$source:$target';
+        if (row['status'] == 'open' &&
+            (candidates[source] != target || known.contains(key))) {
+          await txn.delete(
+            'duplicate_suggestions',
+            where: 'id = ?',
+            whereArgs: [row['id']],
+          );
+        } else {
+          known.add(key);
+        }
+      }
+      for (final entry in candidates.entries) {
+        if (known.contains('${entry.key}:${entry.value}')) continue;
+        await txn.insert('duplicate_suggestions', {
+          'sourceExerciseId': entry.key,
+          'targetCatalogId': entry.value,
+          'confidence': 'high',
+          'status': 'open',
+          'createdAt': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
+    });
   }
 
   Future<List<DuplicateSuggestion>> getOpenDuplicateSuggestions() async {

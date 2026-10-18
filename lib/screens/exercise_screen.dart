@@ -9,6 +9,7 @@ import '../models/catalog_exercise.dart';
 import '../models/training_profile.dart';
 import '../models/library_exercise_item.dart';
 import '../providers/exercise_provider.dart';
+import '../providers/training_profile_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/cloud_sync_provider.dart';
@@ -46,9 +47,10 @@ class _ExerciseScreenState extends State<ExerciseScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<ExerciseProvider>().loadExercises();
+      if (!mounted) return;
+      context.read<ExerciseProvider>().loadExercises();
+      if (context.read<TrainingProfileProvider?>() == null) _loadProfiles();
     });
-    _loadProfiles();
   }
 
   Future<void> _loadProfiles() async {
@@ -74,6 +76,21 @@ class _ExerciseScreenState extends State<ExerciseScreen>
   Widget build(BuildContext context) {
     super.build(context);
     final provider = context.watch<ExerciseProvider>();
+    final sharedProfiles = context.watch<TrainingProfileProvider?>();
+    if (sharedProfiles != null) {
+      _profiles = sharedProfiles.activeProfiles;
+      final selectedProfile =
+          _profiles.where((p) => p.id == _catalogQuery.profileId).firstOrNull;
+      if (_catalogQuery.profileId != null) {
+        _catalogQuery = CatalogQuery(
+          text: _catalogQuery.text,
+          goalCode: _catalogQuery.goalCode,
+          source: _catalogQuery.source,
+          profileId: selectedProfile?.id,
+          availableEquipment: selectedProfile?.equipmentCodes,
+        );
+      }
+    }
     final list = [...provider.exercises];
     final scheme = Theme.of(context).colorScheme;
     final catalog = CatalogRepository.instance;
@@ -144,11 +161,12 @@ class _ExerciseScreenState extends State<ExerciseScreen>
       appBar: AppBar(
         title: AppBarTitle(context.l10n.exercises),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.copy_all_outlined, size: 20),
-            onPressed: () => _reviewDuplicates(context),
-            tooltip: context.l10n.reviewDuplicates,
-          ),
+          if (provider.openDuplicates.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.copy_all_outlined, size: 20),
+              onPressed: () => _reviewDuplicates(context),
+              tooltip: context.l10n.reviewDuplicates,
+            ),
           IconButton(
             icon: const Icon(Icons.info_outline_rounded, size: 20),
             onPressed:
@@ -163,6 +181,19 @@ class _ExerciseScreenState extends State<ExerciseScreen>
       ),
       body: Column(
         children: [
+          if (provider.duplicateError != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(child: Text(context.l10n.duplicateCheckFailed)),
+                  TextButton(
+                    onPressed: provider.refreshDuplicates,
+                    child: Text(context.l10n.retry),
+                  ),
+                ],
+              ),
+            ),
           AnimatedSize(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeOutCubic,
@@ -214,20 +245,31 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                 const SizedBox(width: 8),
                 Semantics(
                   button: true,
-                  label: context.l10n.filters,
+                  label:
+                      '${context.l10n.filters}: ${_catalogQuery.activeFilterCount}',
                   child: Badge(
+                    backgroundColor: scheme.primary,
+                    textColor: scheme.onPrimary,
                     isLabelVisible: _catalogQuery.activeFilterCount > 0,
                     label: Text('${_catalogQuery.activeFilterCount}'),
                     child: IconButton.filledTonal(
                       onPressed: _openFilters,
                       tooltip: context.l10n.filters,
-                      icon: const Icon(Icons.tune_rounded),
+                      icon: const Icon(Icons.filter_list_rounded),
                     ),
                   ),
                 ),
               ],
             ),
           ),
+          if (sharedProfiles?.error != null)
+            ListTile(
+              title: Text(context.l10n.profileLoadFailed),
+              trailing: TextButton(
+                onPressed: sharedProfiles!.reload,
+                child: Text(context.l10n.retry),
+              ),
+            ),
           if (catalog.isLoaded) ...[
             if (_catalogQuery.activeFilterCount > 0)
               Padding(

@@ -9,6 +9,48 @@ import '../models/catalog_exercise.dart';
 class ExerciseProvider extends ChangeNotifier {
   List<Exercise> _exercises = [];
   bool _isLoading = false;
+  List<DuplicateSuggestion> openDuplicates = const [];
+  Object? duplicateError;
+  int _duplicateRevision = 0;
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  Future<void> refreshDuplicates() async {
+    final revision = ++_duplicateRevision;
+    try {
+      final catalog = CatalogRepository.instance;
+      if (!catalog.isLoaded) return;
+      await ExerciseDatabase.instance.refreshDuplicateSuggestions({
+        for (final item in catalog.definitions)
+          item.id: [
+            catalog.content(item.id, 'de')!.name,
+            catalog.content(item.id, 'en')!.name,
+            ...item.aliases,
+            ...catalog.content(item.id, 'de')!.searchTerms,
+            ...catalog.content(item.id, 'en')!.searchTerms,
+          ],
+      });
+      final values = await duplicateSuggestions();
+      if (revision != _duplicateRevision) return;
+      openDuplicates = List.unmodifiable(values);
+      duplicateError = null;
+    } catch (error) {
+      if (revision != _duplicateRevision) return;
+      duplicateError = error;
+    } finally {
+      if (revision == _duplicateRevision) notifyListeners();
+    }
+  }
 
   List<Exercise> get exercises => _exercises;
   bool get isLoading => _isLoading;
@@ -29,16 +71,7 @@ class ExerciseProvider extends ChangeNotifier {
         await AppDatabase.instance.setCatalogVersion(
           catalog.catalogVersion ?? 'unknown',
         );
-        await ExerciseDatabase.instance.refreshDuplicateSuggestions({
-          for (final item in catalog.definitions)
-            item.id: [
-              catalog.content(item.id, 'de')!.name,
-              catalog.content(item.id, 'en')!.name,
-              ...item.aliases,
-              ...catalog.content(item.id, 'de')!.searchTerms,
-              ...catalog.content(item.id, 'en')!.searchTerms,
-            ],
-        });
+        await refreshDuplicates();
       }
     } finally {
       _isLoading = false;
@@ -131,6 +164,7 @@ class ExerciseProvider extends ChangeNotifier {
     }
     notifyListeners();
 
+    await refreshDuplicates();
     return exerciseId;
   }
 
@@ -168,6 +202,7 @@ class ExerciseProvider extends ChangeNotifier {
       id,
       'dismissed',
     );
+    await refreshDuplicates();
   }
 
   Future<void> acceptCatalogDuplicateSuggestion(
@@ -264,6 +299,7 @@ class ExerciseProvider extends ChangeNotifier {
     await ExerciseDatabase.instance.deleteExercise(exerciseId);
     _exercises.removeWhere((x) => x.id == exerciseId);
     notifyListeners();
+    await refreshDuplicates();
   }
 
   /// Führt sourceId in targetId zusammen.
@@ -283,6 +319,7 @@ class ExerciseProvider extends ChangeNotifier {
       );
     }
     notifyListeners();
+    await refreshDuplicates();
     return result;
   }
 

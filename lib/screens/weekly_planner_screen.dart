@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/semantics.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/l10n.dart';
@@ -12,16 +14,55 @@ import '../utils/goal_utils.dart';
 /// Recurring, local-first weekly planning template. Workouts move directly
 /// from their visible drag grip; deletion remains reversible.
 class WeeklyPlannerScreen extends StatefulWidget {
-  const WeeklyPlannerScreen({super.key});
+  const WeeklyPlannerScreen({super.key, this.repository});
+  final WorkoutPlanningRepository? repository;
 
   @override
   State<WeeklyPlannerScreen> createState() => _WeeklyPlannerScreenState();
 }
 
 class _WeeklyPlannerScreenState extends State<WeeklyPlannerScreen> {
-  final WorkoutPlanningRepository _repository = WorkoutPlanningRepository();
+  late final WorkoutPlanningRepository _repository =
+      widget.repository ?? WorkoutPlanningRepository();
   List<WeeklyWorkoutPlacement> _placements = const [];
   bool _loading = true;
+  Object? _error;
+  bool _busy = false;
+  final _scroll = ScrollController();
+  Timer? _scrollTimer;
+  double _scrollSpeed = 0;
+
+  @override
+  void dispose() {
+    _scrollTimer?.cancel();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _dragAt(Offset position) {
+    final height = MediaQuery.sizeOf(context).height;
+    _scrollSpeed =
+        position.dy < 120
+            ? -12
+            : position.dy > height - 110
+            ? 12
+            : 0;
+    _scrollTimer ??= Timer.periodic(const Duration(milliseconds: 16), (_) {
+      if (!_scroll.hasClients || _scrollSpeed == 0) return;
+      _scroll.jumpTo(
+        (_scroll.offset + _scrollSpeed).clamp(
+          0.0,
+          _scroll.position.maxScrollExtent,
+        ),
+      );
+    });
+  }
+
+  void _endDrag() {
+    _scrollTimer?.cancel();
+    _scrollTimer = null;
+    _scrollSpeed = 0;
+  }
 
   @override
   void initState() {
@@ -29,13 +70,62 @@ class _WeeklyPlannerScreenState extends State<WeeklyPlannerScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    final placements = await _repository.weeklyPlacements();
-    if (!mounted) return;
-    setState(() {
-      _placements = placements;
-      _loading = false;
-    });
+  Future<void> _load({bool propagateError = false}) async {
+    try {
+      final placements = await _repository.weeklyPlacements();
+      if (!mounted) return;
+      setState(() {
+        _placements = placements;
+        _loading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e;
+        });
+      }
+      if (propagateError) rethrow;
+    }
+  }
+
+  Future<void> _change(
+    Future<void> Function() action, {
+    VoidCallback? onSuccess,
+  }) async {
+    if (_busy) return;
+    var committed = false;
+    Future<void> attempt() async {
+      if (!mounted || _busy) return;
+      setState(() => _busy = true);
+      try {
+        if (!committed) {
+          await action();
+          committed = true;
+        }
+        if (!mounted) return;
+        await context.read<WorkoutProvider>().loadWorkouts();
+        await _load(propagateError: true);
+        if (mounted) onSuccess?.call();
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.l10n.workoutEditFailed),
+              action: SnackBarAction(
+                label: context.l10n.retry,
+                onPressed: attempt,
+              ),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+    }
+
+    await attempt();
   }
 
   List<WeeklyWorkoutPlacement> _forDay(int day) => _placements
@@ -48,21 +138,25 @@ class _WeeklyPlannerScreenState extends State<WeeklyPlannerScreen> {
     int day,
     int index,
   ) async {
-    try {
-      await _repository.movePlacement(
+    if (day != placement.weekday &&
+        _forDay(day).any((p) => p.workoutId == placement.workoutId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.workoutAlreadyPlanned)),
+      );
+      return;
+    }
+    await _change(
+      () => _repository.movePlacement(
         placementId: placement.id,
         targetWeekday: day,
-        targetIndex: index,
-      );
-      HapticFeedback.selectionClick();
-      await _load();
-    } on StateError {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.workoutAlreadyPlanned)),
-        );
-      }
-    }
+        targetIndex:
+            day == placement.weekday &&
+                    _forDay(day).indexWhere((p) => p.id == placement.id) < index
+                ? index - 1
+                : index,
+      ),
+      onSuccess: HapticFeedback.selectionClick,
+    );
   }
 
   Future<void> _add(int weekday) async {
@@ -76,6 +170,17 @@ class _WeeklyPlannerScreenState extends State<WeeklyPlannerScreen> {
             child: ListView(
               shrinkWrap: true,
               children: [
+                if (workouts
+                    .where((item) => !scheduled.contains(item.canonicalId))
+                    .isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      workouts.isEmpty
+                          ? context.l10n.noWorkoutsToPlan
+                          : context.l10n.allWorkoutsPlanned,
+                    ),
+                  ),
                 for (final item in workouts.where(
                   (item) => !scheduled.contains(item.canonicalId),
                 ))
@@ -89,45 +194,42 @@ class _WeeklyPlannerScreenState extends State<WeeklyPlannerScreen> {
           ),
     );
     if (workout == null) return;
-    await _repository.assignToDay(
-      workoutId: workout.canonicalId,
-      weekday: weekday,
+    await _change(
+      () => _repository.assignToDay(
+        workoutId: workout.canonicalId,
+        weekday: weekday,
+      ),
     );
-    if (!mounted) return;
-    await context.read<WorkoutProvider>().loadWorkouts();
-    await _load();
   }
 
   Future<void> _removePlacement(
     WeeklyWorkoutPlacement placement,
     int index,
   ) async {
-    await _repository.removePlacement(placement.id);
-    if (!mounted) return;
-    await context.read<WorkoutProvider>().loadWorkouts();
-    await _load();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.weeklyPlacementRemoved),
-        action: SnackBarAction(
-          label: context.l10n.undo,
-          onPressed: () async {
-            try {
-              await _repository.assignToDay(
-                workoutId: placement.workoutId,
-                weekday: placement.weekday,
-                index: index,
-              );
-              if (!mounted) return;
-              await context.read<WorkoutProvider>().loadWorkouts();
-              await _load();
-            } on StateError {
-              // The workout was explicitly planned again in the meantime.
-            }
-          },
-        ),
-      ),
+    await _change(
+      () => _repository.removePlacement(placement.id),
+      onSuccess:
+          () => ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.l10n.weeklyPlacementRemoved),
+              action: SnackBarAction(
+                label: context.l10n.undo,
+                onPressed:
+                    () => _change(() async {
+                      if (_forDay(
+                        placement.weekday,
+                      ).any((p) => p.workoutId == placement.workoutId)) {
+                        return;
+                      }
+                      await _repository.assignToDay(
+                        workoutId: placement.workoutId,
+                        weekday: placement.weekday,
+                        index: index,
+                      );
+                    }),
+              ),
+            ),
+          ),
     );
   }
 
@@ -138,29 +240,67 @@ class _WeeklyPlannerScreenState extends State<WeeklyPlannerScreen> {
         workout.canonicalId: workout,
     };
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.weeklyPlanner)),
+      appBar: AppBar(
+        title: Text(context.l10n.weeklyPlanner),
+        actions: [
+          IconButton(
+            tooltip: context.l10n.info,
+            icon: const Icon(Icons.info_outline),
+            onPressed:
+                () => showDialog<void>(
+                  context: context,
+                  builder:
+                      (c) => AlertDialog(
+                        content: Text(c.l10n.weeklyRecurrence),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(c),
+                            child: Text(c.l10n.close),
+                          ),
+                        ],
+                      ),
+                ),
+          ),
+        ],
+      ),
       body:
           _loading
               ? const Center(child: CircularProgressIndicator())
-              : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                itemCount: 7,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final day = index + 1;
-                  final placements = _forDay(day);
-                  return _WeekdayDropZone(
-                    dayLabel: _dayLabel(context, day),
-                    day: day,
-                    placements: placements,
-                    workoutById: workoutById,
-                    onDrop:
-                        (placement, insertIndex) =>
-                            _move(placement, day, insertIndex),
-                    onAdd: () => _add(day),
-                    onRemove: _removePlacement,
-                  );
-                },
+              : _error != null
+              ? Center(
+                child: TextButton(
+                  onPressed: _load,
+                  child: Text(context.l10n.retry),
+                ),
+              )
+              : AbsorbPointer(
+                absorbing: _busy,
+                child: ListView.separated(
+                  controller: _scroll,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  itemCount: 7,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final day = index + 1;
+                    final placements = _forDay(day);
+                    return _WeekdayDropZone(
+                      dayLabel: _dayLabel(context, day),
+                      day: day,
+                      placements: placements,
+                      workoutById: workoutById,
+                      onDrop:
+                          (placement, insertIndex) =>
+                              _move(placement, day, insertIndex),
+                      onAdd: () => _add(day),
+                      onRemove: _removePlacement,
+                      onDragUpdate: _dragAt,
+                      onDragEnd: _endDrag,
+                      onAccessibleMove:
+                          (placement, targetDay, targetIndex) =>
+                              _move(placement, targetDay, targetIndex),
+                    );
+                  },
+                ),
               ),
     );
   }
@@ -175,6 +315,9 @@ class _WeekdayDropZone extends StatelessWidget {
     required this.onDrop,
     required this.onAdd,
     required this.onRemove,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.onAccessibleMove,
   });
   final String dayLabel;
   final int day;
@@ -183,6 +326,9 @@ class _WeekdayDropZone extends StatelessWidget {
   final Future<void> Function(WeeklyWorkoutPlacement, int) onDrop;
   final VoidCallback onAdd;
   final Future<void> Function(WeeklyWorkoutPlacement, int) onRemove;
+  final ValueChanged<Offset> onDragUpdate;
+  final VoidCallback onDragEnd;
+  final void Function(WeeklyWorkoutPlacement, int, int) onAccessibleMove;
 
   @override
   Widget build(BuildContext context) {
@@ -193,8 +339,11 @@ class _WeekdayDropZone extends StatelessWidget {
       onAcceptWithDetails: (details) => onDrop(details.data, placements.length),
       builder:
           (context, candidates, _) => AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.all(12),
+            duration:
+                MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color:
                   candidates.isNotEmpty
@@ -203,9 +352,7 @@ class _WeekdayDropZone extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color:
-                    candidates.isNotEmpty
-                        ? scheme.primary
-                        : scheme.outlineVariant.withValues(alpha: 0.45),
+                    candidates.isNotEmpty ? scheme.primary : Colors.transparent,
                 width: candidates.isNotEmpty ? 2 : 1,
               ),
             ),
@@ -226,21 +373,33 @@ class _WeekdayDropZone extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (placements.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      context.l10n.noWorkoutPlanned,
-                      style: TextStyle(color: scheme.onSurfaceVariant),
-                    ),
-                  )
-                else
+                if (placements.isNotEmpty)
                   for (var index = 0; index < placements.length; index++)
                     _PlacementChip(
                       placement: placements[index],
                       workout: workoutById[placements[index].workoutId],
                       onDropBefore: (value) => onDrop(value, index),
                       onRemove: () => onRemove(placements[index], index),
+                      onDragUpdate: onDragUpdate,
+                      onDragEnd: onDragEnd,
+                      semanticActions: {
+                        for (var target = 1; target <= 7; target++)
+                          if (target != day)
+                            CustomSemanticsAction(
+                              label:
+                                  '${context.l10n.moveWorkout}: ${_dayLabel(context, target)}',
+                            ): () => onAccessibleMove(
+                                  placements[index],
+                                  target,
+                                  0,
+                                ),
+                        if (index > 0)
+                          CustomSemanticsAction(label: context.l10n.moveUp):
+                              () => onDrop(placements[index], index - 1),
+                        if (index < placements.length - 1)
+                          CustomSemanticsAction(label: context.l10n.moveDown):
+                              () => onDrop(placements[index], index + 2),
+                      },
                     ),
               ],
             ),
@@ -255,11 +414,17 @@ class _PlacementChip extends StatelessWidget {
     required this.workout,
     required this.onDropBefore,
     required this.onRemove,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.semanticActions,
   });
   final WeeklyWorkoutPlacement placement;
   final Workout? workout;
   final Future<void> Function(WeeklyWorkoutPlacement) onDropBefore;
   final Future<void> Function() onRemove;
+  final ValueChanged<Offset> onDragUpdate;
+  final VoidCallback onDragEnd;
+  final Map<CustomSemanticsAction, VoidCallback> semanticActions;
 
   @override
   Widget build(BuildContext context) {
@@ -277,6 +442,9 @@ class _PlacementChip extends StatelessWidget {
               children: [
                 Draggable<WeeklyWorkoutPlacement>(
                   data: placement,
+                  onDragUpdate:
+                      (details) => onDragUpdate(details.globalPosition),
+                  onDragEnd: (_) => onDragEnd(),
                   feedback: Material(
                     color: Colors.transparent,
                     child: SizedBox(
@@ -287,6 +455,7 @@ class _PlacementChip extends StatelessWidget {
                   childWhenDragging: const SizedBox(width: 48, height: 48),
                   child: Semantics(
                     label: context.l10n.moveWorkout,
+                    customSemanticsActions: semanticActions,
                     child: const SizedBox(
                       width: 48,
                       height: 48,
@@ -321,7 +490,10 @@ class _ChipContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
+      duration:
+          MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
