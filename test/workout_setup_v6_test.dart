@@ -131,13 +131,19 @@ class Workouts extends WorkoutProvider {
     String setupName = 'Standard',
     String? profileId,
     List<int> exerciseIds = const [],
+    String? creationId,
   }) async {
     if (failNextSave) {
       failNextSave = false;
       throw StateError('workout failure');
     }
     this.profileId = profileId;
-    return saved = Workout(id: 123, name: name, description: description);
+    return saved = Workout(
+      id: 123,
+      name: name,
+      description: description,
+      exerciseIds: exerciseIds,
+    );
   }
 }
 
@@ -171,6 +177,8 @@ class Planning extends WorkoutPlanningRepository {
     required String name,
     String? profileId,
     String? copyFromSetupId,
+    SetupContents contents = SetupContents.copy,
+    String? creationId,
   }) async {
     final profile = profiles.values.where((p) => p.id == profileId).firstOrNull;
     final setup = WorkoutSetup(
@@ -191,7 +199,7 @@ Future<void> mount(
   WidgetTester tester,
   Widget child, {
   Exercises? exercises,
-  Workouts? workouts,
+  WorkoutProvider? workouts,
   String locale = 'de',
   bool dark = true,
   double scale = 1,
@@ -412,6 +420,8 @@ void main() {
       await nameWorkout(tester);
       await tester.tap(find.byKey(const ValueKey('createWorkoutProfile')));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Neues Profil'));
+      await tester.pumpAndSettle();
       expect(
         tester
             .widget<FilterChip>(
@@ -434,7 +444,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(profiles.values.single.name, unicodeName);
       expect(profiles.attemptedIds.toSet().length, 1);
-      expect(find.text(unicodeName), findsOneWidget);
+      expect(find.text(unicodeName), findsNWidgets(2));
       await tester.tap(find.text('Zurück'));
       await tester.pumpAndSettle();
       expect(
@@ -446,7 +456,7 @@ void main() {
       );
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
-      expect(find.text(unicodeName), findsOneWidget);
+      expect(find.text(unicodeName), findsNWidgets(2));
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Workout speichern'));
@@ -473,6 +483,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('createWorkoutProfile')));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Neues Profil'));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('trainingProfileName')),
       'discard',
@@ -480,7 +492,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('trainingProfileCancel')));
     await tester.pumpAndSettle();
     expect(profiles.values, isEmpty);
-    expect(find.text('Ohne Profil'), findsOneWidget);
+    expect(find.text('Profil auswählen'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -546,8 +558,8 @@ void main() {
           profileStore: profiles,
         ),
       );
-      expect(find.text('Mein kurzer Plan · Ohne Profil'), findsOneWidget);
-      await tester.tap(find.byTooltip('Profil hinzufügen'));
+      expect(find.text('Mein kurzer Plan'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('workoutProfileChooser')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Neues Profil'));
       await tester.pumpAndSettle();
@@ -557,24 +569,19 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('trainingProfileSubmit')));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Übungen übernehmen'));
+      await tester.pumpAndSettle();
       expect(planning.setups, hasLength(2));
-      expect(
-        tester
-            .widget<DropdownButtonFormField<String>>(
-              find.byType(DropdownButtonFormField<String>),
-            )
-            .initialValue,
-        'created',
-      );
+      expect(find.text(unicodeName), findsOneWidget);
       expect(planning.setups.last.profile?.id, profiles.values.single.id);
-      await tester.tap(find.byTooltip('Profil hinzufügen'));
+      await tester.tap(find.byKey(const ValueKey('workoutProfileChooser')));
       await tester.pumpAndSettle();
       expect(
         find.descendant(
           of: find.byType(BottomSheet),
           matching: find.text(unicodeName),
         ),
-        findsNothing,
+        findsOneWidget,
       );
       expect(tester.takeException(), isNull);
     },
@@ -602,6 +609,8 @@ void main() {
         find.byKey(const ValueKey('createWorkoutProfile')),
       );
       await tester.tap(find.byKey(const ValueKey('createWorkoutProfile')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('New profile'));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('trainingProfileSubmit')).hitTestable(),

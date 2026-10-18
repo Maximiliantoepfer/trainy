@@ -27,6 +27,12 @@ void main() {
     planning = WorkoutPlanningRepository(
       database: DatabaseService(database: db),
     );
+    await db.insert('training_profiles_v2', {
+      'id': 'home',
+      'name': 'Home',
+      'created_at_utc': 1,
+      'updated_at_utc': 1,
+    });
     for (var id = 1; id <= 4; id++) {
       await db.insert('exercises', {
         'id': id,
@@ -48,6 +54,7 @@ void main() {
         name: 'Test',
         primaryGoal: WorkoutPrimaryGoal.strength,
         setupName: 'Home',
+        profileId: 'home',
         exerciseIds: [1, 2, 3],
       ),
     );

@@ -333,9 +333,9 @@ void main() {
     await mount(tester, Planning());
     await tester.longPress(find.text('Liegestütz'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.tap(find.byKey(const ValueKey('workoutProfileChooser')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('studio · Ohne Profil').last);
+    await tester.tap(find.text('studio').last);
     await tester.pumpAndSettle();
     expect(find.text('Gruppieren'), findsNothing);
     expect(tester.takeException(), isNull);

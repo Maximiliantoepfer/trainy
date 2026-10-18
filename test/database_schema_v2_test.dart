@@ -439,6 +439,12 @@ void main() {
   test(
     'canonical workout planning stores one visible goal and ordered weekly placements',
     () async {
+      await database.insert('training_profiles_v2', {
+        'id': 'test-profile',
+        'name': 'Test',
+        'created_at_utc': 1,
+        'updated_at_utc': 1,
+      });
       await database.insert('exercises', {
         'id': 1001,
         'name': 'Squat',
@@ -457,6 +463,7 @@ void main() {
           name: 'Easy run',
           primaryGoal: WorkoutPrimaryGoal.endurance,
           setupName: 'Outdoor',
+          profileId: 'test-profile',
           exerciseIds: [1001],
         ),
       );
@@ -465,6 +472,7 @@ void main() {
           name: 'Strength',
           primaryGoal: WorkoutPrimaryGoal.strength,
           setupName: 'Homegym',
+          profileId: 'test-profile',
           exerciseIds: [1001],
         ),
       );
