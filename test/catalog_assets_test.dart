@@ -23,10 +23,14 @@ void main() {
         'trainy:interval_running',
         'trainy:hip_90_90',
         'trainy:thoracic_rotation',
+        'trainy:w_raises',
+        'trainy:bulgarian_split_squat',
+        'trainy:standing_calf_raise',
+        'trainy:side_plank_leg_raise',
       };
       final definitions = repository.definitions.toList();
       final ids = definitions.map((item) => item.id).toSet();
-      expect(definitions, hasLength(883));
+      expect(definitions, hasLength(887));
       expect(ids.where((id) => id.startsWith('free:')), hasLength(876));
       expect(ids.where((id) => id.startsWith('trainy:')).toSet(), activityIds);
       expect(ids, isNot(contains('trainy:mobility_session')));
@@ -83,8 +87,8 @@ void main() {
         'a859101d633a01c4a1a920d6a8ce41dabba0705f',
       );
       expect(manifest['freeExerciseCount'], 876);
-      expect(manifest['totalCatalogCount'], 883);
-      expect(manifest['germanReviewedExerciseCount'], 7);
+      expect(manifest['totalCatalogCount'], 887);
+      expect(manifest['germanReviewedExerciseCount'], 11);
       expect(manifest['germanFallbackExerciseCount'], 876);
       final checksums = Map<String, dynamic>.from(
         manifest['assetChecksums'] as Map,

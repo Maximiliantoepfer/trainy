@@ -34,7 +34,8 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   TrainingProgram? _program;
   Set<String> _sports = {};
   Set<String> _configured = {};
-  Set<int> _available = {1, 3, 5};
+  Set<int> _available = {1, 2, 3, 4, 5, 6, 7};
+  int _strengthCount = 3, _runningCount = 3;
   int _step = 0, _week = 0;
   bool _busy = false, _ready = false, _runningChanged = false;
   String? _error;
@@ -80,10 +81,18 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                 if (_program!.hasRunning) 'running',
                 ..._program!.slots.map((s) => s.kind),
               };
-      _available = widget.existing == null ? {1, 3, 5} : _program!.days;
+      _available = _program!.availableDays.toSet();
+      if (widget.existing != null) {
+        _strengthCount =
+            _program!.currentSlots
+                .where((s) => s.kind == 'strength')
+                .map((s) => s.weekday)
+                .toSet()
+                .length;
+        _runningCount = _program!.runningDays.length;
+      }
       if (widget.initialSection != null) {
         _sports.add(widget.initialSection!);
-        _available = {1, 2, 3, 4, 5, 6, 7};
       }
       _runningChanged = widget.existing == null;
       if (draft != null) {
@@ -92,6 +101,8 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
         );
         _sports = Set<String>.from(draft['sports'] as List);
         _available = Set<int>.from(draft['available'] as List);
+        _strengthCount = draft['strengthCount'] as int? ?? 3;
+        _runningCount = draft['runningCount'] as int? ?? 3;
         _step = draft['step'] as int? ?? 0;
         _runningChanged = draft['runningChanged'] == true;
         _configured = Set<String>.from(draft['configured'] as List? ?? []);
@@ -159,12 +170,17 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
 
   void _persist() {
     if (!_ready) return;
-    _program = _program!.copyWith(name: _name.text);
+    _program = _program!.copyWith(
+      name: _name.text,
+      availableDays: _available.toList()..sort(),
+    );
     final repo = context.read<TrainingProgramProvider>().repository;
     final data = {
       'program': _program!.toJson(),
       'sports': _sports.toList(),
       'available': _available.toList(),
+      'strengthCount': _strengthCount,
+      'runningCount': _runningCount,
       'step': _step,
       'runningChanged': _runningChanged,
       'targetText': _target.text,
@@ -206,12 +222,15 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   }
 
   void _setStrengthDays(Set<int> days, {String? split}) {
-    final p = _program!,
-        actual = split ?? ProgramSplits.recommended(days.length);
+    final p = _program!, actual = split ?? p.split;
     final next = ProgramSplits.slots(days.toList(), actual);
     final slots = <ProgramSlot>[];
+    final moved =
+        p.currentSlots
+            .where((s) => s.kind == 'strength' && !days.contains(s.weekday))
+            .toList();
     for (final s in next) {
-      final old =
+      var old =
           p.slots
               .where(
                 (o) =>
@@ -221,10 +240,21 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                     o.until == null,
               )
               .firstOrNull;
+      if (old == null && split == null && moved.isNotEmpty) {
+        old = moved
+            .removeAt(0)
+            .copyWith(weekday: s.weekday, cycleWeek: s.cycleWeek);
+      }
       slots.add(
         old == null
             ? s
-            : old.copyWith(label: s.label, clearWorkout: old.label != s.label),
+            : split == null
+            ? old
+            : old.copyWith(
+              label: s.label,
+              focus: s.focus,
+              clearWorkout: old.label != s.label,
+            ),
       );
     }
     final today = DateUtils.dateOnly(DateTime.now());
@@ -260,16 +290,24 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     if (widget.existing == null &&
         _program!.slots.isEmpty &&
         !_program!.hasRunning) {
+      final strength =
+          _sports.contains('strength')
+              ? ProgramSplits.suggestedDays(days, _strengthCount)
+              : <int>[];
       final running =
           _sports.contains('running')
-              ? (_sports.contains('strength')
-                  ? ProgramSplits.suggestedRunningDays(days)
-                  : days)
+              ? ProgramSplits.suggestedDays(
+                days,
+                _runningCount,
+                avoid: strength.toSet(),
+              )
               : <int>[];
       _program = _program!.copyWith(runningDays: running);
       if (_sports.contains('strength')) {
-        final strength = days.where((d) => !running.contains(d)).toSet();
-        _setStrengthDays(strength.isEmpty ? {days.first} : strength);
+        _setStrengthDays(
+          strength.toSet(),
+          split: ProgramSplits.recommended(strength.length),
+        );
       }
     }
     if (!_sports.contains('running')) {
@@ -384,6 +422,31 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     setState(() => _busy = true);
     try {
       if (step == 'preview') {
+        if (_program!.endDate != null &&
+            _running != null &&
+            _running!.occurrences.any(
+              (o) => o.date.isAfter(_program!.endDate!),
+            )) {
+          final proceed = await showDialog<bool>(
+            context: context,
+            builder:
+                (c) => AlertDialog(
+                  title: Text(c.plan('endDate')),
+                  content: Text(c.plan('shortPlan')),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(c, false),
+                      child: Text(c.plan('cancel')),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(c, true),
+                      child: Text(c.plan('save')),
+                    ),
+                  ],
+                ),
+          );
+          if (proceed != true || !mounted) return;
+        }
         if (_program!.hasRunning &&
             _runningChanged &&
             widget.existing != null) {
@@ -480,6 +543,156 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     }
   }
 
+  Future<void> _editSlot(ProgramSlot slot) async {
+    var focus = slot.effectiveFocus;
+    final name = TextEditingController(
+      text:
+          slot.label == 'custom' ||
+                  ProgramSplits.focusFor(slot.label).isNotEmpty
+              ? ''
+              : slot.label,
+    );
+    final result = await showModalBottomSheet<ProgramSlot>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder:
+          (c) => StatefulBuilder(
+            builder:
+                (c, set) => SafeArea(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        0,
+                        20,
+                        24 + MediaQuery.viewInsetsOf(c).bottom,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            c.plan('focus'),
+                            style: Theme.of(c).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final key in [
+                                'push',
+                                'pull',
+                                'legs',
+                                'core',
+                              ])
+                                FilterChip(
+                                  label: Text(c.plan(key)),
+                                  selected: focus.contains(key),
+                                  onSelected:
+                                      (v) => set(() {
+                                        focus =
+                                            v
+                                                ? {...focus, key}
+                                                : ({...focus}..remove(key));
+                                      }),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: name,
+                            decoration: InputDecoration(
+                              labelText: c.plan('name'),
+                            ),
+                          ),
+                          ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            title: Text(c.plan('muscleFocus')),
+                            children: [
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  for (final key in [
+                                    'chest',
+                                    'back',
+                                    'shoulders',
+                                    'arms',
+                                    'quads',
+                                    'glutes',
+                                    'calves',
+                                  ])
+                                    FilterChip(
+                                      label: Text(c.plan(key)),
+                                      selected: focus.contains(key),
+                                      onSelected:
+                                          (v) => set(
+                                            () =>
+                                                focus =
+                                                    v
+                                                        ? {...focus, key}
+                                                        : ({...focus}
+                                                          ..remove(key)),
+                                          ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: () {
+                              final code =
+                                  [
+                                    'fullBody',
+                                    'upper',
+                                    'legs',
+                                    'pushCore',
+                                    'pullLegs',
+                                    'push',
+                                    'pull',
+                                    'core',
+                                  ].where((key) {
+                                    final f = ProgramSplits.focusFor(key);
+                                    return f.length == focus.length &&
+                                        f.containsAll(focus);
+                                  }).firstOrNull ??
+                                  'custom';
+                              Navigator.pop(
+                                c,
+                                slot.copyWith(
+                                  label:
+                                      name.text.trim().isEmpty
+                                          ? code
+                                          : name.text.trim(),
+                                  focus: focus.toList(),
+                                ),
+                              );
+                            },
+                            child: Text(c.plan('save')),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+          ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    name.dispose();
+    if (result == null || !mounted) return;
+    _change(
+      () =>
+          _program = _program!.copyWith(
+            split: 'custom',
+            slots: [
+              for (final s in _program!.slots) s.id == slot.id ? result : s,
+            ],
+          ),
+    );
+  }
+
   Widget _choice(
     String title,
     String value,
@@ -508,12 +721,16 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
       leading: Icon(
         s.kind == 'mobility' ? Icons.self_improvement : Icons.fitness_center,
       ),
-      title: Text(workout?.name ?? planLabel(context, s.label)),
+      title: Text(planLabel(context, s.label)),
       subtitle: Text(
-        '${DateFormat.E(Localizations.localeOf(context).toString()).format(DateTime(2024, 1, s.weekday))}${s.cycleWeek == 0 ? '' : ' · ${context.plan('weekNumber')} ${s.cycleWeek}'}${workout == null ? ' · ${context.plan('assignWorkout')}' : ''}',
+        '${DateFormat.E(Localizations.localeOf(context).toString()).format(DateTime(2024, 1, s.weekday))}${s.cycleWeek == 0 ? '' : ' · ${context.plan('weekNumber')} ${s.cycleWeek}'} · ${workout?.name ?? context.plan('assignWorkout')}',
       ),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => _assign(s),
+      trailing: IconButton(
+        tooltip: context.plan('assignWorkout'),
+        icon: const Icon(Icons.fitness_center),
+        onPressed: () => _assign(s),
+      ),
+      onTap: () => s.kind == 'strength' ? _editSlot(s) : _assign(s),
     );
   }
 
@@ -611,6 +828,35 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                           selected: _available,
                           onChanged: (v) => _change(() => _available = v),
                         ),
+                        if (_available.isNotEmpty)
+                          for (final sport in [
+                            'strength',
+                            'running',
+                          ].where(_sports.contains)) ...[
+                            const SizedBox(height: 16),
+                            DropdownButtonFormField<int>(
+                              value: (sport == 'strength'
+                                      ? _strengthCount
+                                      : _runningCount)
+                                  .clamp(1, _available.length),
+                              decoration: InputDecoration(
+                                labelText:
+                                    '${context.plan(sport)} · ${context.plan('sessionsPerWeek')}',
+                              ),
+                              items: [
+                                for (var i = 1; i <= _available.length; i++)
+                                  DropdownMenuItem(value: i, child: Text('$i')),
+                              ],
+                              onChanged:
+                                  (v) => _change(() {
+                                    if (sport == 'strength') {
+                                      _strengthCount = v!;
+                                    } else {
+                                      _runningCount = v!;
+                                    }
+                                  }),
+                            ),
+                          ],
                       ],
                       if (title == 'strength') ...[
                         Text(
@@ -631,12 +877,21 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                         _choice(
                           'split',
                           p!.split,
-                          ['fullBody', 'upperLower', 'pushPullLegs'],
+                          [
+                            'fullBody',
+                            'upperLower',
+                            'pushPullLegs',
+                            'mixedSplit',
+                            'custom',
+                          ],
                           (v) => _setStrengthDays(
-                            _currentSlots
-                                .where((s) => s.kind == 'strength')
-                                .map((s) => s.weekday)
-                                .toSet(),
+                            v == 'mixedSplit' &&
+                                    _available.containsAll({1, 2, 5})
+                                ? {1, 2, 5}
+                                : _currentSlots
+                                    .where((s) => s.kind == 'strength')
+                                    .map((s) => s.weekday)
+                                    .toSet(),
                             split: v,
                           ),
                         ),
@@ -750,6 +1005,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                           keyboardType: TextInputType.datetime,
                           decoration: InputDecoration(
                             labelText: context.plan('targetTime'),
+                            suffixText: 'min',
                             hintText: context.plan('durationHint'),
                             errorMaxLines: 3,
                           ),
@@ -847,6 +1103,46 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                           _slot(s),
                       ],
                       if (title == 'preview') ...[
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(context.plan('endDate')),
+                          subtitle: Text(
+                            p!.endDate == null
+                                ? context.plan('indefinite')
+                                : DateFormat.yMMMd(
+                                  Localizations.localeOf(context).toString(),
+                                ).format(p.endDate!),
+                          ),
+                          trailing:
+                              p.endDate == null
+                                  ? const Icon(Icons.chevron_right)
+                                  : IconButton(
+                                    tooltip: context.plan('delete'),
+                                    icon: const Icon(Icons.clear),
+                                    onPressed:
+                                        () => _change(
+                                          () =>
+                                              _program = p.copyWith(
+                                                clearEndDate: true,
+                                              ),
+                                        ),
+                                  ),
+                          onTap: () async {
+                            final end = await showDatePicker(
+                              context: context,
+                              initialDate:
+                                  p.endDate ??
+                                  p.start.add(const Duration(days: 90)),
+                              firstDate: p.start,
+                              lastDate: DateTime(2100),
+                            );
+                            if (end != null && mounted) {
+                              _change(
+                                () => _program = p.copyWith(endDate: end),
+                              );
+                            }
+                          },
+                        ),
                         TextFormField(
                           controller: _name,
                           decoration: InputDecoration(
@@ -864,7 +1160,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                           subtitle: Text(
                             DateFormat.yMMMd(
                               Localizations.localeOf(context).toString(),
-                            ).format(p!.start),
+                            ).format(p.start),
                           ),
                           trailing:
                               widget.existing == null
@@ -911,7 +1207,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                           PlanError('doubleDay'),
                         if (_currentSlots.any(
                           (s) =>
-                              ProgramSplits.legHeavy(s.label) &&
+                              s.legHeavy &&
                               p.runningDays.any(
                                 (d) =>
                                     (s.weekday - d).abs() <= 1 ||
@@ -970,6 +1266,8 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                           for (final o
                               in _running?.occurrences.where(
                                     (o) =>
+                                        (p.endDate == null ||
+                                            !o.date.isAfter(p.endDate!)) &&
                                         o.date.weekday == d &&
                                         calendarDays(
                                                   o.date,
@@ -992,12 +1290,18 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                               trailing: const Icon(Icons.chevron_right),
                               onTap: () => _editRun(o),
                               subtitle: Text(
-                                CardioUnits.clock(
-                                  o.workout
-                                      .expandedSteps()
-                                      .where((s) => s.goal == StepGoal.time)
-                                      .fold<double>(0, (a, s) => a + s.amount),
-                                ),
+                                o.workout.steps
+                                    .map(
+                                      (s) => cardioStepDescription(
+                                        s,
+                                        context
+                                            .read<CardioProvider>()
+                                            .profile
+                                            .units,
+                                        context,
+                                      ),
+                                    )
+                                    .join('\n'),
                               ),
                             ),
                           if (!_runningChanged && p.runningDays.contains(d))

@@ -5,6 +5,9 @@ import '../utils/uuid_v4.dart';
 
 abstract final class TrainingProgramSchema {
   static const tables = [
+    'strength_session_links',
+    'strength_occurrence_parts',
+    'workout_slot_prescriptions',
     'cardio_occurrence_origins',
     'plan_slot_overrides',
     'active_training_plan',
@@ -14,6 +17,19 @@ abstract final class TrainingProgramSchema {
   ];
   static Future<void> create(DatabaseExecutor db) async {
     for (final sql in [
+      '''CREATE TABLE IF NOT EXISTS workout_slot_prescriptions(slot_id TEXT PRIMARY KEY,
+        sets INTEGER NOT NULL CHECK(sets>0), min_reps INTEGER NOT NULL CHECK(min_reps>0),
+        max_reps INTEGER NOT NULL CHECK(max_reps>=min_reps),
+        FOREIGN KEY(slot_id) REFERENCES workout_slots_v2(id) ON DELETE CASCADE)''',
+      '''CREATE TABLE IF NOT EXISTS strength_occurrence_parts(id TEXT PRIMARY KEY, plan_id TEXT NOT NULL,
+        source_occurrence_id TEXT NOT NULL, slot_id TEXT NOT NULL, original_date TEXT NOT NULL,
+        local_date TEXT NOT NULL, workout_id TEXT NOT NULL,
+        FOREIGN KEY(plan_id) REFERENCES training_plans(id) ON DELETE CASCADE,
+        FOREIGN KEY(workout_id) REFERENCES workout_templates(id))''',
+      '''CREATE TABLE IF NOT EXISTS strength_session_links(occurrence_id TEXT PRIMARY KEY,
+        plan_id TEXT NOT NULL, session_id TEXT NOT NULL UNIQUE,
+        FOREIGN KEY(plan_id) REFERENCES training_plans(id) ON DELETE CASCADE,
+        FOREIGN KEY(session_id) REFERENCES activity_sessions(id) ON DELETE CASCADE)''',
       '''CREATE TABLE IF NOT EXISTS cardio_occurrence_origins(occurrence_id TEXT PRIMARY KEY,
         original_date TEXT NOT NULL, FOREIGN KEY(occurrence_id) REFERENCES cardio_occurrences(id) ON DELETE CASCADE)''',
       'CREATE TABLE IF NOT EXISTS user_training_profile(id INTEGER PRIMARY KEY CHECK(id=0), profile_json TEXT NOT NULL)',
@@ -24,6 +40,9 @@ abstract final class TrainingProgramSchema {
         original_date TEXT NOT NULL, local_date TEXT NOT NULL, PRIMARY KEY(plan_id,slot_id,original_date),
         FOREIGN KEY(plan_id) REFERENCES training_plans(id) ON DELETE CASCADE)''',
       'CREATE INDEX IF NOT EXISTS idx_active_training_plan_id ON active_training_plan(plan_id)',
+      'CREATE INDEX IF NOT EXISTS idx_strength_parts_plan ON strength_occurrence_parts(plan_id,local_date)',
+      'CREATE INDEX IF NOT EXISTS idx_strength_parts_workout ON strength_occurrence_parts(workout_id)',
+      'CREATE INDEX IF NOT EXISTS idx_strength_links_plan ON strength_session_links(plan_id)',
     ]) {
       await db.execute(sql);
     }

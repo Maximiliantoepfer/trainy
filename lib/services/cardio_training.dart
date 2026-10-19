@@ -6,6 +6,30 @@ import '../utils/uuid_v4.dart';
 typedef CardioTranslate = String Function(String key);
 
 abstract final class CardioTraining {
+  static String targetDescription(
+    CardioStep s,
+    DistanceSystem units,
+    CardioTranslate t, {
+    bool cycling = false,
+  }) {
+    if (s.primaryTarget == 'heart_rate' && s.minHeartRate != null) {
+      return '${s.minHeartRate}–${s.maxHeartRate} bpm';
+    }
+    if (s.primaryTarget != 'pace' ||
+        (s.maxSpeed == null && s.minSpeed == null)) {
+      return t(s.intensity.name);
+    }
+    String value(double? speed) =>
+        cycling
+            ? CardioUnits.speed(speed, units)
+            : CardioUnits.pace(speed, units);
+    if (s.minSpeed == null) return '${t('notFaster')} ${value(s.maxSpeed)}';
+    if (s.maxSpeed == null) return '${t('notSlower')} ${value(s.minSpeed)}';
+    return cycling
+        ? '${value(s.minSpeed)} – ${value(s.maxSpeed)}'
+        : '${value(s.maxSpeed)} – ${value(s.minSpeed)}';
+  }
+
   static const templateCodes = [
     'easy5k',
     'longRun',
@@ -93,11 +117,41 @@ abstract final class CardioTraining {
       high = v * factors.$2;
       if (intensity == CardioIntensity.threshold) {
         final distance =
-            profile.referenceMeters *
-            math.pow(3600 / profile.referenceSeconds!, 1 / 1.06);
+            profile.benchmarkMeters *
+            math.pow(3600 / profile.benchmarkSeconds!, 1 / 1.06);
         low = distance / 3600 * .97;
         high = distance / 3600 * 1.03;
       }
+    }
+    if (sport == CardioSport.running &&
+        v == null &&
+        profile.easySpeed != null) {
+      // Product heuristic in seconds per kilometre, not a performance prediction.
+      final easy = profile.easySpeed!;
+      switch (intensity) {
+        case CardioIntensity.easy:
+        case CardioIntensity.recovery:
+          high = easy;
+        case CardioIntensity.steady:
+          low = easy;
+          high = easy / .95;
+        case CardioIntensity.threshold:
+          low = easy / .95;
+          high = easy / .90;
+        case CardioIntensity.interval:
+          low = easy / .90;
+          high = easy / .85;
+        case CardioIntensity.free:
+          break;
+      }
+    }
+    if (intensity == CardioIntensity.easy ||
+        intensity == CardioIntensity.recovery) {
+      low = null;
+    }
+    if (intensity == CardioIntensity.free) {
+      low = null;
+      high = null;
     }
     final fraction = switch (intensity) {
       CardioIntensity.easy => (.6, .7),
@@ -115,7 +169,13 @@ abstract final class CardioTraining {
       maxSpeed: high,
       minHeartRate: profile.pulse(fraction.$1),
       maxHeartRate: profile.pulse(fraction.$2),
-      primaryTarget: v == null ? 'effort' : 'pace',
+      primaryTarget: high == null ? 'effort' : 'pace',
+      targetSource:
+          high == null
+              ? 'effort'
+              : v == null
+              ? 'estimated'
+              : 'benchmark',
       repeat: repeat,
       recoverySeconds: recovery,
       movement:
@@ -124,6 +184,26 @@ abstract final class CardioTraining {
               : sport == CardioSport.running
               ? 'run'
               : sport.name,
+    );
+  }
+
+  static CardioStep refreshTarget(
+    CardioStep step,
+    AthleteRunningProfile profile, {
+    DateTime? now,
+    CardioSport sport = CardioSport.running,
+    bool force = false,
+  }) {
+    if (!force && step.targetSource == 'manual') return step;
+    final target = prescribe(profile, step.intensity, now: now, sport: sport);
+    return step.copyWith(
+      clearTargets: true,
+      minSpeed: target.minSpeed,
+      maxSpeed: target.maxSpeed,
+      minHeartRate: target.minHeartRate,
+      maxHeartRate: target.maxHeartRate,
+      primaryTarget: target.primaryTarget,
+      targetSource: target.targetSource,
     );
   }
 
@@ -399,7 +479,8 @@ class RunningPlanGenerator {
       start.day - start.weekday + 1,
     );
     final benchmarkSpeed = p.fiveKmSpeed(start);
-    final easySpeed = benchmarkSpeed == null ? null : benchmarkSpeed * .725;
+    final easySpeed =
+        p.easySpeed ?? (benchmarkSpeed == null ? null : benchmarkSpeed * .725);
     // Race speed is not evidence of volume tolerance. Unknown load stays time-based.
     // With no benchmark use reported continuous duration, never infer speed.
     var weeklySeconds =
@@ -409,7 +490,13 @@ class RunningPlanGenerator {
                 days.length
             : math.max(
               p.weeklyMeters / easySpeed,
-              math.min(p.continuousMinutes, 30) * 60.0 * days.length,
+              math.max(
+                    math.min(p.continuousMinutes, 45) * 60.0,
+                    !p.isMaximal && p.referenceSeconds != null
+                        ? math.min(p.referenceSeconds!, 2700.0)
+                        : 0.0,
+                  ) *
+                  math.min(days.length, p.recentRunsPerWeek ?? days.length),
             );
     weeklySeconds = math.max(weeklySeconds, 900.0 * days.length);
     final initialLong =
@@ -520,7 +607,13 @@ class RunningPlanGenerator {
                   : quality || advancedSecond
                   ? (week.isEven ? 'progression' : 'threshold')
                   : 'easySession';
-          final capped = math.max(600.0, seconds);
+          final capped =
+              isLong && easySpeed != null && p.longestMeters > 0
+                  ? math.min(
+                    math.max(600.0, seconds),
+                    p.longestMeters * math.pow(1.05, week) / easySpeed,
+                  )
+                  : math.max(600.0, seconds);
           workout = CardioWorkout(
             name: t(code),
             templateCode: code,
@@ -532,7 +625,14 @@ class RunningPlanGenerator {
                       CardioTraining.prescribe(
                         p,
                         intensity,
-                        amount: capped,
+                        goal:
+                            isLong && easySpeed == null && p.longestMeters > 0
+                                ? StepGoal.distance
+                                : StepGoal.time,
+                        amount:
+                            isLong && easySpeed == null && p.longestMeters > 0
+                                ? p.longestMeters * math.pow(1.05, week)
+                                : capped,
                         now: start,
                       ),
                     ]

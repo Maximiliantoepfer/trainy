@@ -152,14 +152,12 @@ class CardioProvider extends ChangeNotifier {
     final steps =
         workout.expandedSteps().map((s) {
           final name = s.name.isNotEmpty ? s.name : t(s.intensity.name);
-          final target =
-              s.primaryTarget == 'heart_rate' && s.minHeartRate != null
-                  ? '${s.minHeartRate}–${s.maxHeartRate} bpm'
-                  : s.minSpeed == null
-                  ? t('effort')
-                  : workout.sport == CardioSport.cycling
-                  ? '${CardioUnits.speed(s.minSpeed, profile.units)} – ${CardioUnits.speed(s.maxSpeed, profile.units)}'
-                  : '${CardioUnits.pace(s.maxSpeed, profile.units)} – ${CardioUnits.pace(s.minSpeed, profile.units)}';
+          final target = CardioTraining.targetDescription(
+            s,
+            profile.units,
+            t,
+            cycling: workout.sport == CardioSport.cycling,
+          );
           return {
             ...s.toJson(),
             'displayName': name,

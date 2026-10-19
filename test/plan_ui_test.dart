@@ -11,6 +11,7 @@ import 'package:trainy/models/training_program.dart';
 import 'package:trainy/providers/active_workout_provider.dart';
 import 'package:trainy/providers/cardio_provider.dart';
 import 'package:trainy/providers/locale_provider.dart';
+import 'package:trainy/providers/progress_provider.dart';
 import 'package:trainy/providers/training_program_provider.dart';
 import 'package:trainy/providers/workout_provider.dart';
 import 'package:trainy/providers/theme_provider.dart';
@@ -23,9 +24,30 @@ import 'package:trainy/screens/training_plan_screen.dart';
 import 'package:trainy/screens/welcome_setup_screen.dart';
 import 'package:trainy/widgets/appearance_picker.dart';
 import 'package:trainy/widgets/language_preference_picker.dart';
+import 'package:trainy/widgets/plan_controls.dart';
+import 'package:trainy/providers/training_profile_provider.dart';
+import 'package:trainy/repositories/training_profile_repository.dart';
+import 'package:trainy/models/training_profile.dart';
 import 'package:trainy/themes/app_theme.dart';
 
+class EmptyEquipment extends TrainingProfileRepository {
+  @override
+  Future<List<TrainingProfileRecord>> profiles({
+    bool includeArchived = false,
+  }) async => [];
+  @override
+  Future<String?> selectedProfileId() async => null;
+  @override
+  Future<ProfileSetupState> setupState() async => ProfileSetupState.required;
+}
+
 class MemoryPrograms extends TrainingProgramRepository {
+  @override
+  Future<List<ProgramEntry>> weekEntries(
+    TrainingProgram? p,
+    DateTime from,
+    DateTime to,
+  ) async => p == null ? [] : entries(p, from, to);
   final drafts = <String, Map<String, dynamic>>{};
   final saved = <TrainingProgram>[];
   String? selected;
@@ -175,6 +197,10 @@ void main() {
           ChangeNotifierProvider.value(value: language),
           ChangeNotifierProvider(create: (_) => WorkoutProvider()),
           ChangeNotifierProvider(create: (_) => ActiveWorkoutProvider()),
+          ChangeNotifierProvider(create: (_) => ProgressProvider()),
+          ChangeNotifierProvider(
+            create: (_) => TrainingProfileProvider(store: EmptyEquipment()),
+          ),
         ],
         child: Consumer<LocaleProvider>(
           builder:
@@ -198,6 +224,14 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      final c = tester.element(find.byKey(const ValueKey('plan-golden')));
+      await Future.wait([
+        precacheImage(const AssetImage('assets/icons/sofa.png'), c),
+        precacheImage(const AssetImage('assets/icons/hantel.png'), c),
+      ]);
+    });
     await tester.pumpAndSettle();
   }
 
@@ -249,7 +283,8 @@ void main() {
     ) async {
       await mount(tester, const PlanHomeScreen(), dark: dark);
       expect(find.text('Trainingsplan erstellen'), findsOneWidget);
-      expect(find.text('Ohne Plan trainieren'), findsOneWidget);
+      expect(find.text('Ohne Plan trainieren'), findsNothing);
+      expect(find.text('Weiteres Workout starten'), findsOneWidget);
       expect(find.text('Ausdauer'), findsNothing);
       expect(find.byType(FloatingActionButton), findsNothing);
       expect(tester.takeException(), isNull);
@@ -259,6 +294,59 @@ void main() {
       );
     });
   }
+  testWidgets(
+    'new plan offers seven available days but only three strength sessions',
+    (tester) async {
+      await mount(tester, const TrainingPlanSetupScreen());
+      expect(
+        tester.widget<PlanDayPicker>(find.byType(PlanDayPicker)).selected,
+        {1, 2, 3, 4, 5, 6, 7},
+      );
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      // The contextual strength profile can be left without forcing equipment setup.
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<PlanDayPicker>(find.byType(PlanDayPicker))
+            .selected
+            .length,
+        3,
+      );
+      await tester.tap(find.text('Dein Split'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Push + Bauch / Pull + Beine / Ganzkörper'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<PlanDayPicker>(find.byType(PlanDayPicker)).selected,
+        {1, 2, 5},
+      );
+      await tester.ensureVisible(find.text('Push + Bauch'));
+      await tester.tap(find.text('Push + Bauch'));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(FilterChip, 'Push'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilterChip>(find.widgetWithText(FilterChip, 'Bauch'))
+            .selected,
+        isTrue,
+      );
+      await tester.tap(find.widgetWithText(FilterChip, 'Pull'));
+      await tester.tap(find.text('Speichern'));
+      await tester.pumpAndSettle();
+      final draft = programs.drafts['plan:new']!;
+      final saved = TrainingProgram.fromJson(
+        Map<String, dynamic>.from(draft['program'] as Map),
+      );
+      expect(saved.split, 'custom');
+      expect(
+        saved.currentSlots.firstWhere((s) => s.weekday == 1).effectiveFocus,
+        {'push', 'pull', 'core'},
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('appearance fits small display and large German text', (
     tester,
   ) async {

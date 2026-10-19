@@ -23,6 +23,7 @@ import '../utils/goal_utils.dart';
 import '../widgets/modal_form_dialogs.dart';
 import '../widgets/training_profile_settings_card.dart';
 import 'workout_run_screen.dart';
+import '../widgets/strength_prescription_editor.dart';
 
 /// Guided three-step workflow used for all newly created workouts.
 class WorkoutEditorScreen extends StatefulWidget {
@@ -417,12 +418,15 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
 
 class WorkoutDetailScreen extends StatefulWidget {
   const WorkoutDetailScreen({
+    this.plannedOccurrenceId,
+    this.trainingProgramId,
     super.key,
     required this.workout,
     this.repository,
     this.profileStore,
   });
   final WorkoutPlanningRepository? repository;
+  final String? plannedOccurrenceId, trainingProgramId;
   final TrainingProfileStore? profileStore;
 
   final Workout workout;
@@ -785,6 +789,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
               id: id,
               exerciseId: slot.localExerciseId,
               isOptional: slot.isOptional,
+              prescription: slot.prescription,
               alternativeExerciseIds: slot.alternativeLocalExerciseIds,
             ),
           );
@@ -819,6 +824,8 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       MaterialPageRoute(
         builder:
             (_) => WorkoutRunScreen(
+              plannedOccurrenceId: widget.plannedOccurrenceId,
+              trainingProgramId: widget.trainingProgramId,
               workout: _workout,
               exercises: exercises,
               autoStart: true,
@@ -1014,6 +1021,18 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                     const SizedBox(height: 16),
                     if (setup != null)
                       WorkoutGroupEditor(
+                        onEditPrescription: (slot) async {
+                          final value = await editStrengthPrescription(
+                            context,
+                            slot.prescription ??
+                                const StrengthPrescription(sets: 3),
+                          );
+                          if (value != null && mounted) {
+                            await _mutate(
+                              () => _repository.setPrescription(slot.id, value),
+                            );
+                          }
+                        },
                         setup: setup,
                         exercises: context.watch<ExerciseProvider>().exercises,
                         selectedIds: _selectedSlotIds,

@@ -34,6 +34,13 @@ abstract final class CardioUnits {
   static double? parseDuration(String text) {
     if (text.trim().isEmpty) return null;
     final parts = text.trim().split(':');
+    if (parts.length == 1) {
+      if (!RegExp(r'^\d+(?:[.,]\d+)?$').hasMatch(parts.single)) return null;
+      final minutes = double.tryParse(parts.single.replaceAll(',', '.'));
+      return minutes != null && minutes.isFinite && minutes > 0
+          ? minutes * 60
+          : null;
+    }
     if (parts.length < 2 ||
         parts.length > 3 ||
         parts.any((p) => !RegExp(r'^\d+$').hasMatch(p))) {
@@ -80,11 +87,28 @@ class AthleteRunningProfile {
     this.level,
     this.canRunFiveKm,
     this.recentRunsPerWeek,
+    this.bestMeters = 5000,
+    this.bestSeconds,
+    this.bestDate,
   });
   final double referenceMeters;
   final double? referenceSeconds;
   final DateTime? referenceDate;
   final bool isMaximal;
+
+  /// A separate optional race/test result; legacy maximal references still work.
+  final double bestMeters;
+  final double? bestSeconds;
+  final DateTime? bestDate;
+  double get benchmarkMeters =>
+      bestSeconds != null ? bestMeters : referenceMeters;
+  double? get benchmarkSeconds =>
+      bestSeconds ?? (isMaximal ? referenceSeconds : null);
+  DateTime? get benchmarkDate => bestSeconds != null ? bestDate : referenceDate;
+  double? get easySpeed =>
+      !isMaximal && referenceSeconds != null
+          ? referenceMeters / referenceSeconds!
+          : null;
   final double weeklyMeters;
   final double longestMeters;
   final int continuousMinutes;
@@ -103,6 +127,10 @@ class AthleteRunningProfile {
   void validate() {
     if (referenceMeters <= 0 ||
         !referenceMeters.isFinite ||
+        bestMeters <= 0 ||
+        !bestMeters.isFinite ||
+        (bestSeconds != null &&
+            (!bestSeconds!.isFinite || bestSeconds! <= 0)) ||
         (referenceSeconds != null &&
             (referenceSeconds! <= 0 || !referenceSeconds!.isFinite)) ||
         weeklyMeters < 0 ||
@@ -130,13 +158,12 @@ class AthleteRunningProfile {
   }
 
   bool hasRecentBenchmark(DateTime now) =>
-      isMaximal &&
-      referenceSeconds != null &&
-      referenceDate != null &&
-      !referenceDate!.isAfter(now) &&
-      now.difference(referenceDate!).inDays <= 90;
+      benchmarkSeconds != null &&
+      benchmarkDate != null &&
+      !benchmarkDate!.isAfter(now) &&
+      now.difference(benchmarkDate!).inDays <= 90;
   double equivalentSeconds(double meters) =>
-      referenceSeconds! * math.pow(meters / referenceMeters, 1.06);
+      benchmarkSeconds! * math.pow(meters / benchmarkMeters, 1.06);
   double? fiveKmSpeed(DateTime now) =>
       hasRecentBenchmark(now) ? 5000 / equivalentSeconds(5000) : null;
   int? pulse(double fraction) =>
@@ -155,6 +182,9 @@ class AthleteRunningProfile {
     'referenceSeconds': referenceSeconds,
     'referenceDate': referenceDate?.toIso8601String(),
     'isMaximal': isMaximal,
+    'bestMeters': bestMeters,
+    'bestSeconds': bestSeconds,
+    'bestDate': bestDate?.toIso8601String(),
     'weeklyMeters': weeklyMeters == 0 ? null : weeklyMeters,
     'longestMeters': longestMeters == 0 ? null : longestMeters,
     'continuousMinutes': continuousMinutes == 0 ? null : continuousMinutes,
@@ -176,6 +206,9 @@ class AthleteRunningProfile {
         referenceSeconds: (j['referenceSeconds'] as num?)?.toDouble(),
         referenceDate: DateTime.tryParse(j['referenceDate'] as String? ?? ''),
         isMaximal: j['isMaximal'] == true,
+        bestMeters: (j['bestMeters'] as num?)?.toDouble() ?? 5000,
+        bestSeconds: (j['bestSeconds'] as num?)?.toDouble(),
+        bestDate: DateTime.tryParse(j['bestDate'] as String? ?? ''),
         weeklyMeters: (j['weeklyMeters'] as num?)?.toDouble() ?? 0,
         longestMeters: (j['longestMeters'] as num?)?.toDouble() ?? 0,
         continuousMinutes: j['continuousMinutes'] as int? ?? 0,
@@ -212,6 +245,8 @@ class CardioStep {
     this.repeat = 1,
     this.recoverySeconds = 0,
     this.standingRecovery = false,
+    this.recoveryMovement = 'walk',
+    this.targetSource = 'manual',
   }) : id = id ?? UuidV4.generate();
   final String id;
   final String name;
@@ -225,6 +260,10 @@ class CardioStep {
   final int repeat;
   final double recoverySeconds;
   final bool standingRecovery;
+  final String recoveryMovement;
+
+  /// manual, benchmark, estimated, or effort. Only automatic targets regenerate.
+  final String targetSource;
 
   void validate() {
     if (!amount.isFinite ||
@@ -233,12 +272,16 @@ class CardioStep {
         repeat > 100 ||
         !recoverySeconds.isFinite ||
         recoverySeconds < 0 ||
-        ((minSpeed == null) != (maxSpeed == null)) ||
-        (minSpeed != null &&
-            (!minSpeed!.isFinite ||
-                !maxSpeed!.isFinite ||
-                minSpeed! <= 0 ||
-                maxSpeed! < minSpeed!)) ||
+        (minSpeed != null && (!minSpeed!.isFinite || minSpeed! <= 0)) ||
+        (maxSpeed != null && (!maxSpeed!.isFinite || maxSpeed! <= 0)) ||
+        (minSpeed != null && maxSpeed != null && maxSpeed! < minSpeed!) ||
+        !['walk', 'run', 'rest'].contains(recoveryMovement) ||
+        ![
+          'manual',
+          'benchmark',
+          'estimated',
+          'effort',
+        ].contains(targetSource) ||
         ((minHeartRate == null) != (maxHeartRate == null)) ||
         (minHeartRate != null &&
             (minHeartRate! < 25 ||
@@ -264,6 +307,9 @@ class CardioStep {
     int? repeat,
     double? recoverySeconds,
     bool? standingRecovery,
+    String? recoveryMovement,
+    String? targetSource,
+    bool clearTargets = false,
   }) => CardioStep(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -271,14 +317,18 @@ class CardioStep {
     amount: amount ?? this.amount,
     intensity: intensity ?? this.intensity,
     movement: movement ?? this.movement,
-    minSpeed: minSpeed ?? this.minSpeed,
-    maxSpeed: maxSpeed ?? this.maxSpeed,
-    minHeartRate: minHeartRate ?? this.minHeartRate,
-    maxHeartRate: maxHeartRate ?? this.maxHeartRate,
+    minSpeed: clearTargets ? minSpeed : minSpeed ?? this.minSpeed,
+    maxSpeed: clearTargets ? maxSpeed : maxSpeed ?? this.maxSpeed,
+    minHeartRate:
+        clearTargets ? minHeartRate : minHeartRate ?? this.minHeartRate,
+    maxHeartRate:
+        clearTargets ? maxHeartRate : maxHeartRate ?? this.maxHeartRate,
     primaryTarget: primaryTarget ?? this.primaryTarget,
     repeat: repeat ?? this.repeat,
     recoverySeconds: recoverySeconds ?? this.recoverySeconds,
     standingRecovery: standingRecovery ?? this.standingRecovery,
+    recoveryMovement: recoveryMovement ?? this.recoveryMovement,
+    targetSource: targetSource ?? this.targetSource,
   );
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -295,6 +345,8 @@ class CardioStep {
     'repeat': repeat,
     'recoverySeconds': recoverySeconds,
     'standingRecovery': standingRecovery,
+    'recoveryMovement': recoveryMovement,
+    'targetSource': targetSource,
   };
   factory CardioStep.fromJson(Map<String, dynamic> j) => CardioStep(
     id: j['id'] as String,
@@ -313,6 +365,10 @@ class CardioStep {
     repeat: j['repeat'] as int? ?? 1,
     recoverySeconds: (j['recoverySeconds'] as num?)?.toDouble() ?? 0,
     standingRecovery: j['standingRecovery'] == true,
+    recoveryMovement:
+        j['recoveryMovement'] as String? ??
+        (j['standingRecovery'] == true ? 'rest' : 'walk'),
+    targetSource: j['targetSource'] as String? ?? 'manual',
   );
 }
 
@@ -387,14 +443,20 @@ class CardioWorkout {
   List<CardioStep> expandedSteps() => [
     for (final s in steps)
       for (var i = 0; i < s.repeat; i++) ...[
-        s.copyWith(id: '${s.id}:$i', repeat: 1, recoverySeconds: 0),
+        s.copyWith(
+          id: '${s.id}:$i',
+          repeat: 1,
+          recoverySeconds: 0,
+          standingRecovery: s.movement == 'rest',
+        ),
         if (i < s.repeat - 1 && s.recoverySeconds > 0)
           CardioStep(
             id: '${s.id}:$i:recovery',
             amount: s.recoverySeconds,
             intensity: CardioIntensity.recovery,
-            movement: s.standingRecovery ? 'rest' : 'walk',
-            standingRecovery: s.standingRecovery,
+            movement: s.standingRecovery ? 'rest' : s.recoveryMovement,
+            standingRecovery:
+                s.standingRecovery || s.recoveryMovement == 'rest',
             primaryTarget: 'effort',
           ),
       ],
@@ -411,14 +473,17 @@ class CardioWorkout {
     steps:
         steps.map((s) {
           if (s.goal == StepGoal.time) return s;
-          if (s.minSpeed == null || s.maxSpeed == null) {
+          if (s.minSpeed == null && s.maxSpeed == null) {
             throw const FormatException(
               'A target speed is needed for time conversion',
             );
           }
           return s.copyWith(
             goal: StepGoal.time,
-            amount: s.amount / ((s.minSpeed! + s.maxSpeed!) / 2),
+            amount:
+                s.amount /
+                ((s.minSpeed ?? s.maxSpeed!) + (s.maxSpeed ?? s.minSpeed!)) *
+                2,
           );
         }).toList(),
   );

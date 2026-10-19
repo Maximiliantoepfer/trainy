@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../widgets/cardio_route_view.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
@@ -668,6 +669,15 @@ class _SummaryState extends State<CardioSummaryScreen> {
                 ),
             ],
           ),
+          const SizedBox(height: 20),
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _route,
+            builder:
+                (c, s) =>
+                    !s.hasData
+                        ? const SizedBox.shrink()
+                        : CardioRouteView(samples: s.data!),
+          ),
           if (cooldown.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
@@ -747,104 +757,11 @@ class _SummaryState extends State<CardioSummaryScreen> {
             Text(
               '${context.cardio('sensorCoverage')}: ${seconds == 0 ? 0 : (((r['gpsCoveredSeconds'] as num? ?? 0) / seconds).clamp(0, 1) * 100).round()}% GPS',
             ),
-            FutureBuilder<List<Map<String, dynamic>>>(
-              future: _route,
-              builder: (ctx, snapshot) {
-                final points = snapshot.data ?? [];
-                if (points.length < 2) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Semantics(
-                    label: context.cardio('route'),
-                    child: SizedBox(
-                      height: 220,
-                      child: CustomPaint(
-                        painter: _RoutePainter(
-                          points,
-                          Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
           ],
         ],
       ),
     );
   }
-}
-
-class _RoutePainter extends CustomPainter {
-  _RoutePainter(this.points, this.color);
-  final List<Map<String, dynamic>> points;
-  final Color color;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final valid =
-        points
-            .where((p) => p['longitude'] is num && p['latitude'] is num)
-            .toList();
-    if (valid.length < 2) return;
-    final latitude = (valid.first['latitude'] as num).toDouble();
-    final coords =
-        valid
-            .map(
-              (p) => Offset(
-                (p['longitude'] as num).toDouble() *
-                    math.cos(latitude * math.pi / 180),
-                -(p['latitude'] as num).toDouble(),
-              ),
-            )
-            .toList();
-    final left = coords.map((p) => p.dx).reduce(math.min),
-        right = coords.map((p) => p.dx).reduce(math.max);
-    final top = coords.map((p) => p.dy).reduce(math.min),
-        bottom = coords.map((p) => p.dy).reduce(math.max);
-    final scale = math.min(
-      (size.width - 32) / math.max(.000001, right - left),
-      (size.height - 32) / math.max(.000001, bottom - top),
-    );
-    Offset project(Offset p) => Offset(
-      size.width / 2 + (p.dx - (left + right) / 2) * scale,
-      size.height / 2 + (p.dy - (top + bottom) / 2) * scale,
-    );
-    final path = Path();
-    var previousTime = 0;
-    for (var i = 0; i < coords.length; i++) {
-      final point = project(coords[i]),
-          time = (valid[i]['timestamp'] as num?)?.toInt() ?? 0;
-      // Downsampling is expected; large gaps must not look like measured straight lines.
-      if (i == 0 || time - previousTime > 120000) {
-        path.moveTo(point.dx, point.dy);
-      } else {
-        path.lineTo(point.dx, point.dy);
-      }
-      previousTime = time;
-    }
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..strokeWidth = 3
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawCircle(project(coords.first), 5, Paint()..color = color);
-    canvas.drawCircle(
-      project(coords.last),
-      7,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _RoutePainter old) =>
-      points != old.points || color != old.color;
 }
 
 Map<String, dynamic> cardioHistoryRuntime(Map<String, Object?> row) =>

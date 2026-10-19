@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import '../providers/progress_provider.dart';
+import '../widgets/week_activity_card.dart';
+import 'strength_session_summary_screen.dart';
+import 'strength_split_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../l10n/plan_l10n.dart';
@@ -104,16 +109,6 @@ class TrainingPlanCard extends StatelessWidget {
                   state.pendingDraft == null ? 'createPlan' : 'resumePlan',
                 ),
               ),
-            ),
-            TextButton(
-              onPressed:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const TrainingLibraryScreen(),
-                    ),
-                  ),
-              child: Text(context.plan('withoutPlan')),
             ),
           ],
         ),
@@ -249,8 +244,10 @@ class PlanWeekView extends StatefulWidget {
     required this.date,
     required this.onDateChanged,
     this.todayFirst = false,
+    this.beforeEntries,
   });
-  final TrainingProgram program;
+  final TrainingProgram? program;
+  final Widget? beforeEntries;
   final DateTime date;
   final ValueChanged<DateTime> onDateChanged;
   final bool todayFirst;
@@ -278,7 +275,7 @@ class _PlanWeekViewState extends State<PlanWeekView> {
     widget.date.day - widget.date.weekday + 1,
   );
   void _reload() {
-    _entries = context.read<TrainingProgramProvider>().repository.entries(
+    _entries = context.read<TrainingProgramProvider>().repository.weekEntries(
       widget.program,
       _monday,
       DateTime(_monday.year, _monday.month, _monday.day + 7),
@@ -286,7 +283,36 @@ class _PlanWeekViewState extends State<PlanWeekView> {
   }
 
   Future<void> _open(ProgramEntry entry) async {
-    if (entry.completed) return;
+    if (entry.completed && entry.sessionId != null) {
+      if (entry.kind == 'running') {
+        final rows = await context.read<CardioProvider>().repository.history();
+        final row = rows.where((r) => r['id'] == entry.sessionId).firstOrNull;
+        if (row != null && mounted) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => CardioSummaryScreen(
+                    runtime: cardioHistoryRuntime(row),
+                    snapshot:
+                        jsonDecode(row['snapshot_json'] as String)
+                            as Map<String, dynamic>,
+                  ),
+            ),
+          );
+        }
+      } else {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) =>
+                    StrengthSessionSummaryScreen(sessionId: entry.sessionId!),
+          ),
+        );
+      }
+      return;
+    }
     if (entry.cardio != null) {
       await Navigator.push(
         context,
@@ -307,9 +333,9 @@ class _PlanWeekViewState extends State<PlanWeekView> {
         try {
           final store = context.read<TrainingProgramProvider>();
           await store.repository.save(
-            widget.program.copyWith(
+            widget.program!.copyWith(
               slots:
-                  widget.program.slots
+                  widget.program!.slots
                       .map(
                         (s) =>
                             s.id == entry.slotId
@@ -339,7 +365,14 @@ class _PlanWeekViewState extends State<PlanWeekView> {
       if (w != null) {
         await Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => WorkoutDetailScreen(workout: w)),
+          MaterialPageRoute(
+            builder:
+                (_) => WorkoutDetailScreen(
+                  workout: w,
+                  plannedOccurrenceId: entry.id,
+                  trainingProgramId: entry.planId,
+                ),
+          ),
         );
       }
     }
@@ -350,8 +383,8 @@ class _PlanWeekViewState extends State<PlanWeekView> {
     final date = await showDatePicker(
       context: context,
       initialDate: entry.date,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
+      firstDate: widget.program!.start,
+      lastDate: widget.program!.endDate ?? DateTime(2100),
     );
     if (date == null || !mounted) return;
     List<ProgramEntry> neighbors;
@@ -360,7 +393,7 @@ class _PlanWeekViewState extends State<PlanWeekView> {
           .read<TrainingProgramProvider>()
           .repository
           .entries(
-            widget.program,
+            widget.program!,
             DateTime(date.year, date.month, date.day - 1),
             DateTime(date.year, date.month, date.day + 2),
           );
@@ -386,9 +419,8 @@ class _PlanWeekViewState extends State<PlanWeekView> {
                   ].contains(s.intensity),
             ) ??
             false);
-    bool legs(ProgramEntry e) => widget.program.slots.any(
-      (s) => s.id == e.slotId && ProgramSplits.legHeavy(s.label),
-    );
+    bool legs(ProgramEntry e) =>
+        widget.program!.slots.any((s) => s.id == e.slotId && s.legHeavy);
     final recoveryConflict = neighbors.any(
       (e) =>
           e.id != entry.id &&
@@ -412,10 +444,11 @@ class _PlanWeekViewState extends State<PlanWeekView> {
                 onPressed: () => Navigator.pop(c, false),
                 child: Text(c.plan('onlyThis')),
               ),
-              FilledButton(
-                onPressed: () => Navigator.pop(c, true),
-                child: Text(c.plan('future')),
-              ),
+              if (entry.splitSourceId == null)
+                FilledButton(
+                  onPressed: () => Navigator.pop(c, true),
+                  child: Text(c.plan('future')),
+                ),
             ],
           ),
     );
@@ -431,7 +464,7 @@ class _PlanWeekViewState extends State<PlanWeekView> {
         if (mounted) await context.read<CardioProvider>().load();
       } else {
         await state.repository.moveStrength(
-          widget.program,
+          widget.program!,
           entry,
           date,
           future: future,
@@ -461,17 +494,147 @@ class _PlanWeekViewState extends State<PlanWeekView> {
       ),
       title: Text(planLabel(context, e.name)),
       subtitle: e.needsWorkout ? Text(context.plan('assignWorkout')) : null,
-      onTap: e.completed ? null : () => _open(e),
+      onTap: () => _open(e),
       trailing:
-          e.completed
+          e.completed || e.sessionId != null
               ? null
               : IconButton(
                 tooltip: context.plan('move'),
                 icon: const Icon(Icons.event_outlined),
-                onPressed: () => _move(e),
+                onPressed: () => _actions(e),
               ),
     ),
   );
+
+  Future<void> _actions(ProgramEntry e) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder:
+          (c) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final key in [
+                  'move',
+                  'swap',
+                  if (e.cardio == null && e.workoutId != null)
+                    e.splitSourceId == null ? 'splitSession' : 'undoSplit',
+                ])
+                  ListTile(
+                    title: Text(c.plan(key)),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.pop(c, key),
+                  ),
+              ],
+            ),
+          ),
+    );
+    if (action == null || !mounted) return;
+    try {
+      final store = context.read<TrainingProgramProvider>();
+      if (action == 'move') {
+        await _move(e);
+        return;
+      }
+      if (action == 'splitSession') {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => StrengthSplitScreen(entry: e)),
+        );
+      } else if (action == 'undoSplit') {
+        await store.repository.undoSplit(e.splitSourceId!);
+      } else if (action == 'swap') {
+        final candidates =
+            (await _entries)
+                .where(
+                  (p) => p.id != e.id && !p.completed && p.sessionId == null,
+                )
+                .toList();
+        if (!mounted) return;
+        final other = await showModalBottomSheet<ProgramEntry>(
+          context: context,
+          showDragHandle: true,
+          isScrollControlled: true,
+          builder:
+              (c) => SafeArea(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final p in candidates)
+                        ListTile(
+                          title: Text(planLabel(c, p.name)),
+                          subtitle: Text(
+                            DateFormat.yMMMEd(
+                              Localizations.localeOf(c).toString(),
+                            ).format(p.date),
+                          ),
+                          onTap: () => Navigator.pop(c, p),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+        );
+        if (other == null) return;
+        final neighbors = await store.repository.entries(
+          widget.program!,
+          DateTime(_monday.year, _monday.month, _monday.day - 1),
+          DateTime(_monday.year, _monday.month, _monday.day + 8),
+        );
+        final warning =
+            planPlacementWarning(
+              widget.program!,
+              e,
+              other.date,
+              neighbors,
+              excluded: {other.id},
+            ) ??
+            planPlacementWarning(
+              widget.program!,
+              other,
+              e.date,
+              neighbors,
+              excluded: {e.id},
+            );
+        if (!mounted) return;
+        if (warning != null) {
+          final proceed = await showDialog<bool>(
+            context: context,
+            builder:
+                (c) => AlertDialog(
+                  title: Text(c.plan(warning)),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(c, false),
+                      child: Text(c.plan('cancel')),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(c, true),
+                      child: Text(c.plan('swap')),
+                    ),
+                  ],
+                ),
+          );
+          if (proceed != true) return;
+        }
+        await store.repository.swapEntries(e, other);
+      }
+      await store.load();
+      if (mounted) {
+        await context.read<WorkoutProvider>().loadWorkouts();
+      }
+      if (mounted) setState(_reload);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.plan('savingError'))));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => FutureBuilder<List<ProgramEntry>>(
     future: _entries,
@@ -489,7 +652,15 @@ class _PlanWeekViewState extends State<PlanWeekView> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          WeekActivityCard(
+            date: widget.date,
+            entries: entries,
+            streak: context.watch<ProgressProvider?>()?.currentStreak ?? 0,
+            onDateChanged: widget.onDateChanged,
+          ),
           if (widget.todayFirst) ...[
+            const SizedBox(height: 24),
+            if (widget.beforeEntries != null) widget.beforeEntries!,
             Text(
               dateKey(widget.date) == dateKey(DateTime.now())
                   ? context.plan('today')
@@ -497,151 +668,13 @@ class _PlanWeekViewState extends State<PlanWeekView> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 12),
-            if (selected.isEmpty)
-              Text(
-                context.plan('restDay'),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+            if (selected.isEmpty) Text(context.plan('restDay')),
             for (final e in selected)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: _entry(e),
               ),
-            const SizedBox(height: 24),
           ],
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        tooltip: context.plan('back'),
-                        onPressed:
-                            () => widget.onDateChanged(
-                              DateTime(
-                                widget.date.year,
-                                widget.date.month,
-                                widget.date.day - 7,
-                              ),
-                            ),
-                        icon: const Icon(Icons.chevron_left),
-                      ),
-                      Expanded(
-                        child: Text(
-                          '${DateFormat.MMMd(locale).format(_monday)} – ${DateFormat.MMMd(locale).format(DateTime(_monday.year, _monday.month, _monday.day + 6))}',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: context.plan('next'),
-                        onPressed:
-                            () => widget.onDateChanged(
-                              DateTime(
-                                widget.date.year,
-                                widget.date.month,
-                                widget.date.day + 7,
-                              ),
-                            ),
-                        icon: const Icon(Icons.chevron_right),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '${entries.where((e) => e.completed).length} / ${entries.length} ${context.plan('unitsDone')}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  LayoutBuilder(
-                    builder:
-                        (context, constraints) => SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              for (var d = 1; d <= 7; d++)
-                                SizedBox(
-                                  width: (constraints.maxWidth / 7).clamp(
-                                    MediaQuery.textScalerOf(context).scale(14) >
-                                            21
-                                        ? 56
-                                        : 40,
-                                    double.infinity,
-                                  ),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(12),
-                                    onTap:
-                                        () => widget.onDateChanged(
-                                          DateTime(
-                                            _monday.year,
-                                            _monday.month,
-                                            _monday.day + d - 1,
-                                          ),
-                                        ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 10,
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          Text(
-                                            DateFormat.E(
-                                              locale,
-                                            ).format(DateTime(2024, 1, d)),
-                                            style: TextStyle(
-                                              fontWeight:
-                                                  widget.date.weekday == d
-                                                      ? FontWeight.bold
-                                                      : FontWeight.normal,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Icon(
-                                            entries.any(
-                                                  (e) =>
-                                                      e.date.weekday == d &&
-                                                      e.completed,
-                                                )
-                                                ? Icons.check_circle_outline
-                                                : entries.any(
-                                                  (e) =>
-                                                      e.date.weekday == d &&
-                                                      e.kind == 'running',
-                                                )
-                                                ? Icons.directions_run
-                                                : entries.any(
-                                                  (e) => e.date.weekday == d,
-                                                )
-                                                ? Icons.fitness_center
-                                                : Icons.remove,
-                                            size: 22,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Container(
-                                            height: 3,
-                                            width: 20,
-                                            color:
-                                                widget.date.weekday == d
-                                                    ? Theme.of(
-                                                      context,
-                                                    ).colorScheme.onSurface
-                                                    : Colors.transparent,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ),
           if (!widget.todayFirst)
             for (var d = 1; d <= 7; d++) ...[
               Padding(

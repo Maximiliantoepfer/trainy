@@ -1,10 +1,58 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 2,
+  "catalogVersion": 3,
   "locale": "de",
   "reviewedExerciseCount": 7,
   "fallbackExerciseCount": 876,
   "exercises": {
+    "trainy:w_raises": {
+      "name": "W-Raises in Bauchlage",
+      "description": "Lege dich auf den Bauch, halte den Nacken neutral und bilde mit den Armen ein W. Hebe Hände und Ellenbogen leicht an, führe die Schulterblätter sanft zurück und senke kontrolliert ab. Bleibe im angenehmen Bewegungsumfang ohne Hohlkreuz.",
+      "instructions": [
+        "Lege dich auf den Bauch, halte den Nacken neutral und bilde mit den Armen ein W. Hebe Hände und Ellenbogen leicht an, führe die Schulterblätter sanft zurück und senke kontrolliert ab. Bleibe im angenehmen Bewegungsumfang ohne Hohlkreuz."
+      ],
+      "searchTerms": [
+        "Prone W raises",
+        "W-Raises in Bauchlage"
+      ],
+      "reviewed": true
+    },
+    "trainy:bulgarian_split_squat": {
+      "name": "Bulgarischer Split Squat",
+      "description": "Lege den hinteren Fuß auf einer stabilen Trainingsbank ab. Halte den vorderen Fuß fest am Boden und senke dich kontrolliert durch Beugen des vorderen Knies ab. Drücke dich über den vorderen Fuß hoch. Wähle Höhe und Tiefe so, dass du sicher balancieren kannst; Zusatzgewicht ist optional.",
+      "instructions": [
+        "Lege den hinteren Fuß auf einer stabilen Trainingsbank ab. Halte den vorderen Fuß fest am Boden und senke dich kontrolliert durch Beugen des vorderen Knies ab. Drücke dich über den vorderen Fuß hoch. Wähle Höhe und Tiefe so, dass du sicher balancieren kannst; Zusatzgewicht ist optional."
+      ],
+      "searchTerms": [
+        "Bulgarian split squat",
+        "Bulgarischer Split Squat"
+      ],
+      "reviewed": true
+    },
+    "trainy:standing_calf_raise": {
+      "name": "Wadenheben im Stand",
+      "description": "Stehe aufrecht mit etwa hüftbreiten Füßen. Hebe die Fersen, halte kurz und senke sie langsam wieder ab. Nutze bei Bedarf eine leichte Stütze für das Gleichgewicht. Zusatzgewicht ist optional.",
+      "instructions": [
+        "Stehe aufrecht mit etwa hüftbreiten Füßen. Hebe die Fersen, halte kurz und senke sie langsam wieder ab. Nutze bei Bedarf eine leichte Stütze für das Gleichgewicht. Zusatzgewicht ist optional."
+      ],
+      "searchTerms": [
+        "Standing calf raise",
+        "Wadenheben im Stand"
+      ],
+      "reviewed": true
+    },
+    "trainy:side_plank_leg_raise": {
+      "name": "Seitstütz mit Beinheben",
+      "description": "Stütze dich auf den Unterarm, der Ellenbogen liegt unter der Schulter. Hebe die Hüfte in den Seitstütz und hebe und senke das obere Bein langsam bei ruhigem Rumpf. Verringere bei Bedarf den Bewegungsumfang oder stütze das untere Knie ab. Führe beide Seiten aus.",
+      "instructions": [
+        "Stütze dich auf den Unterarm, der Ellenbogen liegt unter der Schulter. Hebe die Hüfte in den Seitstütz und hebe und senke das obere Bein langsam bei ruhigem Rumpf. Verringere bei Bedarf den Bewegungsumfang oder stütze das untere Knie ab. Führe beide Seiten aus."
+      ],
+      "searchTerms": [
+        "Side plank with leg raise",
+        "Seitstütz mit Beinheben"
+      ],
+      "reviewed": true
+    },
     "free:3_4_Sit-Up": {
       "name": "3/4 Sit-Up",
       "description": "Lie down on the floor and secure your feet. Your legs should be bent at the knees.\nPlace your hands behind or to the side of your head. You will begin with your back on the ground. This will be your starting position.\nFlex your hips and spine to raise your torso toward your knees.\nAt the top of the contraction your torso should be perpendicular to the ground. Reverse the motion, going only ¾ of the way down.\nRepeat for the recommended amount of repetitions.",
@@ -14456,6 +14504,6 @@
       "reviewed": true
     }
   },
-  "exerciseCount": 883,
+  "exerciseCount": 887,
   "machineTranslatedExerciseCount": 0
 }

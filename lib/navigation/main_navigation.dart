@@ -71,7 +71,7 @@ class _MainNavigationState extends State<MainNavigation> {
             ),
             child: NavigationBar(
               selectedIndex: _index,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
               onDestinationSelected: (i) {
                 if (i == _index) return;
                 _pageController.animateToPage(

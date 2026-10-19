@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/pill_tab_bar.dart';
+import '../widgets/cardio_history_card.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -81,8 +83,6 @@ class _ProgressScreenState extends State<ProgressScreen>
     final entries = provider.entries;
     final active = context.watch<ActiveWorkoutProvider>();
 
-    final scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(
         title: AppBarTitle(context.l10n.progress),
@@ -99,45 +99,16 @@ class _ProgressScreenState extends State<ProgressScreen>
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: Size.fromHeight(56 + (active.isActive ? 56 : 0)),
+          preferredSize: Size.fromHeight(
+            PillTabBar.heightFor(context) + (active.isActive ? 56 : 0),
+          ),
           child: Column(
             children: [
               if (active.isActive) const ActiveWorkoutBanner(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                child: Container(
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest.withValues(
-                      alpha: 0.5,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TabBar(
-                    controller: _tabController,
-                    indicator: BoxDecoration(
-                      color: scheme.primary,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    indicatorPadding: const EdgeInsets.all(3),
-                    dividerColor: Colors.transparent,
-                    labelColor: scheme.onPrimary,
-                    unselectedLabelColor: scheme.onSurfaceVariant,
-                    labelStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    tabs: [
-                      Tab(text: context.l10n.history),
-                      Tab(text: context.l10n.insights),
-                    ],
-                  ),
-                ),
+              PillTabBar(
+                controller: _tabController,
+                height: PillTabBar.heightFor(context),
+                labels: [context.l10n.history, context.l10n.insights],
               ),
             ],
           ),
@@ -176,6 +147,14 @@ class _ProgressScreenState extends State<ProgressScreen>
     List<WorkoutEntry> entries,
     ProgressProvider provider,
   ) {
+    final history = <(DateTime, Widget)>[
+      for (final e in entries) (e.date, _EntryCard(entry: e)),
+      for (final r in provider.cardioSessions)
+        (
+          DateTime.fromMillisecondsSinceEpoch(r['started_at_utc'] as int),
+          CardioHistoryCard(key: ValueKey(r['id']), row: r),
+        ),
+    ]..sort((a, b) => b.$1.compareTo(a.$1));
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
@@ -204,42 +183,9 @@ class _ProgressScreenState extends State<ProgressScreen>
                   ),
                 ),
           ),
-        for (final row in provider.cardioSessions)
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.directions_run),
-              title: Text(row['name_snapshot'] as String),
-              subtitle: Text(
-                DateFormat.yMMMEd(
-                  Localizations.localeOf(context).toString(),
-                ).format(
-                  DateTime.fromMillisecondsSinceEpoch(
-                    row['started_at_utc'] as int,
-                  ),
-                ),
-              ),
-              onTap:
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (_) => CardioSummaryScreen(
-                            runtime: cardioHistoryRuntime(row),
-                          ),
-                    ),
-                  ),
-            ),
-          ),
-        if (entries.isEmpty && provider.cardioSessions.isEmpty)
-          const _EmptyState()
-        else
-          ...List.generate(
-            entries.length,
-            (i) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _EntryCard(entry: entries[i]),
-            ),
-          ),
+        if (history.isEmpty) const _EmptyState(),
+        for (final item in history)
+          Padding(padding: const EdgeInsets.only(bottom: 10), child: item.$2),
       ],
     );
   }

@@ -26,6 +26,13 @@ import '../services/catalog_repository.dart';
 import '../services/exercise_image_service.dart';
 import '../repositories/training_profile_repository.dart';
 import '../l10n/l10n.dart';
+import '../l10n/plan_l10n.dart';
+import '../l10n/cardio_l10n.dart';
+import '../models/cardio.dart';
+import '../providers/cardio_provider.dart';
+import '../services/cardio_training.dart';
+import 'cardio_editor_screen.dart';
+import 'training_library_screen.dart' show CardioWorkoutDetail;
 
 class ExerciseScreen extends StatefulWidget {
   const ExerciseScreen({super.key, this.embedded = false});
@@ -40,6 +47,100 @@ class _ExerciseScreenState extends State<ExerciseScreen>
   final TextEditingController _searchCtrl = TextEditingController();
   CatalogQuery _catalogQuery = const CatalogQuery();
   List<TrainingProfileRecord> _profiles = const [];
+  bool _runningOnly = false;
+
+  Future<void> _addRunningBlock(String code) async {
+    final p = context.read<CardioProvider?>();
+    if (p == null) return;
+    final base = CardioTraining.prescribe(p.profile, switch (code) {
+      'interval' => CardioIntensity.interval,
+      'steady' => CardioIntensity.steady,
+      'walk' || 'recovery' => CardioIntensity.recovery,
+      _ => CardioIntensity.easy,
+    });
+    final step = await Navigator.push<CardioStep>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => CardioStepScreen(
+              step:
+                  code == 'walk'
+                      ? base.copyWith(
+                        movement: 'walk',
+                        clearTargets: true,
+                        primaryTarget: 'effort',
+                        targetSource: 'effort',
+                      )
+                      : base,
+              units: p.profile.units,
+              sport: CardioSport.running,
+            ),
+      ),
+    );
+    if (step == null || !mounted) return;
+    final running =
+        p.workouts.where((w) => w.sport == CardioSport.running).toList();
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder:
+          (c) => SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.add),
+                    title: Text(c.plan('createWorkout')),
+                    onTap: () => Navigator.pop(c, 'new'),
+                  ),
+                  for (final w in running)
+                    ListTile(
+                      title: Text(w.name),
+                      onTap: () => Navigator.pop(c, w.id),
+                    ),
+                ],
+              ),
+            ),
+          ),
+    );
+    if (choice == null || !mounted) return;
+    final old = running.where((w) => w.id == choice).firstOrNull;
+    final workout =
+        old == null
+            ? CardioWorkout(name: context.cardio('running'), steps: [step])
+            : CardioWorkout.fromJson({
+              ...old.toJson(),
+              'steps': [...old.steps.map((s) => s.toJson()), step.toJson()],
+            });
+    final edited = await Navigator.push<CardioWorkout>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => CardioEditorScreen(workout: workout, units: p.profile.units),
+      ),
+    );
+    if (edited == null || !mounted) return;
+    try {
+      await p.repository.saveWorkout(edited);
+      await p.load();
+      if (mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CardioWorkoutDetail(workout: edited),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.plan('savingError'))));
+      }
+    }
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -150,7 +251,14 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                 .toList()
             : <LocalizedCatalogExercise>[];
     final libraryItems = <LibraryExerciseItem>[
-      for (final item in catalogValues)
+      for (final item in catalogValues.where(
+        (i) =>
+            ![
+              'trainy:interval_running',
+              'trainy:running',
+            ].contains(i.definition.id) ||
+            materializedByCatalogId.containsKey(i.definition.id),
+      ))
         if (materializedByCatalogId[item.definition.id] case final exercise?)
           LibraryExerciseItem.catalog(item, exercise: exercise)
         else
@@ -158,6 +266,24 @@ class _ExerciseScreenState extends State<ExerciseScreen>
       for (final exercise in customExercises)
         LibraryExerciseItem.custom(exercise),
     ];
+    if (_runningOnly) libraryItems.clear();
+    final runningBlocks =
+        (_runningOnly ||
+                    _catalogQuery.goalCode == null ||
+                    _catalogQuery.goalCode == 'cardio') &&
+                _catalogQuery.source != ExerciseSourceFilter.custom &&
+                _catalogQuery.profileId == null &&
+                context.read<CardioProvider?>() != null
+            ? ['easy', 'steady', 'interval', 'walk', 'recovery']
+                .where(
+                  (key) =>
+                      normalizedQuery.isEmpty ||
+                      CatalogRepository.normalizeSearchText(
+                        '${context.cardio(key)} ${context.plan('running')}',
+                      ).contains(normalizedQuery),
+                )
+                .toList()
+            : <String>[];
 
     final isActive = context.watch<ActiveWorkoutProvider>().isActive;
 
@@ -276,6 +402,25 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                 child: Text(context.l10n.retry),
               ),
             ),
+          if (context.read<CardioProvider?>() != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  ChoiceChip(
+                    label: Text(context.plan('all')),
+                    selected: !_runningOnly,
+                    onSelected: (_) => setState(() => _runningOnly = false),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: Text(context.plan('running')),
+                    selected: _runningOnly,
+                    onSelected: (_) => setState(() => _runningOnly = true),
+                  ),
+                ],
+              ),
+            ),
           if (catalog.isLoaded) ...[
             if (_catalogQuery.activeFilterCount > 0)
               Padding(
@@ -294,7 +439,7 @@ class _ExerciseScreenState extends State<ExerciseScreen>
             child:
                 provider.isLoading
                     ? const Center(child: CircularProgressIndicator())
-                    : libraryItems.isEmpty
+                    : libraryItems.isEmpty && runningBlocks.isEmpty
                     ? _EmptyState(
                       hasQueryOrFilters:
                           _catalogQuery.text.isNotEmpty ||
@@ -303,10 +448,22 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                     )
                     : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-                      itemCount: libraryItems.length,
+                      itemCount: libraryItems.length + runningBlocks.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (_, i) {
-                        final item = libraryItems[i];
+                        if (i < runningBlocks.length) {
+                          final code = runningBlocks[i];
+                          return Card(
+                            child: ListTile(
+                              leading: const Icon(Icons.directions_run),
+                              title: Text(context.cardio(code)),
+                              subtitle: Text(context.plan('runningBlocks')),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => _addRunningBlock(code),
+                            ),
+                          );
+                        }
+                        final item = libraryItems[i - runningBlocks.length];
                         final e = item.exercise;
                         if (e == null) {
                           return _CatalogExerciseTile(
@@ -315,6 +472,11 @@ class _ExerciseScreenState extends State<ExerciseScreen>
                           );
                         }
                         final tags = [
+                          if ([
+                            'trainy:running',
+                            'trainy:interval_running',
+                          ].contains(e.catalogId))
+                            context.plan('manualEntry'),
                           if (e.trackSets) context.l10n.sets,
                           if (e.trackReps) context.l10n.repetitions,
                           if (e.trackWeight) context.l10n.weight,

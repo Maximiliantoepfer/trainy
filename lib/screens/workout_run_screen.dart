@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/workout.dart';
+import '../models/workout_planning.dart';
 import '../models/exercise.dart';
 import '../models/workout_plan.dart';
 import '../utils/exercise_localization.dart';
@@ -26,6 +27,7 @@ import '../repositories/activity_repository.dart';
 import '../widgets/modal_form_dialogs.dart';
 
 class WorkoutRunScreen extends StatefulWidget {
+  final String? plannedOccurrenceId, trainingProgramId;
   final Workout workout;
   final List<Exercise> exercises;
   final bool autoStart;
@@ -43,6 +45,8 @@ class WorkoutRunScreen extends StatefulWidget {
   final Set<int> initiallyEnabledOptionalSlotIds;
 
   const WorkoutRunScreen({
+    this.plannedOccurrenceId,
+    this.trainingProgramId,
     super.key,
     required this.workout,
     required this.exercises,
@@ -350,6 +354,8 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                 ? 'legacy-profile:${widget.profileId}'
                 : null);
         final persisted = await ActivityRepository().startWorkoutActivity(
+          plannedOccurrenceId: widget.plannedOccurrenceId,
+          trainingProgramId: widget.trainingProgramId,
           localWorkoutId: widget.workout.id,
           workoutId: widget.workout.canonicalId,
           workoutVariantId: widget.canonicalWorkoutSetupId,
@@ -627,7 +633,12 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       context: context,
       exercise: e,
       title: displayExerciseName(context, e),
-      initialValues: {...defs, ...last},
+      initialValues: {
+        ...defs,
+        ...last,
+        ...?_prescription(e.id)?.prefill,
+        ...?sessionLast,
+      },
     );
     if (!mounted || entry == null || entry.isEmpty) return;
     active.updateLastSet(e.id, entry);
@@ -645,6 +656,7 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
       showDragHandle: true,
       builder: (sheetCtx) {
         return _PerSetSheet(
+          prescription: _prescription(e.id),
           exercise: e,
           activeProvider: active,
           onChanged: () {
@@ -653,6 +665,18 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
         );
       },
     );
+  }
+
+  StrengthPrescription? _prescription(int exerciseId) {
+    final index = _exercises.indexWhere((e) => e.id == exerciseId);
+    if (index < 0) return null;
+    final slotId = _workoutSlotIds[index];
+    return _sessionPlanGroups
+        .expand((g) => g.variants)
+        .expand((v) => v.slots)
+        .where((s) => s.id == slotId)
+        .firstOrNull
+        ?.prescription;
   }
 
   Future<Exercise?> _pickExercise({Exercise? replacing}) async {
@@ -1012,6 +1036,14 @@ class _WorkoutRunScreenState extends State<WorkoutRunScreen> {
                                           ],
                                         ),
                                         const SizedBox(height: 2),
+                                        if (_prescription(e.id) != null)
+                                          Text(
+                                            _prescription(e.id)!.label,
+                                            style:
+                                                Theme.of(
+                                                  context,
+                                                ).textTheme.bodySmall,
+                                          ),
                                         if (hasSets)
                                           Text(
                                             context.l10n.recordedSets(
@@ -1195,11 +1227,13 @@ class _OptionalSlotsSheetState extends State<_OptionalSlotsSheet> {
 // ---------------------------------------------------------------------------
 
 class _PerSetSheet extends StatefulWidget {
+  final StrengthPrescription? prescription;
   final Exercise exercise;
   final ActiveWorkoutProvider activeProvider;
   final VoidCallback onChanged;
 
   const _PerSetSheet({
+    this.prescription,
     required this.exercise,
     required this.activeProvider,
     required this.onChanged,
@@ -1238,7 +1272,12 @@ class _PerSetSheetState extends State<_PerSetSheet> {
       last = e.defaultValues;
     }
 
-    _repsCtrl = TextEditingController(text: last['reps'] ?? '');
+    _repsCtrl = TextEditingController(
+      text:
+          sets.isEmpty && widget.prescription != null
+              ? '${widget.prescription!.minReps}'
+              : last['reps'] ?? '',
+    );
     _weightCtrl = TextEditingController(text: last['weight'] ?? '');
     _distanceCtrl = TextEditingController(text: last['distance'] ?? '');
     final durParts = DurationFormatter.fromRaw(last['duration']);

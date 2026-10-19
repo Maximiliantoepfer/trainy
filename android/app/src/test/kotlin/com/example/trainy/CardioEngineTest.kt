@@ -85,4 +85,27 @@ class CardioEngineTest {
         val count = e.state.getJSONArray("results").length(); e.finish()
         assertEquals(count, e.state.getJSONArray("results").length())
     }
+    @Test fun easyPaceCapNeverAsksForAccelerationButWarnsWhenTooFast() {
+        for (speed in listOf(1.0, 4.0)) {
+            val cues = mutableListOf<String>()
+            val s = step("easy", 300.0).put("primaryTarget", "pace").put("maxSpeed", 2.5)
+            val e = engine(listOf(s), cues = cues)
+            for (second in 0..90) {
+                e.location(52.0 + second * .000009, 13.0, 5.0, speed, second.toDouble(), second * 1000L)
+                e.tick(second.toDouble())
+            }
+            assertEquals(0, cues.count { it == "faster" })
+            assertEquals(if (speed > 2.5) 2 else 0, cues.count { it == "slower" })
+        }
+    }
+    @Test fun standingRecoveryRunsItsTimerAndNextRunStillAutoPauses() {
+        val rest = step("rest", 15.0, movement = "rest").put("standingRecovery", true)
+        val e = engine(listOf(rest, step("run", 300.0)))
+        for (second in 0..30) {
+            e.location(52.0, 13.0, 5.0, 0.0, second.toDouble(), second * 1000L)
+            e.tick(second.toDouble())
+        }
+        assertEquals(1, e.state.getJSONArray("results").length())
+        assertEquals("paused", e.state.getString("status"))
+    }
 }

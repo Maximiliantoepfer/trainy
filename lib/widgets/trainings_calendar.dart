@@ -1,5 +1,6 @@
 // lib/widgets/trainings_calendar.dart
 import 'package:flutter/material.dart';
+import 'activity_day_badge.dart';
 import 'package:intl/intl.dart';
 import '../models/workout.dart';
 import '../models/workout_planning.dart';
@@ -11,9 +12,7 @@ import 'package:provider/provider.dart';
 import '../providers/training_program_provider.dart';
 import '../models/training_program.dart';
 
-/// Simpler Monatskalender mit Markierungen für Tage, an denen Workouts getrackt wurden.
-/// Design-Update: Statt Zahl nun ein kräftiger, gefüllter grüner Haken.
-/// Count bleibt für Semantics/Screenreader erhalten.
+/// Date stays visible; the shared badge distinguishes partial and complete days.
 class TrainingsCalendar extends StatefulWidget {
   final List<WorkoutEntry> entries;
   final List<Workout> plannedWorkouts;
@@ -38,6 +37,7 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
   late DateTime _visibleMonthFirstDay; // jeweils der 1. des Monats
   Object? _planKey;
   DateTime? _loadedMonth;
+  int? _activityKey;
   Future<List<ProgramEntry>>? _planned;
 
   @override
@@ -53,15 +53,29 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
     if (store == null) return _calendar(context, null);
     final p = store.active;
     if (p == null) return _calendar(context, const []);
-    if (_planKey != p || _loadedMonth != _visibleMonthFirstDay) {
+    final activityKey = Object.hash(
+      Object.hashAll(
+        widget.entries.map((e) => Object.hash(e.id, e.sessionId, e.date)),
+      ),
+      Object.hashAll(widget.additionalCompleted),
+      Object.hashAll(
+        widget.cardioOccurrences.map(
+          (o) => Object.hash(o.id, o.status, o.sessionId),
+        ),
+      ),
+    );
+    if (_planKey != p ||
+        _loadedMonth != _visibleMonthFirstDay ||
+        _activityKey != activityKey) {
       _planKey = p;
+      _activityKey = activityKey;
       _loadedMonth = _visibleMonthFirstDay;
       final from = DateTime(
         _visibleMonthFirstDay.year,
         _visibleMonthFirstDay.month,
         1 - _visibleMonthFirstDay.weekday + 1,
       );
-      _planned = store.repository.entries(
+      _planned = store.repository.weekEntries(
         p,
         from,
         DateTime(
@@ -186,7 +200,9 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                 ) ??
                 (cardioPlanned.isNotEmpty ? 'cardio' : null) ??
                 (unified?.isNotEmpty == true
-                    ? (unified!.any((e) => e.kind == 'running')
+                    ? (unified!.any((e) => e.kind == 'strength')
+                        ? 'strength'
+                        : unified.any((e) => e.kind == 'running')
                         ? 'cardio'
                         : unified.first.kind)
                     : null);
@@ -241,50 +257,25 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                             top: 6,
                             child: Text('${d.day}', style: bigLabel),
                           ),
-                          Positioned.fill(
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 180),
-                              switchInCurve: Curves.easeOut,
-                              switchOutCurve: Curves.easeIn,
-                              child:
-                                  cnt > 0
-                                      ? const Center(
-                                        key: ValueKey('done'),
-                                        child: _DoneCheck(),
-                                      )
-                                      : summary.primaryGoal == null
-                                      ? const SizedBox.shrink(
-                                        key: ValueKey('empty'),
-                                      )
-                                      : Center(
-                                        key: ValueKey(
-                                          'planned-${summary.primaryGoal!.code}',
-                                        ),
-                                        child: GoalIcon(
-                                          summary.primaryGoal!.code,
-                                          size: 25,
-                                          color:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.primary,
-                                        ),
-                                      ),
-                            ),
-                          ),
-                          if (summary.additionalWorkoutCount > 0)
-                            Positioned(
-                              right: 5,
-                              bottom: 4,
-                              child: Text(
-                                '+${summary.additionalWorkoutCount}',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.labelSmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                          Positioned(
+                            right: 4,
+                            bottom: 3,
+                            child: ActivityDayBadge(
+                              size: 23,
+                              state: ActivityDayState(
+                                planned:
+                                    unified?.length ??
+                                    planned.length + cardioPlanned.length,
+                                completed:
+                                    unified == null || unified.isEmpty
+                                        ? cnt
+                                        : unified
+                                            .where((e) => e.completed)
+                                            .length,
+                                kind: goalCode,
                               ),
                             ),
+                          ),
                         ],
                       ),
                     ),
@@ -356,37 +347,5 @@ class _WeekdayHead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(child: Center(child: Text(label, style: style)));
-  }
-}
-
-/// Kräftiger „Done“-Badge: sattes Grün (vollflächig), weißer Haken, subtile Shadow.
-/// Kein Durchscheinen mehr.
-class _DoneCheck extends StatelessWidget {
-  const _DoneCheck();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AnimatedScale(
-      scale: 1.0,
-      duration: const Duration(milliseconds: 180),
-      child: Container(
-        width: 35,
-        height: 35,
-        decoration: BoxDecoration(
-          color: scheme.tertiary,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: scheme.tertiary.withValues(alpha: 0.25),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: Icon(Icons.check_rounded, size: 23, color: scheme.onTertiary),
-      ),
-    );
   }
 }

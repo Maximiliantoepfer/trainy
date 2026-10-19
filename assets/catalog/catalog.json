@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 2,
-  "exerciseCount": 883,
+  "catalogVersion": 3,
+  "exerciseCount": 887,
   "releaseStatus": "complete",
   "sources": [
     {
@@ -16,10 +16,129 @@
     {
       "id": "trainy-core",
       "license": "Trainy project content",
-      "exerciseCount": 7
+      "exerciseCount": 11
     }
   ],
   "exercises": [
+    {
+      "id": "trainy:w_raises",
+      "activityTypeCode": "strength",
+      "movementFamilyId": "scapular_retraction",
+      "primaryMuscleIds": [
+        "shoulders"
+      ],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "strength"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": true,
+        "weight": false,
+        "duration": false,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/strength.webp",
+      "iconKey": "exercise",
+      "aliases": [
+        "Prone W raises",
+        "W-Raises in Bauchlage"
+      ],
+      "mediaId": "owned:category-strength"
+    },
+    {
+      "id": "trainy:bulgarian_split_squat",
+      "activityTypeCode": "strength",
+      "movementFamilyId": "split_squat",
+      "primaryMuscleIds": [
+        "quadriceps",
+        "glutes"
+      ],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight",
+        "bench"
+      ],
+      "goalCodes": [
+        "strength"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": true,
+        "weight": true,
+        "duration": false,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/strength.webp",
+      "iconKey": "exercise",
+      "aliases": [
+        "Bulgarian split squat",
+        "Bulgarischer Split Squat"
+      ],
+      "mediaId": "owned:category-strength"
+    },
+    {
+      "id": "trainy:standing_calf_raise",
+      "activityTypeCode": "strength",
+      "movementFamilyId": "calf_raise",
+      "primaryMuscleIds": [
+        "calves"
+      ],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "strength"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": true,
+        "weight": true,
+        "duration": false,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/strength.webp",
+      "iconKey": "exercise",
+      "aliases": [
+        "Standing calf raise",
+        "Wadenheben im Stand"
+      ],
+      "mediaId": "owned:category-strength"
+    },
+    {
+      "id": "trainy:side_plank_leg_raise",
+      "activityTypeCode": "strength",
+      "movementFamilyId": "side_plank",
+      "primaryMuscleIds": [
+        "abdominals",
+        "glutes"
+      ],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "strength"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": true,
+        "weight": false,
+        "duration": false,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/strength.webp",
+      "iconKey": "exercise",
+      "aliases": [
+        "Side plank with leg raise",
+        "Seitstütz mit Beinheben"
+      ],
+      "mediaId": "owned:category-strength"
+    },
     {
       "id": "free:3_4_Sit-Up",
       "activityTypeCode": "strength",

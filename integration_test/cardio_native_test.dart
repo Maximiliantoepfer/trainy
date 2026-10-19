@@ -4,8 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:trainy/services/generated/cardio_api.g.dart';
 
-/// Device smoke test. Never discards an existing session or touches user SQLite data.
-/// Android setup: grant ACTIVITY_RECOGNITION to com.example.trainy on the test emulator.
+/// Device smoke test, built as com.example.trainy.integration on Android.
+/// Run tool/test_android_integration.ps1 -DeviceId emulator-5554 -Test cardio_native_test.
+/// It verifies the APK identity BEFORE Flutter captures it for teardown.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(

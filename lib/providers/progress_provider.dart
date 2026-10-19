@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../models/workout_entry.dart';
+import '../models/training_program.dart';
 import '../models/pinned_chart.dart';
 import '../services/workout_entry_database.dart';
 import '../services/settings_database.dart';
@@ -36,6 +37,7 @@ class ProgressProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isSaving = false;
   Set<int> _trainingDays = {};
+  List<ProgramEntry>? _datedPlanEntries;
 
   List<WorkoutEntry> get entries => List.unmodifiable(_entries);
   List<PinnedChart> get pinnedCharts => List.unmodifiable(_pinnedCharts);
@@ -85,6 +87,9 @@ class ProgressProvider extends ChangeNotifier {
   /// training on a rest day can compensate for a missed training day
   /// within the same week.
   int get currentStreak {
+    if (_datedPlanEntries != null) {
+      return datedPlanStreak(_datedPlanEntries!, DateTime.now());
+    }
     final trainingDays = effectiveTrainingDays;
     if ((_entries.isEmpty && _cardioSessions.isEmpty) || trainingDays.isEmpty) {
       return 0;
@@ -205,6 +210,13 @@ class ProgressProvider extends ChangeNotifier {
         );
         _trainingDays = week.map((e) => e.date.weekday).toSet();
         _weeklyGoal = week.length;
+        _datedPlanEntries = await plans.entries(
+          active,
+          DateTime(now.year - 1, now.month, now.day),
+          DateTime(now.year, now.month, now.day + 1),
+        );
+      } else {
+        _datedPlanEntries = null;
       }
       final list = await WorkoutEntryDatabase.instance.getAggregatedEntries();
       _cardioSessions = await CardioRepository().history();
@@ -224,6 +236,19 @@ class ProgressProvider extends ChangeNotifier {
   }
 
   Future<void> refreshEntries() async {
+    if (_datedPlanEntries != null) {
+      final repo = TrainingProgramRepository(), now = DateTime.now();
+      final id = await repo.activeId();
+      final p = (await repo.plans()).where((p) => p.id == id).firstOrNull;
+      _datedPlanEntries =
+          p == null
+              ? null
+              : await repo.entries(
+                p,
+                DateTime(now.year - 1, now.month, now.day),
+                DateTime(now.year, now.month, now.day + 1),
+              );
+    }
     _cardioSessions = await CardioRepository().history();
     final list = await WorkoutEntryDatabase.instance.getAggregatedEntries();
     _entries

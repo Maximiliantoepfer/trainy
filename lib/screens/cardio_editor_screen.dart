@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/cardio_provider.dart';
+import '../l10n/refinement_l10n.dart';
 import '../l10n/cardio_l10n.dart';
 import '../models/cardio.dart';
 import '../services/cardio_training.dart';
@@ -39,9 +42,11 @@ class _CardioEditorState extends State<CardioEditorScreen> {
             (_) => CardioStepScreen(
               step:
                   index == null
-                      ? CardioStep(
-                        movement:
-                            _sport == CardioSport.running ? 'run' : _sport.name,
+                      ? CardioTraining.prescribe(
+                        context.read<CardioProvider?>()?.profile ??
+                            const AthleteRunningProfile(),
+                        CardioIntensity.easy,
+                        sport: _sport,
                       )
                       : _steps[index],
               units: widget.units,
@@ -245,13 +250,8 @@ String cardioStepDescription(
       s.goal == StepGoal.time
           ? CardioUnits.clock(s.amount)
           : CardioUnits.distance(s.amount, units);
-  final target =
-      s.primaryTarget == 'heart_rate' && s.minHeartRate != null
-          ? '${s.minHeartRate}–${s.maxHeartRate} bpm'
-          : s.minSpeed == null
-          ? context.cardio('effort')
-          : '${CardioUnits.pace(s.maxSpeed, units)} – ${CardioUnits.pace(s.minSpeed, units)}';
-  return '$goal · $target${s.recoverySeconds > 0 ? ' · ${context.cardio('recovery')} ${CardioUnits.clock(s.recoverySeconds)}' : ''}';
+  final target = CardioTraining.targetDescription(s, units, context.cardio);
+  return '$goal · $target${s.targetSource == 'estimated' ? ' · ${context.refine('estimated')}' : ''}${s.recoverySeconds > 0 ? ' · ${context.cardio('recovery')} ${CardioUnits.clock(s.recoverySeconds)}' : ''}';
 }
 
 class CardioStepScreen extends StatefulWidget {
@@ -274,7 +274,27 @@ class _CardioStepState extends State<CardioStepScreen> {
   late CardioIntensity _intensity = widget.step.intensity;
   late String _movement = widget.step.movement,
       _target = widget.step.primaryTarget;
-  late bool _standing = widget.step.standingRecovery;
+  late String _recoveryMovement =
+      widget.step.standingRecovery ? 'rest' : widget.step.recoveryMovement;
+  late CardioStep _suggestion = widget.step;
+  late String _source = widget.step.targetSource;
+  void _suggest({bool force = false}) {
+    final profile = context.read<CardioProvider?>()?.profile;
+    if (profile == null || (!force && _source == 'manual')) return;
+    _suggestion = CardioTraining.refreshTarget(
+      _suggestion.copyWith(intensity: _intensity),
+      profile,
+      sport: widget.sport,
+      force: true,
+    );
+    _source = _suggestion.targetSource;
+    _low.text = _speedText(_suggestion.minSpeed);
+    _high.text = _speedText(_suggestion.maxSpeed);
+    _minHr.text = _suggestion.minHeartRate?.toString() ?? '';
+    _maxHr.text = _suggestion.maxHeartRate?.toString() ?? '';
+    _target = _suggestion.primaryTarget;
+  }
+
   late final _amount = TextEditingController(
     text: (widget.step.amount /
             (_goal == StepGoal.time
@@ -310,11 +330,8 @@ class _CardioStepState extends State<CardioStepScreen> {
   double? _parseSpeed(String text) {
     if (text.trim().isEmpty) return null;
     if (_cycling) return double.parse(text.replaceAll(',', '.')) * _unit / 3600;
-    final parts = text.split(':');
-    final seconds =
-        parts.length == 2
-            ? double.parse(parts[0]) * 60 + double.parse(parts[1])
-            : double.parse(text.replaceAll(',', '.')) * 60;
+    final seconds = CardioUnits.parseDuration(text);
+    if (seconds == null) throw const FormatException('Invalid pace');
     return _unit / seconds;
   }
 
@@ -342,15 +359,24 @@ class _CardioStepState extends State<CardioStepScreen> {
         name: _name.text.trim(),
         goal: _goal,
         amount:
-            double.parse(_amount.text.replaceAll(',', '.')) *
-            (_goal == StepGoal.time ? 60 : _unit),
+            _goal == StepGoal.time
+                ? (CardioUnits.parseDuration(_amount.text) ?? 0)
+                : double.parse(_amount.text.replaceAll(',', '.')) * _unit,
         intensity: _intensity,
         movement: _movement,
         repeat: int.parse(_repeat.text),
         recoverySeconds: double.parse(_rest.text.replaceAll(',', '.')),
-        standingRecovery: _standing,
-        minSpeed: _parseSpeed(_low.text),
-        maxSpeed: _parseSpeed(_high.text),
+        standingRecovery: false,
+        recoveryMovement: _recoveryMovement,
+        targetSource: _source,
+        minSpeed:
+            _low.text == _speedText(_suggestion.minSpeed)
+                ? _suggestion.minSpeed
+                : _parseSpeed(_low.text),
+        maxSpeed:
+            _high.text == _speedText(_suggestion.maxSpeed)
+                ? _suggestion.maxSpeed
+                : _parseSpeed(_high.text),
         minHeartRate: _minHr.text.isEmpty ? null : int.parse(_minHr.text),
         maxHeartRate: _maxHr.text.isEmpty ? null : int.parse(_maxHr.text),
         primaryTarget: _target,
@@ -367,6 +393,12 @@ class _CardioStepState extends State<CardioStepScreen> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: TextField(
           controller: c,
+          onChanged: (_) {
+            if ([_low, _high, _minHr, _maxHr].contains(c)) {
+              setState(() => _source = 'manual');
+            }
+            if (c == _rest) setState(() {});
+          },
           keyboardType:
               numeric
                   ? const TextInputType.numberWithOptions(decimal: true)
@@ -413,7 +445,19 @@ class _CardioStepState extends State<CardioStepScreen> {
             for (final i in CardioIntensity.values)
               DropdownMenuItem(value: i, child: Text(context.cardio(i.name))),
           ],
-          onChanged: (v) => setState(() => _intensity = v!),
+          onChanged:
+              (v) => setState(() {
+                _intensity = v!;
+                _suggest();
+              }),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(context.refine(_source)),
+          trailing: TextButton(
+            onPressed: () => setState(() => _suggest(force: true)),
+            child: Text(context.refine('resetTarget')),
+          ),
         ),
         DropdownButtonFormField<String>(
           isExpanded: true,
@@ -446,7 +490,11 @@ class _CardioStepState extends State<CardioStepScreen> {
                 ),
               ),
           ],
-          onChanged: (v) => setState(() => _target = v!),
+          onChanged:
+              (v) => setState(() {
+                _target = v!;
+                _source = 'manual';
+              }),
         ),
         if (_target == 'heart_rate')
           Padding(
@@ -470,11 +518,21 @@ class _CardioStepState extends State<CardioStepScreen> {
           _rest,
           '${context.cardio('recovery')} (${context.cardio('seconds')})',
         ),
-        SwitchListTile(
-          title: Text(context.cardio('standing')),
-          value: _standing,
-          onChanged: (v) => setState(() => _standing = v),
-        ),
+        if ((double.tryParse(_rest.text.replaceAll(',', '.')) ?? 0) > 0)
+          DropdownButtonFormField<String>(
+            value: _recoveryMovement,
+            decoration: InputDecoration(
+              labelText: context.refine('recoveryMovement'),
+            ),
+            items: [
+              for (final value in ['walk', 'run', 'rest'])
+                DropdownMenuItem(
+                  value: value,
+                  child: Text(context.refine(value)),
+                ),
+            ],
+            onChanged: (v) => setState(() => _recoveryMovement = v!),
+          ),
         if (_error != null)
           Text(
             _error!,

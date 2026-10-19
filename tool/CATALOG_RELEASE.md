@@ -14,9 +14,11 @@
    dart run tool/import_free_exercise_db.dart C:\path\to\free-exercise-db tool\catalog_translations_de.json --replace
    ```
 
-5. Verify that the generated catalog contains 881 records: 876 pinned Free
-   Exercise DB records plus the five curated `trainy:` activities retained
-   by the importer. `assets/catalog/` is already registered in `pubspec.yaml`.
+5. Run `dart run tool/apply_catalog_release.dart` to merge the curated additions.
+   Verify 887 records: 876 pinned Free Exercise DB records plus eleven owned
+   `trainy:` entries (five activities, two mobility and four strength exercises).
+   The importer retains owned entries; `catalog_essentials.json` also keeps the
+   concrete additions reproducible. `assets/catalog/` is registered in `pubspec.yaml`.
 6. Run `flutter gen-l10n`, `flutter analyze`, `flutter test` and
    `flutter build apk --debug`.
 

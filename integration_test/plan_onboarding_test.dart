@@ -8,6 +8,7 @@ import 'package:trainy/providers/active_workout_provider.dart';
 import 'package:trainy/providers/cardio_provider.dart';
 import 'package:trainy/providers/training_program_provider.dart';
 import 'package:trainy/providers/workout_provider.dart';
+import 'package:trainy/providers/progress_provider.dart';
 import 'package:trainy/repositories/cardio_repository.dart';
 import 'package:trainy/repositories/training_program_repository.dart';
 import 'package:trainy/repositories/workout_planning_repository.dart';
@@ -18,8 +19,11 @@ import 'package:trainy/services/app_database.dart';
 import 'package:trainy/services/database_service.dart';
 import 'package:trainy/themes/app_theme.dart';
 
-/// Real Android SQLite + complete local running setup. Uses an isolated in-memory
-/// database; never clears the installed app's database, preferences or accounts.
+/// Real Android SQLite + complete local running setup. Android integration targets
+/// build as com.example.trainy.integration, separately from the installed app.
+/// Uses an isolated in-memory database as an additional guard.
+/// Run via tool/test_android_integration.ps1, which prebuilds/verifies the test
+/// package before Flutter captures its identity for uninstall during teardown.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(
@@ -46,6 +50,7 @@ void main() {
               ChangeNotifierProvider.value(value: cardio),
               ChangeNotifierProvider.value(value: workouts),
               ChangeNotifierProvider.value(value: active),
+              ChangeNotifierProvider(create: (_) => ProgressProvider()),
             ],
             child: MaterialApp(
               theme: AppTheme.light(const Color(0xFF0EC7FF)),

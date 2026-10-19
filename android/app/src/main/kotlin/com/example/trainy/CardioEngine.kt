@@ -99,12 +99,12 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
     private fun coach(now: Double) {
         val s = current
         if (value("stepSeconds") < 20 || state.optString("gps") != "gpsReady" ||
-            s.optString("primaryTarget") != "pace" || s.isNull("minSpeed") || s.isNull("maxSpeed")) return
+            s.optString("primaryTarget") != "pace" || (s.isNull("minSpeed") && s.isNull("maxSpeed"))) return
         val speed = state.optDouble("speed", 0.0)
         if (speed <= .35) { outsideSince = null; return }
         val pace = 1000 / speed
-        val tooFast = pace < 1000 / s.getDouble("maxSpeed") - 20
-        val tooSlow = pace > 1000 / s.getDouble("minSpeed") + 20
+        val tooFast = !s.isNull("maxSpeed") && s.optDouble("maxSpeed") > 0 && pace < 1000 / s.getDouble("maxSpeed") - 20
+        val tooSlow = !s.isNull("minSpeed") && s.optDouble("minSpeed") > 0 && pace > 1000 / s.getDouble("minSpeed") + 20
         if (!tooFast && !tooSlow) { outsideSince = null; return }
         if (outsideSince == null) outsideSince = now
         if (now - outsideSince!! >= 10 && now - lastCorrection >= 45) {

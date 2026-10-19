@@ -326,8 +326,15 @@ void main() {
       final from = DateTime(past.year, past.month, past.day),
           to = DateTime(past.year, past.month, past.day + 1);
       final oldEntries = await repo.entries(p, from, to);
-      expect(oldEntries.where((e) => e.completed).length, 1);
-      expect(oldEntries.firstWhere((e) => e.completed).name, 'Original name');
+      expect(oldEntries.where((e) => e.completed), isEmpty);
+      await db.insert('strength_session_links', {
+        'occurrence_id': oldEntries.first.id,
+        'plan_id': p.id,
+        'session_id': 'completed-strength',
+      });
+      final linked = await repo.entries(p, from, to);
+      expect(linked.where((e) => e.completed).length, 1);
+      expect(linked.firstWhere((e) => e.completed).name, 'Original name');
       await repo.save(
         p.copyWith(
           slots: [p.slots.first.copyWith(workoutId: 'b'), p.slots.last],

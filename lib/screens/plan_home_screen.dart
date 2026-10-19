@@ -4,6 +4,7 @@ import '../l10n/plan_l10n.dart';
 import '../providers/training_program_provider.dart';
 import '../providers/active_workout_provider.dart';
 import '../providers/cardio_provider.dart';
+import '../providers/progress_provider.dart';
 import '../widgets/active_workout_banner.dart';
 import '../widgets/motivational_quote_card.dart';
 import 'training_plan_screen.dart';
@@ -23,6 +24,7 @@ class _PlanHomeScreenState extends State<PlanHomeScreen> {
     final state = context.watch<TrainingProgramProvider>();
     final active = context.watch<ActiveWorkoutProvider>();
     final cardio = context.watch<CardioProvider>();
+    final progress = context.watch<ProgressProvider>();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Trainy'),
@@ -45,53 +47,57 @@ class _PlanHomeScreenState extends State<PlanHomeScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
-            if (active.isActive) ...[
-              const ActiveWorkoutBanner(),
-              const SizedBox(height: 16),
-            ],
-            if (cardio.active) ...[
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.play_circle_outline),
-                  title: Text(context.plan('continueWorkout')),
-                  subtitle: Text(cardio.runtime?['name'] as String? ?? ''),
-                  onTap:
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const CardioSessionScreen(),
+            PlanWeekView(
+              key: ValueKey(
+                '${state.active?.id}:${cardio.history.length}:${progress.entries.length}:${active.isActive}:${cardio.active}',
+              ),
+              program: state.active,
+              date: _date,
+              onDateChanged: (d) => setState(() => _date = d),
+              todayFirst: true,
+              beforeEntries: Column(
+                children: [
+                  if (active.isActive) ...[
+                    const ActiveWorkoutBanner(),
+                    const SizedBox(height: 16),
+                  ],
+                  if (cardio.active) ...[
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.play_circle_outline),
+                        title: Text(context.plan('continueWorkout')),
+                        subtitle: Text(
+                          cardio.runtime?['name'] as String? ?? '',
                         ),
-                      ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-            if (state.active == null)
-              const TrainingPlanCard()
-            else ...[
-              PlanWeekView(
-                key: ValueKey('${state.active!.id}:${cardio.history.length}'),
-                program: state.active!,
-                date: _date,
-                onDateChanged: (d) => setState(() => _date = d),
-                todayFirst: true,
-              ),
-              const SizedBox(height: 24),
-              const TrainingPlanCard(),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed:
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const TrainingLibraryScreen(),
+                        onTap:
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const CardioSessionScreen(),
+                              ),
+                            ),
                       ),
                     ),
-                child: Text(context.plan('withoutPlan')),
+                    const SizedBox(height: 16),
+                  ],
+                ],
               ),
-              const SizedBox(height: 24),
-              const MotivationalQuoteCard(),
-            ],
+            ),
+            const SizedBox(height: 24),
+            const MotivationalQuoteCard(),
+            const SizedBox(height: 24),
+            const TrainingPlanCard(),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TrainingLibraryScreen(),
+                    ),
+                  ),
+              child: Text(context.plan('extraWorkout')),
+            ),
           ],
         ),
       ),

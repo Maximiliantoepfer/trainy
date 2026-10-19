@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../widgets/pill_tab_bar.dart';
+import '../services/strength_templates.dart';
+import 'strength_template_screen.dart';
 import 'package:provider/provider.dart';
 import '../l10n/plan_l10n.dart';
 import '../l10n/cardio_l10n.dart';
@@ -79,7 +82,9 @@ class _TrainingLibraryScreenState extends State<TrainingLibraryScreen> {
   }
 
   Widget _workouts() {
-    final strength = context.watch<WorkoutProvider>().workouts;
+    final strength = context.watch<WorkoutProvider>().workouts.where(
+      (w) => !w.isOccurrencePart,
+    );
     final cardio = context.watch<CardioProvider>();
     final mine =
         strength
@@ -217,6 +222,29 @@ class _TrainingLibraryScreenState extends State<TrainingLibraryScreen> {
                 ),
               ),
             ),
+        if (['all', 'strength'].contains(_sport)) ...[
+          const SizedBox(height: 24),
+          Text(
+            context.plan('templates'),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          for (final code in StrengthTemplates.codes)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.fitness_center),
+              title: Text(context.plan(code)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final workout = await Navigator.push<Workout>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StrengthTemplateScreen(code: code),
+                  ),
+                );
+                if (workout != null && mounted) await _strength(workout);
+              },
+            ),
+        ],
         if (!widget.pickWorkout &&
             ['all', 'running', 'cardio'].contains(_sport)) ...[
           const SizedBox(height: 24),
@@ -284,11 +312,9 @@ class _TrainingLibraryScreenState extends State<TrainingLibraryScreen> {
         bottom:
             widget.pickWorkout
                 ? null
-                : TabBar(
-                  tabs: [
-                    Tab(text: context.plan('workouts')),
-                    Tab(text: context.plan('exercises')),
-                  ],
+                : PillTabBar(
+                  height: PillTabBar.heightFor(context),
+                  labels: [context.plan('workouts'), context.plan('exercises')],
                 ),
       ),
       body:

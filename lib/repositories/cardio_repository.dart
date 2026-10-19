@@ -261,11 +261,39 @@ class CardioRepository {
         'cardio_occurrences',
         {'workout_json': jsonEncode(entry.value.toJson())},
         where:
-            "id = ? AND status = 'planned' AND locked = 0 AND local_date >= ?",
+            "id = ? AND status = 'planned' AND locked = 0 AND session_id IS NULL AND local_date >= ?",
         whereArgs: [entry.key, dateKey(DateTime.now())],
       );
     }
   });
+
+  Future<Map<String, CardioWorkout>> targetAdjustment(
+    AthleteRunningProfile profile,
+  ) async {
+    final changes = <String, CardioWorkout>{};
+    for (final occurrence in await occurrences()) {
+      if (occurrence.status != 'planned' ||
+          occurrence.locked ||
+          occurrence.sessionId != null ||
+          dateKey(occurrence.date).compareTo(dateKey(DateTime.now())) < 0) {
+        continue;
+      }
+      final workout = occurrence.workout;
+      if (!workout.steps.any((s) => s.targetSource != 'manual')) continue;
+      changes[occurrence.id] = CardioWorkout.fromJson({
+        ...workout.toJson(),
+        'steps': [
+          for (final step in workout.steps)
+            CardioTraining.refreshTarget(
+              step,
+              profile,
+              sport: workout.sport,
+            ).toJson(),
+        ],
+      });
+    }
+    return changes;
+  }
 
   Future<String> begin(CardioWorkout workout, {String? occurrenceId}) async {
     workout.validate();
@@ -445,14 +473,53 @@ class CardioRepository {
         ) ??
         0;
     final stride = (count / 1000).ceil().clamp(1, 1000000);
-    return (await db.rawQuery(
-          'SELECT sample_json FROM cardio_sensor_samples WHERE session_id = ? AND sequence % ? = 0 ORDER BY sequence LIMIT 1001',
-          [id, stride],
-        ))
-        .map(
-          (r) => jsonDecode(r['sample_json'] as String) as Map<String, dynamic>,
-        )
-        .toList();
+    final result = <Map<String, dynamic>>[];
+    Map<String, dynamic>? previous;
+    var cursor = -1, segment = 0, index = 0;
+    void keep(Map<String, dynamic> point) {
+      if (result.isEmpty || result.last['sequence'] != point['sequence']) {
+        result.add(point);
+      }
+    }
+
+    while (true) {
+      final rows = await db.rawQuery(
+        'SELECT sequence,sample_json FROM cardio_sensor_samples WHERE session_id=? AND sequence>? ORDER BY sequence LIMIT 500',
+        [id, cursor],
+      );
+      if (rows.isEmpty) break;
+      for (final row in rows) {
+        cursor = row['sequence'] as int;
+        final point =
+            jsonDecode(row['sample_json'] as String) as Map<String, dynamic>;
+        final lat = point['latitude'] as num?, lon = point['longitude'] as num?;
+        final time = point['timestamp'] as num?;
+        if (lat == null ||
+            lon == null ||
+            !lat.isFinite ||
+            !lon.isFinite ||
+            lat.abs() > 90 ||
+            lon.abs() > 180 ||
+            time == null) {
+          if (previous != null) keep(previous);
+          previous = null;
+          segment++;
+          continue;
+        }
+        final gap =
+            previous == null || time - (previous['timestamp'] as num) > 15000;
+        if (gap) {
+          if (previous != null) keep(previous);
+          segment++;
+        }
+        point['routeSegment'] = segment;
+        point['sequence'] = cursor;
+        if (gap || index++ % stride == 0) keep(point);
+        previous = point;
+      }
+    }
+    if (previous != null) keep(previous);
+    return result;
   }
 
   Future<void> feedback(String id, int effort, bool discomfort) async {

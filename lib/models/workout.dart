@@ -9,6 +9,7 @@ class Workout {
   Set<int> assignedDays; // 1=Mo ... 7=So
   String primaryGoalCode;
   Map<int, int> scheduleOrderByDay;
+  final bool isOccurrencePart;
 
   Workout({
     required this.id,
@@ -20,6 +21,7 @@ class Workout {
     String primaryGoalCode = 'strength',
     List<String>? goalCodes,
     this.scheduleOrderByDay = const {},
+    this.isOccurrencePart = false,
   }) : canonicalId = canonicalId ?? 'legacy-workout:$id',
        primaryGoalCode = _primaryGoal(primaryGoalCode, goalCodes);
 
@@ -54,6 +56,7 @@ class Workout {
       ),
       scheduleOrderByDay:
           scheduleOrderByDay ?? Map<int, int>.from(this.scheduleOrderByDay),
+      isOccurrencePart: isOccurrencePart,
     );
   }
 

@@ -20,7 +20,7 @@ class WorkoutPlanningRepository {
 
   Future<List<Workout>> workouts() async {
     final rows = await _database.rawQuery('''
-      SELECT template.*
+      SELECT template.*, EXISTS(SELECT 1 FROM strength_occurrence_parts p WHERE p.workout_id=template.id) AS occurrence_part
       FROM workout_templates template
       WHERE template.is_archived = 0
       ORDER BY template.name COLLATE NOCASE ASC
@@ -45,6 +45,7 @@ class WorkoutPlanningRepository {
         Workout(
           id: localId,
           canonicalId: canonicalId,
+          isOccurrencePart: row['occurrence_part'] == 1,
           name: row['name'] as String,
           description: row['description'] as String? ?? '',
           exerciseIds: exerciseIds,
@@ -158,13 +159,27 @@ class WorkoutPlanningRepository {
           now,
         );
         if (canonicalExerciseId == null) continue;
+        final slotId = UuidV4.generate();
         await txn.insert('workout_slots_v2', {
-          'id': UuidV4.generate(),
+          'id': slotId,
           'group_variant_id': coreVariant,
           'exercise_id': canonicalExerciseId,
-          'slot_kind': 'core',
+          'slot_kind':
+              draft.optionalExerciseIds.contains(draft.exerciseIds[index])
+                  ? 'optional'
+                  : 'core',
           'sort_order': index,
         });
+        final prescription = draft.prescriptions[draft.exerciseIds[index]];
+        if (prescription != null) {
+          prescription.validate();
+          await txn.insert('workout_slot_prescriptions', {
+            'slot_id': slotId,
+            'sets': prescription.sets,
+            'min_reps': prescription.minReps,
+            'max_reps': prescription.maxReps,
+          });
+        }
         await txn.insert('exercises_in_workouts', {
           'id': localId + index + 1,
           'workoutId': localId,
@@ -184,6 +199,19 @@ class WorkoutPlanningRepository {
       exerciseIds: List<int>.from(draft.exerciseIds),
       primaryGoalCode: draft.primaryGoal.code,
     );
+  }
+
+  Future<void> setPrescription(
+    String slotId,
+    StrengthPrescription prescription,
+  ) async {
+    prescription.validate();
+    await _database.insert('workout_slot_prescriptions', {
+      'slot_id': slotId,
+      'sets': prescription.sets,
+      'min_reps': prescription.minReps,
+      'max_reps': prescription.maxReps,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> updateBasics({
@@ -1109,9 +1137,10 @@ class WorkoutPlanningRepository {
   ) async {
     final slots = await _database.rawQuery(
       '''
-      SELECT slot.*, item.legacy_local_id
+      SELECT slot.*, item.legacy_local_id, p.sets, p.min_reps, p.max_reps
       FROM workout_slots_v2 slot
       INNER JOIN exercise_items item ON item.id = slot.exercise_id
+      LEFT JOIN workout_slot_prescriptions p ON p.slot_id=slot.id
       WHERE slot.group_variant_id = ?
       ORDER BY slot.sort_order ASC, slot.id ASC
       ''',
@@ -1151,6 +1180,14 @@ class WorkoutPlanningRepository {
             isOptional: slot['slot_kind'] == 'optional',
             sortOrder: (slot['sort_order'] as num).toInt(),
             movementFamilyId: slot['movement_family_id'] as String?,
+            prescription:
+                slot['sets'] == null
+                    ? null
+                    : StrengthPrescription(
+                      sets: slot['sets'] as int,
+                      minReps: slot['min_reps'] as int,
+                      maxReps: slot['max_reps'] as int,
+                    ),
             alternativeLocalExerciseIds:
                 alternativesBySlot[slot['id'] as String] ?? const [],
           ),
@@ -1216,6 +1253,14 @@ class WorkoutPlanningRepository {
         where: 'workout_slot_id = ?',
         whereArgs: [oldId],
       );
+      final prescriptions = await db.query(
+        'workout_slot_prescriptions',
+        where: 'slot_id=?',
+        whereArgs: [oldId],
+      );
+      for (final p in prescriptions) {
+        await db.insert('workout_slot_prescriptions', {...p, 'slot_id': id});
+      }
       for (final alternative in alternatives) {
         await db.insert('workout_slot_alternatives_v2', {
           'id': UuidV4.generate(),

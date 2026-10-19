@@ -467,7 +467,7 @@ class AppTheme {
           letterSpacing: 0.1,
         ),
       ),
-      height: 72,
+      height: 56,
     );
   }
 

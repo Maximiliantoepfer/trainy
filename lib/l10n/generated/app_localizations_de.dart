@@ -9,6 +9,68 @@ class AppLocalizationsDe extends AppLocalizations {
   AppLocalizationsDe([String locale = 'de']) : super(locale);
 
   @override
+  String refinementText(String key) {
+    String _temp0 = intl.Intl.selectLogic(
+      key,
+      {
+        'k_durationHint': 'Minuten, z. B. 45 oder 45:30',
+        'k_durationError': 'Gib eine Zeit über 0 ein, z. B. 45 oder 45:30.',
+        'k_notFaster': 'Nicht schneller als',
+        'k_notSlower': 'Nicht langsamer als',
+        'k_estimated': 'Grobe Orientierung',
+        'k_benchmark': 'Aus aktueller Bestzeit',
+        'k_manual': 'Individuell',
+        'k_effort': 'Nach Gefühl',
+        'k_resetTarget': 'Vorschlag übernehmen',
+        'k_recoveryMovement': 'Erholung',
+        'k_run': 'Locker traben',
+        'k_walk': 'Gehen',
+        'k_rest': 'Stehen',
+        'k_bestTime': 'Bestzeit ergänzen',
+        'k_bestDate': 'Datum der Bestzeit',
+        'k_profileWhy': 'Wozu diese Angaben?',
+        'k_profileExplanation': 'Dein lockeres Tempo liefert eine grobe Pace-Orientierung. Eine aktuelle Bestzeit erlaubt zusätzliche Schätzungen. Laufhäufigkeit und längster Lauf begrenzen den Einstieg; schneller bedeutet nicht automatisch mehr Umfang. Pulszonen benötigen Ruhe- und Maximalpuls.',
+        'k_availableDays': 'Verfügbare Tage',
+        'k_sessionsPerWeek': 'Einheiten pro Woche',
+        'k_custom': 'Individuell',
+        'k_pushCore': 'Push + Bauch',
+        'k_pullLegs': 'Pull + Beine',
+        'k_mixedSplit': 'Push + Bauch / Pull + Beine / Ganzkörper',
+        'k_focus': 'Schwerpunkte',
+        'k_core': 'Bauch',
+        'k_endDate': 'Planende (optional)',
+        'k_indefinite': 'Unbefristet',
+        'k_extraWorkout': 'Weiteres Workout starten',
+        'k_splitSession': 'Einheit aufteilen',
+        'k_swap': 'Einheiten tauschen',
+        'k_undoSplit': 'Aufteilung rückgängig',
+        'k_templates': 'Vorlagen',
+        'k_extras': 'Weitere Übungen',
+        'k_missingEquipment': 'Benötigte Geräte fehlen',
+        'k_streetMap': 'Straßenkarte laden',
+        'k_mapPrivacy': 'Die Karte wird von OpenStreetMap geladen. Dabei erhält der Anbieter deine IP-Adresse und den angezeigten Kartenausschnitt. Deine Route bleibt lokal.',
+        'k_noRoute': 'Für diese Einheit sind keine GPS-Routendaten vorhanden.',
+        'k_runningBlocks': 'Laufbausteine',
+        'k_updateTargets': 'Neue Pace-Vorschläge übernehmen?',
+        'k_updateTargetsInfo': 'Nur zukünftige, automatisch berechnete Ziele werden aktualisiert. Individuelle Ziele und begonnene Einheiten bleiben unverändert.',
+        'k_shortPlan': 'Der Plan endet vor dem vorgeschlagenen Laufaufbau. Spätere Einheiten entfallen; die Steigerung wird nicht beschleunigt.',
+        'k_splitHint': 'Ausgewählte Übungen bleiben an Tag 1. Alle anderen wechseln zu Tag 2.',
+        'k_muscleFocus': 'Einzelne Muskelgruppen',
+        'k_chest': 'Brust',
+        'k_back': 'Rücken',
+        'k_shoulders': 'Schultern',
+        'k_arms': 'Arme',
+        'k_quads': 'Oberschenkel',
+        'k_glutes': 'Gesäß',
+        'k_calves': 'Waden',
+        'k_manualEntry': 'Manuelles Protokoll',
+        'other': '$key',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
   String planText(String key) {
     String _temp0 = intl.Intl.selectLogic(
       key,

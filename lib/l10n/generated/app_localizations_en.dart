@@ -9,6 +9,68 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String refinementText(String key) {
+    String _temp0 = intl.Intl.selectLogic(
+      key,
+      {
+        'k_durationHint': 'Minutes, e.g. 45 or 45:30',
+        'k_durationError': 'Enter a time above 0, e.g. 45 or 45:30.',
+        'k_notFaster': 'No faster than',
+        'k_notSlower': 'No slower than',
+        'k_estimated': 'Rough estimate',
+        'k_benchmark': 'From recent best time',
+        'k_manual': 'Custom',
+        'k_effort': 'By effort',
+        'k_resetTarget': 'Use suggestion',
+        'k_recoveryMovement': 'Recovery',
+        'k_run': 'Easy jog',
+        'k_walk': 'Walk',
+        'k_rest': 'Stand',
+        'k_bestTime': 'Add best time',
+        'k_bestDate': 'Best time date',
+        'k_profileWhy': 'Why these details?',
+        'k_profileExplanation': 'Your easy pace provides a rough pace guide. A recent best time enables additional estimates. Running frequency and longest run limit the starting load; faster does not automatically mean more volume. Heart-rate zones require resting and maximum heart rate.',
+        'k_availableDays': 'Available days',
+        'k_sessionsPerWeek': 'Sessions per week',
+        'k_custom': 'Custom',
+        'k_pushCore': 'Push + core',
+        'k_pullLegs': 'Pull + legs',
+        'k_mixedSplit': 'Push + core / Pull + legs / Full body',
+        'k_focus': 'Focus',
+        'k_core': 'Core',
+        'k_endDate': 'Plan end (optional)',
+        'k_indefinite': 'No end date',
+        'k_extraWorkout': 'Start another workout',
+        'k_splitSession': 'Split session',
+        'k_swap': 'Swap sessions',
+        'k_undoSplit': 'Undo split',
+        'k_templates': 'Templates',
+        'k_extras': 'More exercises',
+        'k_missingEquipment': 'Equipment missing',
+        'k_streetMap': 'Load street map',
+        'k_mapPrivacy': 'The map is loaded from OpenStreetMap. The provider receives your IP address and the displayed map area. Your route stays local.',
+        'k_noRoute': 'No GPS route data is available for this session.',
+        'k_runningBlocks': 'Running blocks',
+        'k_updateTargets': 'Apply new pace suggestions?',
+        'k_updateTargetsInfo': 'Only future automatic targets are updated. Custom targets and started sessions stay unchanged.',
+        'k_shortPlan': 'This plan ends before the suggested running build-up. Later sessions are omitted; progression is not accelerated.',
+        'k_splitHint': 'Selected exercises stay on day 1. All others move to day 2.',
+        'k_muscleFocus': 'Individual muscle groups',
+        'k_chest': 'Chest',
+        'k_back': 'Back',
+        'k_shoulders': 'Shoulders',
+        'k_arms': 'Arms',
+        'k_quads': 'Thighs',
+        'k_glutes': 'Glutes',
+        'k_calves': 'Calves',
+        'k_manualEntry': 'Manual log',
+        'other': '$key',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
   String planText(String key) {
     String _temp0 = intl.Intl.selectLogic(
       key,

@@ -1,0 +1,113 @@
+Trainy training refinement — 2026-10-20
+
+Implemented
+-----------
+The earlier plan-first/light-theme/onboarding implementation is preserved in
+ab97d5c. Language is the first onboarding step; new equipment profiles default
+to Home Gym, with Gym and Custom available.
+
+New plans start with all seven available days, separately from the desired
+frequency (three sessions per selected sport). Existing availability/drafts
+remain intact. Strength supports full body, upper/lower, PPL, the requested
+Push+Core / Pull+Legs / Full Body pattern, and custom day-level combinations.
+Individual muscle focus and an optional free name are available in the day sheet.
+
+Eight editable strength templates use explicit equipment-compatible alternatives.
+The user's base exercises are selected when equipment is available; additional
+exercises are opt-in. Set ranges start at their lower bound. Suggested repetitions
+start at 8–12 for compound movements, 10–15 for isolation work. These are editable
+defaults, not performance prescriptions. Targets belong to workout slots and are
+snapshotted for tracking; global exercise defaults are not overwritten.
+
+Split a dated strength occurrence into two exercise subsets within its calendar
+week, swap two occurrences, or move a single/future occurrence. Splits preserve
+the recurring workout, copy slot targets, and can be undone before either part
+starts. Started sessions are explicitly linked to occurrences. A recurrence edit
+preserves started/completed history and migrates future dated overrides/parts.
+Placement conflicts are shown for confirmation rather than silently rescheduled.
+
+Running time inputs accept minutes, decimal minutes (comma or dot), mm:ss and
+hh:mm:ss. Ordinary running pace and an optional recent maximal result can coexist.
+Without a maximal result, pace factors are explicitly rough PRODUCT HEURISTICS:
+easy: upper speed limit from reported easy pace; steady: 0.95–1.00 times easy pace
+in seconds/km; threshold: 0.90–0.95; intervals: 0.85–0.90. These are not race-time
+predictions or validated individual threshold estimates. Existing benchmark rules
+remain separate. Longest recent distance caps the opening long run independently
+of maximum performance. Unknown load stays conservative/time-based.
+
+Auto-generated pace targets have provenance. Intensity changes recalculate only
+automatic targets; manual values survive until explicitly reset. A profile update
+offers confirmation before changing unlocked future occurrences. Session snapshots
+and manually edited occurrences are excluded. Easy pace caps never issue a
+"speed up" cue. Recovery can be walking, jogging or standing; standing recovery
+does not disable auto-pause during the next work interval.
+
+Plans default to "Trainingsplan" / "Training plan" and have an optional inclusive
+overall end date, separate from the running goal date. A shorter end warns that
+later sessions are omitted, without compressing progression.
+
+Home order: round weekly strip, selected day's sessions/active session, quote,
+plan, secondary workout action. Familiar asset icons and flame streak are retained;
+navigation captions and redundant totals/actions are removed. Strength wins the
+day icon priority; a partial ring remains until every scheduled session is done.
+Completed days open recorded session data. Training/Progress share pill tabs.
+Calendar day numbers stay visible beside small completion icons.
+
+History merges strength and cardio chronologically. GPS traces and thumbnails are
+drawn locally, with separate segments for GPS gaps and start/end markers. Missing
+GPS is stated explicitly. Street tiles require per-view consent, use OSM attribution,
+HTTP-header-aware bounded caching and no bulk prefetch. IP address and viewport are
+disclosed before requesting tiles; route coordinates are not uploaded as a track.
+
+Typed running building blocks live in the exercise library and open the cardio
+editor, not strength tracking. Full interval structures remain workout templates.
+Unmaterialized broad running/interval catalog entries are hidden from discovery;
+existing manual logs remain accessible and labeled. Four owned strength exercise
+definitions are added, with reproducible DE/EN catalog sources (887 total records).
+
+Persistence
+-----------
+Schema 9, data epoch 2. Additive tables: workout_slot_prescriptions,
+strength_occurrence_parts, strength_session_links. JSON adds profile benchmark,
+target provenance, available days, focus and end date without replacing old IDs.
+All tables are included in backup/restore. Older supported schema backups remain
+accepted. Schema-8 upgrade and current backup round-trip tests include split IDs,
+completion links, prescriptions and optional sensor data. No application data reset
+is part of the migration.
+
+Verification and limitations
+----------------------------
+159 Flutter unit/widget/golden tests; 12 Trainy Android JVM tests; offline plan
+setup and native recorder Android emulator integration tests. Light/dark home and
+profile goldens were visually reviewed, with asset decoding awaited before capture.
+320 px / 1.8 text scale tests cover weekly selection, pill tabs and route consent.
+iOS reducer parity tests are included but cannot be executed on this Windows host.
+Live watches, real-world outdoor GPS accuracy, actual OSM network failure handling,
+and authenticated cloud restore were not end-to-end verified on physical devices.
+No live-watch connection or new video assets are claimed by this refinement.
+
+Use .\gradlew.bat :app:testDebugUnitTest for project JVM tests. The unqualified
+testDebugUnitTest also executes third-party plugin tests; one of those fails under
+the current Jetifier/Byte Buddy combination. No plugin/SDK upgrade was introduced.
+
+Device-test safety incident
+---------------------------
+Flutter 3.29.2 integration_test_device.kill() calls uninstallApp during teardown.
+The initial tests used the production package ID despite isolated test databases.
+This removed the emulator's Trainy installation and its local app data. No emulator
+data backup was taken beforehand, so those contents were not recovered. The normal
+app was reinstalled; physical devices were not used.
+
+Android integration_test targets and Flutter's integration-test dart define use
+com.example.trainy.integration and the
+label "Trainy (Tests)" automatically. Firebase processing is disabled for that
+local-only test APK. Production remains com.example.trainy. Device-test teardown
+must remove only the separate test package. IMPORTANT: Flutter 3.29 also captures
+the previous APK identity before building its temporary test listener. Always use
+tool/test_android_integration.ps1 -DeviceId emulator-5554 -Test plan_onboarding_test
+(or -Test cardio_native_test), NOT a direct flutter test device invocation. The
+wrapper prebuilds/verifies the test ID before Flutter captures it, prepares only
+test-package permissions, checks the normal package still exists and rebuilds the
+normal APK afterward. Do not run iOS integration
+tests on a user-populated installation: use a disposable simulator until a separate
+iOS test bundle identity is configured. No user data was removed from the Git repo.

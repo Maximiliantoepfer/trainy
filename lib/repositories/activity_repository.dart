@@ -12,6 +12,19 @@ class ActivityRepository {
   final DatabaseService _database;
   static const _domains = {'strength', 'cardio', 'mobility'};
 
+  /// Immutable item names and entered units remain readable after template edits.
+  Future<List<Map<String, Object?>>> sessionItemsWithMetrics(
+    String sessionId,
+  ) => _database.rawQuery(
+    '''
+    SELECT i.*, e.sort_order AS effort_index, m.metric_code AS metric_key,
+      m.entered_value AS numeric_value, m.entered_unit_code AS unit_code FROM activity_items i
+    LEFT JOIN activity_metric_values m ON m.activity_item_id=i.id
+    LEFT JOIN activity_efforts e ON e.id=m.effort_id
+    WHERE i.session_id=? ORDER BY i.sort_order,e.sort_order''',
+    [sessionId],
+  );
+
   Future<String> startSession({
     required String activityType,
     required String nameSnapshot,
@@ -150,6 +163,8 @@ class ActivityRepository {
   );
 
   Future<StartedWorkoutActivity> startWorkoutActivity({
+    String? plannedOccurrenceId,
+    String? trainingProgramId,
     required int localWorkoutId,
     required String nameSnapshot,
     required String activityType,
@@ -167,7 +182,11 @@ class ActivityRepository {
     final sessionId = UuidV4.generate();
     final itemIds = <int, String>{};
     await _database.transaction((txn) async {
-      if ((await txn.query('activity_sessions', where: "status = 'active'", limit: 1)).isNotEmpty) {
+      if ((await txn.query(
+        'activity_sessions',
+        where: "status = 'active'",
+        limit: 1,
+      )).isNotEmpty) {
         throw StateError('A workout is already active.');
       }
       await txn.insert('activity_sessions', {
@@ -184,6 +203,21 @@ class ActivityRepository {
         'timezone_offset_minutes': localStart.timeZoneOffset.inMinutes,
         'created_at_utc': DateTime.now().toUtc().millisecondsSinceEpoch,
       });
+      if (plannedOccurrenceId != null && trainingProgramId != null) {
+        final links = await txn.rawQuery(
+          '''SELECT s.status FROM strength_session_links l
+          JOIN activity_sessions s ON s.id=l.session_id WHERE l.occurrence_id=?''',
+          [plannedOccurrenceId],
+        );
+        if (links.any((s) => s['status'] != 'discarded')) {
+          throw StateError('Occurrence already started');
+        }
+        await txn.insert('strength_session_links', {
+          'occurrence_id': plannedOccurrenceId,
+          'plan_id': trainingProgramId,
+          'session_id': sessionId,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
       for (var index = 0; index < normalizedTags.length; index++) {
         await txn.insert('activity_session_tags', {
           'session_id': sessionId,

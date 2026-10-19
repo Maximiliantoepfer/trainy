@@ -100,7 +100,7 @@ void main() {
 
   definitions.sort((a, b) => (a['id'] as String).compareTo(b['id'] as String));
   catalog['schemaVersion'] = 1;
-  catalog['catalogVersion'] = 2;
+  catalog['catalogVersion'] = 3;
   catalog['exerciseCount'] = definitions.length;
   catalog['exercises'] = definitions;
   final sources = List<Map<String, dynamic>>.from(
@@ -120,7 +120,7 @@ void main() {
 
   for (final locale in [english, german]) {
     locale['schemaVersion'] = 1;
-    locale['catalogVersion'] = 2;
+    locale['catalogVersion'] = 3;
     locale['exerciseCount'] = definitions.length;
   }
   english['exercises'] = _sortedMap(enContent);
@@ -176,7 +176,7 @@ void main() {
       }).length;
   final manifest = <String, dynamic>{
     'schemaVersion': 1,
-    'catalogVersion': 2,
+    'catalogVersion': 3,
     'sourceCommit': _pinnedCommit,
     'freeExerciseCount': 876,
     'totalCatalogCount': definitions.length,

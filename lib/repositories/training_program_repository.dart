@@ -91,14 +91,41 @@ class TrainingProgramRepository {
               next.workoutId != previous.workoutId ||
               next.weekday != previous.weekday ||
               next.label != previous.label ||
+              next.focus
+                  .toSet()
+                  .difference(previous.focus.toSet())
+                  .isNotEmpty ||
+              previous.focus
+                  .toSet()
+                  .difference(next.focus.toSet())
+                  .isNotEmpty ||
               next.cycleWeek != previous.cycleWeek;
           if (!changed) continue;
+          var effectiveFrom = today;
+          final protected = await txn.rawQuery(
+            '''SELECT l.occurrence_id FROM strength_session_links l
+            JOIN activity_sessions s ON s.id=l.session_id WHERE l.plan_id=? AND l.occurrence_id LIKE ? AND s.status!='discarded' ''',
+            [program.id, '${previous.id}:%'],
+          );
+          for (final link in protected) {
+            final occurrence = link['occurrence_id'] as String;
+            final date = DateTime.tryParse(
+              occurrence.substring(previous.id.length + 1),
+            );
+            if (date != null && !date.isBefore(effectiveFrom)) {
+              effectiveFrom = DateTime(date.year, date.month, date.day + 1);
+            }
+          }
           if (index >= 0) slots.removeAt(index);
           slots.add(
             previous.until != null && previous.until!.isBefore(today)
                 ? previous
                 : previous.copyWith(
-                  until: DateTime(today.year, today.month, today.day - 1),
+                  until: DateTime(
+                    effectiveFrom.year,
+                    effectiveFrom.month,
+                    effectiveFrom.day - 1,
+                  ),
                 ),
           );
           if (next != null) {
@@ -110,8 +137,9 @@ class TrainingProgramRepository {
                 label: next.label,
                 workoutId: next.workoutId,
                 kind: next.kind,
+                focus: next.focus,
                 cycleWeek: next.cycleWeek,
-                from: today,
+                from: effectiveFrom,
                 until: next.until,
               ),
             );
@@ -119,7 +147,19 @@ class TrainingProgramRepository {
               'plan_slot_overrides',
               {'slot_id': newId},
               where: 'plan_id=? AND slot_id=? AND original_date>=?',
-              whereArgs: [program.id, previous.id, dateKey(today)],
+              whereArgs: [program.id, previous.id, dateKey(effectiveFrom)],
+            );
+            await txn.rawUpdate(
+              '''UPDATE strength_occurrence_parts SET slot_id=?, source_occurrence_id=? || substr(source_occurrence_id,?)
+              WHERE plan_id=? AND slot_id=? AND original_date>=?''',
+              [
+                newId,
+                newId,
+                previous.id.length + 1,
+                program.id,
+                previous.id,
+                dateKey(effectiveFrom),
+              ],
             );
           }
         }
@@ -152,6 +192,7 @@ class TrainingProgramRepository {
           'name': program.name.trim(),
           'updated_at_utc': now,
           'starts_at_utc': program.start.toUtc().millisecondsSinceEpoch,
+          'ends_at_utc': program.endDate?.toUtc().millisecondsSinceEpoch,
         },
         where: 'id=?',
         whereArgs: [program.id],
@@ -197,6 +238,7 @@ class TrainingProgramRepository {
         );
         for (final o in running.occurrences.where(
           (o) =>
+              (program.endDate == null || !o.date.isAfter(program.endDate!)) &&
               !dates.contains(dateKey(o.date)) &&
               dateKey(o.date).compareTo(today) >= 0,
         )) {
@@ -275,6 +317,16 @@ class TrainingProgramRepository {
       where: 'plan_id=?',
       whereArgs: [p.id],
     );
+    final links = await db.rawQuery(
+      '''SELECT l.occurrence_id,s.* FROM strength_session_links l
+      JOIN activity_sessions s ON s.id=l.session_id WHERE l.plan_id=? AND s.status!='discarded' ''',
+      [p.id],
+    );
+    final parts = await db.query(
+      'strength_occurrence_parts',
+      where: 'plan_id=?',
+      whereArgs: [p.id],
+    );
     final sessions = await db.query(
       'activity_sessions',
       where: "status='completed' AND started_at_utc>=? AND started_at_utc<?",
@@ -294,18 +346,28 @@ class TrainingProgramRepository {
     );
     bool occurs(ProgramSlot s, DateTime date) =>
         !date.isBefore(DateTime(p.start.year, p.start.month, p.start.day)) &&
+        (p.endDate == null || !date.isAfter(p.endDate!)) &&
         date.weekday == s.weekday &&
         (s.from == null || !date.isBefore(s.from!)) &&
         (s.until == null || !date.isAfter(s.until!)) &&
         (s.cycleWeek == 0 ||
             (calendarDays(date, monday) ~/ 7) % 2 + 1 == s.cycleWeek);
     final consumedSessions = <Object?>{};
-    ProgramEntry strength(ProgramSlot slot, DateTime original, DateTime date) {
-      final match =
+    ProgramEntry strength(
+      ProgramSlot slot,
+      DateTime original,
+      DateTime date, {
+      String? partId,
+      String? splitSourceId,
+    }) {
+      final id = partId ?? '${slot.id}:${dateKey(original)}';
+      final linked = links.where((r) => r['occurrence_id'] == id).firstOrNull;
+      final candidates =
           sessions
               .where(
                 (r) =>
                     !consumedSessions.contains(r['id']) &&
+                    !links.any((l) => l['id'] == r['id']) &&
                     slot.workoutId != null &&
                     r['workout_id'] == slot.workoutId &&
                     dateKey(
@@ -315,10 +377,20 @@ class TrainingProgramRepository {
                         ) ==
                         dateKey(date),
               )
-              .firstOrNull;
+              .toList();
+      // Never assign one of several identical same-day workouts by arbitrary order.
+      final sameDaySlots =
+          p.slots
+              .where((s) => s.workoutId == slot.workoutId && occurs(s, date))
+              .length;
+      final match =
+          linked ??
+          (candidates.length == 1 && sameDaySlots <= 1
+              ? candidates.single
+              : null);
       if (match != null) consumedSessions.add(match['id']);
       return ProgramEntry(
-        id: '${slot.id}:${dateKey(original)}',
+        id: id,
         planId: p.id,
         date: date,
         originalDate: original,
@@ -332,7 +404,9 @@ class TrainingProgramRepository {
             match != null || names.containsKey(slot.workoutId)
                 ? slot.workoutId
                 : null,
-        completed: match != null,
+        completed: match?['status'] == 'completed',
+        sessionId: match?['id'] as String?,
+        splitSourceId: splitSourceId,
       );
     }
 
@@ -342,6 +416,11 @@ class TrainingProgramRepository {
       date = DateTime(date.year, date.month, date.day + 1)
     ) {
       for (final slot in p.slots.where((s) => occurs(s, date))) {
+        if (parts.any(
+          (r) => r['source_occurrence_id'] == '${slot.id}:${dateKey(date)}',
+        )) {
+          continue;
+        }
         if (!overrides.any(
           (o) => o['slot_id'] == slot.id && o['original_date'] == dateKey(date),
         )) {
@@ -353,7 +432,61 @@ class TrainingProgramRepository {
       final date = DateTime.parse(o['local_date'] as String),
           original = DateTime.parse(o['original_date'] as String);
       final slot = p.slots.where((s) => s.id == o['slot_id']).firstOrNull;
+      if (parts.any(
+        (r) =>
+            r['source_occurrence_id'] ==
+            '${o['slot_id']}:${o['original_date']}',
+      )) {
+        continue;
+      }
       if (slot != null && !date.isBefore(from) && date.isBefore(to)) {
+        final entry = strength(slot, original, date);
+        if (p.endDate == null ||
+            !date.isAfter(p.endDate!) ||
+            entry.sessionId != null) {
+          result.add(entry);
+        }
+      }
+    }
+    for (final part in parts) {
+      final date = DateTime.parse(part['local_date'] as String);
+      if (date.isBefore(from) || !date.isBefore(to)) continue;
+      final slot = p.slots.where((s) => s.id == part['slot_id']).firstOrNull;
+      if (slot == null) continue;
+      final entry = strength(
+        slot.copyWith(workoutId: part['workout_id'] as String),
+        DateTime.parse(part['original_date'] as String),
+        date,
+        partId: part['id'] as String,
+        splitSourceId: part['source_occurrence_id'] as String,
+      );
+      if (p.endDate == null ||
+          !date.isAfter(p.endDate!) ||
+          entry.sessionId != null) {
+        result.add(entry);
+      }
+    }
+    // A shortened plan never hides a session that was already started.
+    for (final link in links) {
+      final id = link['occurrence_id'] as String;
+      if (result.any((e) => e.id == id)) continue;
+      final slot = p.slots.where((s) => id.startsWith('${s.id}:')).firstOrNull;
+      if (slot == null) continue;
+      final original = DateTime.tryParse(id.substring(slot.id.length + 1));
+      if (original == null) continue;
+      final moved =
+          overrides
+              .where(
+                (o) =>
+                    o['slot_id'] == slot.id &&
+                    o['original_date'] == dateKey(original),
+              )
+              .firstOrNull;
+      final date =
+          moved == null
+              ? original
+              : DateTime.parse(moved['local_date'] as String);
+      if (!date.isBefore(from) && date.isBefore(to)) {
         result.add(strength(slot, original, date));
       }
     }
@@ -372,6 +505,12 @@ class TrainingProgramRepository {
         locked: r['locked'] == 1,
         sessionId: r['session_id'] as String?,
       );
+      if (p.endDate != null &&
+          o.date.isAfter(p.endDate!) &&
+          o.status == 'planned' &&
+          o.sessionId == null) {
+        continue;
+      }
       result.add(
         ProgramEntry(
           id: o.id,
@@ -381,6 +520,7 @@ class TrainingProgramRepository {
           kind: 'running',
           cardio: o,
           completed: o.status == 'completed',
+          sessionId: o.sessionId,
         ),
       );
     }
@@ -397,30 +537,72 @@ class TrainingProgramRepository {
     DateTime date, {
     required bool future,
   }) async {
-    if (entry.completed || entry.slotId == null) {
+    if (entry.completed || entry.sessionId != null || entry.slotId == null) {
       throw StateError('Completed or invalid entry');
     }
     final original = entry.originalDate!;
+    if (p.endDate != null && date.isAfter(p.endDate!)) {
+      throw StateError('Date is after plan end');
+    }
+    if (dateKey(date).compareTo(dateKey(p.start)) < 0) {
+      throw StateError('Date is before plan start');
+    }
     await db.transaction((txn) async {
+      await _requireUnstarted(txn, entry.id);
+      if (entry.splitSourceId != null) {
+        if (future) throw StateError('A split only applies to this week');
+        await txn.update(
+          'strength_occurrence_parts',
+          {'local_date': dateKey(date)},
+          where: 'id=?',
+          whereArgs: [entry.id],
+        );
+        return;
+      }
       if (future) {
         final old = p.slots.firstWhere((s) => s.id == entry.slotId);
+        final linked = await txn.rawQuery(
+          '''SELECT l.occurrence_id FROM strength_session_links l
+          JOIN activity_sessions a ON a.id=l.session_id
+          LEFT JOIN strength_occurrence_parts part ON part.id=l.occurrence_id
+          WHERE l.plan_id=? AND a.status!='discarded' AND
+          ((l.occurrence_id LIKE ? AND substr(l.occurrence_id,?)>=?) OR
+           (part.slot_id=? AND part.original_date>=?))''',
+          [
+            p.id,
+            '${old.id}:%',
+            old.id.length + 2,
+            dateKey(original),
+            old.id,
+            dateKey(original),
+          ],
+        );
+        if (linked.isNotEmpty) {
+          throw StateError(
+            'Future sessions already started; move only this occurrence',
+          );
+        }
+        final newId = UuidV4.generate();
+        final boundary = date.isBefore(original) ? date : original;
         // Split the recurrence instead of retroactively moving historical sessions.
         final slots = [
           for (final s in p.slots)
             s.id == old.id
                 ? s.copyWith(
                   until: DateTime(
-                    original.year,
-                    original.month,
-                    original.day - 1,
+                    boundary.year,
+                    boundary.month,
+                    boundary.day - 1,
                   ),
                 )
                 : s,
           ProgramSlot(
+            id: newId,
             weekday: date.weekday,
             label: old.label,
             workoutId: old.workoutId,
             kind: old.kind,
+            focus: old.focus,
             cycleWeek:
                 old.cycleWeek == 0
                     ? 0
@@ -449,6 +631,18 @@ class TrainingProgramRepository {
           where: 'plan_id=? AND slot_id=? AND original_date=?',
           whereArgs: [p.id, old.id, dateKey(original)],
         );
+        final shift = '${calendarDays(date, original)} days';
+        await txn.rawUpdate(
+          '''UPDATE plan_slot_overrides SET slot_id=?, original_date=date(original_date,?)
+          WHERE plan_id=? AND slot_id=? AND original_date>=?''',
+          [newId, shift, p.id, old.id, dateKey(original)],
+        );
+        await txn.rawUpdate(
+          '''UPDATE strength_occurrence_parts SET slot_id=?,
+          source_occurrence_id=? || ':' || date(original_date,?), original_date=date(original_date,?)
+          WHERE plan_id=? AND slot_id=? AND original_date>=?''',
+          [newId, newId, shift, shift, p.id, old.id, dateKey(original)],
+        );
       } else {
         await txn.insert('plan_slot_overrides', {
           'plan_id': p.id,
@@ -458,6 +652,359 @@ class TrainingProgramRepository {
         }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
     });
+  }
+
+  static Future<void> _requireUnstarted(DatabaseExecutor txn, String id) async {
+    final rows = await txn.rawQuery(
+      '''SELECT s.id FROM strength_session_links l JOIN activity_sessions s
+      ON s.id=l.session_id WHERE l.occurrence_id=? AND s.status!='discarded' ''',
+      [id],
+    );
+    if (rows.isNotEmpty) throw StateError('Started sessions cannot be changed');
+  }
+
+  /// Swaps dated placements atomically, never changes the recurring program.
+  Future<void> swapEntries(ProgramEntry a, ProgramEntry b) async {
+    if (a.planId != b.planId ||
+        a.id == b.id ||
+        a.completed ||
+        b.completed ||
+        a.sessionId != null ||
+        b.sessionId != null) {
+      throw StateError('Invalid swap');
+    }
+    await db.transaction((txn) async {
+      for (final pair in [(a, b.date), (b, a.date)]) {
+        final e = pair.$1, date = pair.$2;
+        await _requireUnstarted(txn, e.id);
+        if (e.cardio != null) {
+          final changed = await txn.update(
+            'cardio_occurrences',
+            {'local_date': dateKey(date), 'locked': 1},
+            where: "id=? AND status='planned' AND session_id IS NULL",
+            whereArgs: [e.id],
+          );
+          if (changed != 1) throw StateError('Occurrence already started');
+          await txn.insert(
+            'cardio_occurrence_origins',
+            {'occurrence_id': e.id, 'original_date': dateKey(e.date)},
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        } else if (e.splitSourceId != null) {
+          await txn.update(
+            'strength_occurrence_parts',
+            {'local_date': dateKey(date)},
+            where: 'id=?',
+            whereArgs: [e.id],
+          );
+        } else {
+          await txn.insert('plan_slot_overrides', {
+            'plan_id': e.planId,
+            'slot_id': e.slotId,
+            'original_date': dateKey(e.originalDate!),
+            'local_date': dateKey(date),
+          }, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+      }
+    });
+  }
+
+  Future<void> splitStrength(
+    ProgramEntry entry,
+    Set<String> firstSlotIds,
+    DateTime secondDate,
+  ) async {
+    if (entry.completed ||
+        entry.sessionId != null ||
+        entry.workoutId == null ||
+        entry.cardio != null ||
+        entry.splitSourceId != null) {
+      throw StateError('Invalid split');
+    }
+    final monday = DateTime(
+      entry.date.year,
+      entry.date.month,
+      entry.date.day - entry.date.weekday + 1,
+    );
+    if (calendarDays(secondDate, monday) < 0 ||
+        calendarDays(secondDate, monday) > 6 ||
+        dateKey(entry.date) == dateKey(secondDate)) {
+      throw StateError('Choose another day in this week');
+    }
+    await db.transaction((txn) async {
+      await _requireUnstarted(txn, entry.id);
+      final storedPlan = await txn.query(
+        'training_programs',
+        where: 'id=?',
+        whereArgs: [entry.planId],
+      );
+      if (storedPlan.isEmpty) throw StateError('Plan unavailable');
+      final plan = TrainingProgram.fromJson(
+        _json(storedPlan.single['program_json']),
+      );
+      if (dateKey(secondDate).compareTo(dateKey(plan.start)) < 0 ||
+          (plan.endDate != null &&
+              dateKey(secondDate).compareTo(dateKey(plan.endDate!)) > 0)) {
+        throw StateError('Date is outside plan');
+      }
+      if ((await txn.query(
+        'strength_occurrence_parts',
+        where: 'source_occurrence_id=?',
+        whereArgs: [entry.id],
+      )).isNotEmpty) {
+        throw StateError('Already split');
+      }
+      final setups = await txn.query(
+        'workout_variants_v2',
+        where: 'workout_id=?',
+        whereArgs: [entry.workoutId],
+        orderBy: 'is_default DESC,sort_order,id',
+        limit: 1,
+      );
+      if (setups.isEmpty) throw StateError('No workout setup');
+      final setup = setups.single;
+      final slots = await txn.rawQuery(
+        '''SELECT s.* FROM workout_slots_v2 s JOIN workout_variant_group_selections_v2 v
+        ON s.group_variant_id=v.group_variant_id WHERE v.workout_variant_id=? ORDER BY s.sort_order,s.id''',
+        [setup['id']],
+      );
+      final all = slots.map((s) => s['id'] as String).toSet();
+      if (firstSlotIds.isEmpty ||
+          firstSlotIds.length == all.length ||
+          !all.containsAll(firstSlotIds)) {
+        throw StateError('Both parts need exercises');
+      }
+      for (final part
+          in [
+            (firstSlotIds, entry.date),
+            (all.difference(firstSlotIds), secondDate),
+          ].indexed) {
+        final workoutId = await _cloneStrengthPart(
+          txn,
+          entry.workoutId!,
+          setup,
+          part.$2.$1,
+          part.$1 + 1,
+        );
+        await txn.insert('strength_occurrence_parts', {
+          'id': UuidV4.generate(),
+          'plan_id': entry.planId,
+          'source_occurrence_id': entry.id,
+          'slot_id': entry.slotId,
+          'original_date': dateKey(entry.originalDate!),
+          'local_date': dateKey(part.$2.$2),
+          'workout_id': workoutId,
+        });
+      }
+    });
+  }
+
+  static Future<String> _cloneStrengthPart(
+    DatabaseExecutor txn,
+    String sourceId,
+    Map<String, Object?> setup,
+    Set<String> slotIds,
+    int part,
+  ) async {
+    final original =
+        (await txn.query(
+          'workout_templates',
+          where: 'id=?',
+          whereArgs: [sourceId],
+        )).single;
+    final id = UuidV4.generate(),
+        setupId = UuidV4.generate(),
+        localId = DateTime.now().microsecondsSinceEpoch;
+    final name = '${original['name']} · $part';
+    await txn.insert('workout_templates', {
+      ...original,
+      'id': id,
+      'legacy_local_id': localId,
+      'name': name,
+    });
+    for (final tag in await txn.query(
+      'workout_tags',
+      where: 'workout_id=?',
+      whereArgs: [sourceId],
+    )) {
+      await txn.insert('workout_tags', {...tag, 'workout_id': id});
+    }
+    await txn.insert('workouts', {
+      'id': localId,
+      'name': name,
+      'description': original['description'] ?? '',
+      'goalCodes': jsonEncode([original['primary_goal_code'] ?? 'strength']),
+    });
+    await txn.insert('workout_variants_v2', {
+      ...setup,
+      'id': setupId,
+      'workout_id': id,
+      'is_default': 1,
+      'sort_order': 0,
+    });
+    final selections = await txn.query(
+      'workout_variant_group_selections_v2',
+      where: 'workout_variant_id=?',
+      whereArgs: [setup['id']],
+    );
+    var order = 0;
+    for (final selection in selections) {
+      final sourceSlots = await txn.query(
+        'workout_slots_v2',
+        where: 'group_variant_id=?',
+        whereArgs: [selection['group_variant_id']],
+        orderBy: 'sort_order,id',
+      );
+      final selected =
+          sourceSlots.where((s) => slotIds.contains(s['id'])).toList();
+      if (selected.isEmpty) continue;
+      final group =
+          (await txn.query(
+            'workout_groups_v2',
+            where: 'id=?',
+            whereArgs: [selection['workout_group_id']],
+          )).single;
+      final variant =
+          (await txn.query(
+            'workout_group_variants_v2',
+            where: 'id=?',
+            whereArgs: [selection['group_variant_id']],
+          )).single;
+      final groupId = UuidV4.generate(), variantId = UuidV4.generate();
+      await txn.insert('workout_groups_v2', {
+        ...group,
+        'id': groupId,
+        'workout_id': id,
+      });
+      await txn.insert('workout_group_variants_v2', {
+        ...variant,
+        'id': variantId,
+        'workout_group_id': groupId,
+        'owner_setup_id': setupId,
+      });
+      await txn.insert('workout_variant_group_selections_v2', {
+        'workout_variant_id': setupId,
+        'workout_group_id': groupId,
+        'group_variant_id': variantId,
+      });
+      for (final slot in selected) {
+        final slotId = UuidV4.generate();
+        await txn.insert('workout_slots_v2', {
+          ...slot,
+          'id': slotId,
+          'group_variant_id': variantId,
+        });
+        for (final p in await txn.query(
+          'workout_slot_prescriptions',
+          where: 'slot_id=?',
+          whereArgs: [slot['id']],
+        )) {
+          await txn.insert('workout_slot_prescriptions', {
+            ...p,
+            'slot_id': slotId,
+          });
+        }
+        for (final alt in await txn.query(
+          'workout_slot_alternatives_v2',
+          where: 'workout_slot_id=?',
+          whereArgs: [slot['id']],
+        )) {
+          await txn.insert('workout_slot_alternatives_v2', {
+            ...alt,
+            'id': UuidV4.generate(),
+            'workout_slot_id': slotId,
+          });
+        }
+        final exercise =
+            (await txn.query(
+              'exercise_items',
+              where: 'id=?',
+              whereArgs: [slot['exercise_id']],
+            )).single;
+        await txn.insert('exercises_in_workouts', {
+          'id': localId + ++order,
+          'workoutId': localId,
+          'exerciseId': exercise['legacy_local_id'],
+          'sort': order,
+        });
+      }
+    }
+    return id;
+  }
+
+  Future<void> undoSplit(String sourceId) async => db.transaction((txn) async {
+    final parts = await txn.query(
+      'strength_occurrence_parts',
+      where: 'source_occurrence_id=?',
+      whereArgs: [sourceId],
+    );
+    for (final part in parts) {
+      await _requireUnstarted(txn, part['id'] as String);
+    }
+    await txn.delete(
+      'strength_occurrence_parts',
+      where: 'source_occurrence_id=?',
+      whereArgs: [sourceId],
+    );
+    for (final part in parts) {
+      final w = await txn.query(
+        'workout_templates',
+        where: 'id=?',
+        whereArgs: [part['workout_id']],
+      );
+      if (w.isEmpty) continue;
+      await txn.delete(
+        'exercises_in_workouts',
+        where: 'workoutId=?',
+        whereArgs: [w.single['legacy_local_id']],
+      );
+      await txn.delete(
+        'workouts',
+        where: 'id=?',
+        whereArgs: [w.single['legacy_local_id']],
+      );
+      await txn.delete(
+        'workout_templates',
+        where: 'id=?',
+        whereArgs: [part['workout_id']],
+      );
+    }
+  });
+
+  Future<List<ProgramEntry>> weekEntries(
+    TrainingProgram? p,
+    DateTime from,
+    DateTime to,
+  ) async {
+    final result = p == null ? <ProgramEntry>[] : await entries(p, from, to);
+    final rows = await db.query(
+      'activity_sessions',
+      where: "status='completed' AND started_at_utc>=? AND started_at_utc<?",
+      whereArgs: [from.millisecondsSinceEpoch, to.millisecondsSinceEpoch],
+    );
+    for (final row in rows) {
+      if (result.any((e) => e.sessionId == row['id'])) continue;
+      result.add(
+        ProgramEntry(
+          id: row['id'] as String,
+          sessionId: row['id'] as String,
+          planId: p?.id ?? '',
+          date: DateTime.fromMillisecondsSinceEpoch(
+            row['started_at_utc'] as int,
+          ),
+          name: row['name_snapshot'] as String,
+          kind:
+              row['activity_type'] == 'strength'
+                  ? 'strength'
+                  : row['activity_type'] == 'mobility'
+                  ? 'mobility'
+                  : 'running',
+          workoutId: row['workout_id'] as String?,
+          completed: true,
+        ),
+      );
+    }
+    return result;
   }
 
   Future<AthleteRunningProfile> withRecentLoad(

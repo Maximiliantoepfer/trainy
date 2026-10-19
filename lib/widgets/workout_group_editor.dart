@@ -20,6 +20,7 @@ class WorkoutGroupEditor extends StatefulWidget {
     required this.onAdd,
     required this.scrollController,
     this.busy = false,
+    this.onEditPrescription,
   });
   final WorkoutSetup setup;
   final List<Exercise> exercises;
@@ -32,6 +33,7 @@ class WorkoutGroupEditor extends StatefulWidget {
   final ValueChanged<String?> onAdd;
   final ScrollController scrollController;
   final bool busy;
+  final ValueChanged<WorkoutSetupSlot>? onEditPrescription;
   @override
   State<WorkoutGroupEditor> createState() => _WorkoutGroupEditorState();
 }
@@ -386,8 +388,12 @@ class _WorkoutGroupEditorState extends State<WorkoutGroupEditor> {
           contentPadding: const EdgeInsets.only(left: 12, right: 4),
           onLongPress: widget.busy ? null : () => widget.onToggle(slot.id),
           onTap:
-              widget.busy || widget.selectedIds.isEmpty
+              widget.busy
                   ? null
+                  : widget.selectedIds.isEmpty
+                  ? (widget.onEditPrescription == null
+                      ? null
+                      : () => widget.onEditPrescription!(slot))
                   : () => widget.onToggle(slot.id),
           leading:
               widget.selectedIds.isEmpty
@@ -399,7 +405,14 @@ class _WorkoutGroupEditorState extends State<WorkoutGroupEditor> {
                   ),
           title: Text(title),
           subtitle:
-              slot.isOptional ? Text(context.l10n.optionalExercise) : null,
+              slot.isOptional || slot.prescription != null
+                  ? Text(
+                    [
+                      if (slot.prescription != null) slot.prescription!.label,
+                      if (slot.isOptional) context.l10n.optionalExercise,
+                    ].join(' · '),
+                  )
+                  : null,
           trailing: _handle(
             _EditorDrag(widget.setup.id, slotId: slot.id),
             context.l10n.dragExercise,

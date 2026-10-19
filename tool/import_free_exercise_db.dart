@@ -17,7 +17,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
-const _catalogVersion = 2;
+const _catalogVersion = 3;
 // Verified against the pinned source commit (2026-09-12).  The former plan
 // stated 873, but the actual upstream JSON contains 876 records.
 const _expectedExerciseCount = 876;

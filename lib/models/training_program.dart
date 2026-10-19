@@ -40,6 +40,7 @@ class ProgramSlot {
     this.cycleWeek = 0,
     this.from,
     this.until,
+    this.focus = const [],
   }) : id = id ?? UuidV4.generate();
   final String id, label, kind;
   final String? workoutId;
@@ -48,21 +49,29 @@ class ProgramSlot {
   /// 0 = every week, 1/2 = alternating weeks, anchored to the plan's Monday.
   final int cycleWeek;
   final DateTime? from, until;
+  final List<String> focus;
+  Set<String> get effectiveFocus =>
+      focus.isEmpty ? ProgramSplits.focusFor(label) : focus.toSet();
+  bool get legHeavy =>
+      effectiveFocus.any({'legs', 'quads', 'glutes', 'calves'}.contains);
   ProgramSlot copyWith({
     int? weekday,
+    int? cycleWeek,
     String? label,
     String? workoutId,
     bool clearWorkout = false,
     DateTime? until,
+    List<String>? focus,
   }) => ProgramSlot(
     id: id,
     weekday: weekday ?? this.weekday,
     label: label ?? this.label,
     workoutId: clearWorkout ? null : workoutId ?? this.workoutId,
     kind: kind,
-    cycleWeek: cycleWeek,
+    cycleWeek: cycleWeek ?? this.cycleWeek,
     from: from,
     until: until ?? this.until,
+    focus: focus ?? this.focus,
   );
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -73,6 +82,7 @@ class ProgramSlot {
     'cycleWeek': cycleWeek,
     'from': from?.toIso8601String(),
     'until': until?.toIso8601String(),
+    'focus': focus,
   };
   factory ProgramSlot.fromJson(Map<String, dynamic> j) => ProgramSlot(
     id: j['id'] as String,
@@ -83,6 +93,7 @@ class ProgramSlot {
     cycleWeek: j['cycleWeek'] as int? ?? 0,
     from: DateTime.tryParse(j['from'] as String? ?? ''),
     until: DateTime.tryParse(j['until'] as String? ?? ''),
+    focus: List<String>.from(j['focus'] as List? ?? []),
   );
 }
 
@@ -100,10 +111,14 @@ class TrainingProgram {
     this.slots = const [],
     this.split = 'fullBody',
     this.status = 'draft',
+    this.endDate,
+    this.availableDays = const [1, 2, 3, 4, 5, 6, 7],
   }) : id = id ?? UuidV4.generate();
   final String id, name, strengthGoal, runningGoal, split, status;
   final DateTime start;
   final DateTime? targetDate;
+  final DateTime? endDate;
+  final List<int> availableDays;
   final double targetMeters;
   final double? targetSeconds;
   final List<int> runningDays;
@@ -129,6 +144,9 @@ class TrainingProgram {
     bool clearTargetTime = false,
     bool clearTargetDate = false,
     String? status,
+    DateTime? endDate,
+    bool clearEndDate = false,
+    List<int>? availableDays,
   }) => TrainingProgram(
     id: id,
     name: name ?? this.name,
@@ -142,9 +160,13 @@ class TrainingProgram {
     targetSeconds: clearTargetTime ? null : targetSeconds ?? this.targetSeconds,
     targetDate: clearTargetDate ? null : targetDate ?? this.targetDate,
     status: status ?? this.status,
+    endDate: clearEndDate ? null : endDate ?? this.endDate,
+    availableDays: availableDays ?? this.availableDays,
   );
   void validate() {
     if (name.trim().isEmpty ||
+        (endDate != null && dateKey(endDate!).compareTo(dateKey(start)) < 0) ||
+        availableDays.any((d) => d < 1 || d > 7) ||
         days.isEmpty ||
         days.any((d) => d < 1 || d > 7) ||
         runningDays.toSet().length != runningDays.length ||
@@ -175,6 +197,8 @@ class TrainingProgram {
     'slots': slots.map((s) => s.toJson()).toList(),
     'split': split,
     'status': status,
+    'endDate': endDate == null ? null : dateKey(endDate!),
+    'availableDays': availableDays,
   };
   factory TrainingProgram.fromJson(Map<String, dynamic> j) => TrainingProgram(
     id: j['id'] as String,
@@ -192,11 +216,35 @@ class TrainingProgram {
     ],
     split: j['split'] as String? ?? 'fullBody',
     status: j['status'] as String? ?? 'draft',
+    endDate: DateTime.tryParse(j['endDate'] as String? ?? ''),
+    availableDays: List<int>.from(
+      j['availableDays'] as List? ?? [1, 2, 3, 4, 5, 6, 7],
+    ),
   );
 }
 
 String dateKey(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+int datedPlanStreak(List<ProgramEntry> entries, DateTime now) {
+  final days = <String, List<ProgramEntry>>{};
+  final today = dateKey(now);
+  for (final entry in entries) {
+    final day = dateKey(entry.date);
+    if (day.compareTo(today) <= 0) days.putIfAbsent(day, () => []).add(entry);
+  }
+  final keys = days.keys.toList()..sort((a, b) => b.compareTo(a));
+  var streak = 0;
+  for (final key in keys) {
+    if (days[key]!.every((e) => e.completed)) {
+      streak++;
+    } else if (key != today) {
+      break;
+    }
+  }
+  return streak;
+}
+
 int calendarDays(DateTime a, DateTime b) =>
     DateTime.utc(
       a.year,
@@ -216,9 +264,12 @@ class ProgramEntry {
     this.originalDate,
     this.cardio,
     this.completed = false,
+    this.sessionId,
+    this.splitSourceId,
   });
   final String id, planId, name, kind;
   final String? workoutId, slotId;
+  final String? sessionId, splitSourceId;
   final DateTime date;
   final DateTime? originalDate;
   final ScheduledCardioWorkout? cardio;
@@ -226,7 +277,79 @@ class ProgramEntry {
   bool get needsWorkout => cardio == null && workoutId == null;
 }
 
+/// Checks placements without silently changing the user's chosen dates.
+String? planPlacementWarning(
+  TrainingProgram plan,
+  ProgramEntry entry,
+  DateTime date,
+  Iterable<ProgramEntry> neighbors, {
+  Set<String> excluded = const {},
+}) {
+  final others = neighbors.where(
+    (e) => e.id != entry.id && !excluded.contains(e.id),
+  );
+  if (others.any((e) => dateKey(e.date) == dateKey(date))) return 'doubleDay';
+  bool demanding(ProgramEntry e) =>
+      e.cardio?.workout.templateCode == 'longRun' ||
+      (e.cardio?.workout.steps.any(
+            (s) =>
+                ![
+                  CardioIntensity.easy,
+                  CardioIntensity.recovery,
+                ].contains(s.intensity),
+          ) ??
+          false);
+  bool legs(ProgramEntry e) =>
+      plan.slots.any((s) => s.id == e.slotId && s.legHeavy);
+  if (others.any(
+    (e) =>
+        calendarDays(e.date, date).abs() <= 1 &&
+        ((legs(entry) && demanding(e)) || (demanding(entry) && legs(e))),
+  )) {
+    return 'conflictHint';
+  }
+  return null;
+}
+
 abstract final class ProgramSplits {
+  static Set<String> focusFor(String label) => switch (label) {
+    'fullBody' => {'push', 'pull', 'legs', 'core'},
+    'upper' => {'push', 'pull'},
+    'lower' || 'legs' => {'legs'},
+    'pushCore' => {'push', 'core'},
+    'pullLegs' => {'pull', 'legs'},
+    'push' || 'pull' || 'core' => {label},
+    _ => {},
+  };
+  static List<int> suggestedDays(
+    Iterable<int> available,
+    int count, {
+    Set<int> avoid = const {},
+  }) {
+    final days = available.toSet().toList()..sort();
+    count = count.clamp(0, days.length);
+    var best = <int>[], bestScore = double.infinity;
+    for (var mask = 0; mask < 1 << days.length; mask++) {
+      final selected = [
+        for (var i = 0; i < days.length; i++)
+          if (mask & (1 << i) != 0) days[i],
+      ];
+      if (selected.length != count) continue;
+      var score = selected.where(avoid.contains).length * 100.0;
+      for (var i = 0; i < selected.length; i++) {
+        for (var j = i + 1; j < selected.length; j++) {
+          final d = (selected[i] - selected[j]).abs();
+          if (d == 1 || d == 6) score += 10;
+        }
+      }
+      if (score < bestScore) {
+        best = selected;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
   /// Small deterministic search for the initial mixed-week suggestion. It never
   /// moves a user's existing choices. Hard runs/long runs get priority for rest.
   static List<int> suggestedRunningDays(List<int> available) {
@@ -284,6 +407,8 @@ abstract final class ProgramSplits {
     final labels = switch (split) {
       'upperLower' => ['upper', 'lower'],
       'pushPullLegs' => ['push', 'pull', 'legs'],
+      'mixedSplit' => ['pushCore', 'pullLegs', 'fullBody'],
+      'custom' => ['custom'],
       _ => ['fullBody'],
     };
     final alternating = sorted.length == 5 && split == 'upperLower';
@@ -294,10 +419,13 @@ abstract final class ProgramSplits {
             weekday: sorted[i],
             label: labels[(week * sorted.length + i) % labels.length],
             cycleWeek: alternating ? week + 1 : 0,
+            focus:
+                focusFor(
+                  labels[(week * sorted.length + i) % labels.length],
+                ).toList(),
           ),
     ];
   }
 
-  static bool legHeavy(String label) =>
-      ['fullBody', 'lower', 'legs'].contains(label);
+  static bool legHeavy(String label) => focusFor(label).contains('legs');
 }

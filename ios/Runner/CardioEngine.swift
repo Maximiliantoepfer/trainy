@@ -88,11 +88,12 @@ final class CardioEngine {
                 "longitude": fix.coordinate.longitude, "accuracy": fix.horizontalAccuracy, "speed": measured, "source": "phone_gps"]
     }
     private func coach(_ now: Double) {
-        guard number("stepSeconds") >= 20, state["gps"] as? String == "gpsReady", current["primaryTarget"] as? String == "pace",
-              let low = current["minSpeed"] as? Double, let high = current["maxSpeed"] as? Double, low > 0, high > 0 else { return }
+        guard number("stepSeconds") >= 20, state["gps"] as? String == "gpsReady", current["primaryTarget"] as? String == "pace" else { return }
+        let low = current["minSpeed"] as? Double, high = current["maxSpeed"] as? Double
         let speed = number("speed")
         if speed <= 0.35 { outsideSince = nil; return }
-        let fast = 1000 / speed < 1000 / high - 20, slow = 1000 / speed > 1000 / low + 20
+        let fast = high.map { $0 > 0 && 1000 / speed < 1000 / $0 - 20 } ?? false
+        let slow = low.map { $0 > 0 && 1000 / speed > 1000 / $0 + 20 } ?? false
         if !fast && !slow { outsideSince = nil; return }
         if outsideSince == nil { outsideSince = now }
         if now - outsideSince! >= 10 && now - lastCorrection >= 45 {

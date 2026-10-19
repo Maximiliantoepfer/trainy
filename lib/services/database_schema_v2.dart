@@ -12,8 +12,8 @@ import 'training_program_schema.dart';
 /// here so the application remains usable during that transition.
 abstract final class DatabaseSchemaV2 {
   static const int dataEpoch = 2;
-  static const int schemaVersion = 8;
-  static const String schemaRevision = '2026-10-19.8';
+  static const int schemaVersion = 9;
+  static const String schemaRevision = '2026-10-20.9';
 
   static const userDataTables = <String>[
     ...TrainingProgramSchema.tables,
@@ -171,6 +171,7 @@ abstract final class DatabaseSchemaV2 {
     }
     if (oldVersion < 7) await CardioSchema.create(db);
     if (oldVersion < 8) await TrainingProgramSchema.migrate(db);
+    if (oldVersion < 9) await TrainingProgramSchema.create(db);
     await _writeCurrentMetadata(db);
   }
 

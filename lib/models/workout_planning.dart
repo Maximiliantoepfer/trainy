@@ -53,6 +53,7 @@ class WorkoutSetupSlot {
     required this.sortOrder,
     this.movementFamilyId,
     this.alternativeLocalExerciseIds = const [],
+    this.prescription,
   });
 
   final String id;
@@ -62,6 +63,28 @@ class WorkoutSetupSlot {
   final int sortOrder;
   final String? movementFamilyId;
   final List<int> alternativeLocalExerciseIds;
+  final StrengthPrescription? prescription;
+}
+
+@immutable
+class StrengthPrescription {
+  const StrengthPrescription({
+    required this.sets,
+    this.minReps = 8,
+    this.maxReps = 12,
+  });
+  final int sets, minReps, maxReps;
+  String get label => '$sets × $minReps–$maxReps';
+  Map<String, String> get prefill => {'sets': '$sets', 'reps': '$minReps'};
+  void validate() {
+    if (sets < 1 ||
+        sets > 50 ||
+        minReps < 1 ||
+        maxReps < minReps ||
+        maxReps > 200) {
+      throw const FormatException('Invalid prescription');
+    }
+  }
 }
 
 @immutable
@@ -158,6 +181,8 @@ class WorkoutEditorDraft {
     this.profileId,
     this.exerciseIds = const [],
     this.creationId,
+    this.prescriptions = const {},
+    this.optionalExerciseIds = const {},
   });
 
   final String name;
@@ -167,6 +192,8 @@ class WorkoutEditorDraft {
   final String? profileId;
   final List<int> exerciseIds;
   final String? creationId;
+  final Map<int, StrengthPrescription> prescriptions;
+  final Set<int> optionalExerciseIds;
 }
 
 enum SetupContents { copy, empty }

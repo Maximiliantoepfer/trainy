@@ -13,7 +13,7 @@
     <uses-permission android:name="android.permission.health.READ_DISTANCE" />
     <uses-permission android:name="android.permission.health.WRITE_DISTANCE" />
     <application
-        android:label="trainy"
+        android:label="${trainyLabel}"
         android:allowBackup="false"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">

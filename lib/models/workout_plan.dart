@@ -158,6 +158,12 @@ class WorkoutSessionPlanGroup {
                 'exerciseId': slot.exerciseId,
                 'optional': slot.isOptional,
                 'alternatives': slot.alternativeExerciseIds,
+                if (slot.prescription != null)
+                  'prescription': {
+                    'sets': slot.prescription!.sets,
+                    'minReps': slot.prescription!.minReps,
+                    'maxReps': slot.prescription!.maxReps,
+                  },
               },
           ],
         },
@@ -182,6 +188,14 @@ class WorkoutSessionPlanGroup {
                     id: slot['id'] as int,
                     exerciseId: slot['exerciseId'] as int,
                     isOptional: slot['optional'] as bool,
+                    prescription:
+                        slot['prescription'] == null
+                            ? null
+                            : StrengthPrescription(
+                              sets: slot['prescription']['sets'] as int,
+                              minReps: slot['prescription']['minReps'] as int,
+                              maxReps: slot['prescription']['maxReps'] as int,
+                            ),
                     alternativeExerciseIds: List<int>.from(
                       slot['alternatives'] as List? ?? [],
                     ),
@@ -210,10 +224,12 @@ class WorkoutSessionPlanSlot {
     required this.exerciseId,
     required this.isOptional,
     this.alternativeExerciseIds = const [],
+    this.prescription,
   });
 
   final int id;
   final int exerciseId;
   final bool isOptional;
   final List<int> alternativeExerciseIds;
+  final StrengthPrescription? prescription;
 }

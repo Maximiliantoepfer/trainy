@@ -31,6 +31,8 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
   bool? _canFive;
   int? _frequency;
   DateTime? _date;
+  DateTime? _bestDate;
+  bool _bestOpen = false;
   bool _maximal = false, _paceMode = false, _busy = false, _ready = false;
   bool _pulseOpen = false;
   double? _exactSeconds, _exactDistance;
@@ -70,21 +72,31 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
         'continuous': p.continuousMinutes == 0 ? '' : '${p.continuousMinutes}',
         'restPulse': p.restingHeartRate?.toString() ?? '',
         'maxPulse': p.maximumHeartRate?.toString() ?? '',
+        'bestDistance': NumberFormat(
+          '0.####',
+          locale,
+        ).format(p.bestMeters / unit),
+        'bestTime':
+            p.bestSeconds == null ? '' : CardioUnits.clock(p.bestSeconds!),
       };
       _initialText.addAll(values);
       _canonicalMeters.addAll({
         'distance': p.referenceMeters,
         'longest': p.longestMeters,
+        'bestDistance': p.bestMeters,
       });
       _canonicalText.addAll({
         'distance': values['distance']!,
         'longest': values['longest']!,
+        'bestDistance': values['bestDistance']!,
       });
       _level = p.level;
       _canFive = p.canRunFiveKm;
       _frequency = p.recentRunsPerWeek;
       _date = p.referenceDate;
       _maximal = p.isMaximal;
+      _bestDate = p.bestDate;
+      _bestOpen = p.bestSeconds != null;
       final draft = await _repo.draft('running-profile');
       if (!mounted) return;
       if (draft != null) {
@@ -97,6 +109,8 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
         _frequency = draft['frequency'] as int?;
         _date = DateTime.tryParse(draft['date'] as String? ?? '');
         _maximal = draft['maximal'] == true;
+        _bestOpen = draft['bestOpen'] == true;
+        _bestDate = DateTime.tryParse(draft['bestDate'] as String? ?? '');
         _step = (draft['step'] as int? ?? 0).clamp(0, 3);
         _paceMode = draft['paceMode'] == true;
         final oldUnits = DistanceSystem.values.byName(
@@ -104,7 +118,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
         );
         if (oldUnits != p.units) {
           final factor = CardioUnits.distanceUnit(oldUnits) / unit;
-          for (final key in ['distance', 'longest']) {
+          for (final key in ['distance', 'longest', 'bestDistance']) {
             final n = double.tryParse(values[key]!.replaceAll(',', '.'));
             if (n != null && n.isFinite) {
               values[key] = NumberFormat(
@@ -118,7 +132,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
             if (n != null) values['time'] = CardioUnits.clock(n / factor);
           }
         }
-        for (final key in ['distance', 'longest']) {
+        for (final key in ['distance', 'longest', 'bestDistance']) {
           final exact = (draft['canonicalMeters'] as Map?)?[key] as num?;
           if (exact != null && exact.isFinite) {
             _canonicalMeters[key] = exact.toDouble();
@@ -150,11 +164,14 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
       'frequency': _frequency,
       'date': _date?.toIso8601String(),
       'maximal': _maximal,
+      'bestOpen': _bestOpen,
+      'bestDate': _bestDate?.toIso8601String(),
       'paceMode': _paceMode,
       'units': _original.units.name,
       'canonicalMeters': {
         'distance': _distance.isFinite ? _distance : null,
         'longest': _longest.isFinite ? _longest : null,
+        'bestDistance': _bestDistance,
       },
     };
     _writes = _writes
@@ -171,6 +188,15 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
 
   double? _number(String key) =>
       double.tryParse(_fields[key]!.text.trim().replaceAll(',', '.'));
+  double get _bestDistance =>
+      _fields['bestDistance']!.text == _canonicalText['bestDistance']
+          ? _canonicalMeters['bestDistance']!
+          : (_number('bestDistance') ?? 0) *
+              CardioUnits.distanceUnit(_original.units);
+  double? get _bestSeconds =>
+      _fields['bestTime']!.text == _initialText['bestTime']
+          ? _original.bestSeconds
+          : CardioUnits.parseDuration(_fields['bestTime']!.text);
   double get _distance =>
       _fields['distance']!.text == _canonicalText['distance']
           ? _canonicalMeters['distance']!
@@ -199,12 +225,20 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
 
   String? _validate(String key, String? text) {
     final empty = (text ?? '').trim().isEmpty;
+    if (key == 'bestTime') {
+      return !_bestOpen || _maximal
+          ? null
+          : _bestSeconds == null
+          ? context.plan('durationError')
+          : null;
+    }
+    if (key == 'bestDistance' && (!_bestOpen || _maximal)) return null;
     if (key == 'time') {
       return empty && !_maximal
           ? null
           : (_seconds == null ? context.plan('durationError') : null);
     }
-    if (empty && key != 'distance') return null;
+    if (empty && !['distance', 'bestDistance'].contains(key)) return null;
     final n = _number(key);
     if (n == null || !n.isFinite) return context.plan('numberError');
     if (key == 'restPulse' || key == 'maxPulse') {
@@ -243,7 +277,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
                 controller: _fields[key],
                 focusNode: _focus[key],
                 keyboardType:
-                    key == 'time'
+                    key == 'time' || key == 'bestTime'
                         ? TextInputType.datetime
                         : const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
@@ -264,7 +298,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
     if (_step == 3) {
       for (final group
           in <int, List<String>>{
-            1: ['distance', 'time'],
+            1: ['distance', 'time', 'bestDistance', 'bestTime'],
             2: [_canFive == true ? 'longest' : 'continuous'],
           }.entries) {
         if (group.value.any((k) => _validate(k, _fields[k]!.text) != null) ||
@@ -278,7 +312,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
     }
     final keys =
         _step == 1
-            ? ['distance', 'time']
+            ? ['distance', 'time', 'bestDistance', 'bestTime']
             : _step == 2
             ? [_canFive == true ? 'longest' : 'continuous']
             : _step == 3
@@ -306,6 +340,10 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
       setState(() => _error = 'dateRequired');
       return;
     }
+    if (_step == 1 && !_maximal && _bestOpen && _bestDate == null) {
+      setState(() => _error = 'dateRequired');
+      return;
+    }
     if (_step < 3) {
       _change(() {
         _step++;
@@ -321,6 +359,10 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
         'referenceSeconds': _seconds,
         'referenceDate': _maximal ? _date?.toIso8601String() : null,
         'isMaximal': _maximal,
+        'bestMeters': _bestDistance,
+        'bestSeconds': _maximal || !_bestOpen ? null : _bestSeconds,
+        'bestDate':
+            _maximal || !_bestOpen ? null : _bestDate?.toIso8601String(),
         'level': _level?.name,
         'canRunFiveKm': _canFive,
         'recentRunsPerWeek': _frequency,
@@ -336,6 +378,31 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
       await widget.provider.repository.saveProfile(p);
       await _repo.clearDraft('running-profile');
       await widget.provider.load();
+      final updates = await widget.provider.repository.targetAdjustment(p);
+      if (updates.isNotEmpty && mounted) {
+        final apply = await showDialog<bool>(
+          context: context,
+          builder:
+              (c) => AlertDialog(
+                title: Text(c.plan('updateTargets')),
+                content: Text(c.plan('updateTargetsInfo')),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(c, false),
+                    child: Text(c.plan('later')),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(c, true),
+                    child: Text(c.plan('save')),
+                  ),
+                ],
+              ),
+        );
+        if (apply == true) {
+          await widget.provider.repository.applyAdjustment(updates);
+          await widget.provider.load();
+        }
+      }
       if (mounted) Navigator.pop(context, true);
     } catch (_) {
       if (mounted) setState(() => _error = 'savingError');
@@ -367,6 +434,25 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
         appBar: AppBar(
           title: Text(context.plan('runningProfile')),
           actions: [
+            IconButton(
+              tooltip: context.plan('profileWhy'),
+              icon: const Icon(Icons.info_outline),
+              onPressed:
+                  () => showDialog<void>(
+                    context: context,
+                    builder:
+                        (c) => AlertDialog(
+                          title: Text(c.plan('profileWhy')),
+                          content: Text(c.plan('profileExplanation')),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(c),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                  ),
+            ),
             TextButton(
               onPressed: _busy ? null : () => Navigator.pop(context),
               child: Text(context.plan('later')),
@@ -488,7 +574,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
                                   ? (_original.units == DistanceSystem.metric
                                       ? 'min/km'
                                       : 'min/mi')
-                                  : null,
+                                  : 'min',
                           hint: context.plan('durationHint'),
                         ),
                         Text(
@@ -505,6 +591,57 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
                             ),
                             onChanged: (v) => _change(() => _maximal = v!),
                           ),
+                        if (!_maximal) ...[
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(context.plan('bestTime')),
+                            value: _bestOpen,
+                            onChanged: (v) => _change(() => _bestOpen = v),
+                          ),
+                          if (_bestOpen) ...[
+                            _field(
+                              'bestDistance',
+                              'distance',
+                              suffix:
+                                  _original.units == DistanceSystem.metric
+                                      ? 'km'
+                                      : 'mi',
+                            ),
+                            _field(
+                              'bestTime',
+                              'timeQuestion',
+                              suffix: 'min',
+                              hint: context.plan('durationHint'),
+                            ),
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(context.plan('bestDate')),
+                              subtitle: Text(
+                                _bestDate == null
+                                    ? '—'
+                                    : DateFormat.yMMMd(
+                                      Localizations.localeOf(
+                                        context,
+                                      ).toString(),
+                                    ).format(_bestDate!),
+                              ),
+                              trailing: const Icon(
+                                Icons.calendar_today_outlined,
+                              ),
+                              onTap: () async {
+                                final d = await showDatePicker(
+                                  context: context,
+                                  initialDate: _bestDate ?? DateTime.now(),
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (d != null && mounted) {
+                                  _change(() => _bestDate = d);
+                                }
+                              },
+                            ),
+                          ],
+                        ],
                         if (_maximal) ...[
                           ListTile(
                             contentPadding: EdgeInsets.zero,

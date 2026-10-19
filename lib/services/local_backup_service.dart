@@ -567,6 +567,7 @@ class LocalBackupService {
   static bool isCompatibleSchema(Object? version, Object? revision) =>
       (version == DatabaseSchemaV2.schemaVersion &&
           revision == DatabaseSchemaV2.schemaRevision) ||
+      (version == 8 && revision == '2026-10-19.8') ||
       (version == 7 && revision == '2026-10-19.7') ||
       (version == 6 && revision == '2026-10-19.6') ||
       (version == 5 && revision == '2026-10-16.5') ||
