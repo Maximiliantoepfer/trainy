@@ -122,16 +122,44 @@ Automatischer Abschlussstand am 19.10.2026: `flutter gen-l10n`,
 
 Eine Debug-APK wird unter `build/app/outputs/flutter-apk/app-debug.apk` erzeugt.
 Am 19.10.2026 war nur `emulator-5554` angeschlossen, kein physisches Gerät.
-Das Kopieren der bestehenden Emulator-Appdaten vor dem Update wurde durch die
-automatische Sicherheitsprüfung blockiert; eine ausdrückliche Freigabe für diese
-lokale Sicherung wurde angefragt. Es wurden weder Daten kopiert/gelöscht noch
-die bestehende Emulatorinstallation ersetzt. Deshalb ist die manuelle v7-Abnahme
-auf Emulator und Gerät noch offen; Widgettests ersetzen diese nicht.
+Nach ausdrücklicher Freigabe wurden die Appdaten des AVD **Pixel_9_Pro** bei
+beendeter App lokal gesichert: `databases`, `shared_prefs` und `app_flutter`.
+Das lesbare TAR-Archiv liegt ausschließlich unter
+`.tmp/v7-qa/before-update-20261019.tar` (69.931.008 Bytes, Git-ignoriert).
+Es wurde weder eingecheckt noch hochgeladen. SHA-256:
+`DD9D8A8E69F7A215FECC860FD3424DAD6D7385365B8D19CA3776743A7D6397F7`.
 
-Nach Freigabe beziehungsweise eigenem Update prüfen:
+Das Update über `tool/verify_android_launch.ps1 -SkipBuild` mit `adb install -r`
+war erfolgreich; der Android-Starttest bestand. Die Datenbank verwendet Schema 6,
+`integrity_check` meldet `ok`, `foreign_key_check` keine Verletzungen.
+Vorhandene Spalten und Zeilen von **54 Datentabellen** wurden unmittelbar nach der
+Migration und erneut nach dem manuellen Durchlauf bidirektional verglichen:
+keine Unterschiede. `app_meta` und neue Schemafelder sind von diesem Vergleich
+ausgenommen. Bestehende Workouts, Profile und Trainingsdaten blieben erhalten.
+
+Manuell auf dem Emulator geprüft:
+
+- Optionalen Einrichtungshinweis und Home-Gym-/Gym-Vorschau geöffnet, ohne
+  Vorlagen zu speichern oder vorhandenes Equipment zu überschreiben. Der
+  einmalige Hinweis wurde dabei erwartungsgemäß als gesehen vermerkt.
+- Wizard: Workout-Name ab Schritt 2, vorhandenes Gym-Profil, zwei ausgewählte
+  Katalogübungen mit Bildern, unterer Übernehmen-Button und sofortiges Umsortieren
+  am Ziehgriff. Der ungespeicherte Testentwurf wurde anschließend verworfen.
+- Vollständige lokale Übungsauswahl auch ohne aktive Netzwerkverbindung geöffnet;
+  WLAN und mobile Daten danach auf ihren ursprünglichen aktiven Zustand gesetzt.
+- Dasselbe vorhandene Gym-Profil einschließlich seiner 18 ausgewählten
+  Equipmentwerte in den Einstellungen sichtbar; kompakte leere Wochenplanzeilen
+  visuell geprüft. Die App bleibt anschließend auf der Startseite geöffnet.
+- Im Log des aktuellen App-Prozesses keine Signaturen für Absturz, unbehandelte
+  Exception, Layout-Overflow oder SQLite-Fehler gefunden.
+
+Es wurden keine Testprofile, Übungen, Workouts oder Sessions dauerhaft angelegt.
+Noch offen bleiben die folgenden vollständigen, schreibenden Abläufe auf Android
+sowie die Abnahme auf einem physischen Gerät; automatisierte Tests ersetzen diese
+manuellen Prüfungen nicht:
 
 1. Optionalen Bestandsnutzer-Hinweis oder frisches Onboarding, Profilvorlagen und
-   bevorzugtes Profil; keine Pflicht-Cloud-Anmeldung.
+   bevorzugtes Profil vollständig speichern; keine Pflicht-Cloud-Anmeldung.
 2. Workout benennen, Profil auswählen, eigene/Katalogübungen mischen, sortieren,
    speichern und erneut öffnen; Name und Reihenfolge müssen unverändert sein.
 3. Zweites Profil mit Kopie und danach Änderungen nur darin; vorhandenes Profil
