@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -25,7 +27,6 @@ class CloudSyncProvider extends ChangeNotifier {
   StreamSubscription<User?>? _authSubscription;
 
   static const int _autoThresholdMillis = 24 * 60 * 60 * 1000;
-  static const int _maximumBackupBytes = 96 * 1024 * 1024;
 
   bool get syncEnabled => _syncEnabled;
   bool get isBusy => _isBusy;
@@ -89,16 +90,20 @@ class CloudSyncProvider extends ChangeNotifier {
   Future<void> backupNow() async {
     if (!isSignedIn) throw StateError('Not signed in.');
     await _withBusy(() async {
-      final archive = await LocalBackupService.instance.exportZip();
+      final archive = await LocalBackupService.instance.exportZipFile();
       final uid = user!.uid;
       final root = FirebaseStorage.instance.ref('users/$uid/backups/v2');
       final metadata = SettableMetadata(
         contentType: 'application/zip',
-        customMetadata: const {'dataEpoch': '2', 'formatVersion': '2'},
+        customMetadata: const {'dataEpoch': '2', 'formatVersion': '3'},
       );
-      await root.child('latest.zip').putData(archive, metadata);
       final timestamp = DateTime.now().toUtc().millisecondsSinceEpoch;
-      await root.child('$timestamp.zip').putData(archive, metadata);
+      try {
+        await root.child('$timestamp.zip').putFile(archive, metadata);
+        await root.child('latest.zip').putFile(archive, metadata);
+      } finally {
+        await archive.parent.delete(recursive: true);
+      }
       _lastSyncMillis = timestamp;
       await _settings.setLastSyncMillis(timestamp);
     });
@@ -108,13 +113,24 @@ class CloudSyncProvider extends ChangeNotifier {
     if (!isSignedIn) throw StateError('Not signed in.');
     await _withBusy(() async {
       final uid = user!.uid;
-      final bytes = await FirebaseStorage.instance
-          .ref('users/$uid/backups/v2/latest.zip')
-          .getData(_maximumBackupBytes);
-      if (bytes == null || bytes.isEmpty) {
-        throw StateError('No compatible backup found.');
+      final reference = FirebaseStorage.instance.ref(
+        'users/$uid/backups/v2/latest.zip',
+      );
+      final metadata = await reference.getMetadata();
+      if ((metadata.size ?? 0) >
+          LocalBackupService.maximumStreamingArchiveBytes) {
+        throw StateError('Backup exceeds size limit');
       }
-      await LocalBackupService.instance.restoreZip(bytes);
+      final directory = await (await getTemporaryDirectory()).createTemp(
+        'trainy-cloud-',
+      );
+      final file = File('${directory.path}/backup.zip');
+      try {
+        await reference.writeToFile(file);
+        await LocalBackupService.instance.restoreZipFile(file);
+      } finally {
+        await directory.delete(recursive: true);
+      }
       _syncEnabled = false;
       await _settings.setSyncEnabled(false);
     });

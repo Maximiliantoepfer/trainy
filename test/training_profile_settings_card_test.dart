@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:trainy/l10n/generated/app_localizations.dart';
 import 'package:trainy/models/training_profile.dart';
+import 'package:trainy/repositories/training_profile_repository.dart';
 import 'package:trainy/widgets/training_profile_settings_card.dart';
 
 class _FakeProfileStore implements TrainingProfileStore {
@@ -86,6 +87,105 @@ Widget _host({
 );
 
 void main() {
+  testWidgets(
+    'new profiles default to Home Gym with matching name and equipment',
+    (tester) async {
+      final store = _FakeProfileStore();
+      await tester.pumpWidget(_host(store: store));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('addTrainingProfile')));
+      await tester.pumpAndSettle();
+      final home = find.widgetWithText(ChoiceChip, 'Home Gym');
+      expect(tester.widget<ChoiceChip>(home).selected, isTrue);
+      expect(store.saves, 0);
+      await tester.tap(find.byKey(const ValueKey('trainingProfileSubmit')));
+      await tester.pumpAndSettle();
+      expect(store.values.single.name, 'Home Gym');
+      expect(
+        store.values.single.equipmentCodes,
+        TrainingProfileRepository.homeEquipment,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Gym and Custom are directly selectable and Custom starts blank',
+    (tester) async {
+      final store = _FakeProfileStore();
+      await tester.pumpWidget(_host(store: store));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('addTrainingProfile')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Gym'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Gym'))
+            .selected,
+        isTrue,
+      );
+      await tester.tap(find.byKey(const ValueKey('trainingProfileSubmit')));
+      await tester.pumpAndSettle();
+      expect(store.values.single.name, 'Gym');
+      expect(
+        store.values.single.equipmentCodes,
+        TrainingProfileRepository.gymEquipment,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('addTrainingProfile')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Custom'));
+      await tester.pumpAndSettle();
+      final name = find.byKey(const ValueKey('trainingProfileName'));
+      expect(tester.widget<TextFormField>(name).controller!.text, isEmpty);
+      expect(
+        tester
+            .widgetList<FilterChip>(find.byType(FilterChip))
+            .any((c) => c.selected),
+        isFalse,
+      );
+      await tester.tap(find.byKey(const ValueKey('trainingProfileSubmit')));
+      await tester.pumpAndSettle();
+      expect(store.saves, 1);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.enterText(name, 'My place');
+      await tester.tap(
+        find.byKey(const ValueKey('trainingProfileEquipment_dumbbell')),
+      );
+      await tester.tap(find.byKey(const ValueKey('trainingProfileSubmit')));
+      await tester.pumpAndSettle();
+      expect(store.values.last.name, 'My place');
+      expect(store.values.last.equipmentCodes, {'dumbbell'});
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('editing an existing custom profile never applies the default', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 10, 20);
+    final existing = TrainingProfileRecord(
+      id: 'custom',
+      name: 'Garage',
+      equipmentCodes: const {'bands', 'mat'},
+      createdAtUtc: now,
+      updatedAtUtc: now,
+    );
+    final store = _FakeProfileStore()..values.add(existing);
+    await tester.pumpWidget(_host(store: store));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('trainingProfile_custom')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChoiceChip), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('trainingProfileSubmit')));
+    await tester.pumpAndSettle();
+    expect(store.values.single.id, existing.id);
+    expect(store.values.single.name, existing.name);
+    expect(store.values.single.equipmentCodes, existing.equipmentCodes);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('profiles are managed without changing a global selection', (
     tester,
   ) async {

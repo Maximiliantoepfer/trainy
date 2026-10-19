@@ -28,7 +28,8 @@ import '../repositories/training_profile_repository.dart';
 import '../l10n/l10n.dart';
 
 class ExerciseScreen extends StatefulWidget {
-  const ExerciseScreen({super.key});
+  const ExerciseScreen({super.key, this.embedded = false});
+  final bool embedded;
 
   @override
   State<ExerciseScreen> createState() => _ExerciseScreenState();
@@ -114,6 +115,9 @@ class _ExerciseScreenState extends State<ExerciseScreen>
             }
             if (_catalogQuery.goalCode != null &&
                 !exercise.goalCodes.contains(_catalogQuery.goalCode) &&
+                !(_catalogQuery.goalCode == 'cardio' &&
+                    (exercise.goalCodes.contains('endurance') ||
+                        exercise.goal == 'endurance')) &&
                 exercise.goal != _catalogQuery.goalCode) {
               return false;
             }
@@ -159,7 +163,9 @@ class _ExerciseScreenState extends State<ExerciseScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: AppBarTitle(context.l10n.exercises),
+        automaticallyImplyLeading: !widget.embedded,
+        title: widget.embedded ? null : AppBarTitle(context.l10n.exercises),
+        toolbarHeight: widget.embedded ? 44 : null,
         actions: [
           if (provider.openDuplicates.isNotEmpty)
             IconButton(

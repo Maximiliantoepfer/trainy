@@ -10,6 +10,8 @@ import 'providers/training_profile_provider.dart';
 import 'providers/progress_provider.dart';
 import 'providers/cloud_sync_provider.dart';
 import 'providers/active_workout_provider.dart';
+import 'providers/cardio_provider.dart';
+import 'providers/training_program_provider.dart';
 import 'providers/locale_provider.dart';
 import 'providers/data_lifecycle_provider.dart';
 import 'l10n/l10n.dart';
@@ -97,6 +99,13 @@ class _DataProviders extends StatelessWidget {
           create: (_) => WorkoutProvider()..loadWorkouts(),
         ),
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
+        ChangeNotifierProvider(
+          create: (_) => TrainingProgramProvider()..load(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => CardioProvider()..initialize(),
+          lazy: false,
+        ),
         ChangeNotifierProvider(create: (_) => CloudSyncProvider()),
         ChangeNotifierProvider(
           create: (_) => ActiveWorkoutProvider()..restorePersistedWorkout(),

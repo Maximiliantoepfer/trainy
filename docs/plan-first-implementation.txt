@@ -1,0 +1,58 @@
+Trainy — plan-first navigation and light theme (schema 8)
+
+Primary navigation
+  Start: PlanHomeScreen; active workout, selected day, shared week, active plan.
+  Training: TrainingLibraryScreen; workouts/templates by sport and exercises.
+  Progress: existing history and charts; calendar reads the shared plan repository.
+  Settings: same TrainingPlanCard, general profile, connections and appearance.
+
+Setup
+  WelcomeSetupScreen: appearance, optional Google backup, plan, optional Health.
+  TrainingPlanSetupScreen: sports/days, sport profiles, editable split/run setup,
+  week preview, name and goals. Drafts persist locally, including edited run proposals.
+  CardioProfileScreen: ability, performance, recent load, optional heart-rate zones.
+  Skipping does not delete unfinished plan/profile drafts. Failed completion remains
+  retryable. Backup import requires an explicit choice; sign-in does not upload.
+
+Data
+  Schema 8 is additive; data epoch remains 2. No reset is introduced.
+  training_plans remains the canonical identity/status owner.
+  training_programs stores the combined strength/running/mobility-slot configuration.
+  active_training_plan identifies exactly one selected plan; ambiguous legacy active
+  plans require selection. training_plan_workouts and legacy weekly assignments are
+  retained and migrated without changing workout or activity IDs.
+  plan_slot_overrides stores individual strength moves. Recurrence changes and workout
+  reassignments close the former slot and create a future slot, preserving history.
+  cardio_occurrence_origins prevents recreating a moved run at its old date during
+  regeneration. Completed, in-progress and manually locked runs remain unchanged.
+  user_training_profile separates general preferences from cardio_preferences.
+  setup_drafts stores resumable onboarding, profile and plan state.
+  All added data is included in backup/restore. Supported old schema versions: 4–7.
+
+Rules
+  Strength proposals are split structures only; empty slots explicitly require an
+  assigned workout. No new complete strength exercise programs are supplied.
+  Five-day upper/lower alternates over two weeks. Initial mixed-day suggestions
+  penalize adjacent demanding runs/leg-heavy sessions; user choices are not moved
+  silently. Manual date changes warn about overlap/recovery conflicts.
+  Explicit 5-km ability and recent frequency distinguish established beginners from
+  absolute beginners. Eligible established beginners receive light week-2 fartlek,
+  not an automatic hard threshold/4x4 session. Unknown capacity stays conservative.
+  Training times are not converted into maximal race-performance forecasts.
+
+Verification
+  flutter analyze --no-pub
+  flutter test --no-pub
+  flutter test integration_test/plan_onboarding_test.dart -d emulator-5554 --no-pub
+  Android integration uses an isolated in-memory SQLite database and leaves installed
+  user data, accounts and preferences untouched.
+  UI goldens: plan_home_light/dark, plan_week_light/dark, running_profile_light.
+  Tests also cover old-backup restore, current-backup roundtrip, recurrence moves,
+  preserved history, exact unit conversion, incomplete pulses, skipped setup and
+  failed completion, small displays and large German/English text.
+
+Not included
+  Live watch integration, new strength exercise programs and a comprehensive mobility
+  planner. Health remains import of completed activities. Real Google-account restore,
+  Apple Health/iOS device permissions and wearable hardware still need device/account
+  acceptance testing; no live account or external service was used for these tests.

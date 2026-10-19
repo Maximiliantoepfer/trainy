@@ -167,6 +167,9 @@ class ActivityRepository {
     final sessionId = UuidV4.generate();
     final itemIds = <int, String>{};
     await _database.transaction((txn) async {
+      if ((await txn.query('activity_sessions', where: "status = 'active'", limit: 1)).isNotEmpty) {
+        throw StateError('A workout is already active.');
+      }
       await txn.insert('activity_sessions', {
         'id': sessionId,
         'source_local_id': '$localWorkoutId',

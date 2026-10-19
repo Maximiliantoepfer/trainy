@@ -1,1 +1,4 @@
 "NSPhotoLibraryUsageDescription" = "Trainy benötigt Zugriff auf deine Fotomediathek, damit du eigenen Übungen Bilder hinzufügen kannst.";
+"NSLocationWhenInUseUsageDescription" = "Trainy verwendet beim Outdoor-Training deinen genauen Standort für Distanz und lokale Tempoansagen, auch bei gesperrtem Bildschirm.";
+"NSHealthShareUsageDescription" = "Trainy liest Trainings und optionale Pulswerte, um vergangene Einheiten nach deiner Bestätigung lokal zuzuordnen.";
+"NSHealthUpdateUsageDescription" = "Trainy exportiert abgeschlossene Einheiten auf deinen Wunsch und nutzt auf unterstützten iPhones eine Workout-Sitzung für den Indoor-Hintergrundtimer.";

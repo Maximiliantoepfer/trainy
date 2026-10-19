@@ -352,7 +352,7 @@ void main() {
       find.byKey(const ValueKey('workoutGoal_strength')),
     );
     final right = tester.getRect(
-      find.byKey(const ValueKey('workoutGoal_endurance')),
+      find.byKey(const ValueKey('workoutGoal_cardio')),
     );
     expect(left.left, 16);
     expect(right.right, 374);
@@ -393,7 +393,7 @@ void main() {
         keyboard: 280,
       );
       final a = find.byKey(const ValueKey('workoutGoal_strength'));
-      final b = find.byKey(const ValueKey('workoutGoal_endurance'));
+      final b = find.byKey(const ValueKey('workoutGoal_cardio'));
       await tester.dragUntilVisible(
         b,
         find.byType(ListView),

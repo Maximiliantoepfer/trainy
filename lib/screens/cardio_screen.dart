@@ -1,0 +1,854 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../l10n/cardio_l10n.dart';
+import '../models/cardio.dart';
+import '../providers/cardio_provider.dart';
+import '../services/cardio_training.dart';
+import 'cardio_editor_screen.dart';
+import 'cardio_health_screen.dart';
+import 'cardio_profile_screen.dart';
+import 'cardio_session_screen.dart';
+
+/// A local-only entry point; no sign-in, permissions or network are needed to browse.
+class CardioScreen extends StatelessWidget {
+  const CardioScreen({super.key});
+  Future<void> _edit(
+    BuildContext context,
+    CardioWorkout workout, {
+    ScheduledCardioWorkout? occurrence,
+  }) async {
+    final p = context.read<CardioProvider>();
+    final edited = await Navigator.push<CardioWorkout>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => CardioEditorScreen(workout: workout, units: p.profile.units),
+      ),
+    );
+    if (edited == null) return;
+    try {
+      if (occurrence == null) {
+        await p.repository.saveWorkout(edited);
+      } else {
+        await p.repository.editOccurrence(occurrence, edited);
+      }
+      await p.load();
+    } catch (_) {
+      if (context.mounted) _error(context);
+    }
+  }
+
+  void _error(BuildContext context) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(context.cardio('error'))));
+  Future<void> _move(BuildContext context, ScheduledCardioWorkout o) async {
+    final p = context.read<CardioProvider>();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: o.date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (date == null || !context.mounted) return;
+    final future = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(ctx.cardio('move')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(ctx.cardio('onlyThis')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(ctx.cardio('futureToo')),
+              ),
+            ],
+          ),
+    );
+    if (future == null) return;
+    try {
+      await p.repository.move(o, date, future: future);
+      await p.load();
+    } catch (_) {
+      if (context.mounted) _error(context);
+    }
+  }
+
+  Future<void> _adapt(BuildContext context, CardioProvider p) async {
+    final changes = <String, CardioWorkout>{};
+    // Only suggest easing the next seven days, never silently increase workload.
+    final now = DateTime.now();
+    final recent = p.history.where(
+      (r) =>
+          now
+              .difference(
+                DateTime.fromMillisecondsSinceEpoch(r['started_at_utc'] as int),
+              )
+              .inDays <
+          14,
+    );
+    final difficult = recent.any((r) {
+      final feedback =
+          (jsonDecode(r['snapshot_json'] as String) as Map)['feedback'] as Map?;
+      return feedback?['discomfort'] == true ||
+          (feedback?['rpe'] as num? ?? 0) >= 8;
+    });
+    final missed =
+        p.occurrences
+            .where(
+              (o) =>
+                  o.status != 'completed' &&
+                  o.date.isBefore(now) &&
+                  now.difference(o.date).inDays <= 14,
+            )
+            .length;
+    if (difficult || missed >= 2) {
+      for (final o in p.occurrences.where(
+        (o) =>
+            !o.locked &&
+            o.status == 'planned' &&
+            o.date.isAfter(now) &&
+            o.date.difference(now).inDays <= 7,
+      )) {
+        changes[o.id] = CardioWorkout(
+          id: o.workout.id,
+          name: o.workout.name,
+          sport: o.workout.sport,
+          indoor: o.workout.indoor,
+          warmup: o.workout.warmup,
+          cooldown: o.workout.cooldown,
+          autoPause: o.workout.autoPause,
+          steps:
+              o.workout.steps
+                  .map(
+                    (s) => CardioTraining.prescribe(
+                      p.profile,
+                      CardioIntensity.easy,
+                      goal: s.goal,
+                      amount: s.amount * .9,
+                      repeat: s.repeat,
+                      recovery: s.recoverySeconds,
+                      sport: o.workout.sport,
+                    ).copyWith(id: s.id, movement: s.movement),
+                  )
+                  .toList(),
+        );
+      }
+    }
+    final yes = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(ctx.cardio('adapt')),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    changes.isEmpty
+                        ? ctx.cardio('noAdjustment')
+                        : ctx.cardio('adaptInfo'),
+                  ),
+                  for (final o in p.occurrences.where(
+                    (o) => changes.containsKey(o.id),
+                  ))
+                    Text(
+                      '${DateFormat.yMMMd(Localizations.localeOf(ctx).toString()).format(o.date)} · ${o.workout.name} · −10%',
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(ctx.cardio('cancel')),
+              ),
+              if (changes.isNotEmpty)
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: Text(ctx.cardio('accept')),
+                ),
+            ],
+          ),
+    );
+    if (yes == true) {
+      try {
+        await p.repository.applyAdjustment(changes);
+        await p.load();
+      } catch (_) {
+        if (context.mounted) _error(context);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<CardioProvider>();
+    final locale = Localizations.localeOf(context).toString();
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(context.cardio('cardio')),
+          actions: [
+            IconButton(
+              tooltip: context.cardio('health'),
+              icon: const Icon(Icons.favorite_outline),
+              onPressed:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CardioHealthScreen(),
+                    ),
+                  ),
+            ),
+            IconButton(
+              tooltip: context.cardio('profile'),
+              icon: const Icon(Icons.tune),
+              onPressed:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CardioProfileScreen(provider: p),
+                    ),
+                  ),
+            ),
+          ],
+          bottom: TabBar(
+            tabs: [
+              for (final key in ['library', 'plan', 'history'])
+                Tab(text: context.cardio(key)),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                if (p.active)
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.play_circle_outline),
+                      title: Text(context.cardio('continueLabel')),
+                      subtitle: Text(p.runtime?['name'] as String? ?? ''),
+                      onTap:
+                          () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CardioSessionScreen(),
+                            ),
+                          ),
+                    ),
+                  ),
+                if (!p.loaded)
+                  TextButton(
+                    onPressed: p.load,
+                    child: Text(context.cardio('retry')),
+                  ),
+                Text(
+                  context.cardio('localOnly'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                if (p.profile.referenceSeconds == null)
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.person_outline),
+                      title: Text(context.cardio('profile')),
+                      subtitle: Text(context.cardio('profileIntro')),
+                      onTap:
+                          () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CardioProfileScreen(provider: p),
+                            ),
+                          ),
+                    ),
+                  ),
+                FilledButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: Text(context.cardio('newWorkout')),
+                  onPressed:
+                      () => _edit(
+                        context,
+                        CardioTraining.template(
+                          'easySession',
+                          p.profile,
+                          context.cardio,
+                        ),
+                      ),
+                ),
+                for (final w in p.workouts)
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.directions_run),
+                      title: Text(w.name),
+                      subtitle: Text(
+                        '${context.cardio(w.sport.name)} · ${context.cardio(w.indoor ? 'indoor' : 'outdoor')}',
+                      ),
+                      onTap: () => _details(context, w),
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (v) async {
+                          if (v == 'edit') {
+                            _edit(context, w);
+                            return;
+                          }
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder:
+                                (ctx) => AlertDialog(
+                                  title: Text(ctx.cardio('deleteConfirm')),
+                                  actions: [
+                                    TextButton(
+                                      onPressed:
+                                          () => Navigator.pop(ctx, false),
+                                      child: Text(ctx.cardio('cancel')),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: Text(ctx.cardio('delete')),
+                                    ),
+                                  ],
+                                ),
+                          );
+                          if (confirmed == true) {
+                            try {
+                              await p.repository.deleteWorkout(w.id);
+                              await p.load();
+                            } catch (_) {
+                              if (context.mounted) _error(context);
+                            }
+                          }
+                        },
+                        itemBuilder:
+                            (_) => [
+                              for (final k in ['edit', 'delete'])
+                                PopupMenuItem(
+                                  value: k,
+                                  child: Text(context.cardio(k)),
+                                ),
+                            ],
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    context.cardio('templates'),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                for (final code in CardioTraining.templateCodes)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(context.cardio(code)),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap:
+                        () => _details(
+                          context,
+                          CardioTraining.template(
+                            code,
+                            p.profile,
+                            context.cardio,
+                          ),
+                          template: true,
+                        ),
+                  ),
+                for (final sport in CardioSport.values.where(
+                  (s) => s != CardioSport.running,
+                ))
+                  ExpansionTile(
+                    title: Text(context.cardio(sport.name)),
+                    children: [
+                      for (final code in ['easySession', 'intervalSession'])
+                        ListTile(
+                          title: Text(context.cardio(code)),
+                          onTap:
+                              () => _details(
+                                context,
+                                CardioTraining.template(
+                                  code,
+                                  p.profile,
+                                  context.cardio,
+                                  sport: sport,
+                                  indoor:
+                                      ![
+                                        CardioSport.walking,
+                                        CardioSport.cycling,
+                                      ].contains(sport),
+                                ),
+                                template: true,
+                              ),
+                        ),
+                    ],
+                  ),
+                ListTile(
+                  title: Text(context.cardio('drills')),
+                  leading: const Icon(Icons.accessibility_new),
+                  onTap:
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => CardioRoutinePlayer(
+                                steps: CardioTraining.routine('drills'),
+                                cooling: false,
+                              ),
+                        ),
+                      ),
+                ),
+                for (final key in ['lower', 'upper'])
+                  ListTile(
+                    title: Text(
+                      '${context.cardio('strength')} · ${context.cardio(key)}',
+                    ),
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => CardioRoutinePlayer(
+                                  steps: CardioTraining.routine(key),
+                                  cooling: false,
+                                ),
+                          ),
+                        ),
+                  ),
+              ],
+            ),
+            ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                FilledButton.icon(
+                  onPressed:
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CardioPlanScreen(),
+                        ),
+                      ),
+                  icon: const Icon(Icons.calendar_month),
+                  label: Text(context.cardio('newPlan')),
+                ),
+                if (p.occurrences.isNotEmpty)
+                  TextButton(
+                    onPressed: () => _adapt(context, p),
+                    child: Text(context.cardio('adapt')),
+                  ),
+                for (final o in p.occurrences)
+                  Card(
+                    child: ListTile(
+                      leading: Icon(
+                        o.status == 'completed'
+                            ? Icons.check_circle_outline
+                            : o.status == 'skipped'
+                            ? Icons.skip_next
+                            : Icons.directions_run,
+                      ),
+                      title: Text(o.workout.name),
+                      subtitle: Text(
+                        '${DateFormat.yMMMEd(locale).format(o.date)}${o.locked ? ' · ${context.cardio('locked')}' : ''}',
+                      ),
+                      onTap: () => _details(context, o.workout, occurrence: o),
+                      trailing:
+                          o.status == 'planned'
+                              ? PopupMenuButton<String>(
+                                onSelected: (k) async {
+                                  if (k == 'move') {
+                                    _move(context, o);
+                                  } else if (k == 'edit') {
+                                    _edit(context, o.workout, occurrence: o);
+                                  } else {
+                                    try {
+                                      await p.repository.skipOccurrence(o.id);
+                                      await p.load();
+                                    } catch (_) {
+                                      if (context.mounted) _error(context);
+                                    }
+                                  }
+                                },
+                                itemBuilder:
+                                    (_) => [
+                                      for (final key in [
+                                        'move',
+                                        'edit',
+                                        'skip',
+                                      ])
+                                        PopupMenuItem(
+                                          value: key,
+                                          child: Text(context.cardio(key)),
+                                        ),
+                                    ],
+                              )
+                              : null,
+                    ),
+                  ),
+              ],
+            ),
+            ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                if (p.history.isEmpty) Text(context.cardio('noData')),
+                for (final r in p.history)
+                  Card(
+                    child: ListTile(
+                      title: Text(
+                        r['name_snapshot'] as String? ??
+                            context.cardio('cardio'),
+                      ),
+                      subtitle: Text(
+                        DateFormat.yMMMEd(locale).add_Hm().format(
+                          DateTime.fromMillisecondsSinceEpoch(
+                            r['started_at_utc'] as int,
+                          ),
+                        ),
+                      ),
+                      onTap:
+                          () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => CardioSummaryScreen(
+                                    runtime: cardioHistoryRuntime(r),
+                                    snapshot:
+                                        jsonDecode(r['snapshot_json'] as String)
+                                            as Map<String, dynamic>,
+                                  ),
+                            ),
+                          ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _details(
+    BuildContext context,
+    CardioWorkout workout, {
+    bool template = false,
+    ScheduledCardioWorkout? occurrence,
+  }) async {
+    final p = context.read<CardioProvider>();
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder:
+          (ctx) => SafeArea(
+            child: DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: .7,
+              maxChildSize: .95,
+              minChildSize: .3,
+              builder:
+                  (ctx, scroll) => ListView(
+                    controller: scroll,
+                    padding: const EdgeInsets.all(24),
+                    children: [
+                      Text(
+                        workout.name,
+                        style: Theme.of(ctx).textTheme.headlineMedium,
+                      ),
+                      Text(
+                        '${ctx.cardio(workout.sport.name)} · ${ctx.cardio(workout.indoor ? 'indoor' : 'outdoor')}',
+                      ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(ctx.cardio('warmup')),
+                        subtitle: Text(
+                          CardioUnits.clock(
+                            workout.warmup.fold<int>(
+                              0,
+                              (int n, s) => n + s.seconds,
+                            ),
+                          ),
+                        ),
+                      ),
+                      for (final s in workout.steps)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            '${s.repeat > 1 ? '${s.repeat} × ' : ''}${s.name.isEmpty ? ctx.cardio(s.intensity.name) : s.name}',
+                          ),
+                          subtitle: Text(
+                            cardioStepDescription(s, p.profile.units, ctx),
+                          ),
+                        ),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(ctx.cardio('cooldown')),
+                        subtitle: Text(
+                          CardioUnits.clock(
+                            workout.cooldown.fold<int>(
+                              0,
+                              (int n, s) => n + s.seconds,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (occurrence == null || occurrence.status == 'planned')
+                        FilledButton.icon(
+                          onPressed: () => Navigator.pop(ctx, 'start'),
+                          icon: const Icon(Icons.play_arrow),
+                          label: Text(ctx.cardio('start')),
+                        ),
+                      if (occurrence == null || occurrence.status == 'planned')
+                        OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx, 'edit'),
+                          child: Text(ctx.cardio('edit')),
+                        ),
+                      if (template)
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, 'save'),
+                          child: Text(ctx.cardio('save')),
+                        ),
+                    ],
+                  ),
+            ),
+          ),
+    );
+    if (!context.mounted) return;
+    if (action == 'start') {
+      await startCardioWorkout(context, workout, occurrenceId: occurrence?.id);
+    }
+    if (action == 'edit') {
+      if (!context.mounted) return;
+      await _edit(context, workout, occurrence: occurrence);
+    }
+    if (action == 'save') {
+      try {
+        await p.repository.saveWorkout(workout);
+        await p.load();
+      } catch (_) {
+        if (context.mounted) _error(context);
+      }
+    }
+  }
+}
+
+class CardioPlanScreen extends StatefulWidget {
+  const CardioPlanScreen({super.key});
+  @override
+  State<CardioPlanScreen> createState() => _PlanState();
+}
+
+class _PlanState extends State<CardioPlanScreen> {
+  double _distance = 5000;
+  final _target = TextEditingController();
+  DateTime _start = DateTime.now();
+  DateTime? _deadline;
+  RunningPlanProposal? _preview;
+  bool _busy = false;
+  String? _error;
+  @override
+  void dispose() {
+    _target.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<CardioProvider>();
+    return Scaffold(
+      appBar: AppBar(title: Text(context.cardio('newPlan'))),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Text(context.cardio('planInfo')),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(context.cardio('profile')),
+            subtitle: Text(
+              '${context.cardio('days')}: ${p.profile.weekdays.length}',
+            ),
+            trailing: const Icon(Icons.edit_outlined),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CardioProfileScreen(provider: p),
+                ),
+              );
+              if (mounted) setState(() => _preview = null);
+            },
+          ),
+          DropdownButtonFormField<double>(
+            value: _distance,
+            decoration: InputDecoration(
+              labelText: context.cardio('goalDistance'),
+            ),
+            items: [
+              for (final d in [5000.0, 10000.0, 21097.5, 42195.0])
+                DropdownMenuItem(
+                  value: d,
+                  child: Text(CardioUnits.distance(d, p.profile.units)),
+                ),
+            ],
+            onChanged:
+                (v) => setState(() {
+                  _distance = v!;
+                  _preview = null;
+                }),
+          ),
+          TextField(
+            controller: _target,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() => _preview = null),
+            decoration: InputDecoration(
+              labelText:
+                  '${context.cardio('goalTime')} (${context.cardio('minutes')})',
+            ),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(context.cardio('start')),
+            subtitle: Text(
+              DateFormat.yMMMd(
+                Localizations.localeOf(context).toString(),
+              ).format(_start),
+            ),
+            onTap: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: _start,
+                firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                lastDate: DateTime(2100),
+              );
+              if (date != null && mounted) {
+                setState(() {
+                  _start = date;
+                  _preview = null;
+                });
+              }
+            },
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(context.cardio('goalDate')),
+            subtitle:
+                _deadline == null
+                    ? null
+                    : Text(
+                      DateFormat.yMMMd(
+                        Localizations.localeOf(context).toString(),
+                      ).format(_deadline!),
+                    ),
+            trailing:
+                _deadline == null
+                    ? null
+                    : IconButton(
+                      icon: const Icon(Icons.clear),
+                      tooltip: context.cardio('delete'),
+                      onPressed:
+                          () => setState(() {
+                            _deadline = null;
+                            _preview = null;
+                          }),
+                    ),
+            onTap: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: _deadline ?? _start.add(const Duration(days: 90)),
+                firstDate: _start,
+                lastDate: DateTime(2100),
+              );
+              if (date != null && mounted) {
+                setState(() {
+                  _deadline = date;
+                  _preview = null;
+                });
+              }
+            },
+          ),
+          FilledButton(
+            onPressed: () {
+              try {
+                setState(() {
+                  _preview = RunningPlanGenerator().generate(
+                    p.profile,
+                    RunningPlanRequest(
+                      targetMeters: _distance,
+                      startDate: _start,
+                      targetSeconds:
+                          _target.text.trim().isEmpty
+                              ? null
+                              : double.parse(
+                                    _target.text.replaceAll(',', '.'),
+                                  ) *
+                                  60,
+                      targetDate: _deadline,
+                    ),
+                    context.cardio,
+                  );
+                  _error = null;
+                });
+              } catch (_) {
+                setState(() => _error = context.cardio('invalid'));
+              }
+            },
+            child: Text(context.cardio('preview')),
+          ),
+          if (_error != null)
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          if (_preview != null) ...[
+            const SizedBox(height: 24),
+            if (p.profile.hasRecentBenchmark(DateTime.now()))
+              Text(
+                '${context.cardio('equivalent')}: ${CardioUnits.clock(p.profile.equivalentSeconds(_distance))}',
+              ),
+            for (final key in _preview!.warnings)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(context.cardio(key)),
+              ),
+            for (var i = 0; i < _preview!.occurrences.length; i++)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(_preview!.occurrences[i].workout.name),
+                subtitle: Text(
+                  '${DateFormat.yMMMEd(Localizations.localeOf(context).toString()).format(_preview!.occurrences[i].date)} · ${CardioUnits.clock(_preview!.occurrences[i].workout.expandedSteps().fold<double>(0.0, (double n, s) => n + (s.goal == StepGoal.time ? s.amount : 0)))}',
+                ),
+              ),
+            FilledButton(
+              onPressed:
+                  _busy
+                      ? null
+                      : () async {
+                        setState(() => _busy = true);
+                        try {
+                          await p.repository.savePlan(
+                            _preview!,
+                            '${context.cardio('plan')} · ${CardioUnits.distance(_distance, p.profile.units)}',
+                          );
+                          await p.load();
+                          if (context.mounted) Navigator.pop(context);
+                        } catch (_) {
+                          if (mounted) {
+                            setState(() {
+                              _busy = false;
+                              _error = context.cardio('error');
+                            });
+                          }
+                        }
+                      },
+              child: Text(context.cardio('accept')),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}

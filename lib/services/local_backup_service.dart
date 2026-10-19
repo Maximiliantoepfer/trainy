@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -12,6 +12,8 @@ import 'app_database.dart';
 import 'catalog_repository.dart';
 import 'database_schema_v2.dart';
 import 'exercise_image_service.dart';
+import 'cardio_native_lifecycle.dart';
+import 'training_program_schema.dart';
 
 /// Versioned data-epoch-2 backup. Old row-merging JSON backups are rejected.
 class LocalBackupService {
@@ -25,13 +27,35 @@ class LocalBackupService {
   static const formatVersion = 2;
   static const _maxArchiveBytes = 96 * 1024 * 1024;
   static const _maxFileBytes = 12 * 1024 * 1024;
+  static const maximumStreamingArchiveBytes = 512 * 1024 * 1024;
 
   Future<Map<String, dynamic>> exportAll() async {
     final db = await AppDatabase.instance.database;
+    return db.transaction((txn) => _snapshot(txn));
+  }
+
+  Future<Map<String, dynamic>> _snapshot(
+    DatabaseExecutor txn, {
+    bool sensors = true,
+  }) async {
     final tables = <String, dynamic>{};
+    var preferences = await txn.query('user_training_profile');
+    if (preferences.isEmpty) {
+      preferences = await txn.query('cardio_preferences');
+    }
+    final includeSensors =
+        sensors &&
+        preferences.isNotEmpty &&
+        (jsonDecode(preferences.single['profile_json'] as String)
+                as Map)['backupSensorData'] ==
+            true;
     for (final table in DatabaseSchemaV2.userDataTables.reversed) {
+      if (table == 'cardio_sensor_samples' && !includeSensors) {
+        tables[table] = <Object>[];
+        continue;
+      }
       final rows =
-          (await db.query(
+          (await txn.query(
             table,
           )).map((row) => Map<String, Object?>.from(row)).toList();
       if (table == 'user_settings') {
@@ -50,6 +74,130 @@ class LocalBackupService {
       'exportedAtUtc': DateTime.now().toUtc().toIso8601String(),
       'tables': tables,
     };
+  }
+
+  /// Format 3 separates high-volume samples into a streamed NDJSON member.
+  /// The caller owns the returned temporary directory and must delete it.
+  Future<File> exportZipFile({bool includeImages = true}) async {
+    final parent = await _documentsDirectory();
+    final directory = await Directory(
+      path.join(parent.path, 'trainy_backup_cache'),
+    ).create(recursive: true);
+    final staging = await directory.createTemp('export-');
+    try {
+      final samples = File(path.join(staging.path, 'sensors.ndjson'));
+      final sink = samples.openWrite();
+      late Map<String, dynamic> data;
+      try {
+        final db = await AppDatabase.instance.database;
+        await db.transaction((txn) async {
+          data = await _snapshot(txn, sensors: false);
+          final tables = data['tables'] as Map;
+          final preferences =
+              (tables['user_training_profile'] as List).isNotEmpty
+                  ? tables['user_training_profile'] as List
+                  : tables['cardio_preferences'] as List;
+          final enabled =
+              preferences.isNotEmpty &&
+              (jsonDecode((preferences.single as Map)['profile_json'] as String)
+                      as Map)['backupSensorData'] ==
+                  true;
+          if (enabled) {
+            var rowId = 0;
+            while (true) {
+              final rows = await txn.rawQuery(
+                'SELECT rowid AS cursor, * FROM cardio_sensor_samples WHERE rowid > ? ORDER BY rowid LIMIT 500',
+                [rowId],
+              );
+              if (rows.isEmpty) break;
+              for (final raw in rows) {
+                rowId = raw['cursor'] as int;
+                sink.writeln(
+                  jsonEncode(Map<String, Object?>.from(raw)..remove('cursor')),
+                );
+              }
+              await sink.flush();
+            }
+          }
+        });
+      } finally {
+        await sink.close();
+      }
+      final databaseFile = File(path.join(staging.path, 'database.json'));
+      await databaseFile.writeAsString(jsonEncode(data));
+      Future<Map<String, Object>> digest(File file) async => {
+        'size': await file.length(),
+        'sha256': (await sha256.bind(file.openRead()).first).toString(),
+      };
+      final imageManifest = <String, Map<String, Object>>{},
+          images = <String, File>{};
+      if (includeImages) {
+        for (final table in ['exercise_images', 'exercise_images_v2']) {
+          for (final row in (data['tables'] as Map)[table] as List) {
+            final relative =
+                ((row as Map)['relativePath'] ?? row['relative_path'])
+                    as String?;
+            if (relative == null || images.containsKey(relative)) continue;
+            final image = await ExerciseImageService.instance.resolve(relative);
+            if (await image.length() > _maxFileBytes) {
+              throw StateError('Exercise image exceeds size limit');
+            }
+            final copy = File(
+              path.join(staging.path, 'image-${images.length}'),
+            );
+            await image.copy(copy.path);
+            images[relative] = copy;
+            imageManifest[relative] = await digest(copy);
+          }
+        }
+      }
+      final manifest = File(path.join(staging.path, 'manifest.json'));
+      await manifest.writeAsString(
+        jsonEncode({
+          'format': 'trainy-backup',
+          'formatVersion': 3,
+          'dataEpoch': DatabaseSchemaV2.dataEpoch,
+          'schemaVersion': DatabaseSchemaV2.schemaVersion,
+          'schemaRevision': DatabaseSchemaV2.schemaRevision,
+          'catalogVersion': data['catalogVersion'],
+          'includesImages': includeImages,
+          'images': imageManifest,
+          'database': {'path': 'database.json', ...await digest(databaseFile)},
+          'sensors': {'path': 'sensors.ndjson', ...await digest(samples)},
+        }),
+      );
+      final zip = File(path.join(staging.path, 'backup.zip'));
+      final encoder = ZipFileEncoder()..create(zip.path);
+      try {
+        await encoder.addFile(manifest, 'manifest.json');
+        await encoder.addFile(databaseFile, 'database.json');
+        await encoder.addFile(samples, 'sensors.ndjson');
+        for (final entry in images.entries) {
+          await encoder.addFile(entry.value, 'images/${entry.key}');
+        }
+      } finally {
+        await encoder.close();
+      }
+      if (await zip.length() > maximumStreamingArchiveBytes) {
+        throw StateError('Backup exceeds size limit');
+      }
+      return zip;
+    } catch (_) {
+      await staging.delete(recursive: true);
+      rethrow;
+    }
+  }
+
+  Future<void> restoreZipFile(File file) async {
+    if (await file.length() > maximumStreamingArchiveBytes) {
+      throw const FormatException('Backup exceeds size limit');
+    }
+    final input = InputFileStream(file.path);
+    try {
+      await _restoreArchive(ZipDecoder().decodeStream(input, verify: true));
+    } finally {
+      await input.close();
+    }
   }
 
   Future<Uint8List> exportZip({bool includeImages = true}) async {
@@ -126,11 +274,39 @@ class LocalBackupService {
       throw const FormatException('Backup exceeds the size limit.');
     }
     final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+    await _restoreArchive(archive);
+  }
+
+  Future<void> _restoreArchive(Archive archive) async {
+    await _ensureRestoreAllowed();
     if (archive.length > 5000) {
       throw const FormatException('Backup contains too many files.');
     }
+    final members = <String>{};
     for (final item in archive) {
       _validateArchivePath(item.name);
+      if (!members.add(item.name.replaceAll('\\', '/'))) {
+        throw const FormatException('Duplicate backup member');
+      }
+      final limit =
+          item.name == 'sensors.ndjson'
+              ? 1024 * 1024 * 1024
+              : item.name == 'database.json'
+              ? _maxArchiveBytes
+              : _maxFileBytes;
+      if (item.size > limit) {
+        throw const FormatException(
+          'Uncompressed backup member exceeds size limit',
+        );
+      }
+    }
+    if (archive.files
+            .where((f) => f.name != 'sensors.ndjson')
+            .fold<int>(0, (n, f) => n + f.size) >
+        _maxArchiveBytes) {
+      throw const FormatException(
+        'Uncompressed metadata and images exceed size limit',
+      );
     }
 
     final manifestBytes = archive.find('manifest.json')?.readBytes();
@@ -142,7 +318,7 @@ class LocalBackupService {
       jsonDecode(utf8.decode(manifestBytes)) as Map,
     );
     if (manifest['format'] != 'trainy-backup' ||
-        manifest['formatVersion'] != formatVersion ||
+        ![formatVersion, 3].contains(manifest['formatVersion']) ||
         manifest['dataEpoch'] != DatabaseSchemaV2.dataEpoch ||
         !isCompatibleSchema(
           manifest['schemaVersion'],
@@ -168,6 +344,8 @@ class LocalBackupService {
     final tableData = Map<String, dynamic>.from(
       data['tables'] as Map? ?? const {},
     );
+    File? sensorRows;
+    Directory? sensorStaging;
     final unknown = tableData.keys.toSet().difference(
       DatabaseSchemaV2.userDataTables.toSet(),
     );
@@ -203,6 +381,29 @@ class LocalBackupService {
     await deleteDatabase(temporaryPath);
     final temporary = await AppDatabase.instance.openIsolated(temporaryPath);
     try {
+      if (manifest['formatVersion'] == 3) {
+        final member = archive.find('sensors.ndjson');
+        if (member == null || manifest['sensors'] is! Map) {
+          throw const FormatException('Missing sensor member');
+        }
+        final expected = Map<String, dynamic>.from(manifest['sensors'] as Map);
+        sensorStaging = await Directory.systemTemp.createTemp(
+          'trainy-sensor-restore-',
+        );
+        sensorRows = File(path.join(sensorStaging.path, 'sensors.ndjson'));
+        final output = OutputFileStream(sensorRows.path);
+        try {
+          member.decompress(output);
+        } finally {
+          await output.close();
+        }
+        final checksum =
+            (await sha256.bind(sensorRows.openRead()).first).toString();
+        if (expected['size'] != await sensorRows.length() ||
+            expected['sha256'] != checksum) {
+          throw const FormatException('Sensor checksum mismatch');
+        }
+      }
       await temporary.transaction((txn) async {
         for (final table in DatabaseSchemaV2.userDataTables.reversed) {
           final rows = tableData[table] as List<dynamic>? ?? const [];
@@ -225,10 +426,39 @@ class LocalBackupService {
         if (data['schemaVersion'] == 4) {
           await DatabaseSchemaV2.normalizeWorkoutGroupOrder(txn);
         }
+        if ((data['schemaVersion'] as int) < 8) {
+          await TrainingProgramSchema.migrate(txn);
+        }
+        if (sensorRows != null) {
+          var batch = txn.batch(), count = 0;
+          await for (final line in sensorRows
+              .openRead()
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
+            if (line.length > 65536) {
+              throw const FormatException('Invalid sensor row');
+            }
+            final row = Map<String, Object?>.from(jsonDecode(line) as Map);
+            if (row.keys.toSet().difference({
+              'session_id',
+              'sequence',
+              'sample_json',
+            }).isNotEmpty) {
+              throw const FormatException('Invalid sensor fields');
+            }
+            batch.insert('cardio_sensor_samples', row);
+            if (++count % 500 == 0) {
+              await batch.commit(noResult: true);
+              batch = txn.batch();
+            }
+          }
+          await batch.commit(noResult: true);
+        }
       });
       await AppDatabase.instance.assertIntegrity(database: temporary);
     } finally {
       await temporary.close();
+      if (sensorStaging != null) await sensorStaging.delete(recursive: true);
     }
 
     final documents = await _documentsDirectory();
@@ -257,6 +487,7 @@ class LocalBackupService {
     final previousImages = Directory(
       path.join(documents.path, 'exercise_images.previous-$nonce'),
     );
+    await _ensureRestoreAllowed();
     await AppDatabase.instance.close();
     if (await previousFile.exists()) await previousFile.delete();
     if (await activeFile.exists()) await activeFile.rename(previousPath);
@@ -306,6 +537,19 @@ class LocalBackupService {
     throw UnsupportedError('Use restoreZip for epoch-2 backups.');
   }
 
+  Future<void> _ensureRestoreAllowed() async {
+    await CardioNativeLifecycle.ensureRestoreAllowed();
+    final db = await AppDatabase.instance.database;
+    if ((await db.query(
+      'activity_sessions',
+      columns: ['id'],
+      where: "status = 'active'",
+      limit: 1,
+    )).isNotEmpty) {
+      throw StateError('Finish the active workout before restoring.');
+    }
+  }
+
   static void _verifyBytes(
     List<int> bytes,
     Map<String, dynamic> expected,
@@ -323,6 +567,8 @@ class LocalBackupService {
   static bool isCompatibleSchema(Object? version, Object? revision) =>
       (version == DatabaseSchemaV2.schemaVersion &&
           revision == DatabaseSchemaV2.schemaRevision) ||
+      (version == 7 && revision == '2026-10-19.7') ||
+      (version == 6 && revision == '2026-10-19.6') ||
       (version == 5 && revision == '2026-10-16.5') ||
       (version == 4 && revision == '2026-10-16.4');
 

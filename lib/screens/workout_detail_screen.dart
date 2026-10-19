@@ -26,8 +26,13 @@ import 'workout_run_screen.dart';
 
 /// Guided three-step workflow used for all newly created workouts.
 class WorkoutEditorScreen extends StatefulWidget {
-  const WorkoutEditorScreen({super.key, this.profileStore});
+  const WorkoutEditorScreen({
+    super.key,
+    this.profileStore,
+    this.initialGoal = WorkoutPrimaryGoal.strength,
+  });
   final TrainingProfileStore? profileStore;
+  final WorkoutPrimaryGoal initialGoal;
 
   @override
   State<WorkoutEditorScreen> createState() => _WorkoutEditorScreenState();
@@ -40,7 +45,7 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
   final _setupName = TextEditingController(text: 'Standard');
   int _step = 0;
   bool _saving = false;
-  WorkoutPrimaryGoal _goal = WorkoutPrimaryGoal.strength;
+  late WorkoutPrimaryGoal _goal = widget.initialGoal;
   String? _profileId;
   List<TrainingProfileRecord> _profiles = const [];
   late final TrainingProfileStore _profileStore =
@@ -1209,12 +1214,19 @@ class _BasicsStep extends StatelessWidget {
               spacing: 12,
               runSpacing: 12,
               children: [
-                for (final value in WorkoutPrimaryGoal.values)
+                for (final value in const [
+                  WorkoutPrimaryGoal.strength,
+                  WorkoutPrimaryGoal.cardio,
+                  WorkoutPrimaryGoal.mobility,
+                ])
                   SizedBox(
                     width: width,
                     child: _GoalChoice(
                       value: value,
-                      selected: value == goal,
+                      selected:
+                          value == goal ||
+                          (value == WorkoutPrimaryGoal.cardio &&
+                              goal == WorkoutPrimaryGoal.endurance),
                       horizontal: singleColumn,
                       onTap: () => onGoalChanged(value),
                     ),

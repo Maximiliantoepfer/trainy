@@ -6,6 +6,10 @@ import '../models/workout_planning.dart';
 import '../models/workout_entry.dart';
 import '../l10n/l10n.dart';
 import '../utils/goal_utils.dart';
+import '../models/cardio.dart';
+import 'package:provider/provider.dart';
+import '../providers/training_program_provider.dart';
+import '../models/training_program.dart';
 
 /// Simpler Monatskalender mit Markierungen für Tage, an denen Workouts getrackt wurden.
 /// Design-Update: Statt Zahl nun ein kräftiger, gefüllter grüner Haken.
@@ -14,12 +18,16 @@ class TrainingsCalendar extends StatefulWidget {
   final List<WorkoutEntry> entries;
   final List<Workout> plannedWorkouts;
   final ValueChanged<CalendarDaySummary>? onDayTap;
+  final List<DateTime> additionalCompleted;
+  final List<ScheduledCardioWorkout> cardioOccurrences;
 
   const TrainingsCalendar({
     super.key,
     required this.entries,
     this.plannedWorkouts = const [],
     this.onDayTap,
+    this.additionalCompleted = const [],
+    this.cardioOccurrences = const [],
   });
 
   @override
@@ -28,6 +36,9 @@ class TrainingsCalendar extends StatefulWidget {
 
 class _TrainingsCalendarState extends State<TrainingsCalendar> {
   late DateTime _visibleMonthFirstDay; // jeweils der 1. des Monats
+  Object? _planKey;
+  DateTime? _loadedMonth;
+  Future<List<ProgramEntry>>? _planned;
 
   @override
   void initState() {
@@ -38,8 +49,41 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
 
   @override
   Widget build(BuildContext context) {
+    final store = context.watch<TrainingProgramProvider?>();
+    if (store == null) return _calendar(context, null);
+    final p = store.active;
+    if (p == null) return _calendar(context, const []);
+    if (_planKey != p || _loadedMonth != _visibleMonthFirstDay) {
+      _planKey = p;
+      _loadedMonth = _visibleMonthFirstDay;
+      final from = DateTime(
+        _visibleMonthFirstDay.year,
+        _visibleMonthFirstDay.month,
+        1 - _visibleMonthFirstDay.weekday + 1,
+      );
+      _planned = store.repository.entries(
+        p,
+        from,
+        DateTime(
+          _visibleMonthFirstDay.year,
+          _visibleMonthFirstDay.month + 1,
+          8,
+        ),
+      );
+    }
+    return FutureBuilder<List<ProgramEntry>>(
+      future: _planned,
+      builder:
+          (context, snapshot) => _calendar(context, snapshot.data ?? const []),
+    );
+  }
+
+  Widget _calendar(BuildContext context, List<ProgramEntry>? scheduled) {
     final days = _buildMonthDays(_visibleMonthFirstDay);
     final activityMap = _activityByDay(widget.entries);
+    for (final d in widget.additionalCompleted) {
+      activityMap.update(_key(d), (n) => n + 1, ifAbsent: () => 1);
+    }
 
     final bigLabel = TextStyle(
       fontSize: 13,
@@ -120,24 +164,52 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
             final d = days[i];
             final isCurrentMonth = d.month == _visibleMonthFirstDay.month;
             final cnt = activityMap[_key(d)] ?? 0;
-            final planned = _plannedForWeekday(d.weekday);
-            final goalCode = prioritizedGoal(
-              planned.expand((workout) => workout.goalCodes),
-            );
+            final unified =
+                scheduled?.where((e) => dateKey(e.date) == dateKey(d)).toList();
+            final planned =
+                scheduled == null ? _plannedForWeekday(d.weekday) : <Workout>[];
+            final cardioPlanned =
+                (scheduled == null
+                        ? widget.cardioOccurrences
+                        : <ScheduledCardioWorkout>[])
+                    .where(
+                      (o) =>
+                          o.status == 'planned' &&
+                          o.date.year == d.year &&
+                          o.date.month == d.month &&
+                          o.date.day == d.day,
+                    )
+                    .toList();
+            final goalCode =
+                prioritizedGoal(
+                  planned.expand((workout) => workout.goalCodes),
+                ) ??
+                (cardioPlanned.isNotEmpty ? 'cardio' : null) ??
+                (unified?.isNotEmpty == true
+                    ? (unified!.any((e) => e.kind == 'running')
+                        ? 'cardio'
+                        : unified.first.kind)
+                    : null);
             final summary = CalendarDaySummary(
               date: d,
-              plannedWorkoutIds: planned
-                  .map((workout) => workout.canonicalId)
-                  .toList(growable: false),
-              primaryGoal: goalCode == null
-                  ? null
-                  : WorkoutPrimaryGoal.fromCode(goalCode),
+              plannedWorkoutIds: [
+                ...cardioPlanned.map((o) => o.id),
+                ...planned.map((workout) => workout.canonicalId),
+                ...?unified?.map((e) => e.workoutId ?? e.id),
+              ],
+              primaryGoal:
+                  goalCode == null
+                      ? null
+                      : WorkoutPrimaryGoal.fromCode(goalCode),
               completedCount: cnt,
             );
             final semantics = <String>[
               '${d.day}',
               context.l10n.workoutsRecordedOnDay(cnt),
-              if (planned.isNotEmpty) context.l10n.plannedWorkouts,
+              if (planned.isNotEmpty ||
+                  cardioPlanned.isNotEmpty ||
+                  unified?.isNotEmpty == true)
+                context.l10n.plannedWorkouts,
             ].join(': ');
 
             return AnimatedOpacity(
@@ -150,9 +222,10 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: widget.onDayTap == null
-                        ? null
-                        : () => widget.onDayTap!(summary),
+                    onTap:
+                        widget.onDayTap == null
+                            ? null
+                            : () => widget.onDayTap!(summary),
                     child: Ink(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
@@ -173,27 +246,29 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                               duration: const Duration(milliseconds: 180),
                               switchInCurve: Curves.easeOut,
                               switchOutCurve: Curves.easeIn,
-                              child: cnt > 0
-                                  ? const Center(
-                                      key: ValueKey('done'),
-                                      child: _DoneCheck(),
-                                    )
-                                  : summary.primaryGoal == null
-                                  ? const SizedBox.shrink(
-                                      key: ValueKey('empty'),
-                                    )
-                                  : Center(
-                                      key: ValueKey(
-                                        'planned-${summary.primaryGoal!.code}',
+                              child:
+                                  cnt > 0
+                                      ? const Center(
+                                        key: ValueKey('done'),
+                                        child: _DoneCheck(),
+                                      )
+                                      : summary.primaryGoal == null
+                                      ? const SizedBox.shrink(
+                                        key: ValueKey('empty'),
+                                      )
+                                      : Center(
+                                        key: ValueKey(
+                                          'planned-${summary.primaryGoal!.code}',
+                                        ),
+                                        child: GoalIcon(
+                                          summary.primaryGoal!.code,
+                                          size: 25,
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                        ),
                                       ),
-                                      child: GoalIcon(
-                                        summary.primaryGoal!.code,
-                                        size: 25,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
-                                      ),
-                                    ),
                             ),
                           ),
                           if (summary.additionalWorkoutCount > 0)
@@ -202,15 +277,12 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
                               bottom: 4,
                               child: Text(
                                 '+${summary.additionalWorkoutCount}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelSmall
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.labelSmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                         ],
@@ -252,15 +324,15 @@ class _TrainingsCalendarState extends State<TrainingsCalendar> {
   }
 
   List<Workout> _plannedForWeekday(int weekday) {
-    final result = widget.plannedWorkouts
-        .where((workout) => workout.assignedDays.contains(weekday))
-        .toList()
-      ..sort(
-        (a, b) =>
-            (a.scheduleOrderByDay[weekday] ?? 0).compareTo(
+    final result =
+        widget.plannedWorkouts
+            .where((workout) => workout.assignedDays.contains(weekday))
+            .toList()
+          ..sort(
+            (a, b) => (a.scheduleOrderByDay[weekday] ?? 0).compareTo(
               b.scheduleOrderByDay[weekday] ?? 0,
             ),
-      );
+          );
     return result;
   }
 

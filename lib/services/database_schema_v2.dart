@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:sqflite/sqflite.dart';
+import 'cardio_schema.dart';
+import 'training_program_schema.dart';
 
 /// The first schema in data epoch 2.
 ///
@@ -10,10 +12,12 @@ import 'package:sqflite/sqflite.dart';
 /// here so the application remains usable during that transition.
 abstract final class DatabaseSchemaV2 {
   static const int dataEpoch = 2;
-  static const int schemaVersion = 6;
-  static const String schemaRevision = '2026-10-19.6';
+  static const int schemaVersion = 8;
+  static const String schemaRevision = '2026-10-19.8';
 
   static const userDataTables = <String>[
+    ...TrainingProgramSchema.tables,
+    ...CardioSchema.tables,
     'health_record_links',
     'activity_metric_values',
     'activity_efforts',
@@ -81,6 +85,8 @@ abstract final class DatabaseSchemaV2 {
       await db.execute(statement);
     }
     await _seedReferenceData(db);
+    await CardioSchema.create(db);
+    await TrainingProgramSchema.create(db);
   }
 
   /// Applies non-destructive schema upgrades inside data epoch 2.
@@ -163,6 +169,8 @@ abstract final class DatabaseSchemaV2 {
       }
       await db.update('user_settings', {'profile_setup_state': 'offer'});
     }
+    if (oldVersion < 7) await CardioSchema.create(db);
+    if (oldVersion < 8) await TrainingProgramSchema.migrate(db);
     await _writeCurrentMetadata(db);
   }
 

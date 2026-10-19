@@ -8,10 +8,11 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:trainy/services/app_database.dart';
 import 'package:trainy/services/local_backup_service.dart';
 import 'package:trainy/services/database_schema_v2.dart';
+import 'package:trainy/services/training_program_schema.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  for (final sourceVersion in [4, 5]) {
+  for (final sourceVersion in [4, 5, 6, 7]) {
     test(
       'schema-$sourceVersion ZIP stages into current schema without touching active data on invalid FK',
       () async {
@@ -35,8 +36,16 @@ void main() {
           });
           final data = await service.exportAll();
           data['schemaVersion'] = sourceVersion;
-          data['schemaRevision'] = '2026-10-16.$sourceVersion';
-          for (final row in data['tables']['user_settings']) {
+          final revision =
+              sourceVersion >= 6
+                  ? '2026-10-19.$sourceVersion'
+                  : '2026-10-16.$sourceVersion';
+          data['schemaRevision'] = revision;
+          for (final table in TrainingProgramSchema.tables) {
+            (data['tables'] as Map).remove(table);
+          }
+          for (final row
+              in sourceVersion < 6 ? data['tables']['user_settings'] : []) {
             (row as Map).remove('profile_setup_state');
           }
           Uint8List zip(Map<String, dynamic> data) {
@@ -47,7 +56,7 @@ void main() {
                 'formatVersion': 2,
                 'dataEpoch': 2,
                 'schemaVersion': sourceVersion,
-                'schemaRevision': '2026-10-16.$sourceVersion',
+                'schemaRevision': revision,
                 'images': {},
                 'includesImages': false,
                 'database': {
@@ -77,7 +86,7 @@ void main() {
           expect(await db.getVersion(), DatabaseSchemaV2.schemaVersion);
           expect(
             (await db.query('user_settings')).single['profile_setup_state'],
-            'offer',
+            sourceVersion < 6 ? 'offer' : 'required',
           );
           expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
           data['tables']['workout_weekly_schedule'] = [

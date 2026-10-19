@@ -23,6 +23,14 @@ import '../widgets/screen_info_dialog.dart';
 import '../providers/cloud_sync_provider.dart';
 import '../l10n/l10n.dart';
 import '../utils/goal_utils.dart';
+import '../l10n/cardio_l10n.dart';
+import '../providers/cardio_provider.dart';
+import 'cardio_session_screen.dart';
+import 'training_plan_screen.dart';
+import '../providers/training_program_provider.dart';
+import '../widgets/plan_controls.dart';
+import '../l10n/plan_l10n.dart';
+import 'cardio_history_screen.dart';
 
 class ProgressScreen extends StatefulWidget {
   final VoidCallback? onSwipePastStart;
@@ -176,13 +184,53 @@ class _ProgressScreenState extends State<ProgressScreen>
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
             child: WeeklyActivityChart(
               entries: entries,
+              additionalDurations: provider.cardioDurations,
               title: context.l10n.activity,
               subtitle: context.l10n.minutesPerDay,
             ),
           ),
         ),
         const SizedBox(height: 12),
-        if (entries.isEmpty)
+        if (provider.cardioSessions.isNotEmpty)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(context.cardio('cardio')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap:
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CardioHistoryScreen(),
+                  ),
+                ),
+          ),
+        for (final row in provider.cardioSessions)
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.directions_run),
+              title: Text(row['name_snapshot'] as String),
+              subtitle: Text(
+                DateFormat.yMMMEd(
+                  Localizations.localeOf(context).toString(),
+                ).format(
+                  DateTime.fromMillisecondsSinceEpoch(
+                    row['started_at_utc'] as int,
+                  ),
+                ),
+              ),
+              onTap:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (_) => CardioSummaryScreen(
+                            runtime: cardioHistoryRuntime(row),
+                          ),
+                    ),
+                  ),
+            ),
+          ),
+        if (entries.isEmpty && provider.cardioSessions.isEmpty)
           const _EmptyState()
         else
           ...List.generate(
@@ -239,9 +287,13 @@ class _ProgressScreenState extends State<ProgressScreen>
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
                 child: TrainingsCalendar(
                   entries: entries,
+                  additionalCompleted:
+                      provider.cardioDurations.map((e) => e.$1).toList(),
+                  cardioOccurrences:
+                      context.watch<CardioProvider?>()?.occurrences ?? [],
                   plannedWorkouts: workouts,
-                  onDayTap: (summary) =>
-                      _showCalendarDay(summary, workouts, entries),
+                  onDayTap:
+                      (summary) => _showCalendarDay(summary, workouts, entries),
                 ),
               ),
             ),
@@ -301,92 +353,193 @@ class _ProgressScreenState extends State<ProgressScreen>
     List<Workout> workouts,
     List<WorkoutEntry> entries,
   ) async {
-    final planned = summary.plannedWorkoutIds
-        .map(
-          (id) => workouts.where((workout) => workout.canonicalId == id),
-        )
-        .expand((items) => items)
-        .toList();
-    final completed = entries
-        .where(
-          (entry) =>
-              entry.date.year == summary.date.year &&
-              entry.date.month == summary.date.month &&
-              entry.date.day == summary.date.day,
-        )
-        .toList();
+    final store = context.read<TrainingProgramProvider?>();
+    final shared =
+        store?.active == null
+            ? null
+            : await store!.repository.entries(
+              store.active!,
+              summary.date,
+              DateTime(
+                summary.date.year,
+                summary.date.month,
+                summary.date.day + 1,
+              ),
+            );
+    if (!mounted) return;
+    final planned =
+        (store == null ? summary.plannedWorkoutIds : <String>[])
+            .map((id) => workouts.where((workout) => workout.canonicalId == id))
+            .expand((items) => items)
+            .toList();
+    final completed =
+        entries
+            .where(
+              (entry) =>
+                  entry.date.year == summary.date.year &&
+                  entry.date.month == summary.date.month &&
+                  entry.date.day == summary.date.day,
+            )
+            .toList();
+    bool sameDay(DateTime d) =>
+        d.year == summary.date.year &&
+        d.month == summary.date.month &&
+        d.day == summary.date.day;
+    final cardio = context.read<CardioProvider?>();
+    final cardioPlanned =
+        (store == null ? cardio?.occurrences : null)
+            ?.where((o) => o.status == 'planned' && sameDay(o.date))
+            .toList() ??
+        [];
+    final cardioDone =
+        context
+            .read<ProgressProvider>()
+            .cardioSessions
+            .where(
+              (s) => sameDay(
+                DateTime.fromMillisecondsSinceEpoch(s['started_at_utc'] as int),
+              ),
+            )
+            .toList();
 
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.72,
-          ),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-            children: [
-              Text(
-                DateFormat.yMMMMd(
-                  Localizations.localeOf(sheetContext).toLanguageTag(),
-                ).format(summary.date), style: Theme.of(sheetContext).textTheme.titleLarge),
-              const SizedBox(height: 18),
-              Text(
-                sheetContext.l10n.plannedWorkouts,
-                style: Theme.of(sheetContext).textTheme.titleMedium,
+      builder:
+          (sheetContext) => SafeArea(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.72,
               ),
-              const SizedBox(height: 8),
-              if (planned.isEmpty)
-                Text(sheetContext.l10n.noWorkoutPlanned)
-              else
-                ...planned.map(
-                  (workout) => Card(
-                    child: ListTile(
-                      leading: GoalIcon(workout.primaryGoalCode, size: 22),
-                      title: Text(workout.name),
-                      subtitle: Text(
-                        goalLabel(sheetContext, workout.primaryGoalCode),
-                      ),
-                    ),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                children: [
+                  Text(
+                    DateFormat.yMMMMd(
+                      Localizations.localeOf(sheetContext).toLanguageTag(),
+                    ).format(summary.date),
+                    style: Theme.of(sheetContext).textTheme.titleLarge,
                   ),
-                ),
-              const SizedBox(height: 18),
-              Text(
-                sheetContext.l10n.history,
-                style: Theme.of(sheetContext).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              if (completed.isEmpty)
-                Text(sheetContext.l10n.workoutsRecordedOnDay(0))
-              else
-                ...completed.map((entry) {
-                  final workout = workouts.where(
-                    (candidate) => candidate.id == entry.workoutId,
-                  );
-                  return Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.check_circle_rounded),
-                      title: Text(
-                        workout.isEmpty
-                            ? sheetContext.l10n.workout
-                            : workout.first.name,
+                  const SizedBox(height: 18),
+                  Text(
+                    sheetContext.l10n.plannedWorkouts,
+                    style: Theme.of(sheetContext).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  for (final e in shared ?? [])
+                    ListTile(
+                      leading: Icon(
+                        e.kind == 'running'
+                            ? Icons.directions_run
+                            : Icons.fitness_center,
                       ),
-                      subtitle: Text(
-                        DateFormat.Hm(
-                          Localizations.localeOf(
-                            sheetContext,
-                          ).toLanguageTag(),
-                        ).format(entry.date),
+                      title: Text(planLabel(sheetContext, e.name)),
+                      subtitle:
+                          e.needsWorkout
+                              ? Text(sheetContext.plan('assignWorkout'))
+                              : null,
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => TrainingPlanScreen(
+                                  initialDate: summary.date,
+                                ),
+                          ),
+                        );
+                      },
+                    ),
+                  for (final o in cardioPlanned)
+                    ListTile(
+                      leading: const Icon(Icons.directions_run),
+                      title: Text(o.workout.name),
+                      onTap: () async {
+                        final progress = context.read<ProgressProvider>();
+                        Navigator.pop(sheetContext);
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => TrainingPlanScreen(
+                                  initialDate: summary.date,
+                                ),
+                          ),
+                        );
+                        await progress.loadData();
+                      },
+                    ),
+                  if (planned.isEmpty &&
+                      cardioPlanned.isEmpty &&
+                      (shared?.isEmpty ?? true))
+                    Text(sheetContext.l10n.noWorkoutPlanned)
+                  else
+                    ...planned.map(
+                      (workout) => Card(
+                        child: ListTile(
+                          leading: GoalIcon(workout.primaryGoalCode, size: 22),
+                          title: Text(workout.name),
+                          subtitle: Text(
+                            goalLabel(sheetContext, workout.primaryGoalCode),
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                }),
-            ],
+                  const SizedBox(height: 18),
+                  Text(
+                    sheetContext.l10n.history,
+                    style: Theme.of(sheetContext).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  for (final s in cardioDone)
+                    ListTile(
+                      leading: const Icon(Icons.check_circle_outline),
+                      title: Text(s['name_snapshot'] as String),
+                      subtitle: Text(sheetContext.cardio('cardio')),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => CardioSummaryScreen(
+                                  runtime: cardioHistoryRuntime(s),
+                                ),
+                          ),
+                        );
+                      },
+                    ),
+                  if (completed.isEmpty && cardioDone.isEmpty)
+                    Text(sheetContext.l10n.workoutsRecordedOnDay(0))
+                  else
+                    ...completed.map((entry) {
+                      final workout = workouts.where(
+                        (candidate) => candidate.id == entry.workoutId,
+                      );
+                      return Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.check_circle_rounded),
+                          title: Text(
+                            workout.isEmpty
+                                ? sheetContext.l10n.workout
+                                : workout.first.name,
+                          ),
+                          subtitle: Text(
+                            DateFormat.Hm(
+                              Localizations.localeOf(
+                                sheetContext,
+                              ).toLanguageTag(),
+                            ).format(entry.date),
+                          ),
+                        ),
+                      );
+                    }),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
     );
   }
 

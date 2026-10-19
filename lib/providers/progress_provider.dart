@@ -7,10 +7,29 @@ import '../models/pinned_chart.dart';
 import '../services/workout_entry_database.dart';
 import '../services/settings_database.dart';
 import '../services/pinned_chart_database.dart';
+import '../repositories/cardio_repository.dart';
+import '../repositories/training_program_repository.dart';
+import 'dart:convert';
 
 /// Provider für den Progress-Screen (Laden/Speichern von Sessions).
 class ProgressProvider extends ChangeNotifier {
   final List<WorkoutEntry> _entries = [];
+  List<Map<String, Object?>> _cardioSessions = [];
+  List<Map<String, Object?>> get cardioSessions =>
+      List.unmodifiable(_cardioSessions);
+  List<(DateTime, double)> get cardioDurations =>
+      _cardioSessions
+          .map(
+            (s) => (
+              DateTime.fromMillisecondsSinceEpoch(s['started_at_utc'] as int),
+              ((jsonDecode(s['runtime_json'] as String? ?? '{}')
+                              as Map)['activeSeconds']
+                          as num? ??
+                      0)
+                  .toDouble(),
+            ),
+          )
+          .toList();
   List<PinnedChart> _pinnedCharts = [];
   List<String> _insightsOrder = [];
   int _weeklyGoal = 2;
@@ -67,9 +86,15 @@ class ProgressProvider extends ChangeNotifier {
   /// within the same week.
   int get currentStreak {
     final trainingDays = effectiveTrainingDays;
-    if (_entries.isEmpty || trainingDays.isEmpty) return 0;
+    if ((_entries.isEmpty && _cardioSessions.isEmpty) || trainingDays.isEmpty) {
+      return 0;
+    }
 
     final workoutDates = <DateTime>{};
+    for (final item in cardioDurations) {
+      final d = item.$1;
+      workoutDates.add(DateTime(d.year, d.month, d.day));
+    }
     for (final e in _entries) {
       final d = e.date;
       workoutDates.add(DateTime(d.year, d.month, d.day));
@@ -166,7 +191,23 @@ class ProgressProvider extends ChangeNotifier {
                   .map((s) => int.tryParse(s.trim()) ?? 0)
                   .where((d) => d >= 1 && d <= 7)
                   .toSet();
+      final plans = TrainingProgramRepository();
+      final activeId = await plans.activeId();
+      final active =
+          (await plans.plans()).where((p) => p.id == activeId).firstOrNull;
+      if (active != null) {
+        final now = DateTime.now();
+        final monday = DateTime(now.year, now.month, now.day - now.weekday + 1);
+        final week = await plans.entries(
+          active,
+          monday,
+          DateTime(monday.year, monday.month, monday.day + 7),
+        );
+        _trainingDays = week.map((e) => e.date.weekday).toSet();
+        _weeklyGoal = week.length;
+      }
       final list = await WorkoutEntryDatabase.instance.getAggregatedEntries();
+      _cardioSessions = await CardioRepository().history();
       _entries
         ..clear()
         ..addAll(list);
@@ -183,6 +224,7 @@ class ProgressProvider extends ChangeNotifier {
   }
 
   Future<void> refreshEntries() async {
+    _cardioSessions = await CardioRepository().history();
     final list = await WorkoutEntryDatabase.instance.getAggregatedEntries();
     _entries
       ..clear()

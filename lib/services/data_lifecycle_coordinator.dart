@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'cardio_native_lifecycle.dart';
 
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -41,6 +42,7 @@ class DataLifecycleCoordinator {
   static const _temporaryDirectoryNames = <String>[
     'trainy_imports',
     'trainy_restore',
+    'trainy_backup_cache',
   ];
 
   Future<DataStartupResult> ensureReady() async {
@@ -213,6 +215,7 @@ class DataLifecycleCoordinator {
   }
 
   Future<void> _deleteTrainingFiles({required bool includeV2}) async {
+    if (includeV2) await CardioNativeLifecycle.discard();
     await AppDatabase.instance.close();
     final databaseDirectory = await getDatabasesPath();
     final names = <String>{

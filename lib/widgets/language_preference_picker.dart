@@ -9,10 +9,14 @@ class LanguagePreferencePicker extends StatelessWidget {
     super.key,
     required this.preference,
     required this.onChanged,
+    this.showAllOptions = false,
   });
 
   final AppLanguagePreference preference;
   final ValueChanged<AppLanguagePreference> onChanged;
+
+  /// Onboarding keeps every language visible, including on narrow screens.
+  final bool showAllOptions;
 
   static const _values = <AppLanguagePreference>[
     AppLanguagePreference.system,
@@ -28,6 +32,23 @@ class LanguagePreferencePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (showAllOptions) {
+      return Column(
+        children: [
+          for (final value in _values)
+            Card(
+              child: RadioListTile<AppLanguagePreference>(
+                value: value,
+                groupValue: preference,
+                title: Text(_label(value)),
+                onChanged: (value) {
+                  if (value != null) onChanged(value);
+                },
+              ),
+            ),
+        ],
+      );
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final scaledText = MediaQuery.textScalerOf(context).scale(14);

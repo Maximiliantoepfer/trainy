@@ -16,11 +16,12 @@ import '../providers/active_workout_provider.dart';
 import '../providers/locale_provider.dart';
 import '../providers/data_lifecycle_provider.dart';
 import '../widgets/language_preference_picker.dart';
-import '../repositories/training_profile_repository.dart';
+import '../l10n/plan_l10n.dart';
+import 'training_plan_screen.dart';
+import 'user_training_profile_screen.dart';
+import '../providers/training_program_provider.dart';
+import '../providers/cardio_provider.dart';
 import '../l10n/l10n.dart';
-import '../widgets/training_profile_settings_card.dart';
-import '../utils/goal_utils.dart';
-import 'weekly_planner_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -31,9 +32,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen>
     with AutomaticKeepAliveClientMixin {
-  late final TrainingProfileRepository _trainingProfiles =
-      TrainingProfileRepository();
-
   @override
   bool get wantKeepAlive => true;
 
@@ -42,8 +40,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     super.build(context);
     final theme = context.watch<ThemeProvider>();
     final scheme = Theme.of(context).colorScheme;
-    final progress = context.watch<ProgressProvider>();
-    final weeklyGoal = progress.weeklyGoal.clamp(1, 7);
     final active = context.watch<ActiveWorkoutProvider>();
     final locale = context.watch<LocaleProvider>();
     final l10n = context.l10n;
@@ -67,6 +63,23 @@ class _SettingsScreenState extends State<SettingsScreen>
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
         children: [
+          const TrainingPlanCard(),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: Text(context.plan('profile')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const UserTrainingProfileScreen(),
+                    ),
+                  ),
+            ),
+          ),
+          const SizedBox(height: 24),
           AnimatedSize(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeOutCubic,
@@ -115,10 +128,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                     onSelectionChanged: (v) {
                       final newMode = v.first;
                       theme.setThemeMode(newMode);
-                      final brightness = _effectiveBrightness(context, newMode);
-                      if (theme.hasContrastProblem(brightness)) {
-                        _showContrastWarning(context, theme);
-                      }
                     },
                   ),
                   const SizedBox(height: 20),
@@ -129,8 +138,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
                     children: [
                       for (final c in _quickSwatches)
                         _ColorDot(
@@ -176,50 +186,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
           const SizedBox(height: 24),
 
-          TrainingProfileSettingsCard(
-            store:
-                context.read<TrainingProfileProvider?>() ?? _trainingProfiles,
-          ),
-
-          const SizedBox(height: 24),
-
-          // --- Goals ---
-          _SectionHeader(title: l10n.weeklyGoal),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.trainingDaysPerWeek,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SegmentedButton<int>(
-                    showSelectedIcon: false,
-                    segments: List.generate(
-                      7,
-                      (i) =>
-                          ButtonSegment(value: i + 1, label: Text('${i + 1}')),
-                    ),
-                    selected: {weeklyGoal},
-                    onSelectionChanged:
-                        (v) => context.read<ProgressProvider>().setWeeklyGoal(
-                          v.first.clamp(1, 7),
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-          _WorkoutScheduleCard(),
-
+          const TrainingConnectionsCard(),
           const SizedBox(height: 24),
 
           // --- Cloud ---
@@ -432,19 +399,6 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
             ],
           ),
-    );
-  }
-
-  void _showContrastWarning(BuildContext context, ThemeProvider theme) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.lowContrast),
-        action: SnackBarAction(
-          label: context.l10n.change,
-          onPressed: () => _pickAccent(context, theme),
-        ),
-        duration: const Duration(seconds: 5),
-      ),
     );
   }
 
@@ -706,6 +660,10 @@ class _SettingsScreenState extends State<SettingsScreen>
     final workouts = context.read<WorkoutProvider>();
     final progress = context.read<ProgressProvider>();
     await profiles?.reload();
+    if (!mounted) return;
+    await context.read<CardioProvider>().load();
+    if (!mounted) return;
+    await context.read<TrainingProgramProvider>().load();
     await exercises.loadExercises();
     await workouts.loadWorkouts();
     await progress.loadData();
@@ -805,116 +763,6 @@ class _ColorDot extends StatelessWidget {
                     )
                     : null,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WorkoutScheduleCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final workoutProvider = context.watch<WorkoutProvider>();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  context.l10n.trainingPlan,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const WeeklyPlannerScreen(),
-                        ),
-                      ),
-                  child: Text(context.l10n.editWeeklyPlanner),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...List.generate(7, (i) {
-              final day = i + 1;
-              final assignedWorkouts = workoutProvider.workoutsForDay(day);
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 28,
-                      child: Text(
-                        [
-                          context.l10n.monday,
-                          context.l10n.tuesday,
-                          context.l10n.wednesday,
-                          context.l10n.thursday,
-                          context.l10n.friday,
-                          context.l10n.saturday,
-                          context.l10n.sunday,
-                        ][i],
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color:
-                              assignedWorkouts.isNotEmpty
-                                  ? scheme.onSurface
-                                  : scheme.onSurfaceVariant.withValues(
-                                    alpha: 0.4,
-                                  ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child:
-                          assignedWorkouts.isNotEmpty
-                              ? Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  for (final w in assignedWorkouts.take(2))
-                                    Chip(
-                                      avatar: GoalIcon(
-                                        w.primaryGoalCode,
-                                        size: 15,
-                                      ),
-                                      label: Text(w.name),
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                  if (assignedWorkouts.length > 2)
-                                    Chip(
-                                      label: Text(
-                                        '+${assignedWorkouts.length - 2}',
-                                      ),
-                                    ),
-                                ],
-                              )
-                              : Text(
-                                context.l10n.restDay,
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.bodySmall?.copyWith(
-                                  color: scheme.onSurfaceVariant.withValues(
-                                    alpha: 0.4,
-                                  ),
-                                ),
-                              ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
         ),
       ),
     );

@@ -925,6 +925,7 @@ class _GoalSelectionDialogState extends State<_GoalSelectionDialog> {
   void initState() {
     super.initState();
     _selected = widget.initialGoals.toSet();
+    if (_selected.remove('endurance')) _selected.add('cardio');
   }
 
   @override

@@ -56,6 +56,8 @@ class AppTheme {
 
   // ---- Basis ----
   static ThemeData _base(ColorScheme scheme, Brightness brightness) {
+    final light = brightness == Brightness.light;
+    final actionInk = light ? scheme.onSurface : accessibleAccent(scheme);
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
@@ -104,6 +106,29 @@ class AppTheme {
 
     return base.copyWith(
       textTheme: bumped,
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected)
+                  ? actionInk
+                  : scheme.onSurfaceVariant,
+        ),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected)
+                  ? actionInk
+                  : Colors.transparent,
+        ),
+        checkColor: WidgetStatePropertyAll(_onColor(actionInk)),
+        side: BorderSide(color: scheme.onSurfaceVariant, width: 2),
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: actionInk,
+        selectionColor: scheme.primary.withValues(alpha: .25),
+        selectionHandleColor: actionInk,
+      ),
 
       // Icons: subtil, nicht alles in Akzentfarbe
       iconTheme: IconThemeData(color: scheme.onSurfaceVariant, size: 22),
@@ -141,8 +166,19 @@ class AppTheme {
       // FilledButton
       filledButtonTheme: FilledButtonThemeData(
         style: ButtonStyle(
-          backgroundColor: WidgetStatePropertyAll(scheme.primary),
-          foregroundColor: WidgetStatePropertyAll(scheme.onPrimary),
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) =>
+                states.contains(WidgetState.disabled)
+                    ? scheme.onSurface.withValues(alpha: .12)
+                    : scheme.primary,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) =>
+                states.contains(WidgetState.disabled)
+                    ? scheme.onSurfaceVariant
+                    : scheme.onPrimary,
+          ),
+          minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           ),
@@ -161,7 +197,7 @@ class AppTheme {
       // TextButton
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: scheme.primary,
+          foregroundColor: actionInk,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(kRadiusSm),
@@ -211,7 +247,7 @@ class AppTheme {
           foregroundColor: WidgetStateProperty.resolveWith(
             (states) =>
                 states.contains(WidgetState.selected)
-                    ? scheme.primary
+                    ? actionInk
                     : scheme.onSurfaceVariant,
           ),
           side: WidgetStatePropertyAll(
@@ -231,7 +267,10 @@ class AppTheme {
       // Textfelder: sauber, minimalistisch
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        fillColor:
+            light
+                ? scheme.surfaceContainerHighest
+                : scheme.surfaceContainerHighest.withValues(alpha: 0.4),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -242,18 +281,25 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(kRadius),
-          borderSide: BorderSide.none,
+          borderSide:
+              light ? BorderSide(color: scheme.outline) : BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(kRadius),
-          borderSide: BorderSide(color: scheme.primary, width: 1.5),
+          borderSide: BorderSide(
+            color: light ? scheme.onSurface : accessibleAccent(scheme),
+            width: 2,
+          ),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(kRadius),
           borderSide: BorderSide(color: scheme.error),
         ),
         hintStyle: TextStyle(
-          color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+          color:
+              light
+                  ? scheme.onSurfaceVariant
+                  : scheme.onSurfaceVariant.withValues(alpha: 0.5),
           fontWeight: FontWeight.w400,
         ),
         labelStyle: TextStyle(
@@ -309,7 +355,7 @@ class AppTheme {
       // TabBar
       tabBarTheme: TabBarTheme(
         dividerColor: Colors.transparent,
-        labelColor: scheme.primary,
+        labelColor: actionInk,
         unselectedLabelColor: scheme.onSurfaceVariant,
         indicatorColor: scheme.primary,
         indicatorSize: TabBarIndicatorSize.label,
@@ -365,7 +411,7 @@ class AppTheme {
                 color: scheme.outlineVariant.withValues(alpha: 0.15),
                 width: 0.5,
               )
-              : BorderSide.none,
+              : BorderSide(color: scheme.outlineVariant, width: .7),
     ),
     margin: EdgeInsets.zero,
   );
@@ -389,7 +435,10 @@ class AppTheme {
       backgroundColor: bg,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      indicatorColor: Colors.transparent,
+      indicatorColor:
+          scheme.brightness == Brightness.light
+              ? scheme.primary.withValues(alpha: .12)
+              : Colors.transparent,
       indicatorShape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kRadiusSm),
       ),
@@ -397,8 +446,10 @@ class AppTheme {
         (states) => IconThemeData(
           color:
               states.contains(WidgetState.selected)
-                  ? scheme.primary
-                  : scheme.onSurfaceVariant.withValues(alpha: 0.45),
+                  ? (scheme.brightness == Brightness.light
+                      ? scheme.onSurface
+                      : accessibleAccent(scheme))
+                  : scheme.onSurfaceVariant,
           size: states.contains(WidgetState.selected) ? 32 : 28,
         ),
       ),
@@ -411,12 +462,12 @@ class AppTheme {
                   : FontWeight.w500,
           color:
               states.contains(WidgetState.selected)
-                  ? scheme.primary
-                  : scheme.onSurfaceVariant.withValues(alpha: 0.45),
+                  ? scheme.onSurface
+                  : scheme.onSurfaceVariant,
           letterSpacing: 0.1,
         ),
       ),
-      height: 56,
+      height: 72,
     );
   }
 
@@ -445,24 +496,21 @@ class AppTheme {
       secondary: accent,
       onSecondary: onAccent,
       primaryContainer: accent.withValues(alpha: 0.08),
-      onPrimaryContainer: accent,
+      onPrimaryContainer: const Color(0xFF17212B),
       secondaryContainer: accent.withValues(alpha: 0.08),
-      onSecondaryContainer: accent,
+      onSecondaryContainer: const Color(0xFF17212B),
       tertiary: const Color(0xFF4CAF50),
-      onTertiary: Colors.white,
-      surface: const Color(0xFFFCFBF9),
-      surfaceContainerLowest: const Color(
-        0xFFFAF9F6,
-      ), // Scaffold — warmes Creme
-      surfaceContainerLow: const Color(
-        0xFFFFFEFC,
-      ), // Cards — subtil warmes Weiss
-      surfaceContainer: const Color(
-        0xFFFAF9F6,
-      ), // NavBar — nahtlos wie Scaffold
-      surfaceContainerHighest: const Color(0xFFF0EEEB), // Chips, Fills — warm
-      outlineVariant: const Color(0xFFDDD9D4), // warm grey
-      outline: const Color(0xFF9E9A94), // warm mid-grey
+      onTertiary: Colors.black,
+      surface: Colors.white,
+      surfaceContainerLowest: const Color(0xFFF3F5F7),
+      surfaceContainerLow: Colors.white,
+      surfaceContainer: Colors.white,
+      surfaceContainerHigh: const Color(0xFFEEF1F5),
+      surfaceContainerHighest: const Color(0xFFE8EDF2),
+      onSurface: const Color(0xFF17212B),
+      onSurfaceVariant: const Color(0xFF5B6572),
+      outlineVariant: const Color(0xFFD4DAE1),
+      outline: const Color(0xFF7B8794),
     );
   }
 
@@ -475,9 +523,15 @@ class AppTheme {
       secondary: accent,
       onSecondary: onAccent,
       primaryContainer: accent.withValues(alpha: 0.15),
-      onPrimaryContainer: accent,
+      onPrimaryContainer:
+          contrast(accent, const Color(0xFF1A1A1E)) >= 4.5
+              ? accent
+              : base.onSurface,
       secondaryContainer: accent.withValues(alpha: 0.15),
-      onSecondaryContainer: accent,
+      onSecondaryContainer:
+          contrast(accent, const Color(0xFF1A1A1E)) >= 4.5
+              ? accent
+              : base.onSurface,
       tertiary: const Color(0xFF4CAF50),
       onTertiary: Colors.white,
       surface: const Color(0xFF121214),
@@ -490,7 +544,20 @@ class AppTheme {
   }
 
   static Color _onColor(Color bg) {
-    final brightness = ThemeData.estimateBrightnessForColor(bg);
-    return brightness == Brightness.dark ? Colors.white : Colors.black;
+    return contrast(Colors.white, bg) > contrast(Colors.black, bg)
+        ? Colors.white
+        : Colors.black;
   }
+
+  static double contrast(Color a, Color b) {
+    final x = a.computeLuminance(), y = b.computeLuminance();
+    return x > y ? (x + .05) / (y + .05) : (y + .05) / (x + .05);
+  }
+
+  /// Brand color is never changed; only foreground roles get a safe fallback.
+  static Color accessibleAccent(ColorScheme scheme) =>
+      contrast(scheme.primary, scheme.surfaceContainerLowest) >= 4.5 &&
+              contrast(scheme.primary, scheme.surfaceContainerLow) >= 4.5
+          ? scheme.primary
+          : scheme.onSurface;
 }

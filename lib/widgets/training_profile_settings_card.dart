@@ -346,16 +346,26 @@ class _TrainingProfileDialogState extends State<_TrainingProfileDialog> {
   late final Set<String> _selectedEquipment;
   late final TextEditingController _nameController;
   late final FocusNode _nameFocusNode;
-  String _template = 'custom';
+  String _template = 'home';
+  bool _nameInitialized = false;
 
   @override
   void initState() {
     super.initState();
     _selectedEquipment = {
-      ...(widget.initial?.equipmentCodes ?? {'bodyweight'}),
+      ...(widget.initial?.equipmentCodes ??
+          TrainingProfileRepository.homeEquipment),
     };
     _nameController = TextEditingController(text: widget.initial?.name);
     _nameFocusNode = FocusNode();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_nameInitialized) return;
+    _nameInitialized = true;
+    if (widget.initial == null) _nameController.text = context.l10n.homeGym;
   }
 
   @override
@@ -412,18 +422,24 @@ class _TrainingProfileDialogState extends State<_TrainingProfileDialog> {
                           selected: _template == entry.$1,
                           onSelected:
                               (_) => setState(() {
+                                if (_template == entry.$1) return;
                                 _template = entry.$1;
-                                if (_template != 'custom') {
-                                  _nameController.text = entry.$2;
-                                }
+                                _nameController.text =
+                                    _template == 'custom' ? '' : entry.$2;
                                 _selectedEquipment
                                   ..clear()
-                                  ..addAll(
-                                    _template == 'gym'
-                                        ? TrainingProfileRepository.gymEquipment
-                                        : TrainingProfileRepository
-                                            .homeEquipment,
-                                  );
+                                  ..addAll(switch (_template) {
+                                    'gym' =>
+                                      TrainingProfileRepository.gymEquipment,
+                                    'home' =>
+                                      TrainingProfileRepository.homeEquipment,
+                                    _ => const <String>{},
+                                  });
+                                if (_template == 'custom') {
+                                  _nameFocusNode.requestFocus();
+                                } else {
+                                  _nameFocusNode.unfocus();
+                                }
                               }),
                         ),
                     ],
@@ -434,7 +450,7 @@ class _TrainingProfileDialogState extends State<_TrainingProfileDialog> {
                   key: const ValueKey('trainingProfileName'),
                   controller: _nameController,
                   focusNode: _nameFocusNode,
-                  autofocus: true,
+                  autofocus: editing,
                   textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                     labelText: context.l10n.profileName,

@@ -1,0 +1,222 @@
+TRAINY CARDIO — Implementierungsstand und Release-Prüfung
+Stand: 19.10.2026
+
+UMFANG
+
+Die erste Implementierungsstufe ist Smartphone-first und lokal. Sie enthält
+Cardio-Workouts, Laufpläne, native Aufzeichnung, Sprachhinweise und den optionalen
+nachträglichen Health-Abgleich. Sie ist keine fertige Watch-App und noch keine
+auf echten Geräten abgenommene Release-Version.
+
+Einstieg: Startseite > Ausdauer. Drei Bereiche: Workouts, Trainingsplan, Verlauf.
+Das Laufprofil kann später ergänzt werden. Es gibt keinen Login-Zwang für diese
+Funktionen, keine Cloud-Berechnung und keine gestreamten Trainingsvideos.
+
+Sichtbare Grobsortierung: Kraft / Ausdauer / Beweglichkeit. Die bisherigen Codes
+cardio und endurance bleiben lesbar; Filter fassen sie unter Ausdauer zusammen.
+Sportart und Intensität sind separate Felder. Ein vollständiges zusätzliches
+Label-System für Schnellkraft/Kraftausdauer/statisches Dehnen ist nicht enthalten.
+
+WORKFLOW UND DATEN
+
+- CardioWorkout: Sportart, indoor/outdoor, automatische Pause, geordnete Schritte,
+  Warm-up und Cool-down. Schrittziele sind Zeit ODER Distanz; Intensität und
+  Zielbereiche für Geschwindigkeit bzw. Puls sind unabhängig davon einstellbar.
+- Wiederholungen werden vor dem Start in stabile, eindeutige Intervall-IDs
+  expandiert. Geh-/Stehpausen sind echte Schritte, keine automatische Pause.
+- RoutineStep: Übung, Sekunden, optional eigener Name und Anleitung. Routinen
+  werden nicht als Trainingsleistung erfasst. Lokale MP4s sind optional.
+- Verfügbare Sportarten: Laufen, Gehen, Radfahren, Stepper, Ellipsentrainer,
+  Rudern, sonstiges. Spezialisierte Plangenerierung zunächst nur für Laufen.
+- Laufvorlagen: locker 5 km, Long Run, Run/Walk, Progression, Tempo, Schwelle,
+  Pyramide, absteigende Intervalle, 4 x 4, Fahrtspiel, Steigerungen. Lauf-ABC
+  sowie Ober-/Unterkörper-Routinen sind zusätzlich in der Bibliothek erreichbar.
+- Kraft-Routinen sind als geführte Vorlagen erreichbar. Sie ersetzen nicht
+  automatisch die bereits vorhandenen Gruppen bestehender Kraft-Workouts.
+- Speicherung intern ausschließlich Meter, Sekunden und Meter/Sekunde.
+  Darstellung wahlweise km oder mi, Pace bzw. Geschwindigkeit für Radfahren.
+- Indoor ohne Distanzsensor: Zeitziele; Distanzziele werden nur nach Zustimmung
+  anhand einer vorhandenen Zielgeschwindigkeit in Zeit umgewandelt. Es wird
+  keine angeblich gemessene Indoor-Distanz erzeugt.
+
+Dateien: lib/models/cardio.dart, lib/services/cardio_training.dart,
+lib/repositories/cardio_repository.dart, lib/providers/cardio_provider.dart,
+lib/screens/cardio_*.dart; alle Oberflächentexte DE/EN in den bestehenden ARBs.
+
+SQL-Migration 6 -> 7 ist additiv innerhalb von Daten-Epoche 2. Bestehende
+Kraft-Workouts werden nicht neu initialisiert. Kanonische workout_templates,
+training_plans, activity_sessions und Metriken werden weiterverwendet.
+Die sieben cardio_* Tabellen ergänzen Profile, Workout-/Plan-Snapshots,
+datierte Vorkommen, Session-Details, Sensorpunkte und eine Health-Eingangsliste.
+
+Trainingsplan-Termine sind lokale Kalendertage, auch über Zeitumstellungen.
+Verschieben ist einzeln oder für zukünftige gleiche Wochentage möglich.
+Manuell bearbeitete/verschobene Termine werden gegen automatische Änderungen
+gesperrt. Anpassungsvorschläge müssen bestätigt werden; abgeschlossene Einheiten
+bleiben unverändert. Vorschläge bei hoher Belastung/Fehlterminen erleichtern
+kommende Einheiten, statt automatisch die Belastung zu erhöhen.
+
+TRAININGSHEURISTIKEN — KEINE LEISTUNGSGARANTIE
+
+Pace-Vorschläge benötigen eine ausdrücklich maximale Referenzleistung mit Datum
+innerhalb der letzten 90 Tage. Eine gewöhnliche Durchschnittspace ist hierfür
+kein verlässlicher Ersatz. Riegel (Exponent 1,06) liefert eine heutige
+Distanzäquivalenz, keine Vorhersage zukünftiger Leistungsentwicklung.
+
+Die Intensitätsfaktoren, Umfangssteigerungen und Planlängen sind transparente,
+konservative Produktheuristiken. Vor Veröffentlichung sportwissenschaftlich
+prüfen. Ein 5-km-Ergebnis allein belegt keine Marathon-Belastbarkeit.
+Wochenumfang, längster Lauf, kontinuierliche Laufdauer, Erfahrung und verfügbare
+Tage gehen deshalb zusätzlich ein. Pläne enthalten Basisphase, Erholung und
+Taper; Zielzeit ist ein Wunsch und keine zugesicherte Prognose.
+
+Zone 2 wird als 60–70 % Herzfrequenzreserve nach Karvonen dargestellt:
+Ruhepuls + Anteil * (Maximalpuls - Ruhepuls). Der Hinweis auf Schätzung und
+Leistungsdiagnostik ist sichtbar. Andere Zonensysteme sind nicht gleichwertig.
+4-x-4-Belastungen verwenden dagegen 85–95 % des Maximalpulses als Pulsorientierung,
+nicht 85–95 % der Reserve. Puls reagiert verzögert; nicht sofort beschleunigen,
+um am Intervallanfang eine Zahl zu erreichen.
+
+Die dreiminütige Bewegungsroutine ersetzt bei intensiven Einheiten nicht das
+eigentliche Einlaufen. Entsprechende Vorlagen enthalten zusätzlich lockere
+Anfangs-/Endabschnitte. Statisches Dehnen ist optional; keine Verletzungs- oder
+Regenerationsgarantie. Bei Schmerzen abbrechen und individuell abklären.
+
+NATIVE AUFZEICHNUNG
+
+Pigeon-Vertrag: pigeons/cardio_api.dart; generierte Dart/Kotlin/Swift-Dateien
+werden mit versioniert. Engine und Journal laufen unabhängig vom Flutter-Timer.
+
+Android: Foreground Service, GPS, monotone Uhr, lokale TTS-Stimme, Audio-Fokus,
+partieller Wake Lock. Native Dateien im privaten App-Speicher. Android >= 8
+(minSdk 26). compileSdk 36; vorhandenes AGP 8.7 warnt, weil es bis 35 getestet ist.
+Der Debug-Build funktioniert; das Toolchain-Upgrade ist vor Release zu prüfen.
+
+iOS: CLLocationManager, AVSpeechSynthesizer, atomisches lokales Journal.
+Outdoor verwendet einen im Vordergrund gestarteten Ortungsvorgang mit sichtbarer
+Hintergrundanzeige. Indoor-Hintergrundlauf über HKWorkoutSession nur mit iOS 26
+und entsprechendem Xcode/Swift-SDK; auf älteren Systemen expliziter Hinweis,
+Vordergrundbetrieb und Pause beim Verlassen der App. Kein stiller Audio-Loop.
+Mindestversion iOS 14. Die Swift-Implementierung wurde unter Windows NICHT gebaut.
+
+GPS: Genauigkeits-/Plausibilitätsfilter, geglättete Pace, Quelle phone_gps.
+GPS-Ausfall wird angezeigt/angesagt; Lücken werden nicht mit einer geraden
+Verbindungsstrecke aufgefüllt. Distanzziele warten auf echte Distanz. Die
+Zusammenfassung zeigt GPS-Abdeckung und eine lokal gezeichnete Route ohne Karten-
+Download. Autopause nach >10 Sekunden Stillstand nur mit frischen GPS-Daten;
+keine Autopause in Geh-/Steh-Erholung. Manuelle Pause bleibt manuell.
+
+Sprachhinweise: Start/Ziel, Hälfte, 100 m bzw. 15 s vor Ende, nächster Abschnitt,
+Abschluss und Durchschnitt. Pace-Korrekturen mit 20 s/km Toleranz,
+Einschwingzeit, anhaltender Abweichung und Ansage-Abstand. Keine Live-Puls-
+Korrekturen, solange keine Live-Pulsquelle implementiert ist. Eine fehlende
+lokale Stimme wird vor dem Start ausdrücklich gemeldet. Kein Cloud-TTS.
+
+Nach Prozessverlust wird ein Journal pausiert wiederhergestellt. Fortschritt
+seit dem letzten atomischen Checkpoint kann verloren gehen; keine Behauptung
+eines unterbrechungsfreien Trackings nach OS-Force-Stop oder Geräteausfall.
+JSONL-Sensorpunkte werden seitenweise, idempotent nach (Session, Sequenz) in
+SQLite übernommen. Der Recorder wird erst nach erfolgreicher Übernahme bestätigt.
+Cursor vermeiden wiederholtes Lesen der gesamten Datei; ein unvollständiger
+Dateischwanz wird bei Wiederanlauf repariert, Sequenznummern bleiben eindeutig.
+
+HEALTH UND BACKUP
+
+Apple Health / Health Connect sind hier nachträgliche Datenspeicher, kein
+Live-Uhrkanal. Optionaler Abruf der letzten 29 Tage beim Start sowie manueller
+Refresh. Importvorschläge werden bestätigt und anhand Sportart, Start/Dauer,
+Provider und externer ID zugeordnet. Eigene Exporte werden nicht erneut importiert.
+Health-Pulsdaten sind nachträgliche Zusammenfassungen. Individuelle Health-
+Berechtigungen und Anbieter-/Geräteverhalten müssen praktisch geprüft werden.
+
+Ein Export mit unklarem externem Ausgang bleibt bewusst pending, bis ein bereits
+vorhandener eigener Datensatz erkannt wird. Es gibt noch keinen manuellen
+Konfliktlöser; blindes Wiederholen wird zur Vermeidung doppelter Workouts verhindert.
+Routenexport, Live-Watch-Pace, Wear OS/watchOS-Apps, BLE-Puls und Garmin sind
+NICHT implementiert. Dafür sind eigene Adapter/Companion-Apps und Tests nötig.
+
+Cloud bleibt optional. Backup-Format 3 streamt Sensorzeilen separat als NDJSON
+und behält die bisherigen Format-2-/Schema-4/5/6-Backups als Restore-Eingang.
+Integritäts-/Pfad-/Größenprüfungen, isolierte Restore-Datenbank und FK-Prüfung
+bleiben erhalten. Ein Restore wird bei laufendem Kraft- oder Cardio-Training
+abgewiesen. Lokale Zurücksetzung stoppt/löscht auch das native Journal.
+
+Rohe GPS-/Sensordaten sind standardmäßig NICHT im Cloud-Backup. Separates Opt-in
+im Laufprofil; zusammengefasste Trainingswerte folgen dem allgemeinen Backup-
+Opt-in. Android-Systembackup ist deaktiviert, iOS-Datenordner sind vom System-
+Cloudbackup ausgeschlossen. Account-/Datenschutztexte vor Release aktualisieren.
+
+VIDEOS
+
+Noch keine generierten Videos enthalten. Offline-Fallback: übersetzte Anleitung
+und Timer. 29 einzelne, absichtlich git-ignorierte Prompts liegen lokal unter
+.tmp/cardio-video-prompts/*.txt. Kein Zugriff auf das Gemini-Konto erforderlich,
+um diese Texte zu nutzen. Die Generierung selbst erfolgt durch den Nutzer.
+
+Nach Prüfung MP4/H.264 nach assets/cardio/videos/<exerciseId>.mp4 legen und neu
+bauen. Derselbe stille oder englischsprachige Clip wird in allen Sprachen genutzt.
+KI-Ausgabe ist nicht automatisch lizenzfrei. Anbieter, Tarif, Datum, Bedingungen
+und Freigabe der kommerziellen Nutzung pro Asset dokumentieren. Anatomie und
+Bewegung müssen fachlich geprüft werden; keine Veröffentlichung ungeprüfter Clips.
+
+VERIFIKATION
+
+Flutter 3.29.2 / Dart 3.7.2 auf Windows:
+- flutter test --reporter expanded: 113 Tests bestanden.
+- flutter analyze: keine Probleme.
+- Android JUnit: 8 Engine- und 2 Journal-Tests bestanden.
+- Emulator: Start, Pause, Fortsetzen, automatische Intervallabschlüsse und
+  abschließendes Acknowledge über den echten Plattformkanal bestanden.
+- Neue Golden-Bilder visuell geprüft, DE/EN und große Schrift getestet.
+- Schema-6-Migration mit bestehendem Kraft-Workout, native Wiederherstellung,
+  fehlgeschlagener Start, wiederholtes Acknowledge sowie Backup-Opt-in/-out mit
+  1.203 Sensorpunkten getestet. Keine echten Gesundheitskonten verwendet.
+
+Befehle (vom Projektverzeichnis, Gradle aus android/):
+  flutter pub get
+  flutter gen-l10n
+  flutter analyze
+  flutter test --reporter expanded
+  flutter build apk --debug -t lib/main.dart
+  ./gradlew :app:testDebugUnitTest --tests com.example.trainy.CardioEngineTest --tests com.example.trainy.CardioSampleJournalTest
+  flutter test integration_test/cardio_native_test.dart -d <device-id>
+
+Emulator-Test benötigt ACTIVITY_RECOGNITION für com.example.trainy. Er lehnt ein
+bestehendes natives Journal ab, verändert keine SQLite-Nutzerdaten und bestätigt
+nur die selbst gestartete Testsession. Testlauf kann die Emulator-App danach
+entfernen; nicht auf einem persönlichen Gerät mit wichtigen Daten ausführen.
+
+Pigeon neu generieren:
+  dart run pigeon --input pigeons/cardio_api.dart --package_name trainy --dart_out lib/services/generated/cardio_api.g.dart --kotlin_out android/app/src/main/kotlin/com/example/trainy/CardioApi.g.kt --kotlin_package com.example.trainy --swift_out ios/Runner/CardioApi.g.swift
+
+RELEASE-GATES (noch offen)
+
+1. Mac/Xcode: CocoaPods, Signing/HealthKit-Capability, iOS-Build und XCTest;
+   iPhone mit iOS <26 und >=26, Bildschirm aus, App-Wechsel, Berechtigungsentzug.
+2. Reale Android-Geräte: längerer GPS-Lauf, Tunnel, Drift, OEM-Energiesparen,
+   Anruf/Musik/Kopfhörer, gesperrter Bildschirm, Prozessabbruch, voller Speicher.
+3. Health Connect und Apple Health: echte Lauf-/Rad-/Indoor-Datensätze,
+   Datensparsamkeit, verweigerte Teilrechte, Dubletten und Export-Retry.
+4. Firebase-Testkonto: großer realer Upload/Restore, unterbrochene Übertragung,
+   Rohdaten-Opt-out und Account-Löschung. Hier wurde der lokale Backup-Pfad getestet.
+5. Fachliche Freigabe der Trainingsheuristiken, Warm-ups und Video-Bewegungen;
+   Rechts-/Lizenzprüfung des tatsächlich verwendeten Videotarifs und der Assets.
+6. Store-Datenschutz-/Health-/Foreground-Service-Erklärungen und Release-Signing.
+
+FACHLICHE UND TECHNISCHE REFERENZEN
+
+Android Audio-Fokus (Duck/Restore, Foreground-Service-Voraussetzung):
+https://developer.android.com/media/optimize/audio-focus
+Android Health Connect:
+https://developer.android.com/health-and-fitness/guides/health-connect
+Apple Workout-Apps auf iPhone/iPad (iOS 26):
+https://developer.apple.com/documentation/healthkit/building-a-workout-app-for-iphone-and-ipad
+https://developer.apple.com/videos/play/wwdc2025/322/
+NTNU/CERG 4-x-4-Orientierung:
+https://www.ntnu.edu/cerg/advice
+NHS Couch to 5K (Run/Walk, neunwöchiger Einstieg):
+https://www.nhs.uk/live-well/exercise/get-running-with-couch-to-5k/
+
+Die konkreten Planregeln in dieser App sind keine wörtliche Übernahme oder
+validierte Reproduktion dieser Programme. Quellen ersetzen keine Freigabe der
+Implementierung durch qualifiziertes Fachpersonal.

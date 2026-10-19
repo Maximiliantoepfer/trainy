@@ -43,7 +43,10 @@ class _ExerciseLibraryFilterSheetState
   @override
   void initState() {
     super.initState();
-    _goalCode = widget.initialQuery.goalCode;
+    _goalCode =
+        widget.initialQuery.goalCode == 'endurance'
+            ? 'cardio'
+            : widget.initialQuery.goalCode;
     _profileId = widget.initialQuery.profileId;
     _source = widget.initialQuery.source;
   }
@@ -107,12 +110,7 @@ class _ExerciseLibraryFilterSheetState
                 selected: _goalCode == null,
                 onSelected: (_) => setState(() => _goalCode = null),
               ),
-              for (final code in const [
-                'strength',
-                'cardio',
-                'endurance',
-                'mobility',
-              ])
+              for (final code in const ['strength', 'cardio', 'mobility'])
                 ChoiceChip(
                   label: Text(context.l10n.goalLabel(code)),
                   selected: _goalCode == code,

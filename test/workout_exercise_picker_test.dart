@@ -132,7 +132,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<String>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Mobilität').last);
+    await tester.tap(find.text('Beweglichkeit').last);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Custom mobility');
     await tester.pumpAndSettle();

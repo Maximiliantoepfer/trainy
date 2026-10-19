@@ -291,7 +291,9 @@ class CatalogRepository {
             .whereType<LocalizedCatalogExercise>()
             .where((exercise) {
               if (query.goalCode != null &&
-                  !exercise.definition.goalCodes.contains(query.goalCode)) {
+                  !exercise.definition.goalCodes.contains(query.goalCode) &&
+                  !(query.goalCode == 'cardio' &&
+                      exercise.definition.goalCodes.contains('endurance'))) {
                 return false;
               }
               if (query.availableEquipment != null &&

@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
 
-const List<String> exerciseGoals = [
-  'strength',
-  'endurance',
-  'cardio',
-  'mobility',
-];
+const List<String> exerciseGoals = ['strength', 'cardio', 'mobility'];
 const List<String> goalPriority = [
   'strength',
   'endurance',
@@ -26,7 +21,7 @@ String? prioritizedGoal(Iterable<String> values) {
 String normalizeGoal(String? goal) => switch (goal) {
   'Kraft' => 'strength',
   'Ausdauer' => 'endurance',
-  'Mobilität' => 'mobility',
+  'Mobilität' || 'Beweglichkeit' => 'mobility',
   'Cardio' => 'cardio',
   'strength' || 'endurance' || 'cardio' || 'mobility' => goal!,
   _ => 'other',

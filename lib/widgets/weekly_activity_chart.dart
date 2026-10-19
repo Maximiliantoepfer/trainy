@@ -9,6 +9,7 @@ import '../l10n/l10n.dart';
 /// API bleibt kompatibel.
 class WeeklyActivityChart extends StatelessWidget {
   final List<WorkoutEntry> entries;
+  final List<(DateTime, double)> additionalDurations;
   final String? title;
   final String? subtitle;
   final double height;
@@ -16,6 +17,7 @@ class WeeklyActivityChart extends StatelessWidget {
   const WeeklyActivityChart({
     super.key,
     required this.entries,
+    this.additionalDurations = const [],
     this.title,
     this.subtitle,
     this.height = 180,
@@ -34,6 +36,12 @@ class WeeklyActivityChart extends StatelessWidget {
 
     // Trainingsminuten pro Tag bestimmen
     final durations = List<double>.filled(7, 0.0);
+    for (final item in additionalDurations) {
+      final d = DateTime(item.$1.year, item.$1.month, item.$1.day);
+      if (!d.isBefore(startOfWeek) && !d.isAfter(days.last)) {
+        durations[d.weekday - 1] += item.$2 / 60;
+      }
+    }
     for (final e in entries) {
       final d = DateTime(e.date.year, e.date.month, e.date.day);
       if (d.isBefore(startOfWeek) || d.isAfter(days.last)) continue;

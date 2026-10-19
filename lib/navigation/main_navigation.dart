@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../screens/home_screen.dart';
-import '../screens/exercise_screen.dart';
+import '../screens/plan_home_screen.dart';
+import '../screens/training_library_screen.dart';
+import '../l10n/plan_l10n.dart';
 import '../screens/progress_screen.dart';
 import '../screens/settings_screen.dart';
 import '../l10n/l10n.dart';
@@ -17,8 +18,8 @@ class _MainNavigationState extends State<MainNavigation> {
   late final PageController _pageController;
 
   late final _pages = [
-    const HomeScreen(),
-    const ExerciseScreen(),
+    const PlanHomeScreen(),
+    const TrainingLibraryScreen(),
     ProgressScreen(
       onSwipePastStart:
           () => _pageController.animateToPage(
@@ -70,7 +71,7 @@ class _MainNavigationState extends State<MainNavigation> {
             ),
             child: NavigationBar(
               selectedIndex: _index,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
               onDestinationSelected: (i) {
                 if (i == _index) return;
                 _pageController.animateToPage(
@@ -89,7 +90,7 @@ class _MainNavigationState extends State<MainNavigation> {
                     AssetImage('assets/icons/web-house.png'),
                     size: 26,
                   ),
-                  label: l10n.home,
+                  label: context.plan('start'),
                 ),
                 NavigationDestination(
                   icon: ImageIcon(
@@ -100,7 +101,7 @@ class _MainNavigationState extends State<MainNavigation> {
                     AssetImage('assets/icons/hantel.png'),
                     size: 26,
                   ),
-                  label: l10n.exercises,
+                  label: context.plan('training'),
                 ),
                 NavigationDestination(
                   icon: ImageIcon(
@@ -122,7 +123,7 @@ class _MainNavigationState extends State<MainNavigation> {
                     AssetImage('assets/icons/die-einstellungen.png'),
                     size: 26,
                   ),
-                  label: l10n.more,
+                  label: context.plan('settings'),
                 ),
               ],
             ),

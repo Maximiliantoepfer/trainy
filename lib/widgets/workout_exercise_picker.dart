@@ -197,6 +197,9 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
                 repository.byId(exercise.catalogId) == null) &&
             (_goal == null ||
                 exercise.goalCodes.contains(_goal) ||
+                (_goal == 'cardio' &&
+                    (exercise.goalCodes.contains('endurance') ||
+                        exercise.goal == 'endurance')) ||
                 exercise.goal == _goal) &&
             (normalized.isEmpty ||
                 CatalogRepository.normalizeSearchText(
@@ -306,12 +309,7 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
                 decoration: InputDecoration(labelText: context.l10n.label),
                 items: [
                   DropdownMenuItem(value: '', child: Text(context.l10n.all)),
-                  for (final code in [
-                    'strength',
-                    'endurance',
-                    'cardio',
-                    'mobility',
-                  ])
+                  for (final code in ['strength', 'cardio', 'mobility'])
                     DropdownMenuItem(
                       value: code,
                       child: Text(goalLabel(context, code)),

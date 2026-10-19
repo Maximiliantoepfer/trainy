@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.example.trainy"
-    compileSdk = 35  // oder flutter.compileSdkVersion, siehe B unten
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.trainy"
-        minSdk = 23              // <-- HIER fest auf 23
+        minSdk = 26
         targetSdk = 35           // optional explizit
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -34,4 +34,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

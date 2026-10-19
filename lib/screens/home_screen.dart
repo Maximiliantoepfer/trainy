@@ -19,6 +19,9 @@ import '../providers/exercise_provider.dart';
 import '../models/exercise.dart';
 import '../utils/goal_utils.dart';
 import '../l10n/l10n.dart';
+import '../l10n/cardio_l10n.dart';
+import '../providers/cardio_provider.dart';
+import 'cardio_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -274,6 +277,34 @@ class _HomeScreenState extends State<HomeScreen>
         body: ListView(
           padding: const EdgeInsets.only(bottom: 100),
           children: [
+            Consumer<CardioProvider?>(
+              builder:
+                  (context, cardio, _) => Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.directions_run),
+                      title: Text(context.cardio('cardio')),
+                      subtitle: Text(
+                        context.cardio(
+                          cardio?.active == true
+                              ? 'continueLabel'
+                              : 'cardioIntro',
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CardioScreen(),
+                          ),
+                        );
+                        if (context.mounted) {
+                          context.read<ProgressProvider>().loadData();
+                        }
+                      },
+                    ),
+                  ),
+            ),
             // Active workout banner
             AnimatedSize(
               duration: const Duration(milliseconds: 250),

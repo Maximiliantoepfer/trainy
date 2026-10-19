@@ -52,5 +52,13 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Trainy needs access to your photo library so you can add images to your own exercises.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Trainy uses precise location during outdoor workouts to measure distance and provide offline pace coaching, including while the screen is locked.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Trainy reads workouts and optional heart rates to match completed sessions locally after your confirmation.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Trainy exports completed workouts when requested and uses a workout session for indoor background timing on supported iPhones.</string>
+	<key>UIBackgroundModes</key>
+	<array><string>location</string><string>audio</string></array>
 </dict>
 </plist>
