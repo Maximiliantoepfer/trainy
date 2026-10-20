@@ -13,9 +13,11 @@ class CardioEditorScreen extends StatefulWidget {
     super.key,
     required this.workout,
     required this.units,
+    this.lockSport = false,
   });
   final CardioWorkout workout;
   final DistanceSystem units;
+  final bool lockSport;
   @override
   State<CardioEditorScreen> createState() => _CardioEditorState();
 }
@@ -108,11 +110,13 @@ class _CardioEditorState extends State<CardioEditorScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(context.cardio('edit')),
-      actions: [
-        TextButton(onPressed: _save, child: Text(context.cardio('save'))),
-      ],
+    appBar: AppBar(title: Text(context.cardio('edit'))),
+    bottomNavigationBar: SafeArea(
+      minimum: const EdgeInsets.all(16),
+      child: FilledButton(
+        onPressed: _save,
+        child: Text(context.cardio('save')),
+      ),
     ),
     body: ListView(
       padding: const EdgeInsets.all(20),
@@ -122,18 +126,20 @@ class _CardioEditorState extends State<CardioEditorScreen> {
           maxLength: 120,
           decoration: InputDecoration(labelText: context.cardio('name')),
         ),
-        DropdownButtonFormField<CardioSport>(
-          value: _sport,
-          isExpanded: true,
-          decoration: InputDecoration(labelText: context.cardio('sport')),
-          items: [
-            for (final s in CardioSport.values)
-              DropdownMenuItem(value: s, child: Text(context.cardio(s.name))),
-          ],
-          onChanged: (s) {
-            if (s != null) setState(() => _sport = s);
-          },
-        ),
+        const SizedBox(height: 8),
+        if (!widget.lockSport)
+          DropdownButtonFormField<CardioSport>(
+            value: _sport,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: context.cardio('sport')),
+            items: [
+              for (final s in CardioSport.values)
+                DropdownMenuItem(value: s, child: Text(context.cardio(s.name))),
+            ],
+            onChanged: (s) {
+              if (s != null) setState(() => _sport = s);
+            },
+          ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(context.cardio('indoor')),
@@ -147,6 +153,7 @@ class _CardioEditorState extends State<CardioEditorScreen> {
           value: _autoPause && !_indoor,
           onChanged: _indoor ? null : (v) => setState(() => _autoPause = v),
         ),
+        const SizedBox(height: 16),
         Card(
           child: ListTile(
             leading: const Icon(Icons.wb_sunny_outlined),
@@ -180,6 +187,7 @@ class _CardioEditorState extends State<CardioEditorScreen> {
             final s = _steps[i];
             return Card(
               key: ValueKey(s.id),
+              margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 onTap: () => _step(i),
                 title: Text(
@@ -216,6 +224,7 @@ class _CardioEditorState extends State<CardioEditorScreen> {
           icon: const Icon(Icons.add),
           label: Text(context.cardio('add')),
         ),
+        const SizedBox(height: 16),
         Card(
           child: ListTile(
             leading: const Icon(Icons.nights_stay_outlined),
@@ -235,7 +244,6 @@ class _CardioEditorState extends State<CardioEditorScreen> {
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
         const SizedBox(height: 24),
-        FilledButton(onPressed: _save, child: Text(context.cardio('save'))),
       ],
     ),
   );

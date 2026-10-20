@@ -40,6 +40,8 @@ import 'package:trainy/services/cardio_training.dart';
 
 import 'support/confirmed_profiles.dart';
 import 'package:trainy/screens/strength_profile_screen.dart';
+import 'package:trainy/screens/cardio_editor_screen.dart';
+import 'package:trainy/screens/running_workout_picker.dart';
 
 class EmptyEquipment extends TrainingProfileRepository {
   @override
@@ -237,6 +239,9 @@ void main() {
       textButtonTheme: TextButtonThemeData(
         style: button(theme.textButtonTheme.style),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: button(theme.outlinedButtonTheme.style),
+      ),
       chipTheme: theme.chipTheme.copyWith(
         labelStyle: theme.chipTheme.labelStyle?.copyWith(fontFamily: 'Roboto'),
       ),
@@ -291,6 +296,120 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  for (final large in [false, true]) {
+    testWidgets(
+      'calendar controls and shared running preview remain compact, large $large',
+      (tester) async {
+        final date = DateTime(2030, 1, 7);
+        final plan = TrainingProgram(
+          id: 'p',
+          name: 'Mein Trainingsplan',
+          start: date,
+          slots: [ProgramSlot(weekday: 1, label: 'Push + Abs')],
+          runningDays: [2, 4, 6],
+        );
+        programs.saved.add(plan);
+        programs.selected = plan.id;
+        await plans.load();
+        await mount(
+          tester,
+          TrainingPlanScreen(initialDate: date),
+          dark: !large,
+          width: large ? 320 : 390,
+          scale: large ? 1.8 : 1,
+          locale: large ? 'en' : 'de',
+        );
+        expect(find.byType(ActionChip), findsNothing);
+        if (!large) {
+          await expectLater(
+            find.byKey(const ValueKey('plan-golden')),
+            matchesGoldenFile('goldens/calendar_v8_dark.png'),
+          );
+        }
+        expect(tester.takeException(), isNull);
+        final w = CardioTraining.replacementTemplate(
+          'progression',
+          const AthleteRunningProfile(
+            continuousMinutes: 45,
+            referenceSeconds: 2700,
+            referenceKind: 'normal',
+            level: RunningLevel.beginner,
+          ),
+          (s) =>
+              s == 'progression'
+                  ? (large ? 'Progression run' : 'Progressionslauf')
+                  : s,
+        );
+        final o = ScheduledCardioWorkout(
+          id: 'o',
+          planId: 'p',
+          date: date,
+          workout: w,
+        );
+        await mount(
+          tester,
+          PlannedCardioScreen(
+            entry: ProgramEntry(
+              id: 'o',
+              planId: 'p',
+              date: date,
+              name: 'Progressionslauf',
+              kind: 'running',
+              cardio: o,
+            ),
+            preview: true,
+            onSave: (_) async {},
+          ),
+          dark: !large,
+          width: large ? 320 : 390,
+          scale: large ? 1.8 : 1,
+          locale: large ? 'en' : 'de',
+        );
+        expect(find.text('Verschieben'), findsNothing);
+        expect(find.text('Einheiten tauschen'), findsNothing);
+        if (!large) {
+          await expectLater(
+            find.byKey(const ValueKey('plan-golden')),
+            matchesGoldenFile('goldens/run_preview_v8_dark.png'),
+          );
+        }
+        expect(tester.takeException(), isNull);
+        await mount(
+          tester,
+          CardioEditorScreen(
+            workout: w,
+            units: DistanceSystem.metric,
+            lockSport: true,
+          ),
+          dark: !large,
+          width: large ? 320 : 390,
+          scale: large ? 1.8 : 1,
+          locale: large ? 'en' : 'de',
+        );
+        expect(find.text(large ? 'Save' : 'Speichern'), findsOneWidget);
+        if (!large) {
+          await expectLater(
+            find.byKey(const ValueKey('plan-golden')),
+            matchesGoldenFile('goldens/run_editor_v8_dark.png'),
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+  testWidgets(
+    'replacement picker exposes intervals absent from the current plan',
+    (tester) async {
+      await mount(tester, const RunningWorkoutPicker());
+      await tester.scrollUntilVisible(
+        find.text('4 × 4 Minuten'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('4 × 4 Minuten'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final dark in [false, true]) {
     testWidgets('completed mixed week and true streak, reduced motion $dark', (
       tester,

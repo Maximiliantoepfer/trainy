@@ -28,6 +28,7 @@ import 'training_library_screen.dart';
 import 'workout_detail_screen.dart';
 import 'cardio_session_screen.dart';
 import 'cardio_editor_screen.dart';
+import 'running_workout_picker.dart';
 
 Future<void> openPlanSetup(
   BuildContext context, {
@@ -83,7 +84,7 @@ class TrainingPlanCard extends StatelessWidget {
                   if (p.hasRunning && p.runningGoal.isNotEmpty)
                     planLabel(context, p.runningGoal),
                   '${p.days.length} ${context.cardio('days')}',
-                ].join(' · '),
+                ].where((s) => s.trim().isNotEmpty).join(' · '),
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap:
@@ -141,10 +142,75 @@ class TrainingPlanScreen extends StatefulWidget {
 
 class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
   final _scroll = ScrollController();
+  final _weekKeys = <String, GlobalKey>{};
+  GlobalKey? _anchor;
+  double? _anchorY;
+  final _loadingEarlier = <String>{};
+  bool _awayFromTop = false;
   int _weeks = 4, _backWeeks = 0;
   late DateTime _date = DateUtils.dateOnly(
     widget.initialDate ?? DateTime.now(),
   );
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(() {
+      final away = _scroll.offset > 200;
+      if (away != _awayFromTop && mounted) setState(() => _awayFromTop = away);
+    });
+  }
+
+  void _restoreAnchor(String date) {
+    if (_anchor == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final box = _anchor?.currentContext?.findRenderObject();
+      if (box is RenderBox && _anchorY != null) {
+        final delta = box.localToGlobal(Offset.zero).dy - _anchorY!;
+        _scroll.jumpTo(
+          (_scroll.offset + delta).clamp(0, _scroll.position.maxScrollExtent),
+        );
+      }
+      _loadingEarlier.remove(date);
+      if (_loadingEarlier.isEmpty) {
+        _anchor = null;
+        _anchorY = null;
+      }
+    });
+  }
+
+  void _earlier() {
+    final date = dateKey(_weekStart(-_backWeeks));
+    _anchor = _weekKeys[date];
+    final box = _anchor?.currentContext?.findRenderObject();
+    _anchorY = box is RenderBox ? box.localToGlobal(Offset.zero).dy : null;
+    _loadingEarlier.addAll(
+      List.generate(4, (i) => dateKey(_weekStart(-_backWeeks - i - 1))),
+    );
+    setState(() => _backWeeks += 4);
+  }
+
+  Future<void> _jump({bool today = false}) async {
+    final chosen =
+        today
+            ? DateTime.now()
+            : await showDatePicker(
+              context: context,
+              initialDate: _date,
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+            );
+    if (chosen == null || !mounted) return;
+    setState(() {
+      _date = DateUtils.dateOnly(chosen);
+      _backWeeks = 0;
+      _weeks = 4;
+      _anchor = null;
+      _loadingEarlier.clear();
+    });
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
   @override
   void dispose() {
     _scroll.dispose();
@@ -182,7 +248,7 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
             IconButton(
               tooltip: context.plan('edit'),
               onPressed: () => openPlanSetup(context, plan: p),
-              icon: const Icon(Icons.edit_outlined),
+              icon: const Icon(Icons.tune_outlined),
             ),
         ],
       ),
@@ -215,19 +281,22 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                ActionChip(
-                  label: Text(context.plan('editStrength')),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.fitness_center_outlined),
+                  label: Text(context.plan('strength')),
                   onPressed:
                       () =>
                           openPlanSetup(context, plan: p, section: 'strength'),
                 ),
-                ActionChip(
-                  label: Text(context.plan('editRunning')),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.directions_run),
+                  label: Text(context.plan('running')),
                   onPressed:
                       () => openPlanSetup(context, plan: p, section: 'running'),
                 ),
-                ActionChip(
-                  label: Text(context.strength('myProfile')),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.person_outline),
+                  label: Text(context.strength('profileShort')),
                   onPressed:
                       () => Navigator.push(
                         context,
@@ -238,33 +307,49 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
-                  child: TextButton(
-                    onPressed: () => setState(() => _backWeeks += 4),
-                    child: Text(context.planning('earlierWeeks')),
+                  child: OutlinedButton.icon(
+                    onPressed: () => _jump(),
+                    icon: const Icon(Icons.calendar_month_outlined),
+                    label: Text(
+                      DateFormat.yMMM(
+                        Localizations.localeOf(context).toString(),
+                      ).format(_date),
+                    ),
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _date = DateUtils.dateOnly(DateTime.now());
-                      _backWeeks = 0;
-                      _weeks = 4;
-                    });
-                    if (_scroll.hasClients) _scroll.jumpTo(0);
-                  },
-                  child: Text(context.plan('today')),
-                ),
+                if (_awayFromTop ||
+                    _backWeeks > 0 ||
+                    calendarDays(DateTime.now(), _weekStart(0)) < 0 ||
+                    calendarDays(DateTime.now(), _weekStart(0)) >= 7) ...[
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () => _jump(today: true),
+                    icon: const Icon(Icons.today_outlined),
+                    label: Text(context.plan('today')),
+                  ),
+                ],
               ],
             ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _earlier,
+              icon: const Icon(Icons.expand_less),
+              label: Text(context.planning('earlierWeeks')),
+            ),
+            const SizedBox(height: 8),
             for (var week = -_backWeeks; week < _weeks; week++)
               if (week <= 0 ||
                   calendarEnd == null ||
                   !_weekStart(week).isAfter(calendarEnd))
                 Padding(
+                  key: _weekKeys.putIfAbsent(
+                    dateKey(_weekStart(week)),
+                    () => GlobalKey(),
+                  ),
                   padding: const EdgeInsets.only(bottom: 16),
                   child: PlanWeekView(
                     key: ValueKey(
@@ -273,6 +358,7 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                     program: p,
                     date: _weekStart(week),
                     onDateChanged: (_) {},
+                    onLoaded: () => _restoreAnchor(dateKey(_weekStart(week))),
                   ),
                 ),
             if (calendarEnd == null || !_weekStart(_weeks).isAfter(calendarEnd))
@@ -363,11 +449,13 @@ class PlanWeekView extends StatefulWidget {
     this.todayFirst = false,
     this.beforeEntries,
     this.todayOverride,
+    this.onLoaded,
   });
   final TrainingProgram? program;
   final Widget? beforeEntries;
   final DateTime date;
   final DateTime? todayOverride;
+  final VoidCallback? onLoaded;
   final ValueChanged<DateTime> onDateChanged;
   final bool todayFirst;
   @override
@@ -399,6 +487,9 @@ class _PlanWeekViewState extends State<PlanWeekView> {
       _monday,
       DateTime(_monday.year, _monday.month, _monday.day + 7),
     );
+    _entries.then((_) {
+      if (mounted) widget.onLoaded?.call();
+    }, onError: (Object _) {});
   }
 
   Future<void> _add(DateTime day) async {
@@ -542,13 +633,7 @@ class _PlanWeekViewState extends State<PlanWeekView> {
     if (entry.cardio != null) {
       await Navigator.push(
         context,
-        MaterialPageRoute(
-          builder:
-              (_) => PlannedCardioScreen(
-                entry: entry,
-                planActions: _planActions(entry),
-              ),
-        ),
+        MaterialPageRoute(builder: (_) => PlannedCardioScreen(entry: entry)),
       );
     } else if (entry.needsWorkout) {
       final id = await Navigator.push<String>(
@@ -619,13 +704,11 @@ class _PlanWeekViewState extends State<PlanWeekView> {
             spacing: 8,
             children: [
               for (final action in [
-                'move',
-                'swap',
                 'replaceWorkout',
                 if (e.cardio == null && e.workoutId != null)
                   e.splitSourceId == null ? 'splitSession' : 'undoSplit',
               ])
-                TextButton(
+                OutlinedButton(
                   onPressed: () async {
                     Navigator.pop(context);
                     await _actions(e, chosen: action);
@@ -667,7 +750,9 @@ class _PlanWeekViewState extends State<PlanWeekView> {
                       date,
                       DateTime(date.year, date.month, date.day + 1),
                     )).where((x) => x.id == e.id).firstOrNull;
-                if (moved == null || moved.completed || moved.sessionId != null) {
+                if (moved == null ||
+                    moved.completed ||
+                    moved.sessionId != null) {
                   return;
                 }
                 if (moved.cardio != null) {
@@ -796,166 +881,39 @@ class _PlanWeekViewState extends State<PlanWeekView> {
     entry: e,
     onTap: () => _open(e),
     units: context.read<CardioProvider>().profile.units,
-    onActions: e.completed || e.sessionId != null ? null : () => _actions(e),
   );
 
-  Future<void> _actions(ProgramEntry e, {String? chosen}) async {
-    final action =
-        chosen ??
-        await showModalBottomSheet<String>(
-          context: context,
-          showDragHandle: true,
-          builder:
-              (c) => SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final key in [
-                      'move',
-                      'swap',
-                      if (e.cardio == null && e.workoutId != null)
-                        e.splitSourceId == null ? 'splitSession' : 'undoSplit',
-                    ])
-                      ListTile(
-                        title: Text(c.plan(key)),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.pop(c, key),
-                      ),
-                  ],
-                ),
-              ),
-        );
-    if (action == null || !mounted) return;
+  Future<void> _actions(ProgramEntry e, {required String chosen}) async {
+    if (e.completed || e.sessionId != null) return;
     try {
       final store = context.read<TrainingProgramProvider>();
-      if (action == 'move') {
-        await _move(e);
-        return;
-      }
-      if (action == 'replaceWorkout') {
-        if (e.cardio != null) {
-          final value = await Navigator.push<CardioWorkout>(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (_) => CardioEditorScreen(
-                    workout: e.cardio!.workout,
-                    units: context.read<CardioProvider>().profile.units,
-                  ),
-            ),
-          );
-          if (value == null || !mounted) return;
-          await context.read<CardioProvider>().repository.editOccurrence(
-            e.cardio!,
-            value,
-          );
-          if (mounted) await context.read<CardioProvider>().load();
-        } else {
-          final id = await Navigator.push<String>(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (_) => TrainingLibraryScreen(
-                    initialSport: e.kind,
-                    pickWorkout: true,
-                  ),
-            ),
-          );
-          if (id == null) return;
-          await store.repository.replaceStrengthOccurrence(
-            widget.program!,
-            e,
-            id,
-          );
-        }
-      } else if (action == 'splitSession') {
+      if (chosen == 'replaceWorkout') {
+        final id = await Navigator.push<String>(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => TrainingLibraryScreen(
+                  initialSport: e.kind,
+                  pickWorkout: true,
+                ),
+          ),
+        );
+        if (id == null || !mounted) return;
+        await store.repository.replaceStrengthOccurrence(
+          widget.program!,
+          e,
+          id,
+        );
+      } else if (chosen == 'splitSession') {
         await Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => StrengthSplitScreen(entry: e)),
         );
-      } else if (action == 'undoSplit') {
+      } else if (chosen == 'undoSplit') {
         await store.repository.undoSplit(e.splitSourceId!);
-      } else if (action == 'swap') {
-        final candidates =
-            (await _entries)
-                .where(
-                  (p) => p.id != e.id && !p.completed && p.sessionId == null,
-                )
-                .toList();
-        if (!mounted) return;
-        final other = await showModalBottomSheet<ProgramEntry>(
-          context: context,
-          showDragHandle: true,
-          isScrollControlled: true,
-          builder:
-              (c) => SafeArea(
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final p in candidates)
-                        ListTile(
-                          title: Text(planLabel(c, p.name)),
-                          subtitle: Text(
-                            DateFormat.yMMMEd(
-                              Localizations.localeOf(c).toString(),
-                            ).format(p.date),
-                          ),
-                          onTap: () => Navigator.pop(c, p),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-        );
-        if (other == null) return;
-        final neighbors = await store.repository.entries(
-          widget.program!,
-          DateTime(_monday.year, _monday.month, _monday.day - 1),
-          DateTime(_monday.year, _monday.month, _monday.day + 8),
-        );
-        final warning =
-            planPlacementWarning(
-              widget.program!,
-              e,
-              other.date,
-              neighbors,
-              excluded: {other.id},
-            ) ??
-            planPlacementWarning(
-              widget.program!,
-              other,
-              e.date,
-              neighbors,
-              excluded: {e.id},
-            );
-        if (!mounted) return;
-        if (warning != null) {
-          final proceed = await showDialog<bool>(
-            context: context,
-            builder:
-                (c) => AlertDialog(
-                  title: Text(c.planning(warning)),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(c, false),
-                      child: Text(c.plan('cancel')),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(c, true),
-                      child: Text(c.plan('swap')),
-                    ),
-                  ],
-                ),
-          );
-          if (proceed != true) return;
-        }
-        await store.repository.swapEntries(e, other);
       }
       await store.load();
-      if (mounted) {
-        await context.read<WorkoutProvider>().loadWorkouts();
-      }
+      if (mounted) await context.read<WorkoutProvider>().loadWorkouts();
       if (mounted) setState(_reload);
     } catch (_) {
       if (mounted) {
@@ -987,6 +945,7 @@ class _PlanWeekViewState extends State<PlanWeekView> {
           entries: entries,
           entryBuilder: _entry,
           onMove: widget.program == null ? null : _drop,
+          onAccessibleMove: widget.program == null ? null : _move,
           onAdd: widget.program == null ? null : _add,
         );
       }
@@ -1022,9 +981,15 @@ class _PlanWeekViewState extends State<PlanWeekView> {
 }
 
 class PlannedCardioScreen extends StatefulWidget {
-  const PlannedCardioScreen({super.key, required this.entry, this.planActions});
-  final Widget? planActions;
+  const PlannedCardioScreen({
+    super.key,
+    required this.entry,
+    this.onSave,
+    this.preview = false,
+  });
   final ProgramEntry entry;
+  final Future<void> Function(CardioWorkout)? onSave;
+  final bool preview;
   @override
   State<PlannedCardioScreen> createState() => _PlannedCardioScreenState();
 }
@@ -1032,62 +997,175 @@ class PlannedCardioScreen extends StatefulWidget {
 class _PlannedCardioScreenState extends State<PlannedCardioScreen> {
   late CardioWorkout _workout = widget.entry.cardio!.workout;
   String? _error;
+  bool _saving = false;
+  Future<void> _changeWorkout({bool replace = false}) async {
+    final p = context.read<CardioProvider>();
+    final value = await Navigator.push<CardioWorkout>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                replace
+                    ? RunningWorkoutPicker(sport: _workout.sport)
+                    : CardioEditorScreen(
+                      workout: _workout,
+                      units: p.profile.units,
+                      lockSport: true,
+                    ),
+      ),
+    );
+    if (value == null || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      if (widget.onSave != null) {
+        await widget.onSave!(value);
+      } else {
+        await p.repository.editOccurrence(widget.entry.cardio!, value);
+        await p.load();
+      }
+      if (mounted) {
+        setState(() {
+          _workout = value;
+          _error = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _error = 'savingError');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<CardioProvider>();
-    return Scaffold(
-      appBar: AppBar(title: Text(_workout.name)),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.all(20),
-        child: FilledButton.icon(
-          onPressed:
-              () => startCardioWorkout(
-                context,
-                _workout,
-                occurrenceId: widget.entry.id,
+    final timeOnly = _workout.steps.every((s) => s.goal == StepGoal.time);
+    final seconds =
+        _workout.expandedSteps().fold<double>(
+          0,
+          (n, s) => n + (s.goal == StepGoal.time ? s.amount : 0),
+        ) +
+        [
+          ..._workout.warmup,
+          ..._workout.cooldown,
+        ].fold<int>(0, (n, s) => n + s.seconds);
+    final editable = !widget.entry.completed && widget.entry.sessionId == null;
+    Widget routine(
+      String title,
+      List<RoutineStep> steps,
+      IconData icon,
+    ) => Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.cardio(title),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Text(
+                  CardioUnits.clock(
+                    steps.fold<int>(0, (n, s) => n + s.seconds),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final step in steps)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  '${step.customName.isEmpty ? context.cardio(step.exercise) : step.customName} · ${CardioUnits.clock(step.seconds)}',
+                ),
               ),
-          icon: const Icon(Icons.play_arrow),
-          label: Text(context.cardio('start')),
+          ],
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          if (widget.planActions != null) widget.planActions!,
-          for (final step in _workout.steps)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                '${step.repeat > 1 ? '${step.repeat} × ' : ''}${step.name.isEmpty ? context.cardio(step.intensity.name) : step.name}',
+    );
+    return Scaffold(
+      appBar: AppBar(title: Text(_workout.name)),
+      bottomNavigationBar:
+          widget.preview || !editable
+              ? null
+              : SafeArea(
+                minimum: const EdgeInsets.all(16),
+                child: FilledButton.icon(
+                  onPressed:
+                      _saving
+                          ? null
+                          : () => startCardioWorkout(
+                            context,
+                            _workout,
+                            occurrenceId: widget.entry.id,
+                          ),
+                  icon: const Icon(Icons.play_arrow),
+                  label: Text(context.cardio('start')),
+                ),
               ),
-              subtitle: Text(
-                cardioStepDescription(step, p.profile.units, context),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (timeOnly) ...[
+            Text(
+              '${context.cardio('time')}: ${CardioUnits.clock(seconds)}',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (editable) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _saving ? null : () => _changeWorkout(),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: Text(context.plan('edit')),
+                ),
+                OutlinedButton.icon(
+                  onPressed:
+                      _saving ? null : () => _changeWorkout(replace: true),
+                  icon: const Icon(Icons.swap_horiz),
+                  label: Text(context.strength('replaceWorkout')),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+          ],
+          if (_workout.warmup.isNotEmpty) ...[
+            routine('warmup', _workout.warmup, Icons.wb_sunny_outlined),
+            const SizedBox(height: 16),
+          ],
+          Text(
+            context.cardio('core'),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          for (final step in _workout.steps)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Card(
+                child: ListTile(
+                  title: Text(
+                    '${step.repeat > 1 ? '${step.repeat} × ' : ''}${step.name.isEmpty ? context.cardio(step.intensity.name) : step.name}',
+                  ),
+                  subtitle: Text(
+                    cardioStepDescription(step, p.profile.units, context),
+                  ),
+                ),
               ),
             ),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.edit_outlined),
-            label: Text(context.plan('edit')),
-            onPressed: () async {
-              final value = await Navigator.push<CardioWorkout>(
-                context,
-                MaterialPageRoute(
-                  builder:
-                      (_) => CardioEditorScreen(
-                        workout: _workout,
-                        units: p.profile.units,
-                      ),
-                ),
-              );
-              if (value == null) return;
-              try {
-                await p.repository.editOccurrence(widget.entry.cardio!, value);
-                await p.load();
-                if (mounted) setState(() => _workout = value);
-              } catch (_) {
-                if (mounted) setState(() => _error = 'savingError');
-              }
-            },
-          ),
+          if (_workout.cooldown.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            routine('cooldown', _workout.cooldown, Icons.nights_stay_outlined),
+          ],
           if (_error != null) PlanError(_error!),
         ],
       ),

@@ -57,6 +57,71 @@ void main() {
   );
 
   test(
+    'editing a saved run in the plan preview preserves its ID, date and neighbours',
+    () async {
+      await repo.initialize();
+      final p = strength('Mixed').copyWith(runningDays: [2, 4, 6]);
+      final generated = proposal();
+      await repo.save(p, running: generated);
+      final before = await cardio.occurrences();
+      final original = before.first;
+      final changed = ScheduledCardioWorkout(
+        id: original.id,
+        planId: original.planId,
+        date: before[1].date,
+        workout: CardioWorkout.fromJson({
+          ...original.workout.toJson(),
+          'name': 'My progression',
+        }),
+      );
+      final edited = RunningPlanProposal(
+        id: generated.id,
+        request: generated.request,
+        baseWeeks: generated.baseWeeks,
+        warnings: generated.warnings,
+        occurrences: [for (final o in before) o.id == changed.id ? changed : o],
+      );
+      await repo.save(p, running: edited, runningEdits: {changed.id});
+      final after = await cardio.occurrences();
+      expect(
+        after.where((o) => o.id == changed.id).single.workout.name,
+        'My progression',
+      );
+      expect(after.where((o) => o.id == changed.id).single.date, changed.date);
+      expect(after.length, before.length);
+      await repo.save(p, running: edited, runningEdits: {changed.id});
+      expect((await cardio.occurrences()).length, before.length);
+      final invalid = ScheduledCardioWorkout(
+        id: changed.id,
+        planId: changed.planId,
+        date: start.subtract(const Duration(days: 1)),
+        workout: changed.workout,
+      );
+      await expectLater(
+        repo.save(
+          p,
+          running: RunningPlanProposal(
+            id: generated.id,
+            request: generated.request,
+            baseWeeks: generated.baseWeeks,
+            warnings: [],
+            occurrences: [invalid],
+          ),
+          runningEdits: {invalid.id},
+        ),
+        throwsStateError,
+      );
+      expect(
+        (await cardio.occurrences())
+            .where((o) => o.id == changed.id)
+            .single
+            .date,
+        changed.date,
+      );
+    },
+  );
+
+  test(
     'one active plan; sport blocks persist independently and slots are not fake workouts',
     () async {
       await repo.initialize();

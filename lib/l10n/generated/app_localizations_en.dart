@@ -373,7 +373,7 @@ class AppLocalizationsEn extends AppLocalizations {
         'k_fartlek': 'Fartlek',
         'k_strides': 'Strides',
         'k_drills': 'Running drills',
-        'k_easySession': 'Easy continuous workout',
+        'k_easySession': 'Easy run',
         'k_intervalSession': 'Timed intervals',
         'k_goalDistance': 'Target distance',
         'k_goalTime': 'Desired target time (optional, minutes)',

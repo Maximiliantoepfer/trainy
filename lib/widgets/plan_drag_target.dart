@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import '../models/training_program.dart';
 import '../l10n/strength_l10n.dart';
 
@@ -22,6 +23,7 @@ class PlanDayDropTarget extends StatelessWidget {
   final Widget child;
   @override
   Widget build(BuildContext context) => DragTarget<ProgramEntry>(
+    hitTestBehavior: HitTestBehavior.opaque,
     onWillAcceptWithDetails:
         (d) =>
             enabled &&
@@ -33,7 +35,7 @@ class PlanDayDropTarget extends StatelessWidget {
         (c, candidates, rejected) => Container(
           color:
               candidates.isEmpty
-                  ? null
+                  ? Colors.transparent
                   : Theme.of(c).colorScheme.primary.withValues(alpha: .14),
           child: child,
         ),
@@ -46,24 +48,34 @@ class PlanDraggable extends StatefulWidget {
     required this.entry,
     required this.enabled,
     required this.child,
+    this.onAccessibleMove,
   });
   final ProgramEntry entry;
   final bool enabled;
   final Widget child;
+  final VoidCallback? onAccessibleMove;
   @override
   State<PlanDraggable> createState() => _PlanDraggableState();
 }
 
-class _PlanDraggableState extends State<PlanDraggable> {
+class _PlanDraggableState extends State<PlanDraggable>
+    with AutomaticKeepAliveClientMixin {
+  bool _dragging = false;
+  @override
+  bool get wantKeepAlive => _dragging;
   Timer? _timer;
   Offset? _pointer;
-  void _stop() {
+  void _stop({bool disposing = false}) {
     _timer?.cancel();
     _timer = null;
     _pointer = null;
+    _dragging = false;
+    if (!disposing && mounted) updateKeepAlive();
   }
 
   void _start() {
+    _dragging = true;
+    updateKeepAlive();
     _timer = Timer.periodic(const Duration(milliseconds: 40), (_) {
       if (!mounted || _pointer == null) return;
       final scroll = Scrollable.maybeOf(context);
@@ -89,17 +101,28 @@ class _PlanDraggableState extends State<PlanDraggable> {
 
   @override
   void dispose() {
-    _stop();
+    _stop(disposing: true);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (!widget.enabled || !movablePlanEntry(widget.entry)) return widget.child;
     return Semantics(
       hint: context.strength('dragHint'),
+      customSemanticsActions:
+          widget.onAccessibleMove == null
+              ? null
+              : {
+                CustomSemanticsAction(label: context.strength('move')):
+                    widget.onAccessibleMove!,
+              },
       child: LongPressDraggable<ProgramEntry>(
         data: widget.entry,
+        maxSimultaneousDrags: 1,
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        hapticFeedbackOnStart: true,
         delay: const Duration(milliseconds: 400),
         onDragStarted: _start,
         onDragUpdate: (d) => _pointer = d.globalPosition,

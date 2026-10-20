@@ -26,6 +26,7 @@ import '../providers/exercise_provider.dart';
 import 'strength_plan_wizard.dart';
 import 'strength_proposal_screen.dart';
 import 'workout_detail_screen.dart';
+import 'training_plan_screen.dart' show PlannedCardioScreen;
 import '../widgets/strength_focus_editor.dart';
 
 class TrainingPlanSetupScreen extends StatefulWidget {
@@ -55,6 +56,8 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   StrengthPlanProposal? _strength;
   final _protectedEntries = <String, ProgramEntry>{};
   var _strengthMoves = <String, String>{};
+  final _strengthReplacements = <String, String>{};
+  Set<String> _runningEdits = {};
   Future<void> _writes = Future.value();
   String get _draftKey => 'plan:${widget.existing?.id ?? 'new'}';
   DateTime _previewMonday(int week) {
@@ -148,7 +151,11 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
         _strengthMoves.addAll(
           Map<String, String>.from(draft['strengthMoves'] ?? const {}),
         );
+        _strengthReplacements.addAll(
+          Map<String, String>.from(draft['strengthReplacements'] ?? const {}),
+        );
         _runningChanged = draft['runningChanged'] == true;
+        _runningEdits = Set<String>.from(draft['runningEdits'] ?? const []);
         final savedRunning = draft['running'] as Map?;
         if (savedRunning != null) {
           final r = Map<String, dynamic>.from(savedRunning);
@@ -163,12 +170,14 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
               for (final e in r['occurrences'] as List)
                 ScheduledCardioWorkout(
                   id: e['id'] as String,
-                  planId: r['id'] as String,
+                  planId: e['planId'] as String? ?? _program!.id,
                   date: DateTime.parse(e['date'] as String),
                   workout: CardioWorkout.fromJson(
                     Map<String, dynamic>.from(e['workout'] as Map),
                   ),
                   locked: e['locked'] == true,
+                  status: e['status'] as String? ?? 'planned',
+                  sessionId: e['sessionId'] as String?,
                 ),
             ],
           );
@@ -219,6 +228,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
       'wizardVersion': 2,
       'strength': _strength?.toJson(),
       'strengthMoves': {..._strengthMoves},
+      'strengthReplacements': {..._strengthReplacements},
       'program': _program!.toJson(),
       'sports': _sports.toList(),
       'available': _available.toList(),
@@ -226,6 +236,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
       'runningCount': _runningCount,
       'step': _step,
       'runningChanged': _runningChanged,
+      'runningEdits': _runningEdits.toList(),
       'targetText': _target.text,
       if (_running != null)
         'running': {
@@ -237,9 +248,12 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
             for (final o in _running!.occurrences)
               {
                 'id': o.id,
+                'planId': o.planId,
                 'date': dateKey(o.date),
                 'workout': o.workout.toJson(),
                 'locked': o.locked,
+                'status': o.status,
+                'sessionId': o.sessionId,
               },
           ],
         },
@@ -399,38 +413,63 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   }
 
   Future<void> _editRun(ScheduledCardioWorkout o) async {
-    final workout = await Navigator.push<CardioWorkout>(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder:
-            (_) => CardioEditorScreen(
-              workout: o.workout,
-              units: context.read<CardioProvider>().profile.units,
+            (_) => PlannedCardioScreen(
+              entry: ProgramEntry(
+                id: o.id,
+                planId: o.planId,
+                date: o.date,
+                name: o.workout.name,
+                kind: 'running',
+                cardio: o,
+                completed: o.status == 'completed',
+                sessionId: o.sessionId,
+              ),
+              preview: true,
+              onSave: (workout) async {
+                final proposal = _running;
+                final items =
+                    proposal?.occurrences ??
+                    context
+                        .read<CardioProvider>()
+                        .occurrences
+                        .where((e) => e.planId == _program!.id)
+                        .toList();
+                _change(() {
+                  _runningEdits.add(o.id);
+                  _runningChanged = true;
+                  _running = RunningPlanProposal(
+                    id: proposal?.id ?? _program!.id,
+                    request:
+                        proposal?.request ??
+                        RunningPlanRequest(
+                          targetMeters: _program!.targetMeters,
+                          startDate: _program!.start,
+                        ),
+                    baseWeeks: proposal?.baseWeeks ?? 0,
+                    warnings: proposal?.warnings ?? [],
+                    occurrences: [
+                      for (final e in items)
+                        e.id == o.id
+                            ? ScheduledCardioWorkout(
+                              id: e.id,
+                              planId: e.planId,
+                              date: e.date,
+                              workout: workout,
+                              locked: true,
+                              status: e.status,
+                              sessionId: e.sessionId,
+                            )
+                            : e,
+                    ],
+                  );
+                });
+              },
             ),
       ),
-    );
-    if (workout == null || !mounted || _running == null) return;
-    final proposal = _running!;
-    _change(
-      () =>
-          _running = RunningPlanProposal(
-            id: proposal.id,
-            request: proposal.request,
-            baseWeeks: proposal.baseWeeks,
-            warnings: proposal.warnings,
-            occurrences: [
-              for (final e in proposal.occurrences)
-                e.id == o.id
-                    ? ScheduledCardioWorkout(
-                      id: e.id,
-                      planId: e.planId,
-                      date: e.date,
-                      workout: workout,
-                      locked: true,
-                    )
-                    : e,
-            ],
-          ),
     );
   }
 
@@ -489,7 +528,8 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
           setState(() => _error = 'emptyPlanHint');
           return;
         }
-        if (_generatedStrength != null && !_generatedStrength!.ready) {
+        if (_generatedStrength != null &&
+            (!_generatedStrength!.ready || !_generatedStrength!.reviewed)) {
           setState(() => _error = 'reviewRequired');
           return;
         }
@@ -558,6 +598,8 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
           strength: _generatedStrength,
           locale: locale,
           strengthMoves: _strengthMoves,
+          strengthReplacements: _strengthReplacements,
+          runningEdits: _runningEdits,
         );
         await store.repository.clearDraft(_draftKey);
         await store.load();
@@ -807,13 +849,21 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     );
   }
 
-  Future<void> _reviewStrength(StrengthWorkoutDraft draft) async {
+  Future<void> _reviewStrength(
+    StrengthWorkoutDraft draft, {
+    Widget? planActions,
+  }) async {
     final places = await context.read<TrainingProfileProvider>().profiles();
     if (!mounted) return;
     final result = await Navigator.push<StrengthWorkoutDraft>(
       context,
       MaterialPageRoute(
-        builder: (_) => StrengthProposalScreen(workout: draft, places: places),
+        builder:
+            (_) => StrengthProposalScreen(
+              workout: draft,
+              places: places,
+              planActions: planActions,
+            ),
       ),
     );
     if (result != null && mounted) {
@@ -881,7 +931,11 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
             context
                 .read<WorkoutProvider>()
                 .workouts
-                .where((w) => w.canonicalId == slot.workoutId)
+                .where(
+                  (w) =>
+                      w.canonicalId ==
+                      (_strengthReplacements[id] ?? slot.workoutId),
+                )
                 .firstOrNull;
         result.add(
           ProgramEntry(
@@ -892,7 +946,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
             name: assigned?.name ?? draft?.name ?? slot.label,
             kind: slot.kind,
             slotId: slot.id,
-            workoutId: slot.workoutId ?? draft?.id,
+            workoutId: _strengthReplacements[id] ?? slot.workoutId ?? draft?.id,
           ),
         );
       }
@@ -901,6 +955,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   }
 
   String? _proposalSummary(ProgramEntry e) {
+    if (_strengthReplacements.containsKey(e.id)) return null;
     final w =
         _generatedStrength?.workouts
             .where((w) => w.slotId == e.slotId)
@@ -925,10 +980,13 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     if (e.completed || e.sessionId != null) return;
     final previousMoves = Map<String, String>.from(_strengthMoves),
         previousRunning = _running;
+    final wasRunningChanged = _runningChanged;
+    final previousRunningEdits = {..._runningEdits};
     _change(() {
       if (e.cardio == null) {
         _strengthMoves[e.id] = dateKey(date);
       } else {
+        _runningEdits.add(e.id);
         final source = _running;
         final items =
             source?.occurrences ??
@@ -975,54 +1033,10 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
             _change(() {
               _strengthMoves = previousMoves;
               _running = previousRunning;
+              _runningChanged = wasRunningChanged;
+              _runningEdits = previousRunningEdits;
             });
           },
-        ),
-      ),
-    );
-  }
-
-  Future<void> _swapPreview(
-    ProgramEntry entry,
-    List<ProgramEntry> entries,
-  ) async {
-    final other = await showModalBottomSheet<ProgramEntry>(
-      context: context,
-      showDragHandle: true,
-      builder:
-          (c) => SafeArea(
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                for (final e in entries.where(
-                  (e) =>
-                      e.id != entry.id && !e.completed && e.sessionId == null,
-                ))
-                  ListTile(
-                    title: Text(planLabel(c, e.name)),
-                    subtitle: Text(DateFormat.yMMMd().format(e.date)),
-                    onTap: () => Navigator.pop(c, e),
-                  ),
-              ],
-            ),
-          ),
-    );
-    if (other == null || !mounted) return;
-    final beforeMoves = Map<String, String>.from(_strengthMoves),
-        beforeRunning = _running;
-    _movePreview(entry, other.date);
-    _movePreview(other, entry.date);
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.plan('swap')),
-        action: SnackBarAction(
-          label: context.strength('undoMove'),
-          onPressed:
-              () => _change(() {
-                _strengthMoves = beforeMoves;
-                _running = beforeRunning;
-              }),
         ),
       ),
     );
@@ -1048,16 +1062,17 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
         if (calendarDays(o.date, monday) >= 0 &&
             calendarDays(o.date, monday) < 7 &&
             (p.endDate == null || !o.date.isAfter(p.endDate!)))
-          ProgramEntry(
-            id: o.id,
-            planId: p.id,
-            date: o.date,
-            name: o.workout.name,
-            kind: 'running',
-            cardio: o,
-            completed: o.status == 'completed',
-            sessionId: o.sessionId,
-          ),
+          _protectedEntries[o.id] ??
+              ProgramEntry(
+                id: o.id,
+                planId: p.id,
+                date: o.date,
+                name: o.workout.name,
+                kind: 'running',
+                cardio: o,
+                completed: o.status == 'completed',
+                sessionId: o.sessionId,
+              ),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1076,76 +1091,74 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
           entries: entries,
           onAdd: _addPreview,
           onMove: _movePreview,
+          onAccessibleMove: _choosePreviewDate,
           entryBuilder:
-              (e) => Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  PlanWorkoutTile(
-                    entry: e,
-                    units: context.read<CardioProvider>().profile.units,
-                    detail: _proposalSummary(e),
-                    onTap: () {
-                      if (e.cardio != null) {
-                        _editRun(e.cardio!);
-                      } else {
-                        final draft =
-                            _generatedStrength?.workouts
-                                .where((w) => w.slotId == e.slotId)
-                                .firstOrNull;
-                        if (draft != null) {
-                          _reviewStrength(draft);
-                        } else {
-                          final assigned =
-                              context
-                                  .read<WorkoutProvider>()
-                                  .workouts
-                                  .where((w) => w.canonicalId == e.workoutId)
-                                  .firstOrNull;
-                          if (assigned == null) {
-                            _assign(
-                              p.slots.firstWhere((s) => s.id == e.slotId),
-                            );
-                          } else {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (_) =>
-                                        WorkoutDetailScreen(workout: assigned),
-                              ),
-                            );
-                          }
-                        }
-                      }
-                    },
-                  ),
-                  if (!e.completed && e.sessionId == null)
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        TextButton(
-                          onPressed: () => _choosePreviewDate(e),
-                          child: Text(context.plan('move')),
-                        ),
-                        TextButton(
-                          onPressed: () => _swapPreview(e, entries),
-                          child: Text(context.plan('swap')),
-                        ),
-                        if (e.cardio == null)
-                          TextButton(
-                            onPressed:
-                                () => _assign(
-                                  p.slots.firstWhere((s) => s.id == e.slotId),
-                                ),
-                            child: Text(context.strength('replaceWorkout')),
-                          ),
-                      ],
-                    ),
-                ],
+              (e) => PlanWorkoutTile(
+                entry: e,
+                units: context.read<CardioProvider>().profile.units,
+                detail: _proposalSummary(e),
+                onTap: () => _openPreviewEntry(e),
               ),
         ),
       ],
     );
+  }
+
+  Future<void> _replacePreviewStrength(ProgramEntry e) async {
+    final id = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) =>
+                TrainingLibraryScreen(initialSport: e.kind, pickWorkout: true),
+      ),
+    );
+    if (id == null || !mounted) return;
+    _change(() => _strengthReplacements[e.id] = id);
+  }
+
+  Future<void> _openPreviewEntry(ProgramEntry e) async {
+    if (e.cardio != null) {
+      await _editRun(e.cardio!);
+      return;
+    }
+    final Widget? actions =
+        _protectedEntries.containsKey(e.id)
+            ? null
+            : OutlinedButton.icon(
+              icon: const Icon(Icons.swap_horiz),
+              label: Text(context.strength('replaceWorkout')),
+              onPressed: () async {
+                Navigator.pop(context);
+                await _replacePreviewStrength(e);
+              },
+            );
+    final assigned =
+        context
+            .read<WorkoutProvider>()
+            .workouts
+            .where((w) => w.canonicalId == e.workoutId)
+            .firstOrNull;
+    if (assigned != null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) =>
+                  WorkoutDetailScreen(workout: assigned, planActions: actions),
+        ),
+      );
+      return;
+    }
+    final draft =
+        _generatedStrength?.workouts
+            .where((w) => w.slotId == e.slotId)
+            .firstOrNull;
+    if (draft != null) {
+      await _reviewStrength(draft, planActions: actions);
+    } else if (!_protectedEntries.containsKey(e.id)) {
+      await _replacePreviewStrength(e);
+    }
   }
 
   Future<void> _addPreview(DateTime date) async {

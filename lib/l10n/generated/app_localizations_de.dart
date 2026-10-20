@@ -373,7 +373,7 @@ class AppLocalizationsDe extends AppLocalizations {
         'k_fartlek': 'Fahrtspiel',
         'k_strides': 'Steigerungsläufe',
         'k_drills': 'Lauf-ABC',
-        'k_easySession': 'Lockere Dauereinheit',
+        'k_easySession': 'Dauerlauf',
         'k_intervalSession': 'Zeitintervalle',
         'k_goalDistance': 'Zieldistanz',
         'k_goalTime': 'Gewünschte Zielzeit (optional, Minuten)',

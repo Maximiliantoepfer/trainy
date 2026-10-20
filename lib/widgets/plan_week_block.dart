@@ -19,8 +19,10 @@ class PlanWeekBlock extends StatelessWidget {
     this.planEnd,
     this.onAdd,
     this.onMove,
+    this.onAccessibleMove,
   });
   final void Function(ProgramEntry, DateTime)? onMove;
+  final ValueChanged<ProgramEntry>? onAccessibleMove;
   final DateTime monday;
   final DateTime? planStart;
   final DateTime? planEnd;
@@ -165,6 +167,10 @@ class PlanWeekBlock extends StatelessWidget {
                                       child: PlanDraggable(
                                         entry: e,
                                         enabled: onMove != null,
+                                        onAccessibleMove:
+                                            onAccessibleMove == null
+                                                ? null
+                                                : () => onAccessibleMove!(e),
                                         child: entryBuilder(e),
                                       ),
                                     ),

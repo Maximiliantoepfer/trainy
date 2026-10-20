@@ -184,13 +184,16 @@ class CardioRepository {
         'cardio_occurrences',
         where:
             future
-                ? "plan_id = ? AND local_date >= ? AND status = 'planned' AND (locked = 0 OR id = ?)"
-                : "id = ? AND status = 'planned'",
+                ? "plan_id = ? AND local_date >= ? AND status = 'planned' AND session_id IS NULL AND (locked = 0 OR id = ?)"
+                : "id = ? AND status = 'planned' AND session_id IS NULL",
         whereArgs:
             future
                 ? [occurrence.planId, dateKey(occurrence.date), occurrence.id]
                 : [occurrence.id],
       );
+      if (!rows.any((r) => r['id'] == occurrence.id)) {
+        throw StateError('Protected or unavailable occurrence');
+      }
       for (final row in rows) {
         final old = DateTime.parse(row['local_date'] as String);
         if (future &&
@@ -246,12 +249,32 @@ class CardioRepository {
     CardioWorkout workout,
   ) async {
     workout.validate();
-    await db.update(
-      'cardio_occurrences',
-      {'workout_json': jsonEncode(workout.toJson()), 'locked': 1},
-      where: "id = ? AND status = 'planned'",
-      whereArgs: [occurrence.id],
-    );
+    if (workout.sport != occurrence.workout.sport) {
+      throw StateError('Replacement must keep the sport');
+    }
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'cardio_occurrences',
+        where: "id=? AND plan_id=? AND status='planned' AND session_id IS NULL",
+        whereArgs: [occurrence.id, occurrence.planId],
+      );
+      if (rows.length != 1) {
+        throw StateError('Protected or unavailable occurrence');
+      }
+      final saved = CardioWorkout.fromJson(
+        jsonDecode(rows.single['workout_json'] as String)
+            as Map<String, dynamic>,
+      );
+      if (saved.sport != workout.sport) {
+        throw StateError('Replacement must keep the sport');
+      }
+      await txn.update(
+        'cardio_occurrences',
+        {'workout_json': jsonEncode(workout.toJson()), 'locked': 1},
+        where: 'id=?',
+        whereArgs: [occurrence.id],
+      );
+    });
   }
 
   Future<void> skipOccurrence(String id) async {

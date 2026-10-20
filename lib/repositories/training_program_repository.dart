@@ -10,6 +10,7 @@ import '../services/cardio_training.dart';
 import '../services/database_service.dart';
 import '../services/training_program_schema.dart';
 import '../services/profile_readiness.dart';
+import '../services/planning_label_migration.dart';
 import '../utils/uuid_v4.dart';
 
 class TrainingProgramRepository {
@@ -18,6 +19,7 @@ class TrainingProgramRepository {
   final DatabaseService db;
   Future<void> initialize() => db.transaction((txn) async {
     await TrainingProgramSchema.migrate(txn);
+    await PlanningLabelMigration.apply(txn);
     final rows = await txn.query('user_training_profile');
     final user =
         rows.isEmpty
@@ -93,6 +95,8 @@ class TrainingProgramRepository {
     StrengthPlanProposal? strength,
     String locale = 'en',
     Map<String, String> strengthMoves = const {},
+    Map<String, String> strengthReplacements = const {},
+    Set<String> runningEdits = const {},
     bool activate = true,
   }) async {
     program.validate();
@@ -330,14 +334,43 @@ class TrainingProgramRepository {
         'id': program.id,
         'program_json': jsonEncode(program.toJson()),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
-      for (final move in strengthMoves.entries) {
+      final edits = <String, String>{...strengthMoves};
+      for (final id in strengthReplacements.keys) {
+        if (edits.containsKey(id)) continue;
+        final separator = id.lastIndexOf(':');
+        if (separator < 1) throw StateError('Invalid occurrence replacement');
+        final originalSlot = id.substring(0, separator);
+        final originalDate = id.substring(separator + 1);
+        final saved = await txn.query(
+          'plan_slot_overrides',
+          where: 'plan_id=? AND slot_id=? AND original_date=?',
+          whereArgs: [
+            program.id,
+            replacedSlotIds[originalSlot] ?? originalSlot,
+            originalDate,
+          ],
+        );
+        edits[id] =
+            saved.isEmpty ? originalDate : saved.single['local_date'] as String;
+      }
+      for (final move in edits.entries) {
         final separator = move.key.lastIndexOf(':');
         if (separator < 0) throw StateError('Invalid occurrence move');
         final originalSlotId = move.key.substring(0, separator);
         final slotId = replacedSlotIds[originalSlotId] ?? originalSlotId;
         final originalDate = move.key.substring(separator + 1);
         await _requireUnstarted(txn, '$originalSlotId:$originalDate');
-        if (!program.slots.any((s) => s.id == slotId)) continue;
+        final slot = program.slots.where((s) => s.id == slotId).firstOrNull;
+        if (slot == null) continue;
+        final replacement = strengthReplacements[move.key];
+        if (replacement != null &&
+            (await txn.query(
+              'workout_templates',
+              where: 'id=? AND primary_goal_code=? AND is_archived=0',
+              whereArgs: [replacement, slot.kind],
+            )).isEmpty) {
+          throw StateError('Replacement must keep the sport');
+        }
         final target = DateTime.parse(move.value);
         if (target.isBefore(
               DateTime(
@@ -354,6 +387,7 @@ class TrainingProgramRepository {
           'slot_id': slotId,
           'original_date': originalDate,
           'local_date': move.value,
+          if (replacement != null) 'workout_id': replacement,
         });
       }
       if (activate) {
@@ -392,6 +426,50 @@ class TrainingProgramRepository {
         );
         // Preserve history, in-progress sessions and every explicitly edited/moved occurrence.
         final today = dateKey(DateTime.now());
+        for (final id in runningEdits) {
+          final replacement =
+              running.occurrences.where((o) => o.id == id).firstOrNull;
+          if (replacement == null) {
+            throw StateError('Missing edited occurrence');
+          }
+          if (replacement.date.isBefore(program.start) ||
+              (program.endDate != null &&
+                  replacement.date.isAfter(program.endDate!))) {
+            throw StateError('Occurrence outside plan dates');
+          }
+          final rows = await txn.query(
+            'cardio_occurrences',
+            where: 'id=? AND plan_id=?',
+            whereArgs: [id, program.id],
+          );
+          if (rows.isEmpty) continue; // New proposal, inserted below.
+          final current = rows.single;
+          if (current['status'] != 'planned' || current['session_id'] != null) {
+            throw StateError('Protected occurrence');
+          }
+          final oldWorkout = CardioWorkout.fromJson(
+            _json(current['workout_json']),
+          );
+          if (oldWorkout.sport != replacement.workout.sport) {
+            throw StateError('Replacement must keep the sport');
+          }
+          replacement.workout.validate();
+          await txn.insert(
+            'cardio_occurrence_origins',
+            {'occurrence_id': id, 'original_date': current['local_date']},
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+          await txn.update(
+            'cardio_occurrences',
+            {
+              'local_date': dateKey(replacement.date),
+              'workout_json': jsonEncode(replacement.workout.toJson()),
+              'locked': 1,
+            },
+            where: 'id=?',
+            whereArgs: [id],
+          );
+        }
         final preserved = await txn.query(
           'cardio_occurrences',
           where:
@@ -399,6 +477,14 @@ class TrainingProgramRepository {
           whereArgs: [program.id, today],
         );
         final dates = preserved.map((r) => r['local_date']).toSet();
+        final preservedIds = preserved.map((r) => r['id']).toSet();
+        final existingIds =
+            (await txn.query(
+              'cardio_occurrences',
+              columns: ['id'],
+              where: 'plan_id=?',
+              whereArgs: [program.id],
+            )).map((r) => r['id']).toSet();
         for (final row in preserved) {
           final origins = await txn.query(
             'cardio_occurrence_origins',
@@ -416,9 +502,16 @@ class TrainingProgramRepository {
         for (final o in running.occurrences.where(
           (o) =>
               (program.endDate == null || !o.date.isAfter(program.endDate!)) &&
-              !dates.contains(dateKey(o.date)) &&
+              !o.date.isBefore(program.start) &&
+              !preservedIds.contains(o.id) &&
+              // A preview edit keeps the existing neighbours, even when it
+              // moves onto an occupied day. Only newly generated replacements
+              // defer to dates already covered by protected occurrences.
+              (existingIds.contains(o.id) ||
+                  !dates.contains(dateKey(o.date))) &&
               dateKey(o.date).compareTo(today) >= 0,
         )) {
+          o.workout.validate();
           await txn.insert('cardio_occurrences', {
             'id': o.id,
             'plan_id': program.id,
@@ -843,8 +936,8 @@ class TrainingProgramRepository {
       await _requireUnstarted(txn, e.id);
       if ((await txn.query(
         'workout_templates',
-        where: 'id=? AND is_archived=0',
-        whereArgs: [workoutId],
+        where: 'id=? AND is_archived=0 AND primary_goal_code=?',
+        whereArgs: [workoutId, e.kind],
       )).isEmpty) {
         throw StateError('Workout unavailable');
       }

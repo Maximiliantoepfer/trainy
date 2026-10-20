@@ -45,6 +45,51 @@ abstract final class CardioTraining {
     'fartlek',
     'strides',
   ];
+
+  /// Manual alternatives remain available without silently increasing a new
+  /// runner's distance. Automatic plan generation is deliberately unchanged.
+  static CardioWorkout replacementTemplate(
+    String code,
+    AthleteRunningProfile profile,
+    CardioTranslate t,
+  ) {
+    final base = template(code, profile, t);
+    final beginner =
+        profile.level == RunningLevel.beginner ||
+        profile.continuousMinutes < 30 ||
+        profile.returningAfterBreak;
+    final minutes =
+        profile.continuousMinutes > 0
+            ? profile.continuousMinutes.clamp(10, 45)
+            : 20;
+    final steps =
+        code == 'easy5k'
+            ? [prescribe(profile, CardioIntensity.easy, amount: minutes * 60.0)]
+            : [
+              for (final s in base.steps)
+                if (beginner && code == 'progression')
+                  refreshTarget(
+                    s.copyWith(
+                      intensity:
+                          s.intensity == CardioIntensity.threshold
+                              ? CardioIntensity.steady
+                              : s.intensity,
+                    ),
+                    profile,
+                    force: true,
+                  )
+                else
+                  s,
+            ];
+    return CardioWorkout(
+      name: code == 'easy5k' ? t('easySession') : base.name,
+      templateCode: base.templateCode,
+      steps: steps,
+      warmup: base.warmup,
+      cooldown: base.cooldown,
+    );
+  }
+
   static const warmups = {
     'running': [
       'ankleRocks',
