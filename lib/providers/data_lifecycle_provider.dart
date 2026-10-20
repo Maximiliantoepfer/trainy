@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../services/data_lifecycle_coordinator.dart';
+import '../services/data_operation.dart';
 
 /// Recreates all database-backed providers after a destructive lifecycle
 /// operation. Locale and theme providers live above this boundary.
@@ -9,7 +10,9 @@ class DataLifecycleProvider extends ChangeNotifier {
     DataLifecycleCoordinator? coordinator,
     DataStartupResult initialResult = const DataStartupResult.ready(),
   }) : _coordinator = coordinator ?? DataLifecycleCoordinator.instance,
-       _startupResult = initialResult;
+       _startupResult = initialResult {
+    DataOperation.instance.addListener(notifyListeners);
+  }
 
   final DataLifecycleCoordinator _coordinator;
   int _generation = 0;
@@ -17,7 +20,7 @@ class DataLifecycleProvider extends ChangeNotifier {
   DataStartupResult _startupResult;
 
   int get generation => _generation;
-  bool get isBusy => _isBusy;
+  bool get isBusy => _isBusy || DataOperation.instance.isBusy;
   DataStartupResult get startupResult => _startupResult;
   bool get needsRecovery =>
       _startupResult.state == DataStartupState.needsRecovery;
@@ -54,7 +57,9 @@ class DataLifecycleProvider extends ChangeNotifier {
     Future<void> Function() action, {
     bool incrementGeneration = true,
   }) async {
-    if (_isBusy) return;
+    if (_isBusy) {
+      throw const DataOperationFailure('prepare', 'operation-in-progress');
+    }
     _isBusy = true;
     notifyListeners();
     try {
@@ -64,5 +69,11 @@ class DataLifecycleProvider extends ChangeNotifier {
       _isBusy = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    DataOperation.instance.removeListener(notifyListeners);
+    super.dispose();
   }
 }

@@ -2,6 +2,7 @@ import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
 
 import 'database_schema_v2.dart';
+import 'data_operation.dart';
 
 /// Owns the single SQLite connection for data epoch 2.
 ///
@@ -14,16 +15,31 @@ class AppDatabase {
   static const databaseName = 'trainy_v2.db';
 
   Database? _database;
+  Future<Database>? _opening;
+  Future<void>? _closing;
 
   Future<String> get databasePath async =>
       path.join(await getDatabasesPath(), databaseName);
 
   Future<Database> get database async {
+    if (DataOperation.instance.databaseUnavailable) {
+      throw const DataOperationFailure('database', 'operation-in-progress');
+    }
+    await _closing;
+    if (DataOperation.instance.databaseUnavailable) {
+      throw const DataOperationFailure('database', 'operation-in-progress');
+    }
     final existing = _database;
     if (existing != null && existing.isOpen) return existing;
-    final opened = await _open(await databasePath);
-    _database = opened;
-    return opened;
+    return _opening ??= _openShared();
+  }
+
+  Future<Database> _openShared() async {
+    try {
+      return _database = await _open(await databasePath);
+    } finally {
+      _opening = null;
+    }
   }
 
   Future<Database> _open(String filePath) => openDatabase(
@@ -97,9 +113,21 @@ class AppDatabase {
   }
 
   Future<void> close() async {
+    if (_closing != null) return _closing;
+    final closing = _closeShared();
+    _closing = closing;
+    try {
+      await closing;
+    } finally {
+      _closing = null;
+    }
+  }
+
+  Future<void> _closeShared() async {
+    await _opening;
     final db = _database;
-    _database = null;
     if (db != null && db.isOpen) await db.close();
+    _database = null;
   }
 
   Future<void> setCatalogVersion(String version) async {

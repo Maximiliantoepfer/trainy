@@ -114,7 +114,9 @@ class CardioService : Service(), LocationListener {
         catch (_: Exception) { engine?.pause(); engine?.state?.put("storageError", true) }
     }
     override fun onProviderDisabled(provider: String) { engine?.state?.put("gps", "gpsLost") }
-    override fun onProviderEnabled(provider: String) {}
+    override fun onProviderEnabled(provider: String) {
+        if (provider == LocationManager.GPS_PROVIDER) engine?.state?.put("gps", "gpsWaiting")
+    }
     @Deprecated("Legacy callback")
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
     fun pause() { engine?.pause(); persist() }

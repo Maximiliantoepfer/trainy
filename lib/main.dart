@@ -23,6 +23,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'firebase_options.dart';
 import 'services/data_lifecycle_coordinator.dart';
+import 'services/data_operation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 Future<void> main() async {
@@ -127,6 +128,26 @@ class _ThemedApp extends StatelessWidget {
     final locale = context.watch<LocaleProvider>();
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      builder:
+          (context, child) => AnimatedBuilder(
+            animation: DataOperation.instance,
+            builder:
+                (context, _) => Stack(
+                  children: [
+                    AbsorbPointer(
+                      absorbing: DataOperation.instance.blocksInteraction,
+                      child: child,
+                    ),
+                    if (DataOperation.instance.isBusy)
+                      const Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: SafeArea(child: LinearProgressIndicator()),
+                      ),
+                  ],
+                ),
+          ),
       onGenerateTitle: (context) => context.l10n.appName,
       theme: AppTheme.light(theme.accent),
       darkTheme: AppTheme.dark(theme.accent),

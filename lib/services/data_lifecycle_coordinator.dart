@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
 import 'cardio_native_lifecycle.dart';
+import 'data_operation.dart';
 
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -149,24 +151,49 @@ class DataLifecycleCoordinator {
   }
 
   /// Deletes training data while preserving login and visual preferences.
-  Future<void> resetLocalTrainingData() async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.remove(_epochPreferenceKey);
-    await preferences.setBool(SettingsDatabase.syncEnabledPreferenceKey, false);
-    await _deleteTrainingFiles(includeV2: true);
-    final db = await AppDatabase.instance.database;
-    await AppDatabase.instance.assertIntegrity(database: db);
-    await preferences.setInt(_epochPreferenceKey, DatabaseSchemaV2.dataEpoch);
-  }
+  Future<void> resetLocalTrainingData() => DataOperation.instance.mutateLocal(
+    () async {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.remove(_epochPreferenceKey);
+      await preferences.setBool(
+        SettingsDatabase.syncEnabledPreferenceKey,
+        false,
+      );
+      await _deleteTrainingFiles(includeV2: true);
+      final db = await AppDatabase.instance.database;
+      await AppDatabase.instance.assertIntegrity(database: db);
+      await preferences.setInt(_epochPreferenceKey, DatabaseSchemaV2.dataEpoch);
+    },
+  );
 
-  Future<void> markAccountDeletionPending() async {
+  Future<void> markAccountDeletionPending({
+    required String uid,
+    required String phase,
+  }) async {
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setBool(accountDeletionPendingKey, true);
+    await preferences.setString(
+      accountDeletionPendingKey,
+      jsonEncode({'uid': uid, 'phase': phase}),
+    );
   }
 
   Future<bool> hasPendingAccountDeletion() async {
     final preferences = await SharedPreferences.getInstance();
-    return preferences.getBool(accountDeletionPendingKey) == true;
+    return preferences.containsKey(accountDeletionPendingKey);
+  }
+
+  Future<bool> hasConfirmedLocalDeletion() async {
+    final preferences = await SharedPreferences.getInstance();
+    final raw = preferences.get(accountDeletionPendingKey);
+    if (raw is! String) return false;
+    try {
+      final pending = jsonDecode(raw);
+      return pending is Map &&
+          pending['phase'] == 'authDeleted' &&
+          pending['uid'] is String;
+    } on FormatException {
+      return false;
+    }
   }
 
   Future<void> clearAccountDeletionPending() async {
@@ -178,20 +205,27 @@ class DataLifecycleCoordinator {
     required bool isSignedIn,
   }) async {
     final preferences = await SharedPreferences.getInstance();
-    if (preferences.getBool(accountDeletionPendingKey) != true || isSignedIn) {
+    final raw = preferences.get(accountDeletionPendingKey);
+    // Legacy booleans do not prove that Auth deletion succeeded. In particular,
+    // logging out must never turn an interrupted remote request into a reset.
+    if (raw is! String || isSignedIn) {
       return;
     }
+    if (!await hasConfirmedLocalDeletion()) return;
     await deleteAllLocalData();
   }
 
-  Future<void> deleteAllLocalData() async {
-    final preferences = await SharedPreferences.getInstance();
-    await _deleteTrainingFiles(includeV2: true);
-    await preferences.clear();
-    final db = await AppDatabase.instance.database;
-    await AppDatabase.instance.assertIntegrity(database: db);
-    await preferences.setInt(_epochPreferenceKey, DatabaseSchemaV2.dataEpoch);
-  }
+  Future<void> deleteAllLocalData() => DataOperation.instance.mutateLocal(
+    () async {
+      final preferences = await SharedPreferences.getInstance();
+      await _deleteTrainingFiles(includeV2: true);
+      final db = await AppDatabase.instance.database;
+      await AppDatabase.instance.assertIntegrity(database: db);
+      // Preserve the retry journal until local recreation has succeeded.
+      await preferences.clear();
+      await preferences.setInt(_epochPreferenceKey, DatabaseSchemaV2.dataEpoch);
+    },
+  );
 
   Future<bool> _legacyDatabaseExists() async {
     final databaseDirectory = await getDatabasesPath();
@@ -215,8 +249,10 @@ class DataLifecycleCoordinator {
   }
 
   Future<void> _deleteTrainingFiles({required bool includeV2}) async {
-    if (includeV2) await CardioNativeLifecycle.discard();
-    await AppDatabase.instance.close();
+    if (includeV2) {
+      await DataOperation.step('native-stop', CardioNativeLifecycle.discard);
+    }
+    await DataOperation.step('database-close', AppDatabase.instance.close);
     final databaseDirectory = await getDatabasesPath();
     final names = <String>{
       ..._legacyDatabaseNames,

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.location.LocationManager
 import android.os.Build
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -24,6 +25,9 @@ class MainActivity : FlutterFragmentActivity(), CardioHostApi {
     override fun prepare(outdoor: Boolean, locale: String, callback: (Result<String>) -> Unit) {
         if (preparing) { callback(Result.failure(IllegalStateException("permission_pending"))); return }
         preparing = true; requestedLocale = locale
+        if (outdoor && !gpsEnabled()) {
+            preparing = false; callback(Result.success("location_disabled")); return
+        }
         val needed = if (outdoor) Manifest.permission.ACCESS_FINE_LOCATION else if (Build.VERSION.SDK_INT >= 29) Manifest.permission.ACTIVITY_RECOGNITION else null
         if (needed == null || checkSelfPermission(needed) == PackageManager.PERMISSION_GRANTED) {
             probeSpeech(callback); return
@@ -40,7 +44,7 @@ class MainActivity : FlutterFragmentActivity(), CardioHostApi {
             val reply = permissionReply
             if (reply != null) {
                 if (checkSelfPermission(needed) == PackageManager.PERMISSION_GRANTED) probeSpeech(reply)
-                else { preparing = false; reply(Result.success("denied")) }
+                else { preparing = false; reply(Result.success(if (permissionOutdoor && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) "approximate" else "denied")) }
             }
             permissionReply = null
         }
@@ -65,6 +69,10 @@ class MainActivity : FlutterFragmentActivity(), CardioHostApi {
         val existing = CardioService.read(this)
         check(existing == null) { "unacknowledged_session" }
         val data = JSONObject(snapshotJson)
+        if (!data.optBoolean("indoor")) {
+            check(gpsEnabled()) { "location_disabled" }
+            check(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) { "precise_location_required" }
+        }
         check(data.optInt("version") == 1 && data.getJSONArray("steps").length() > 0)
         // Commit before returning to Dart. A killed launch remains recoverable.
         val fresh = CardioEngine.fresh(data)
@@ -117,5 +125,9 @@ class MainActivity : FlutterFragmentActivity(), CardioHostApi {
         android.util.AtomicFile(CardioService.stateFile(this)).delete()
         CardioService.samplesFile(this).delete(); CardioService.current = null
     }
-    override fun openSettings() { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
+    private fun gpsEnabled() = (getSystemService(LOCATION_SERVICE) as LocationManager).isProviderEnabled(LocationManager.GPS_PROVIDER)
+    override fun openSettings() {
+        startActivity(if (!gpsEnabled()) Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+            else Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+    }
 }

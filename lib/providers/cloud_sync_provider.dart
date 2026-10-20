@@ -8,11 +8,15 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../services/data_lifecycle_coordinator.dart';
+import '../services/data_operation.dart';
+import '../services/account_deletion.dart';
 import '../services/local_backup_service.dart';
 import '../services/settings_database.dart';
 
 class CloudSyncProvider extends ChangeNotifier {
   CloudSyncProvider() {
+    DataOperation.instance.addListener(_operationChanged);
+    DataOperation.instance.register(this, suspendAutomaticBackup, () {});
     _init();
   }
 
@@ -21,6 +25,7 @@ class CloudSyncProvider extends ChangeNotifier {
   int _lastSyncMillis = 0;
   bool _isBusy = false;
   bool _disposed = false;
+  bool pendingLocalDeletion = false;
   String? _optionalCloudErrorCode;
   Timer? _periodicCheck;
   Timer? _immediateDebounce;
@@ -29,14 +34,28 @@ class CloudSyncProvider extends ChangeNotifier {
   static const int _autoThresholdMillis = 24 * 60 * 60 * 1000;
 
   bool get syncEnabled => _syncEnabled;
-  bool get isBusy => _isBusy;
+  bool get isBusy => _isBusy || DataOperation.instance.isBusy;
   int get lastSyncMillis => _lastSyncMillis;
   User? get user => FirebaseAuth.instance.currentUser;
   bool get isSignedIn => user != null;
   String? get optionalCloudErrorCode => _optionalCloudErrorCode;
 
+  void _operationChanged() {
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<void> suspendAutomaticBackup() async {
+    _syncEnabled = false;
+    _periodicCheck?.cancel();
+    _immediateDebounce?.cancel();
+    await _settings.setSyncEnabled(false);
+  }
+
   Future<void> _init() async {
-    _syncEnabled = await _settings.getSyncEnabled();
+    pendingLocalDeletion =
+        await DataLifecycleCoordinator.instance.hasConfirmedLocalDeletion();
+    final enabled = await _settings.getSyncEnabled();
+    _syncEnabled = !DataOperation.instance.isBusy && enabled;
     _lastSyncMillis = await _settings.getLastSyncMillis();
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((_) {
       _attachAutoChecks();
@@ -106,7 +125,7 @@ class CloudSyncProvider extends ChangeNotifier {
       }
       _lastSyncMillis = timestamp;
       await _settings.setLastSyncMillis(timestamp);
-    });
+    }, blocking: false);
   }
 
   Future<void> restoreNow() async {
@@ -127,7 +146,9 @@ class CloudSyncProvider extends ChangeNotifier {
       final file = File('${directory.path}/backup.zip');
       try {
         await reference.writeToFile(file);
-        await LocalBackupService.instance.restoreZipFile(file);
+        await DataOperation.instance.mutateLocal(
+          () => LocalBackupService.instance.restoreZipFile(file),
+        );
       } finally {
         await directory.delete(recursive: true);
       }
@@ -156,14 +177,18 @@ class CloudSyncProvider extends ChangeNotifier {
 
   /// Deletes all objects below users/{uid}. Local data and Auth remain intact.
   Future<void> deleteCloudData() async {
-    if (!isSignedIn) throw StateError('Not signed in.');
+    final current = user;
+    if (current == null) {
+      throw const DataOperationFailure('cloud-delete', 'unauthenticated');
+    }
     await _withBusy(() async {
-      _syncEnabled = false;
-      await _settings.setSyncEnabled(false);
-      await _deleteStorageTree(
-        FirebaseStorage.instance.ref('users/${user!.uid}'),
+      await suspendAutomaticBackup();
+      await DataOperation.step(
+        'cloud-delete',
+        () => _deleteStorageTree(
+          FirebaseStorage.instance.ref('users/${current.uid}'),
+        ),
       );
-      _attachAutoChecks();
     });
   }
 
@@ -171,34 +196,40 @@ class CloudSyncProvider extends ChangeNotifier {
   /// state. The pending marker makes the local half crash-resumable.
   Future<void> deleteAccountAndAllData() async {
     final current = user;
-    if (current == null) throw StateError('Not signed in.');
-    var authDeleted = false;
-    await DataLifecycleCoordinator.instance.markAccountDeletionPending();
-    try {
-      await _withBusy(() async {
-        _syncEnabled = false;
-        await _settings.setSyncEnabled(false);
-        await _reauthenticateWithGoogle(current);
-        await _deleteStorageTree(
-          FirebaseStorage.instance.ref('users/${current.uid}'),
-        );
-        await current.delete();
-        authDeleted = true;
-        if (!kIsWeb) {
-          try {
-            await GoogleSignIn().disconnect();
-          } catch (_) {
-            await GoogleSignIn().signOut();
-          }
-        }
-        await DataLifecycleCoordinator.instance.deleteAllLocalData();
-      });
-    } catch (_) {
-      if (!authDeleted) {
-        await DataLifecycleCoordinator.instance.clearAccountDeletionPending();
-      }
-      rethrow;
+    if (current == null &&
+        await DataLifecycleCoordinator.instance.hasConfirmedLocalDeletion()) {
+      await _withBusy(DataLifecycleCoordinator.instance.deleteAllLocalData);
+      return;
     }
+    if (current == null) {
+      throw const DataOperationFailure('account-delete', 'unauthenticated');
+    }
+    final coordinator = DataLifecycleCoordinator.instance;
+    await _withBusy(() async {
+      await AccountDeletion.run(
+        reauthenticate: () => _reauthenticateWithGoogle(current),
+        stopBackup: suspendAutomaticBackup,
+        journal:
+            (phase) => coordinator.markAccountDeletionPending(
+              uid: current.uid,
+              phase: phase,
+            ),
+        deleteCloud:
+            () => _deleteStorageTree(
+              FirebaseStorage.instance.ref('users/${current.uid}'),
+            ),
+        deleteAuth: current.delete,
+        deleteLocal: coordinator.deleteAllLocalData,
+      );
+      if (!kIsWeb) {
+        try {
+          await GoogleSignIn().disconnect();
+        } catch (_) {
+          // Auth is already deleted. Optional Google cleanup cannot prevent
+          // the confirmed local deletion or change its success result.
+        }
+      }
+    });
   }
 
   Future<void> _reauthenticateWithGoogle(User current) async {
@@ -207,7 +238,12 @@ class CloudSyncProvider extends ChangeNotifier {
       return;
     }
     final googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) throw StateError('Reauthentication cancelled.');
+    if (googleUser == null) {
+      throw const DataOperationFailure('reauthenticate', 'cancelled');
+    }
+    if (googleUser.email.toLowerCase() != current.email?.toLowerCase()) {
+      throw const DataOperationFailure('reauthenticate', 'user-mismatch');
+    }
     final authentication = await googleUser.authentication;
     await current.reauthenticateWithCredential(
       GoogleAuthProvider.credential(
@@ -224,7 +260,11 @@ class CloudSyncProvider extends ChangeNotifier {
         ListOptions(maxResults: 100, pageToken: pageToken),
       );
       for (final item in page.items) {
-        await item.delete();
+        try {
+          await item.delete();
+        } on FirebaseException catch (error) {
+          if (error.code != 'object-not-found') rethrow;
+        }
       }
       for (final prefix in page.prefixes) {
         await _deleteStorageTree(prefix);
@@ -237,7 +277,7 @@ class CloudSyncProvider extends ChangeNotifier {
     if (!_syncEnabled || !isSignedIn || _disposed) return;
     _immediateDebounce?.cancel();
     _immediateDebounce = Timer(delay, () async {
-      if (_disposed) return;
+      if (_disposed || !_syncEnabled || isBusy) return;
       try {
         await backupNow();
       } catch (_) {
@@ -249,7 +289,7 @@ class CloudSyncProvider extends ChangeNotifier {
   Future<void> onAppResumed() => maybeAutoBackup(reason: 'app_resume');
 
   Future<void> maybeAutoBackup({String reason = 'auto'}) async {
-    if (!_syncEnabled || !isSignedIn || _isBusy) return;
+    if (!_syncEnabled || !isSignedIn || isBusy) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     if (now - _lastSyncMillis < _autoThresholdMillis) return;
     try {
@@ -259,14 +299,24 @@ class CloudSyncProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _withBusy(Future<void> Function() action) async {
+  Future<void> _withBusy(
+    Future<void> Function() action, {
+    bool blocking = true,
+  }) async {
     if (_isBusy) throw StateError('Another cloud operation is in progress.');
     _isBusy = true;
     if (!_disposed) notifyListeners();
     try {
-      await action();
+      await DataOperation.instance.run('cloud', action, blocking: blocking);
     } finally {
       _isBusy = false;
+      try {
+        pendingLocalDeletion =
+            await DataLifecycleCoordinator.instance.hasConfirmedLocalDeletion();
+      } catch (_) {
+        // Do not replace the original operation error with a preference read
+        // failure. The persisted recovery journal will be retried on startup.
+      }
       if (!_disposed) notifyListeners();
     }
   }
@@ -282,6 +332,8 @@ class CloudSyncProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    DataOperation.instance.removeListener(_operationChanged);
+    DataOperation.instance.unregister(this);
     _disposed = true;
     _periodicCheck?.cancel();
     _immediateDebounce?.cancel();

@@ -100,6 +100,19 @@ Future<void> startCardioWorkout(
         builder:
             (ctx) => AlertDialog(
               title: Text(ctx.cardio('locationDenied')),
+              content: Text(
+                Localizations.localeOf(ctx).languageCode == 'de'
+                    ? (permission == 'location_disabled'
+                        ? 'Aktiviere den Standortdienst, um draußen eine Route aufzuzeichnen.'
+                        : permission == 'approximate'
+                        ? 'Für Tempo und Strecke benötigt Trainy den genauen Standort. Aktiviere „Genauer Standort“ in den App-Berechtigungen.'
+                        : 'Erlaube den Standortzugriff für das Training. Indoor-Training bleibt ohne GPS möglich.')
+                    : (permission == 'location_disabled'
+                        ? 'Enable location services to record an outdoor route.'
+                        : permission == 'approximate'
+                        ? 'Speed and distance require precise location. Enable it in the app permissions.'
+                        : 'Allow location access for this workout. Indoor training remains available without GPS.'),
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),

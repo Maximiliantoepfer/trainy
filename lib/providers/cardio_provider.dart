@@ -6,11 +6,14 @@ import '../repositories/cardio_repository.dart';
 import '../services/cardio_training.dart';
 import '../services/generated/cardio_api.g.dart';
 import '../services/cardio_health_service.dart';
+import '../services/data_operation.dart';
 
 class CardioProvider extends ChangeNotifier {
   CardioProvider({CardioRepository? repository, CardioHostApi? api})
     : repository = repository ?? CardioRepository(),
-      api = api ?? CardioHostApi();
+      api = api ?? CardioHostApi() {
+    DataOperation.instance.register(this, _suspendPolling, _resumePolling);
+  }
   final CardioRepository repository;
   final CardioHostApi api;
   AthleteRunningProfile profile = const AthleteRunningProfile();
@@ -23,6 +26,8 @@ class CardioProvider extends ChangeNotifier {
   bool loaded = false;
   bool _disposed = false, _polling = false;
   bool _starting = false;
+  bool _suspended = false;
+  Completer<void>? _pollDone;
   Timer? _timer;
   int _lastSequence = -1;
   String? _lastSessionId;
@@ -55,7 +60,9 @@ class CardioProvider extends ChangeNotifier {
       capabilities =
           jsonDecode(await api.capabilities()) as Map<String, dynamic>;
       await poll();
-      _timer ??= Timer.periodic(const Duration(seconds: 1), (_) => poll());
+      if (!_suspended && !_disposed) {
+        _timer ??= Timer.periodic(const Duration(seconds: 1), (_) => poll());
+      }
     } catch (e) {
       error = e;
       _notify();
@@ -69,8 +76,9 @@ class CardioProvider extends ChangeNotifier {
   }
 
   Future<void> poll() async {
-    if (_polling || _disposed) return;
+    if (_polling || _disposed || _suspended) return;
     _polling = true;
+    final done = _pollDone = Completer<void>();
     try {
       final raw = await api.state();
       if (raw == null) {
@@ -119,6 +127,41 @@ class CardioProvider extends ChangeNotifier {
       _notify();
     } finally {
       _polling = false;
+      done.complete();
+    }
+  }
+
+  Future<void> _suspendPolling() async {
+    _suspended = true;
+    _timer?.cancel();
+    _timer = null;
+    await _pollDone?.future;
+  }
+
+  void _resumePolling() {
+    _suspended = false;
+    if (_disposed ||
+        kIsWeb ||
+        ![
+          TargetPlatform.android,
+          TargetPlatform.iOS,
+        ].contains(defaultTargetPlatform)) {
+      return;
+    }
+    _timer ??= Timer.periodic(const Duration(seconds: 1), (_) => poll());
+  }
+
+  Future<void> discard() async {
+    await _suspendPolling();
+    try {
+      await api.discard();
+      if (_lastSessionId != null) await repository.cancelStart(_lastSessionId!);
+      runtime = null;
+      _lastSessionId = null;
+      _lastSequence = -1;
+      await load();
+    } finally {
+      _resumePolling();
     }
   }
 
@@ -246,6 +289,7 @@ class CardioProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    DataOperation.instance.unregister(this);
     _disposed = true;
     _timer?.cancel();
     super.dispose();

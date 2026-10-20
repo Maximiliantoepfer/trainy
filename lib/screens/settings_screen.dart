@@ -22,6 +22,7 @@ import 'user_training_profile_screen.dart';
 import '../providers/training_program_provider.dart';
 import '../providers/cardio_provider.dart';
 import '../l10n/l10n.dart';
+import '../l10n/data_operation_l10n.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -332,13 +333,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                             !context.watch<DataLifecycleProvider>().isBusy,
                         onTap: _resetLocalData,
                       ),
-                      if (sync.isSignedIn) ...[
+                      if (sync.isSignedIn || sync.pendingLocalDeletion) ...[
                         const Divider(height: 1),
                         ListTile(
                           leading: const Icon(Icons.cloud_off_outlined),
                           title: Text(l10n.deleteCloudData),
                           subtitle: Text(l10n.deleteCloudDataDescription),
-                          enabled: !sync.isBusy,
+                          enabled: sync.isSignedIn && !sync.isBusy,
                           onTap: _deleteCloudData,
                         ),
                         const Divider(height: 1),
@@ -522,7 +523,8 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<bool> _discardActiveWorkoutIfNeeded() async {
     final active = context.read<ActiveWorkoutProvider>();
-    if (!active.isActive) return true;
+    final cardio = context.read<CardioProvider>();
+    if (!active.isActive && !cardio.active) return true;
     final discard = await showDialog<bool>(
       context: context,
       builder:
@@ -541,7 +543,19 @@ class _SettingsScreenState extends State<SettingsScreen>
             ],
           ),
     );
-    if (discard == true) active.clear();
+    if (discard == true) {
+      try {
+        if (cardio.active) await cardio.discard();
+        if (active.isActive) active.clear();
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(dataOperationMessage(context, error))),
+          );
+        }
+        return false;
+      }
+    }
     return discard == true;
   }
 
@@ -600,7 +614,15 @@ class _SettingsScreenState extends State<SettingsScreen>
       destructive: true,
     );
     if (!confirmed || !mounted) return;
-    await context.read<DataLifecycleProvider>().resetLocalTrainingData();
+    try {
+      await context.read<DataLifecycleProvider>().resetLocalTrainingData();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(dataOperationMessage(context, error))),
+        );
+      }
+    }
   }
 
   Future<void> _deleteCloudData() async {
@@ -620,11 +642,11 @@ class _SettingsScreenState extends State<SettingsScreen>
           context,
         ).showSnackBar(SnackBar(content: Text(context.l10n.cloudDataDeleted)));
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(dataOperationMessage(context, error))),
+        );
       }
     }
   }
@@ -645,11 +667,11 @@ class _SettingsScreenState extends State<SettingsScreen>
     try {
       await cloud.deleteAccountAndAllData();
       lifecycle.notifyDataWasReplaced();
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.l10n.genericError)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(dataOperationMessage(context, error))),
+        );
       }
     }
   }

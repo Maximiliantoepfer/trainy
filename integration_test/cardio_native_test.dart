@@ -10,6 +10,74 @@ import 'package:trainy/services/generated/cardio_api.g.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(
+    'outdoor recorder accepts an emulator GPS route and preserves pause',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: Text('Isolated GPS test'))),
+      );
+      final api = CardioHostApi();
+      expect(await api.state(), isNull);
+      expect([
+        'ready',
+        'ready_silent',
+      ], contains(await api.prepare(true, 'en')));
+      const id = 'trainy-outdoor-smoke';
+      try {
+        await api.start(
+          jsonEncode({
+            'version': 1,
+            'sessionId': id,
+            'name': 'GPS test',
+            'sport': 'running',
+            'indoor': false,
+            'autoPause': false,
+            'locale': 'en',
+            'unitMeters': 1000,
+            'startedAt': DateTime.now().millisecondsSinceEpoch,
+            'messages': <String, String>{},
+            'steps': [
+              {
+                'id': 'easy',
+                'amount': 120,
+                'goal': 'time',
+                'movement': 'run',
+                'primaryTarget': 'effort',
+              },
+            ],
+          }),
+        );
+        Map state = {};
+        for (var i = 0; i < 30; i++) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          state = jsonDecode((await api.state())!) as Map;
+          if ((state['distanceMeters'] as num? ?? 0) > 10) break;
+        }
+        expect(state['gps'], 'gpsReady');
+        expect(state['distanceMeters'] as num, greaterThan(10));
+        final samples = jsonDecode(await api.samples(-1)) as List;
+        expect(samples.length, greaterThan(2));
+        expect(samples.every((s) => s['source'] == 'phone_gps'), true);
+        await api.pause();
+        final distance =
+            (jsonDecode((await api.state())!) as Map)['distanceMeters'] as num;
+        await Future<void>.delayed(const Duration(seconds: 2));
+        expect(
+          (jsonDecode((await api.state())!) as Map)['distanceMeters'],
+          distance,
+        );
+        await api.resume();
+        await Future<void>.delayed(const Duration(seconds: 2));
+        expect((jsonDecode((await api.state())!) as Map)['status'], 'active');
+      } finally {
+        final raw = await api.state();
+        if (raw != null && (jsonDecode(raw) as Map)['sessionId'] == id) {
+          await api.finish();
+          await api.acknowledge(id);
+        }
+      }
+    },
+  );
+  testWidgets(
     'native recorder starts, pauses, resumes and commits without a Flutter timer',
     (tester) async {
       await tester.pumpWidget(
