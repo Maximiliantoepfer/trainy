@@ -72,8 +72,27 @@ class StrengthPrescription {
     required this.sets,
     this.minReps = 8,
     this.maxReps = 12,
+    this.restSeconds = 90,
+    this.source = 'manual',
   });
   final int sets, minReps, maxReps;
+  final int restSeconds;
+  final String source;
+  Map<String, dynamic> toJson() => {
+    'sets': sets,
+    'minReps': minReps,
+    'maxReps': maxReps,
+    'restSeconds': restSeconds,
+    'source': source,
+  };
+  factory StrengthPrescription.fromJson(Map<String, dynamic> j) =>
+      StrengthPrescription(
+        sets: j['sets'] as int,
+        minReps: j['minReps'] as int,
+        maxReps: j['maxReps'] as int,
+        restSeconds: j['restSeconds'] as int? ?? 90,
+        source: j['source'] as String? ?? 'manual',
+      );
   String get label => '$sets × $minReps–$maxReps';
   Map<String, String> get prefill => {'sets': '$sets', 'reps': '$minReps'};
   void validate() {
@@ -81,7 +100,9 @@ class StrengthPrescription {
         sets > 50 ||
         minReps < 1 ||
         maxReps < minReps ||
-        maxReps > 200) {
+        maxReps > 200 ||
+        restSeconds < 0 ||
+        restSeconds > 600) {
       throw const FormatException('Invalid prescription');
     }
   }

@@ -5,6 +5,8 @@ import 'package:sqflite/sqflite.dart';
 import '../models/training_profile.dart';
 import '../models/workout.dart';
 import '../models/workout_planning.dart';
+import '../models/strength_plan.dart';
+import '../services/catalog_repository.dart';
 import '../services/database_schema_v2.dart';
 import '../services/database_service.dart';
 import '../utils/uuid_v4.dart';
@@ -17,6 +19,155 @@ class WorkoutPlanningRepository {
     : _database = database ?? DatabaseService();
 
   final DatabaseService _database;
+
+  /// Called by the plan repository's transaction. Nothing is materialized by
+  /// opening a preview. Stable draft IDs make a retried activation idempotent.
+  static Future<void> writeGenerated(
+    DatabaseExecutor txn,
+    StrengthPlanProposal proposal,
+    CatalogRepository catalog,
+    String locale,
+  ) async {
+    if (!proposal.ready || proposal.version != 1) {
+      throw StateError('Incomplete strength proposal');
+    }
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    for (final workout in proposal.workouts) {
+      if ((await txn.query(
+        'workout_templates',
+        where: 'id=?',
+        whereArgs: [workout.id],
+      )).isNotEmpty) {
+        continue;
+      }
+      final localId = await txn.insert('workouts', {
+        'name': workout.name,
+        'description': '',
+        'goalCodes': jsonEncode(['strength']),
+      });
+      await txn.insert('workout_templates', {
+        'id': workout.id,
+        'legacy_local_id': localId,
+        'name': workout.name,
+        'description': '',
+        'primary_goal_code': 'strength',
+        'source_type': 'custom',
+        'created_at_utc': now,
+        'updated_at_utc': now,
+      });
+      await _replaceWorkoutTags(txn, workout.id, WorkoutPrimaryGoal.strength);
+      final groups = <String, String>{};
+      for (final kind in ['warmup', 'core', 'cooldown']) {
+        final id = UuidV4.generate();
+        groups[kind] = id;
+        await txn.insert('workout_groups_v2', {
+          'id': id,
+          'workout_id': workout.id,
+          'name': kind,
+          'group_kind': kind,
+          'sort_order': groups.length - 1,
+        });
+      }
+      for (var vi = 0; vi < workout.variants.length; vi++) {
+        final variant = workout.variants[vi];
+        if ((await txn.query(
+          'training_profiles_v2',
+          where: 'id=? AND is_archived=0',
+          whereArgs: [variant.profileId],
+        )).isEmpty) {
+          throw StateError('Profile is not active');
+        }
+        final setupId = UuidV4.generate();
+        await txn.insert('workout_variants_v2', {
+          'id': setupId,
+          'workout_id': workout.id,
+          'profile_id': variant.profileId,
+          'name': variant.name,
+          'is_default': vi == 0 ? 1 : 0,
+          'sort_order': vi,
+        });
+        for (final group in groups.entries) {
+          final groupVariant = UuidV4.generate();
+          await txn.insert('workout_group_variants_v2', {
+            'id': groupVariant,
+            'workout_group_id': group.value,
+            'profile_id': variant.profileId,
+            'owner_setup_id': setupId,
+            'name': group.key,
+            'sort_order': 0,
+          });
+          await txn.insert('workout_variant_group_selections_v2', {
+            'workout_variant_id': setupId,
+            'workout_group_id': group.value,
+            'group_variant_id': groupVariant,
+          });
+          if (group.key != 'core') continue;
+          for (var i = 0; i < variant.exercises.length; i++) {
+            final exercise = variant.exercises[i];
+            exercise.prescription.validate();
+            final item = catalog.localized(exercise.catalogId, locale);
+            if (item == null) {
+              throw StateError('Unknown exercise ${exercise.catalogId}');
+            }
+            final existing = await txn.query(
+              'exercises',
+              where: 'catalogId=?',
+              whereArgs: [exercise.catalogId],
+            );
+            final exerciseLocalId =
+                existing.isNotEmpty
+                    ? existing.first['id'] as int
+                    : await txn.insert('exercises', {
+                      'name': item.content.name,
+                      'description': item.content.description,
+                      'trackedFields':
+                          item.definition.tracking.toTrackedFieldsJson(),
+                      'defaultValues': '{}',
+                      'lastValues': '{}',
+                      'units': '{}',
+                      'goal': 'strength',
+                      'catalogId': exercise.catalogId,
+                      'origin': 'catalog',
+                      'isNameCustom': 0,
+                    });
+            final exerciseId = await _ensureCanonicalExercise(
+              txn,
+              exerciseLocalId,
+              now,
+            );
+            if (exerciseId == null) {
+              throw StateError('Exercise could not be materialized');
+            }
+            final slotId = UuidV4.generate();
+            await txn.insert('workout_slots_v2', {
+              'id': slotId,
+              'group_variant_id': groupVariant,
+              'exercise_id': exerciseId,
+              'movement_family_id': item.definition.movementFamilyId,
+              'slot_kind': exercise.optional ? 'optional' : 'core',
+              'sort_order': i,
+            });
+            final p = exercise.prescription;
+            await txn.insert('workout_slot_prescriptions', {
+              'slot_id': slotId,
+              'sets': p.sets,
+              'min_reps': p.minReps,
+              'max_reps': p.maxReps,
+              'rest_seconds': p.restSeconds,
+              'source': p.source,
+            });
+            if (vi == 0) {
+              await txn.insert('exercises_in_workouts', {
+                'workoutId': localId,
+                'exerciseId': exerciseLocalId,
+                'sort': i,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
 
   Future<List<Workout>> workouts() async {
     final rows = await _database.rawQuery('''
@@ -178,6 +329,8 @@ class WorkoutPlanningRepository {
             'sets': prescription.sets,
             'min_reps': prescription.minReps,
             'max_reps': prescription.maxReps,
+            'rest_seconds': prescription.restSeconds,
+            'source': prescription.source,
           });
         }
         await txn.insert('exercises_in_workouts', {
@@ -211,6 +364,8 @@ class WorkoutPlanningRepository {
       'sets': prescription.sets,
       'min_reps': prescription.minReps,
       'max_reps': prescription.maxReps,
+      'rest_seconds': prescription.restSeconds,
+      'source': prescription.source,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -1137,7 +1292,7 @@ class WorkoutPlanningRepository {
   ) async {
     final slots = await _database.rawQuery(
       '''
-      SELECT slot.*, item.legacy_local_id, p.sets, p.min_reps, p.max_reps
+      SELECT slot.*, item.legacy_local_id, p.sets, p.min_reps, p.max_reps, p.rest_seconds, p.source
       FROM workout_slots_v2 slot
       INNER JOIN exercise_items item ON item.id = slot.exercise_id
       LEFT JOIN workout_slot_prescriptions p ON p.slot_id=slot.id
@@ -1187,6 +1342,8 @@ class WorkoutPlanningRepository {
                       sets: slot['sets'] as int,
                       minReps: slot['min_reps'] as int,
                       maxReps: slot['max_reps'] as int,
+                      restSeconds: slot['rest_seconds'] as int? ?? 90,
+                      source: slot['source'] as String? ?? 'manual',
                     ),
             alternativeLocalExerciseIds:
                 alternativesBySlot[slot['id'] as String] ?? const [],

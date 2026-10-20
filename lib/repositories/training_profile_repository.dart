@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'package:sqflite/sqflite.dart';
 
 import '../models/training_profile.dart';
+import '../models/strength_equipment.dart';
 import '../services/database_schema_v2.dart';
 import '../services/database_service.dart';
 
@@ -23,21 +24,8 @@ class TrainingProfileRepository implements TrainingProfilePreferencesStore {
   final DatabaseService _database;
 
   static const equipmentCodes = <String>{
-    'bodyweight',
-    'dumbbell',
-    'barbell',
-    'bench',
-    'rack',
-    'pull_up_bar',
-    'cable',
+    ...StrengthEquipment.all,
     'machine',
-    'kettlebell',
-    'bands',
-    'medicine_ball',
-    'exercise_ball',
-    'foam_roller',
-    'ez_bar',
-    'mat',
     'cardio_machine',
     'bicycle',
     'pool',
@@ -45,9 +33,7 @@ class TrainingProfileRepository implements TrainingProfilePreferencesStore {
   };
 
   static const homeEquipment = <String>{'bodyweight'};
-  static final gymEquipment = Set<String>.unmodifiable(
-    equipmentCodes.difference({'bicycle', 'pool', 'other'}),
-  );
+  static const gymEquipment = StrengthEquipment.gym;
 
   Future<T> _guard<T>(String operation, Future<T> Function() action) async {
     try {

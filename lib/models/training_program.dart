@@ -10,9 +10,22 @@ class UserTrainingProfile {
     this.healthEnabled = false,
     this.strengthSetupVersion = 0,
     this.strengthProfileId,
+    this.strengthProfileIds = const [],
+    this.strengthGoal = '',
+    this.strengthPreference = '',
+    this.strengthAnswers = const {},
+    this.interestsVersion = 0,
   });
   final int strengthSetupVersion;
   final String? strengthProfileId;
+  final List<String> strengthProfileIds;
+  final String strengthGoal, strengthPreference;
+  final Set<String> strengthAnswers;
+  final int interestsVersion;
+  List<String> get strengthPlaces =>
+      strengthProfileIds.isNotEmpty
+          ? strengthProfileIds
+          : [if (strengthProfileId != null) strengthProfileId!];
   final List<String> interests;
   final DistanceSystem units;
   final String strengthLevel;
@@ -25,6 +38,11 @@ class UserTrainingProfile {
     'healthEnabled': healthEnabled,
     'strengthSetupVersion': strengthSetupVersion,
     'strengthProfileId': strengthProfileId,
+    'strengthProfileIds': strengthProfileIds,
+    'strengthGoal': strengthGoal,
+    'strengthPreference': strengthPreference,
+    'strengthAnswers': strengthAnswers.toList(),
+    'interestsVersion': interestsVersion,
   };
   factory UserTrainingProfile.fromJson(Map<String, dynamic> j) =>
       UserTrainingProfile(
@@ -35,6 +53,13 @@ class UserTrainingProfile {
         healthEnabled: j['healthEnabled'] == true,
         strengthSetupVersion: j['strengthSetupVersion'] as int? ?? 0,
         strengthProfileId: j['strengthProfileId'] as String?,
+        strengthProfileIds: List<String>.from(
+          j['strengthProfileIds'] ?? const [],
+        ),
+        strengthGoal: j['strengthGoal'] as String? ?? '',
+        strengthPreference: j['strengthPreference'] as String? ?? '',
+        strengthAnswers: Set<String>.from(j['strengthAnswers'] ?? const []),
+        interestsVersion: j['interestsVersion'] as int? ?? 0,
       );
 }
 
@@ -121,12 +146,14 @@ class TrainingProgram {
     this.status = 'draft',
     this.endDate,
     this.availableDays = const [1, 2, 3, 4, 5, 6, 7],
+    this.strengthSettings = const {},
   }) : id = id ?? UuidV4.generate();
   final String id, name, strengthGoal, runningGoal, split, status;
   final DateTime start;
   final DateTime? targetDate;
   final DateTime? endDate;
   final List<int> availableDays;
+  final Map<String, dynamic> strengthSettings;
   final double targetMeters;
   final double? targetSeconds;
   final List<int> runningDays;
@@ -155,6 +182,7 @@ class TrainingProgram {
     DateTime? endDate,
     bool clearEndDate = false,
     List<int>? availableDays,
+    Map<String, dynamic>? strengthSettings,
   }) => TrainingProgram(
     id: id,
     name: name ?? this.name,
@@ -170,6 +198,7 @@ class TrainingProgram {
     status: status ?? this.status,
     endDate: clearEndDate ? null : endDate ?? this.endDate,
     availableDays: availableDays ?? this.availableDays,
+    strengthSettings: strengthSettings ?? this.strengthSettings,
   );
   void validate() {
     if (name.trim().isEmpty ||
@@ -207,6 +236,7 @@ class TrainingProgram {
     'status': status,
     'endDate': endDate == null ? null : dateKey(endDate!),
     'availableDays': availableDays,
+    'strengthSettings': strengthSettings,
   };
   factory TrainingProgram.fromJson(Map<String, dynamic> j) => TrainingProgram(
     id: j['id'] as String,
@@ -227,6 +257,9 @@ class TrainingProgram {
     endDate: DateTime.tryParse(j['endDate'] as String? ?? ''),
     availableDays: List<int>.from(
       j['availableDays'] as List? ?? [1, 2, 3, 4, 5, 6, 7],
+    ),
+    strengthSettings: Map<String, dynamic>.from(
+      j['strengthSettings'] ?? const {},
     ),
   );
 }

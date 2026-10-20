@@ -10,6 +10,27 @@ class ProfileIncomplete implements Exception {
 
 /// One contract for wizard, resumed drafts, generators and persistence.
 abstract final class ProfileReadiness {
+  static List<String> strengthForGeneration(
+    UserTrainingProfile p,
+    Iterable<TrainingProfileRecord> places,
+  ) => [
+    ...strength(p, places),
+    if (p.strengthSetupVersion < 2) 'confirmProfile',
+    if (![
+      'generalFitness',
+      'buildMuscle',
+      'getStronger',
+    ].contains(p.strengthGoal))
+      'goal',
+    if (!['guided', 'freeWeights'].contains(p.strengthPreference)) 'preference',
+    for (final key in ['level', 'goal', 'places', 'equipment', 'preference'])
+      if (!p.strengthAnswers.contains(key)) key,
+    if (p.strengthPlaces.isEmpty ||
+        p.strengthPlaces.any(
+          (id) => !places.any((e) => e.id == id && !e.isArchived),
+        ))
+      'trainingPlace',
+  ];
   static List<String> running(AthleteRunningProfile p, {DateTime? now}) {
     final missing = <String>[
       for (final answer in [

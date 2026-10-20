@@ -1,3 +1,4 @@
+import 'strength_planning.dart';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -300,6 +301,7 @@ class CatalogRepository {
                   !_matchesEquipment(
                     exercise.definition.equipmentIds,
                     query.availableEquipment!,
+                    id: exercise.definition.id,
                   )) {
                 return false;
               }
@@ -354,8 +356,16 @@ class CatalogRepository {
 
   static bool _matchesEquipment(
     List<String> equipmentIds,
-    Set<String> availableEquipment,
-  ) {
+    Set<String> availableEquipment, {
+    String? id,
+  }) {
+    final reviewed =
+        StrengthPlanning.candidates.where((c) => c.id == id).toList();
+    if (reviewed.isNotEmpty) {
+      return reviewed.any(
+        (c) => {...availableEquipment, 'bodyweight'}.containsAll(c.equipment),
+      );
+    }
     final required =
         equipmentIds
             .map(DatabaseSchemaV2.normalizeEquipmentCode)

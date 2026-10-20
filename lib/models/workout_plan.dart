@@ -163,6 +163,8 @@ class WorkoutSessionPlanGroup {
                     'sets': slot.prescription!.sets,
                     'minReps': slot.prescription!.minReps,
                     'maxReps': slot.prescription!.maxReps,
+                    'restSeconds': slot.prescription!.restSeconds,
+                    'source': slot.prescription!.source,
                   },
               },
           ],
@@ -195,6 +197,12 @@ class WorkoutSessionPlanGroup {
                               sets: slot['prescription']['sets'] as int,
                               minReps: slot['prescription']['minReps'] as int,
                               maxReps: slot['prescription']['maxReps'] as int,
+                              restSeconds:
+                                  slot['prescription']['restSeconds'] as int? ??
+                                  90,
+                              source:
+                                  slot['prescription']['source'] as String? ??
+                                  'manual',
                             ),
                     alternativeExerciseIds: List<int>.from(
                       slot['alternatives'] as List? ?? [],

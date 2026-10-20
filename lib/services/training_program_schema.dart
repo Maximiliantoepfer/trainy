@@ -46,6 +46,29 @@ abstract final class TrainingProgramSchema {
     ]) {
       await db.execute(sql);
     }
+    final overrideColumns =
+        (await db.rawQuery(
+          'PRAGMA table_info(plan_slot_overrides)',
+        )).map((r) => r['name']).toSet();
+    if (!overrideColumns.contains('workout_id')) {
+      await db.execute(
+        'ALTER TABLE plan_slot_overrides ADD COLUMN workout_id TEXT',
+      );
+    }
+    final columns =
+        (await db.rawQuery(
+          'PRAGMA table_info(workout_slot_prescriptions)',
+        )).map((r) => r['name']).toSet();
+    if (!columns.contains('rest_seconds')) {
+      await db.execute(
+        'ALTER TABLE workout_slot_prescriptions ADD COLUMN rest_seconds INTEGER NOT NULL DEFAULT 90',
+      );
+    }
+    if (!columns.contains('source')) {
+      await db.execute(
+        "ALTER TABLE workout_slot_prescriptions ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'",
+      );
+    }
   }
 
   /// Idempotent, also used in the staging database after restoring older backups.

@@ -1,4 +1,8 @@
+import '../models/training_profile.dart';
 import 'dart:convert';
+import '../models/strength_plan.dart';
+import '../services/catalog_repository.dart';
+import 'workout_planning_repository.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/cardio.dart';
 import '../models/training_program.dart';
@@ -12,7 +16,31 @@ class TrainingProgramRepository {
   TrainingProgramRepository({DatabaseService? database})
     : db = database ?? DatabaseService();
   final DatabaseService db;
-  Future<void> initialize() => db.transaction(TrainingProgramSchema.migrate);
+  Future<void> initialize() => db.transaction((txn) async {
+    await TrainingProgramSchema.migrate(txn);
+    final rows = await txn.query('user_training_profile');
+    final user =
+        rows.isEmpty
+            ? const UserTrainingProfile()
+            : UserTrainingProfile.fromJson(_json(rows.single['profile_json']));
+    if (user.interestsVersion >= 1) return;
+    final interests = {...user.interests};
+    for (final row in await txn.rawQuery(
+      "SELECT p.program_json FROM training_programs p JOIN training_plans t ON t.id=p.id WHERE t.status='active'",
+    )) {
+      final plan = TrainingProgram.fromJson(_json(row['program_json']));
+      interests.addAll(plan.currentSlots.map((s) => s.kind));
+      if (plan.hasRunning) interests.add('running');
+    }
+    await txn.insert('user_training_profile', {
+      'id': 0,
+      'profile_json': jsonEncode({
+        ...user.toJson(),
+        'interests': interests.toList(),
+        'interestsVersion': 1,
+      }),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  });
   Future<UserTrainingProfile> userProfile() async {
     final rows = await db.query('user_training_profile');
     return rows.isEmpty
@@ -62,9 +90,15 @@ class TrainingProgramRepository {
   Future<void> save(
     TrainingProgram program, {
     RunningPlanProposal? running,
+    StrengthPlanProposal? strength,
+    String locale = 'en',
+    Map<String, String> strengthMoves = const {},
     bool activate = true,
   }) async {
     program.validate();
+    if (strength != null && !await CatalogRepository.instance.load()) {
+      throw StateError('Catalog unavailable');
+    }
     await db.transaction((txn) async {
       final todayDate = DateTime.now();
       final today = DateTime(todayDate.year, todayDate.month, todayDate.day);
@@ -97,6 +131,75 @@ class TrainingProgramRepository {
                 !old.hasRunning ||
                 running != null),
       );
+      if (strength != null) {
+        final rows = await txn.query('user_training_profile');
+        final user = UserTrainingProfile.fromJson(
+          rows.isEmpty ? {} : _json(rows.single['profile_json']),
+        );
+        final places = [
+          for (final r in await txn.query(
+            'training_profiles_v2',
+            where: 'is_archived=0',
+          ))
+            TrainingProfileRecord(
+              id: r['id'] as String,
+              name: r['name'] as String,
+              equipmentCodes: const {},
+              createdAtUtc: today,
+              updatedAtUtc: today,
+            ),
+        ];
+        final missing = ProfileReadiness.strengthForGeneration(user, places);
+        if (missing.isNotEmpty) throw ProfileIncomplete('strength', missing);
+        if (strength.workouts.map((w) => w.slotId).toSet().length !=
+                strength.workouts.length ||
+            strength.workouts.any(
+              (w) =>
+                  !program.slots.any(
+                    (s) =>
+                        s.id == w.slotId &&
+                        s.kind == 'strength' &&
+                        (s.workoutId == null || s.workoutId == w.id),
+                  ),
+            ) ||
+            strength.workouts.any(
+              (w) =>
+                  w.variants.map((v) => v.profileId).toSet().length !=
+                      user.strengthPlaces.length ||
+                  !w.variants
+                      .map((v) => v.profileId)
+                      .toSet()
+                      .containsAll(user.strengthPlaces),
+            )) {
+          throw StateError('Proposal does not match plan and places');
+        }
+        program = program.copyWith(
+          strengthSettings: {
+            ...program.strengthSettings,
+            'proposal': strength.toJson(),
+          },
+        );
+        await WorkoutPlanningRepository.writeGenerated(
+          txn,
+          strength,
+          CatalogRepository.instance,
+          locale,
+        );
+        program = program.copyWith(
+          slots: [
+            for (final s in program.slots)
+              if (s.workoutId == null &&
+                  strength.workouts.any((w) => w.slotId == s.id))
+                s.copyWith(
+                  workoutId:
+                      strength.workouts.firstWhere((w) => w.slotId == s.id).id,
+                )
+              else
+                s,
+          ],
+        );
+      }
+      final replacedSlotIds = <String, String>{};
       final existingWorkouts =
           existing.isEmpty
               ? <String?>{}
@@ -155,6 +258,7 @@ class TrainingProgramRepository {
           );
           if (next != null) {
             final newId = UuidV4.generate();
+            replacedSlotIds[previous.id] = newId;
             slots.add(
               ProgramSlot(
                 id: newId,
@@ -226,6 +330,54 @@ class TrainingProgramRepository {
         'id': program.id,
         'program_json': jsonEncode(program.toJson()),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
+      for (final move in strengthMoves.entries) {
+        final separator = move.key.lastIndexOf(':');
+        if (separator < 0) throw StateError('Invalid occurrence move');
+        final originalSlotId = move.key.substring(0, separator);
+        final slotId = replacedSlotIds[originalSlotId] ?? originalSlotId;
+        final originalDate = move.key.substring(separator + 1);
+        await _requireUnstarted(txn, '$originalSlotId:$originalDate');
+        if (!program.slots.any((s) => s.id == slotId)) continue;
+        final target = DateTime.parse(move.value);
+        if (target.isBefore(
+              DateTime(
+                program.start.year,
+                program.start.month,
+                program.start.day,
+              ),
+            ) ||
+            (program.endDate != null && target.isAfter(program.endDate!))) {
+          throw StateError('Date outside plan');
+        }
+        await _writeOverride(txn, {
+          'plan_id': program.id,
+          'slot_id': slotId,
+          'original_date': originalDate,
+          'local_date': move.value,
+        });
+      }
+      if (activate) {
+        final rows = await txn.query('user_training_profile');
+        final user =
+            rows.isEmpty
+                ? const UserTrainingProfile()
+                : UserTrainingProfile.fromJson(
+                  _json(rows.single['profile_json']),
+                );
+        final interests = {
+          ...user.interests,
+          ...program.currentSlots.map((s) => s.kind),
+          if (program.hasRunning) 'running',
+        };
+        await txn.insert('user_training_profile', {
+          'id': 0,
+          'profile_json': jsonEncode({
+            ...user.toJson(),
+            'interests': interests.toList(),
+            'interestsVersion': 1,
+          }),
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
       if (running != null) {
         await txn.insert('cardio_plans', {
           'id': program.id,
@@ -434,6 +586,9 @@ class TrainingProgramRepository {
     DateTime from,
     DateTime to,
   ) async {
+    // Calendar bounds are local civil dates, including UTC dates restored from drafts.
+    from = DateTime(from.year, from.month, from.day);
+    to = DateTime(to.year, to.month, to.day);
     final result = <ProgramEntry>[];
     final overrides = await db.query(
       'plan_slot_overrides',
@@ -563,7 +718,13 @@ class TrainingProgramRepository {
         continue;
       }
       if (slot != null && !date.isBefore(from) && date.isBefore(to)) {
-        final entry = strength(slot, original, date);
+        final entry = strength(
+          o['workout_id'] == null
+              ? slot
+              : slot.copyWith(workoutId: o['workout_id'] as String),
+          original,
+          date,
+        );
         if (p.endDate == null ||
             !date.isAfter(p.endDate!) ||
             entry.sessionId != null) {
@@ -652,6 +813,58 @@ class TrainingProgramRepository {
       return d == 0 ? a.id.compareTo(b.id) : d;
     });
     return result;
+  }
+
+  static Future<void> _writeOverride(
+    DatabaseExecutor txn,
+    Map<String, Object?> values,
+  ) async {
+    final keys = values.keys.toList();
+    await txn.rawInsert(
+      'INSERT INTO plan_slot_overrides (${keys.join(',')}) VALUES (${List.filled(keys.length, '?').join(',')}) '
+      'ON CONFLICT(plan_id,slot_id,original_date) DO UPDATE SET local_date=excluded.local_date'
+      '${values.containsKey('workout_id') ? ', workout_id=excluded.workout_id' : ''}',
+      keys.map((k) => values[k]).toList(),
+    );
+  }
+
+  Future<void> replaceStrengthOccurrence(
+    TrainingProgram p,
+    ProgramEntry e,
+    String workoutId,
+  ) async {
+    if (e.completed ||
+        e.sessionId != null ||
+        e.slotId == null ||
+        e.originalDate == null) {
+      throw StateError('Protected occurrence');
+    }
+    await db.transaction((txn) async {
+      await _requireUnstarted(txn, e.id);
+      if ((await txn.query(
+        'workout_templates',
+        where: 'id=? AND is_archived=0',
+        whereArgs: [workoutId],
+      )).isEmpty) {
+        throw StateError('Workout unavailable');
+      }
+      if (e.splitSourceId != null) {
+        await txn.update(
+          'strength_occurrence_parts',
+          {'workout_id': workoutId},
+          where: 'id=?',
+          whereArgs: [e.id],
+        );
+      } else {
+        await _writeOverride(txn, {
+          'plan_id': p.id,
+          'slot_id': e.slotId,
+          'original_date': dateKey(e.originalDate!),
+          'local_date': dateKey(e.date),
+          'workout_id': workoutId,
+        });
+      }
+    });
   }
 
   Future<void> moveStrength(
@@ -767,12 +980,12 @@ class TrainingProgramRepository {
           [newId, newId, shift, shift, p.id, old.id, dateKey(original)],
         );
       } else {
-        await txn.insert('plan_slot_overrides', {
+        await _writeOverride(txn, {
           'plan_id': p.id,
           'slot_id': entry.slotId,
           'original_date': dateKey(original),
           'local_date': dateKey(date),
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        });
       }
     });
   }
@@ -821,12 +1034,12 @@ class TrainingProgramRepository {
             whereArgs: [e.id],
           );
         } else {
-          await txn.insert('plan_slot_overrides', {
+          await _writeOverride(txn, {
             'plan_id': e.planId,
             'slot_id': e.slotId,
             'original_date': dateKey(e.originalDate!),
             'local_date': dateKey(date),
-          }, conflictAlgorithm: ConflictAlgorithm.replace);
+          });
         }
       }
     });
