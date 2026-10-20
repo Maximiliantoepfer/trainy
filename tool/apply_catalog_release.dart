@@ -93,14 +93,57 @@ void main() {
   }
 
   for (final definition in definitions) {
+    final tracking = Map<String, dynamic>.from(definition['tracking'] as Map);
+    final goals = List<String>.from(definition['goalCodes'] as List);
+    if (goals.contains('strength') && tracking['reps'] == true) {
+      tracking['sets'] = true;
+      tracking['weight'] =
+          true; // Optional additional load, never a required weight.
+    }
+    if (goals.length == 1 && goals.single == 'mobility') {
+      tracking.addAll({
+        'sets': true,
+        'reps': false,
+        'weight': false,
+        'duration': true,
+        'distance': false,
+      });
+    }
+    definition['tracking'] = tracking;
     final category = _coverCategory(definition);
     definition['mediaId'] = 'owned:category-$category';
     definition['imageAssetPath'] = 'assets/catalog/covers/$category.webp';
   }
 
+  // Short exercise names, not literal translations of equipment names. The
+  // underlying machine-translated instructions are not marked human-reviewed.
+  const germanNames = {
+    'free:Ab_Crunch_Machine': 'Crunches an der Maschine',
+    'free:Machine_Shoulder_Military_Press': 'Schulterpresse an der Maschine',
+    'free:Hyperextensions_Back_Extensions': 'Hyperextensions',
+    'free:Reverse_Machine_Flyes': 'Reverse Butterfly',
+    'free:Reverse_Flyes': 'Reverse Flys mit Kurzhanteln',
+    'free:Machine_Bicep_Curl': 'Bizepscurls an der Maschine',
+    'free:Machine_Triceps_Extension': 'Trizepsstrecken an der Maschine',
+    'free:Band_Assisted_Pull-Up': 'Klimmzüge mit Bandunterstützung',
+  };
+  for (final entry in germanNames.entries) {
+    final content = Map<String, dynamic>.from(deContent[entry.key] as Map);
+    if (content['reviewed'] == true) continue;
+    content['searchTerms'] =
+        <String>{
+          ...List<String>.from(content['searchTerms'] as List? ?? const []),
+          content['name'] as String,
+          entry.value,
+        }.toList();
+    content['name'] = entry.value;
+    content['translationMethod'] = 'deepl+manual';
+    deContent[entry.key] = content;
+  }
+
   definitions.sort((a, b) => (a['id'] as String).compareTo(b['id'] as String));
   catalog['schemaVersion'] = 1;
-  catalog['catalogVersion'] = 3;
+  catalog['catalogVersion'] = 4;
   catalog['exerciseCount'] = definitions.length;
   catalog['exercises'] = definitions;
   final sources = List<Map<String, dynamic>>.from(
@@ -120,7 +163,7 @@ void main() {
 
   for (final locale in [english, german]) {
     locale['schemaVersion'] = 1;
-    locale['catalogVersion'] = 3;
+    locale['catalogVersion'] = 4;
     locale['exerciseCount'] = definitions.length;
   }
   english['exercises'] = _sortedMap(enContent);
@@ -138,7 +181,7 @@ void main() {
   german['machineTranslatedExerciseCount'] =
       deContent.values.where((value) {
         final item = Map<String, dynamic>.from(value as Map);
-        return item['translationMethod'] == 'deepl';
+        return ['deepl', 'deepl+manual'].contains(item['translationMethod']);
       }).length;
 
   final coverFiles = <String, File>{
@@ -176,7 +219,7 @@ void main() {
       }).length;
   final manifest = <String, dynamic>{
     'schemaVersion': 1,
-    'catalogVersion': 3,
+    'catalogVersion': 4,
     'sourceCommit': _pinnedCommit,
     'freeExerciseCount': 876,
     'totalCatalogCount': definitions.length,
@@ -190,7 +233,7 @@ void main() {
     'germanMachineTranslatedExerciseCount':
         deContent.values.where((value) {
           final item = Map<String, dynamic>.from(value as Map);
-          return item['translationMethod'] == 'deepl';
+          return ['deepl', 'deepl+manual'].contains(item['translationMethod']);
         }).length,
     'mediaPolicy': 'owned-or-explicitly-licensed',
     'assetChecksums': {
@@ -210,7 +253,7 @@ void main() {
   _writeAtomic('$_catalogDir/catalog_media.json', mediaText);
   _writeAtomic('$_catalogDir/manifest.json', _encode(manifest));
   stdout.writeln(
-    'Prepared catalog v2: ${definitions.length} exercises, '
+    'Prepared catalog v${catalog['catalogVersion']}: ${definitions.length} exercises, '
     '${coverFiles.length} owned covers, $fallbackCount German fallbacks.',
   );
 }

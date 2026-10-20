@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:trainy/models/strength_equipment.dart';
+import 'package:trainy/models/strength_plan.dart';
+import 'package:trainy/services/strength_routines.dart';
 import 'package:trainy/models/training_profile.dart';
 import 'package:trainy/models/training_program.dart';
 import 'package:trainy/repositories/training_program_repository.dart';
@@ -62,7 +64,7 @@ void main() {
           start: now,
           slots: [ProgramSlot(weekday: 1, label: 'fullBody')],
         );
-        final proposal = StrengthPlanning.generate(
+        final generated = StrengthPlanning.generate(
           planId: program.id,
           user: user,
           places: places,
@@ -70,6 +72,24 @@ void main() {
           goal: user.strengthGoal,
           minutes: 60,
           label: (s) => s,
+        );
+        final proposal = StrengthPlanProposal(
+          workouts: [
+            for (final w in generated.workouts)
+              w
+                  .copyWith(
+                    variants: [
+                      for (final v in w.variants)
+                        v.copyWith(
+                          warmup: StrengthRoutines.preset(
+                            'fullBody',
+                            cooling: false,
+                          ),
+                        ),
+                    ],
+                  )
+                  .confirmReview(),
+          ],
         );
         await repo.saveDraft('strength-plan:draft', proposal.toJson());
         await repo.save(program, strength: proposal);
@@ -92,8 +112,10 @@ void main() {
               .expand((g) => g.selectedVariant.slots)
               .every(
                 (s) =>
-                    s.prescription!.source == 'generated:v1' &&
-                    s.prescription!.restSeconds > 0,
+                    (s.prescription!.source == 'generated:v1' &&
+                        s.prescription!.restSeconds > 0) ||
+                    (s.prescription!.source == 'routine' &&
+                        s.prescription!.durationSeconds == 30),
               ),
           isTrue,
         );

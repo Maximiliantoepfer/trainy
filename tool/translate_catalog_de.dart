@@ -34,8 +34,23 @@ Future<void> main() async {
           )
           : <String, dynamic>{};
   final records = Map<String, dynamic>.from(english['exercises'] as Map);
+  final previous = Map<String, dynamic>.from(
+    existingGerman['exercises'] as Map,
+  );
+  final manual =
+      File('tool/catalog_manual_de.json').existsSync()
+          ? _readJson('tool/catalog_manual_de.json')
+          : <String, dynamic>{};
+  cache.addAll(manual);
   final units = <_TranslationUnit>[];
   for (final entry in records.entries) {
+    if (previous[entry.key]?['reviewed'] == true ||
+        [
+          'deepl',
+          'deepl+manual',
+        ].contains(previous[entry.key]?['translationMethod'])) {
+      continue;
+    }
     final content = Map<String, dynamic>.from(entry.value as Map);
     units.add(_TranslationUnit(content['name'] as String));
     final instructions = List<String>.from(content['instructions'] as List);
@@ -44,7 +59,11 @@ Future<void> main() async {
     }
   }
   final missing =
-      units.where((unit) => !cache.containsKey(unit.textHash)).toList();
+      {
+          for (final unit in units.where((u) => u.text.trim().isNotEmpty))
+            unit.textHash: unit,
+        }.values.where((unit) => !cache.containsKey(unit.textHash)).toList()
+        ..sort((a, b) => a.text.length.compareTo(b.text.length));
   final requiredCharacters = missing.fold<int>(
     0,
     (total, unit) => total + unit.text.runes.length,
@@ -55,19 +74,34 @@ Future<void> main() async {
     'DeepL preflight: $requiredCharacters characters required, '
     '$remaining remaining (${missing.length} uncached text blocks).',
   );
-  if (remaining < requiredCharacters) {
-    throw StateError('DeepL quota is insufficient; no request was sent.');
+  var budget = (remaining - 5000).clamp(0, remaining);
+  final automatic = <_TranslationUnit>[], pending = <_TranslationUnit>[];
+  for (final unit in missing) {
+    if (unit.text.runes.length <= budget) {
+      automatic.add(unit);
+      budget -= unit.text.runes.length;
+    } else {
+      pending.add(unit);
+    }
   }
-
-  final glossaryId = await client.createGlossary(
-    File('tool/fitness_glossary_en_de.tsv').readAsStringSync(),
+  Directory('.tmp').createSync(recursive: true);
+  _writeAtomic(
+    '.tmp/catalog_translation_pending.json',
+    _encode({for (final unit in pending) unit.textHash: unit.text}),
   );
+
+  final glossaryId =
+      automatic.isEmpty
+          ? null
+          : await client.createGlossary(
+            File('tool/fitness_glossary_en_de.tsv').readAsStringSync(),
+          );
   try {
-    for (var offset = 0; offset < missing.length; offset += 40) {
-      final batch = missing.skip(offset).take(40).toList();
+    for (var offset = 0; offset < automatic.length; offset += 40) {
+      final batch = automatic.skip(offset).take(40).toList();
       final translated = await client.translate(
         batch.map((unit) => unit.text).toList(),
-        glossaryId: glossaryId,
+        glossaryId: glossaryId!,
       );
       if (translated.length != batch.length) {
         throw const FormatException('DeepL result count mismatch.');
@@ -86,26 +120,36 @@ Future<void> main() async {
       );
     }
   } finally {
-    await client.deleteGlossary(glossaryId);
+    if (glossaryId != null) await client.deleteGlossary(glossaryId);
+  }
+  if (pending.isNotEmpty) {
+    stdout.writeln(
+      '${pending.length} blocks await manual translation. Existing catalogue preserved.',
+    );
+    return;
   }
 
   final germanRecords = <String, dynamic>{};
   for (final entry in records.entries) {
+    if (previous[entry.key]?['reviewed'] == true ||
+        previous[entry.key]?['translationMethod'] == 'deepl') {
+      germanRecords[entry.key] = previous[entry.key];
+      continue;
+    }
     final source = Map<String, dynamic>.from(entry.value as Map);
-    final sourceInstructions = List<String>.from(
-      source['instructions'] as List,
-    );
+    final sourceInstructions =
+        List<String>.from(
+          source['instructions'] as List,
+        ).where((s) => s.trim().isNotEmpty).toList();
     final translatedName = cache[_hash(source['name'] as String)] as String;
     final translatedInstructions = [
       for (final instruction in sourceInstructions)
         cache[_hash(instruction)] as String,
     ];
-    _validateTranslation(
-      id: entry.key,
-      sourceName: source['name'] as String,
-      translatedName: translatedName,
-      instructions: translatedInstructions,
-    );
+    if (translatedName.trim().isEmpty ||
+        translatedInstructions.any((s) => s.trim().isEmpty)) {
+      throw FormatException('Incomplete translation: ${entry.key}');
+    }
     germanRecords[entry.key] = {
       'name': translatedName,
       'description': translatedInstructions.join(' '),
@@ -117,7 +161,10 @@ Future<void> main() async {
             ...List<String>.from(source['searchTerms'] as List? ?? const []),
           }.toList(),
       'reviewed': false,
-      'translationMethod': 'deepl',
+      'translationMethod':
+          sourceInstructions.any((s) => manual.containsKey(_hash(s)))
+              ? 'deepl+manual'
+              : 'deepl',
       'sourceHash': _hash(jsonEncode(source)),
     };
   }
@@ -127,8 +174,10 @@ Future<void> main() async {
     'catalogVersion': english['catalogVersion'],
     'locale': 'de',
     'exerciseCount': germanRecords.length,
-    'reviewedExerciseCount': 0,
-    'machineTranslatedExerciseCount': germanRecords.length,
+    'reviewedExerciseCount':
+        germanRecords.values.where((v) => v['reviewed'] == true).length,
+    'machineTranslatedExerciseCount':
+        germanRecords.values.where((v) => v['reviewed'] != true).length,
     'fallbackExerciseCount': 0,
     'exercises': Map.fromEntries(
       germanRecords.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
@@ -142,38 +191,15 @@ Future<void> main() async {
   checksums['catalog_de.json'] =
       sha256.convert(utf8.encode(germanText)).toString();
   manifest['assetChecksums'] = checksums;
-  manifest['germanReviewedExerciseCount'] = 0;
+  manifest['germanReviewedExerciseCount'] = german['reviewedExerciseCount'];
   manifest['germanFallbackExerciseCount'] = 0;
-  manifest['germanMachineTranslatedExerciseCount'] = germanRecords.length;
+  manifest['germanMachineTranslatedExerciseCount'] =
+      german['machineTranslatedExerciseCount'];
   _writeAtomic(_germanPath, germanText);
   _writeAtomic(_manifestPath, _encode(manifest));
   stdout.writeln(
     'German catalog written atomically: ${germanRecords.length} records.',
   );
-}
-
-void _validateTranslation({
-  required String id,
-  required String sourceName,
-  required String translatedName,
-  required List<String> instructions,
-}) {
-  if (translatedName.trim().isEmpty ||
-      instructions.any((value) => value.trim().isEmpty)) {
-    throw FormatException('Structurally incomplete translation for $id.');
-  }
-  const allowedUnchanged = {
-    'plank',
-    'crunch',
-    'burpee',
-    'box jump',
-    'muscle up',
-    'push press',
-  };
-  if (sourceName.trim().toLowerCase() == translatedName.trim().toLowerCase() &&
-      !allowedUnchanged.contains(sourceName.trim().toLowerCase())) {
-    throw FormatException('Unchanged English exercise name for $id.');
-  }
 }
 
 class _TranslationUnit {
@@ -267,7 +293,7 @@ class _DeepLClient {
       final response = await request.close();
       final raw = await utf8.decodeStream(response);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw HttpException('DeepL ${response.statusCode}: $raw');
+        throw HttpException('DeepL HTTP ${response.statusCode}');
       }
       if (allowEmpty && raw.trim().isEmpty) return const {};
       return Map<String, dynamic>.from(jsonDecode(raw) as Map);

@@ -22,6 +22,8 @@ import 'package:trainy/services/database_service.dart';
 import 'package:trainy/themes/app_theme.dart';
 import 'package:trainy/providers/training_profile_provider.dart';
 import 'package:trainy/repositories/training_profile_repository.dart';
+import 'package:trainy/services/data_lifecycle_coordinator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Real Android SQLite + complete local running setup. Android integration targets
 /// build as com.example.trainy.integration, separately from the installed app.
@@ -30,6 +32,34 @@ import 'package:trainy/repositories/training_profile_repository.dart';
 /// package before Flutter captures its identity for uninstall during teardown.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'isolated Android local reset drains polling and retains visual settings',
+    (tester) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('test_visual_accent', 'orange');
+      final db = await AppDatabase.instance.database;
+      await db.insert('workouts', {
+        'name': 'Disposable reset fixture',
+        'description': '',
+      });
+      final polling = CardioProvider();
+      await polling.initialize();
+      try {
+        await DataLifecycleCoordinator.instance.resetLocalTrainingData();
+        expect(
+          await (await AppDatabase.instance.database).query('workouts'),
+          isEmpty,
+        );
+        expect(prefs.getString('test_visual_accent'), 'orange');
+        await DataLifecycleCoordinator.instance.resetLocalTrainingData();
+        await AppDatabase.instance.assertIntegrity();
+      } finally {
+        polling.dispose();
+        await AppDatabase.instance.close();
+        await prefs.remove('test_visual_accent');
+      }
+    },
+  );
   testWidgets(
     'offline plan setup persists profile, activates shared plan and returns home',
     (tester) async {
@@ -217,6 +247,10 @@ void main() {
         await tap('Weiter');
         await tap('Weiter');
         expect(find.byType(CardioProfileScreen), findsNothing);
+        for (var i = 0; i < 3; i++) {
+          await tap('Workout prüfen');
+          await tap('Workout bestätigen');
+        }
         await tap('Weiter');
         expect(find.text('Dein Kraftplan ist vorbereitet.'), findsOneWidget);
         expect(find.byType(CardioProfileScreen), findsNothing);

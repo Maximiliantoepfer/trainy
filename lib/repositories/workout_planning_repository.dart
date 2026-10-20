@@ -28,7 +28,7 @@ class WorkoutPlanningRepository {
     CatalogRepository catalog,
     String locale,
   ) async {
-    if (!proposal.ready || proposal.version != 1) {
+    if (!proposal.ready || !proposal.reviewed || proposal.version != 1) {
       throw StateError('Incomplete strength proposal');
     }
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
@@ -101,9 +101,13 @@ class WorkoutPlanningRepository {
             'workout_group_id': group.value,
             'group_variant_id': groupVariant,
           });
-          if (group.key != 'core') continue;
-          for (var i = 0; i < variant.exercises.length; i++) {
-            final exercise = variant.exercises[i];
+          final exercises = switch (group.key) {
+            'warmup' => variant.warmup,
+            'cooldown' => variant.cooldown,
+            _ => variant.exercises,
+          };
+          for (var i = 0; i < exercises.length; i++) {
+            final exercise = exercises[i];
             exercise.prescription.validate();
             final item = catalog.localized(exercise.catalogId, locale);
             if (item == null) {
@@ -125,7 +129,7 @@ class WorkoutPlanningRepository {
                       'defaultValues': '{}',
                       'lastValues': '{}',
                       'units': '{}',
-                      'goal': 'strength',
+                      'goal': group.key == 'core' ? 'strength' : 'mobility',
                       'catalogId': exercise.catalogId,
                       'origin': 'catalog',
                       'isNameCustom': 0,
@@ -154,6 +158,7 @@ class WorkoutPlanningRepository {
               'min_reps': p.minReps,
               'max_reps': p.maxReps,
               'rest_seconds': p.restSeconds,
+              'duration_seconds': p.durationSeconds,
               'source': p.source,
             });
             if (vi == 0) {
@@ -330,6 +335,7 @@ class WorkoutPlanningRepository {
             'min_reps': prescription.minReps,
             'max_reps': prescription.maxReps,
             'rest_seconds': prescription.restSeconds,
+            'duration_seconds': prescription.durationSeconds,
             'source': prescription.source,
           });
         }
@@ -365,6 +371,7 @@ class WorkoutPlanningRepository {
       'min_reps': prescription.minReps,
       'max_reps': prescription.maxReps,
       'rest_seconds': prescription.restSeconds,
+      'duration_seconds': prescription.durationSeconds,
       'source': prescription.source,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
@@ -725,13 +732,15 @@ class WorkoutPlanningRepository {
     required String setupId,
     required Iterable<int> exerciseIds,
     String? groupId,
+    bool replaceRoutine = false,
+    Map<int, StrengthPrescription> prescriptions = const {},
   }) async {
     final ids = exerciseIds.toSet().toList(growable: false);
-    if (ids.isEmpty) return;
+    if (ids.isEmpty && !replaceRoutine) return;
     await _database.transaction((txn) async {
       final rows = await txn.rawQuery(
         '''
-        SELECT selection.group_variant_id
+        SELECT selection.group_variant_id, group_row.group_kind
         FROM workout_variant_group_selections_v2 selection
         INNER JOIN workout_groups_v2 group_row
           ON group_row.id = selection.workout_group_id
@@ -743,6 +752,16 @@ class WorkoutPlanningRepository {
       );
       if (rows.isEmpty) throw StateError('Setup has no core group.');
       final groupVariantId = rows.single['group_variant_id'] as String;
+      if (replaceRoutine) {
+        if (!['warmup', 'cooldown'].contains(rows.single['group_kind'])) {
+          throw StateError('Only routines can be replaced here');
+        }
+        await txn.delete(
+          'workout_slots_v2',
+          where: 'group_variant_id=?',
+          whereArgs: [groupVariantId],
+        );
+      }
       final count = await txn.rawQuery(
         'SELECT COUNT(*) AS count FROM workout_slots_v2 WHERE group_variant_id = ?',
         [groupVariantId],
@@ -760,13 +779,27 @@ class WorkoutPlanningRepository {
           limit: 1,
         );
         if (duplicate.isNotEmpty) continue;
+        final slotId = UuidV4.generate();
         await txn.insert('workout_slots_v2', {
-          'id': UuidV4.generate(),
+          'id': slotId,
           'group_variant_id': groupVariantId,
           'exercise_id': canonicalId,
           'slot_kind': 'core',
           'sort_order': sortOrder++,
         });
+        final p = prescriptions[localId];
+        if (p != null) {
+          p.validate();
+          await txn.insert('workout_slot_prescriptions', {
+            'slot_id': slotId,
+            'sets': p.sets,
+            'min_reps': p.minReps,
+            'max_reps': p.maxReps,
+            'rest_seconds': p.restSeconds,
+            'duration_seconds': p.durationSeconds,
+            'source': p.source,
+          });
+        }
       }
     });
   }
@@ -1292,7 +1325,7 @@ class WorkoutPlanningRepository {
   ) async {
     final slots = await _database.rawQuery(
       '''
-      SELECT slot.*, item.legacy_local_id, p.sets, p.min_reps, p.max_reps, p.rest_seconds, p.source
+      SELECT slot.*, item.legacy_local_id, p.sets, p.min_reps, p.max_reps, p.rest_seconds, p.duration_seconds, p.source
       FROM workout_slots_v2 slot
       INNER JOIN exercise_items item ON item.id = slot.exercise_id
       LEFT JOIN workout_slot_prescriptions p ON p.slot_id=slot.id
@@ -1343,6 +1376,7 @@ class WorkoutPlanningRepository {
                       minReps: slot['min_reps'] as int,
                       maxReps: slot['max_reps'] as int,
                       restSeconds: slot['rest_seconds'] as int? ?? 90,
+                      durationSeconds: slot['duration_seconds'] as int?,
                       source: slot['source'] as String? ?? 'manual',
                     ),
             alternativeLocalExerciseIds:

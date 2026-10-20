@@ -86,6 +86,38 @@ void main() {
   });
 
   test(
+    'lower back prefers a hyperextension bench and falls back only without it',
+    () {
+      for (final equipped in [false, true]) {
+        final proposal = StrengthPlanning.generate(
+          planId: 'back',
+          user: user(),
+          places: [
+            place('home', {'bodyweight', if (equipped) 'back_extension'}),
+            gym,
+          ],
+          slots: [
+            ProgramSlot(weekday: 1, label: 'Back', focus: ['lowerBack']),
+          ],
+          goal: 'buildMuscle',
+          minutes: 30,
+          label: (s) => s,
+        );
+        final ids = proposal.workouts.single.variants.first.exercises.map(
+          (e) => e.catalogId,
+        );
+        expect(
+          ids,
+          contains(
+            equipped ? 'free:Hyperextensions_Back_Extensions' : 'free:Superman',
+          ),
+        );
+        if (equipped) expect(ids, isNot(contains('free:Superman')));
+      }
+    },
+  );
+
+  test(
     'all recommended splits respect recovery including Sunday to Monday',
     () {
       for (final pair in ['mixedSplit', 'upperLower']) {
@@ -262,7 +294,9 @@ void main() {
     test(
       'two places produce one calendar, prescriptions survive, retry is idempotent',
       () async {
-        final proposal = generate();
+        final proposal = StrengthPlanProposal(
+          workouts: generate().workouts.map((w) => w.confirmReview()).toList(),
+        );
         await repo.save(program(), strength: proposal, locale: 'de');
         await repo.save(program(), strength: proposal, locale: 'de');
         expect((await workouts.workouts()).length, 3);

@@ -140,7 +140,11 @@ void main() {
     await tester.enterText(find.byType(TextField), 'Liegestütz');
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('free:Pushups')), findsNothing);
-    expect(find.textContaining('Keine passenden'), findsOneWidget);
+    // Scapular push-ups are a legitimate mobility result; normal push-ups are not.
+    expect(
+      find.byKey(const ValueKey('trainy:routine_scapularPushup')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
     provider.dispose();
   });

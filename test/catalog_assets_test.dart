@@ -30,9 +30,21 @@ void main() {
       };
       final definitions = repository.definitions.toList();
       final ids = definitions.map((item) => item.id).toSet();
-      expect(definitions, hasLength(887));
+      expect(definitions, hasLength(904));
       expect(ids.where((id) => id.startsWith('free:')), hasLength(876));
-      expect(ids.where((id) => id.startsWith('trainy:')).toSet(), activityIds);
+      expect(
+        ids
+            .where(
+              (id) =>
+                  id.startsWith('trainy:') && !id.startsWith('trainy:routine_'),
+            )
+            .toSet(),
+        activityIds,
+      );
+      expect(
+        ids.where((id) => id.startsWith('trainy:routine_')),
+        hasLength(17),
+      );
       expect(ids, isNot(contains('trainy:mobility_session')));
       expect(
         repository.byId('free:90_90_Hamstring')!.goalCodes,
@@ -56,8 +68,10 @@ void main() {
         expect(english.searchTerms, isNotEmpty);
         expect(german.name.trim(), isNotEmpty);
         expect(german.instructions, isNotEmpty);
+        expect(german.fallbackLocale, isNot('en'));
         expect(
-          german.reviewed || german.fallbackLocale == 'en',
+          german.reviewed ||
+              ['deepl', 'deepl+manual'].contains(german.translation?.method),
           isTrue,
           reason: definition.id,
         );
@@ -87,9 +101,9 @@ void main() {
         'a859101d633a01c4a1a920d6a8ce41dabba0705f',
       );
       expect(manifest['freeExerciseCount'], 876);
-      expect(manifest['totalCatalogCount'], 887);
-      expect(manifest['germanReviewedExerciseCount'], 11);
-      expect(manifest['germanFallbackExerciseCount'], 876);
+      expect(manifest['totalCatalogCount'], 904);
+      expect(manifest['germanReviewedExerciseCount'], 28);
+      expect(manifest['germanFallbackExerciseCount'], 0);
       final checksums = Map<String, dynamic>.from(
         manifest['assetChecksums'] as Map,
       );

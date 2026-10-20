@@ -10,6 +10,7 @@ abstract final class StrengthEquipment {
     'mat',
     'weighted_vest',
     'dip_bars',
+    'back_extension',
     'rack',
     'cable',
     'kettlebell',
@@ -33,7 +34,6 @@ abstract final class StrengthEquipment {
     'hip_thrust_machine',
     'calf_machine',
     'ab_machine',
-    'back_extension',
     'arm_curl_machine',
     'triceps_machine',
   };

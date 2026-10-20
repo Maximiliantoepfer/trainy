@@ -13,8 +13,16 @@ extension StrengthL10n on BuildContext {
 }
 
 const _strengthText = <String, List<String>>{
+  'suggested': ['Empfohlen', 'Suggested'],
+  'confirmWorkout': ['Workout bestätigen', 'Confirm workout'],
+  'reviewWorkout': ['Workout prüfen', 'Review workout'],
+  'durationSeconds': ['Dauer (Sekunden)', 'Duration (seconds)'],
+  'replaceWorkout': ['Ersetzen', 'Replace'],
   'minutes': ['Minuten', 'Minutes'],
-  'splitHint': ['So verteilen wir dein Training', 'How training is distributed'],
+  'splitHint': [
+    'So verteilen wir dein Training',
+    'How training is distributed',
+  ],
   'pushPullLegs': ['Push / Pull / Legs', 'Push / Pull / Legs'],
   'myProfile': ['Mein Profil', 'My profile'],
   'custom': ['Eigene Aufteilung', 'Custom split'],
@@ -65,7 +73,11 @@ const _strengthText = <String, List<String>>{
   'hip_thrust_machine': ['Hip-Thrust-Maschine', 'Hip thrust machine'],
   'calf_machine': ['Wadenmaschine', 'Calf raise machine'],
   'ab_machine': ['Bauchmaschine', 'Abdominal machine'],
-  'back_extension': ['Rückenstreckerbank', 'Back extension bench'],
+  'profileShort': ['Profil', 'Profile'],
+  'back_extension': [
+    'Hyperextensions / Rückenstreckerbank',
+    'Hyperextension / back extension bench',
+  ],
   'arm_curl_machine': ['Bizepsmaschine', 'Biceps curl machine'],
   'triceps_machine': ['Trizepsmaschine', 'Triceps extension machine'],
   'countQuestion': [
@@ -123,11 +135,25 @@ const _strengthText = <String, List<String>>{
     'This replaces edited suggestions in this draft. Saved workouts are kept.',
   ],
   'reviewWorkouts': ['Workouts prüfen', 'Review workouts'],
+  'reviewedWorkout': ['Geprüft · öffnen', 'Reviewed · open'],
   'estimated': ['Geschätzte Dauer', 'Estimated duration'],
   'warmupReserve': [
-    'Aufwärmen und Vorbereitung: 5 min eingeplant',
-    'Warm-up and preparation: 5 min included',
+    'Vorbereitung und leichte Aufwärmsätze sind in der Schätzung enthalten.',
+    'Preparation and light warm-up sets are included in the estimate.',
   ],
+  'warmup': ['Aufwärmen', 'Warm-up'],
+  'cooldown': ['Cooldown', 'Cool-down'],
+  'standardRoutine': [
+    'Standard · 3 min · bearbeitbar',
+    'Standard · 3 min · editable',
+  ],
+  'individualRoutine': ['Einzeln auswählen', 'Choose individually'],
+  'noRoutine': ['Ohne Routine', 'No routine'],
+  'extraTime': [
+    'Zusätzliche Zeit bewusst einplanen',
+    'Allow the additional time',
+  ],
+  'lowerBack': ['Unterer Rücken', 'Lower back'],
   'restSeconds': ['Satzpause (Sekunden)', 'Rest between sets (seconds)'],
   'restError': ['Gib 0 bis 600 Sekunden ein.', 'Enter 0 to 600 seconds.'],
   'missingEquipmentFor': [
@@ -143,8 +169,8 @@ const _strengthText = <String, List<String>>{
     'Use this reduced version',
   ],
   'reviewRequired': [
-    'Prüfe die offenen Punkte in den Workout-Vorschlägen.',
-    'Review the open points in the workout suggestions.',
+    'Bitte jedes unterschiedliche Workout öffnen, prüfen und bestätigen.',
+    'Please open, review and confirm each distinct workout.',
   ],
   'runningTransition': [
     'Möchtest du jetzt Laufen einrichten?',
@@ -166,7 +192,6 @@ const _strengthText = <String, List<String>>{
   ],
   'dragHint': ['Gedrückt halten zum Verschieben', 'Hold to move'],
   'workoutPreview': ['Workout-Vorschau', 'Workout preview'],
-  'replaceWorkout': ['Workout ersetzen', 'Replace workout'],
   'swapDates': ['Termine tauschen', 'Swap dates'],
   'changePlan': ['Planung bearbeiten', 'Edit scheduling'],
   'moved': ['Einheit verschoben', 'Session moved'],

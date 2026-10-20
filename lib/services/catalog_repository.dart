@@ -105,7 +105,10 @@ class CatalogRepository {
         if (!_isComplete(german) ||
             (!german!.reviewed &&
                 german.fallbackLocale != 'en' &&
-                german.translation?.method != 'deepl')) {
+                ![
+                  'deepl',
+                  'deepl+manual',
+                ].contains(german.translation?.method))) {
           throw FormatException('Invalid German content or fallback for $id.');
         }
       }

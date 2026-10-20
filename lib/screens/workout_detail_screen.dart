@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import '../services/strength_routines.dart';
+import '../widgets/strength_routine_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/l10n.dart';
 import '../models/exercise.dart';
+import '../models/strength_plan.dart';
 import '../models/training_profile.dart';
 import '../models/workout.dart';
 import '../models/workout_plan.dart';
@@ -667,6 +670,43 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     if (setup == null) return;
     final provider = context.read<ExerciseProvider>();
     final locale = Localizations.localeOf(context).languageCode;
+    final group = setup.groups.where((g) => g.id == groupId).firstOrNull;
+    final routine =
+        group?.kind == WorkoutGroupKind.warmup ||
+        group?.kind == WorkoutGroupKind.cooldown;
+    if (routine) {
+      final choice = await pickStrengthRoutine(
+        context,
+        cooling: group!.kind == WorkoutGroupKind.cooldown,
+      );
+      if (choice == null || !mounted) return;
+      if (choice != 'individual') {
+        final drafts =
+            choice == 'none'
+                ? <StrengthExerciseDraft>[]
+                : StrengthRoutines.preset(
+                  choice,
+                  cooling: group.kind == WorkoutGroupKind.cooldown,
+                );
+        await _mutate(() async {
+          final exercises = await ExercisePickerResult(
+            [],
+            drafts.map((e) => e.catalogId),
+          ).materialize(provider, locale);
+          await _repository.addExercisesToCore(
+            setupId: setup.id,
+            groupId: groupId,
+            exerciseIds: exercises.map((e) => e.id),
+            replaceRoutine: true,
+            prescriptions: {
+              for (var i = 0; i < exercises.length; i++)
+                exercises[i].id: drafts[i].prescription,
+            },
+          );
+        });
+        return;
+      }
+    }
     final result = await showModalBottomSheet<ExercisePickerResult>(
       context: context,
       isScrollControlled: true,
@@ -674,6 +714,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       builder:
           (_) => WorkoutExercisePicker(
             availableEquipment: setup.profile?.equipmentCodes,
+            initialGoal: routine ? 'mobility' : null,
           ),
     );
     if (!mounted || result == null) return;
@@ -683,6 +724,15 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
         setupId: setup.id,
         groupId: groupId,
         exerciseIds: exercises.map((e) => e.id),
+        prescriptions: {
+          for (final e in exercises)
+            if (routine && e.trackDuration)
+              e.id: const StrengthPrescription(
+                sets: 1,
+                durationSeconds: 30,
+                restSeconds: 0,
+              ),
+        },
       );
     });
   }

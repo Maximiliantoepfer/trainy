@@ -238,6 +238,7 @@ class _StrengthPlanWizardState extends State<StrengthPlanWizard> {
     }
     if (_proposal == null ||
         !_proposal!.ready ||
+        !_proposal!.reviewed ||
         _slots.any((s) => s.effectiveFocus.isEmpty)) {
       _change(() => _error = 'reviewRequired');
       return;
@@ -267,6 +268,7 @@ class _StrengthPlanWizardState extends State<StrengthPlanWizard> {
             'lowerCore',
             'fullBody',
             'custom',
+            'pullLegs',
           ];
           return known.contains(key) ? context.strength(key) : key;
         },
@@ -292,7 +294,21 @@ class _StrengthPlanWizardState extends State<StrengthPlanWizard> {
       slots: [result],
       goal: _user.strengthGoal,
       minutes: _time,
-      label: (s) => s,
+      label:
+          (s) =>
+              [
+                    'pushCore',
+                    'pullLegs',
+                    'push',
+                    'pull',
+                    'legs',
+                    'upper',
+                    'lowerCore',
+                    'fullBody',
+                    'custom',
+                  ].contains(s)
+                  ? context.strength(s)
+                  : s,
     );
     _change(
       () =>
@@ -569,7 +585,19 @@ class _StrengthPlanWizardState extends State<StrengthPlanWizard> {
                 if (w != null)
                   TextButton(
                     onPressed: () => _review(w),
-                    child: Text(context.strength('reviewWorkouts')),
+                    child: Text(
+                      context.strength(
+                        w.reviewed ||
+                                (_proposal?.workouts.any(
+                                      (other) =>
+                                          other.reviewed &&
+                                          other.fingerprint == w.fingerprint,
+                                    ) ??
+                                    false)
+                            ? 'reviewedWorkout'
+                            : 'reviewWorkout',
+                      ),
+                    ),
                   ),
               ],
             ),

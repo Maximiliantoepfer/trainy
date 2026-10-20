@@ -29,6 +29,7 @@ abstract final class StrengthPlanning {
     'shoulders',
     'rearDelts',
     'back',
+    'lowerBack',
     'biceps',
     'triceps',
     'core',
@@ -383,6 +384,7 @@ abstract final class StrengthPlanning {
       for (final role in [
         'chest',
         'back',
+        'lowerBack',
         'quads',
         'core',
         'shoulders',
@@ -395,13 +397,13 @@ abstract final class StrengthPlanning {
         if (focus.contains(role) && focus.length == 1) role,
     ];
     final extras = <String>[
+      if (focus.contains('back') && !focus.contains('lowerBack')) 'lowerBack',
       if (focus.contains('shoulders')) 'shoulderPress',
       if (focus.contains('back')) 'row',
       for (final role in ['glutes', 'biceps', 'triceps', 'calves'])
         if (focus.contains(role)) role,
-      if (focus.contains('back')) 'lowerBack',
     ];
-    var seconds = 300;
+    var seconds = 120;
     for (final item in [...required, ...extras].indexed) {
       final role = item.$2, extra = item.$1 >= required.length;
       if (!extra && covered.contains(role)) continue;
@@ -417,6 +419,11 @@ abstract final class StrengthPlanning {
               .toList();
       // Stable ordering is important for draft resumption and reproducibility.
       pool.sort((a, b) {
+        if (role == 'lowerBack') {
+          final priority = (a.equipment.contains('back_extension') ? 0 : 1)
+              .compareTo(b.equipment.contains('back_extension') ? 0 : 1);
+          if (priority != 0) return priority;
+        }
         final pa = a.guided == guided ? 0 : 1, pb = b.guided == guided ? 0 : 1;
         if (pa != pb) return pa.compareTo(pb);
         if (!guided &&
@@ -484,6 +491,8 @@ abstract final class StrengthPlanning {
       profileId: place.id,
       name: place.name,
       exercises: chosen,
+      warmupSeconds: 120,
+      budgetSeconds: minutes * 60,
       missing: missing,
     );
   }

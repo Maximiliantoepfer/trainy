@@ -76,6 +76,7 @@ class WorkoutExercisePicker extends StatefulWidget {
     this.single = false,
     this.excludedIds = const {},
     this.selectedReferences,
+    this.initialGoal,
   });
   final Set<int> selectedExerciseIds;
   final Set<String> selectedCatalogIds;
@@ -84,6 +85,7 @@ class WorkoutExercisePicker extends StatefulWidget {
   final bool single;
   final Set<int> excludedIds;
   final List<ExerciseSelectionRef>? selectedReferences;
+  final String? initialGoal;
 
   @override
   State<WorkoutExercisePicker> createState() => _WorkoutExercisePickerState();
@@ -103,7 +105,7 @@ class _WorkoutExercisePickerState extends State<WorkoutExercisePicker> {
         ExerciseSelectionRef(catalogId: id),
     ],
   ];
-  String? _goal;
+  late String? _goal = widget.initialGoal;
   bool _normalizedSelection = false;
 
   @override

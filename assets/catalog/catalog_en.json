@@ -1,56 +1,8 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 3,
+  "catalogVersion": 4,
   "locale": "en",
   "exercises": {
-    "trainy:w_raises": {
-      "name": "Prone W raises",
-      "description": "Lie face down with a neutral neck and bend your elbows into a W. Lift your hands and elbows slightly, draw your shoulder blades gently back, then lower with control. Use a comfortable range without arching your lower back.",
-      "instructions": [
-        "Lie face down with a neutral neck and bend your elbows into a W. Lift your hands and elbows slightly, draw your shoulder blades gently back, then lower with control. Use a comfortable range without arching your lower back."
-      ],
-      "searchTerms": [
-        "Prone W raises",
-        "W-Raises in Bauchlage"
-      ],
-      "reviewed": true
-    },
-    "trainy:bulgarian_split_squat": {
-      "name": "Bulgarian split squat",
-      "description": "Rest the top of your rear foot on a stable exercise bench. Keep your front foot planted and lower with control by bending the front knee. Push through the front foot to rise. Choose support height and depth that allow comfortable balance; additional weight is optional.",
-      "instructions": [
-        "Rest the top of your rear foot on a stable exercise bench. Keep your front foot planted and lower with control by bending the front knee. Push through the front foot to rise. Choose support height and depth that allow comfortable balance; additional weight is optional."
-      ],
-      "searchTerms": [
-        "Bulgarian split squat",
-        "Bulgarischer Split Squat"
-      ],
-      "reviewed": true
-    },
-    "trainy:standing_calf_raise": {
-      "name": "Standing calf raise",
-      "description": "Stand upright with your feet about hip-width apart. Rise onto the balls of your feet, pause briefly, then lower your heels slowly. Use light support for balance if needed. Additional weight is optional.",
-      "instructions": [
-        "Stand upright with your feet about hip-width apart. Rise onto the balls of your feet, pause briefly, then lower your heels slowly. Use light support for balance if needed. Additional weight is optional."
-      ],
-      "searchTerms": [
-        "Standing calf raise",
-        "Wadenheben im Stand"
-      ],
-      "reviewed": true
-    },
-    "trainy:side_plank_leg_raise": {
-      "name": "Side plank with leg raise",
-      "description": "Support yourself on your forearm with the elbow below your shoulder. Lift your hips into a side plank, then raise and lower the top leg slowly while keeping the trunk steady. Reduce the range or support the lower knee if needed. Repeat on both sides.",
-      "instructions": [
-        "Support yourself on your forearm with the elbow below your shoulder. Lift your hips into a side plank, then raise and lower the top leg slowly while keeping the trunk steady. Reduce the range or support the lower knee if needed. Repeat on both sides."
-      ],
-      "searchTerms": [
-        "Side plank with leg raise",
-        "Seitstütz mit Beinheben"
-      ],
-      "reviewed": true
-    },
     "free:3_4_Sit-Up": {
       "name": "3/4 Sit-Up",
       "description": "Lie down on the floor and secure your feet. Your legs should be bent at the knees.\nPlace your hands behind or to the side of your head. You will begin with your back on the ground. This will be your starting position.\nFlex your hips and spine to raise your torso toward your knees.\nAt the top of the contraction your torso should be perpendicular to the ground. Reverse the motion, going only ¾ of the way down.\nRepeat for the recommended amount of repetitions.",
@@ -13440,6 +13392,18 @@
       ],
       "reviewed": true
     },
+    "trainy:bulgarian_split_squat": {
+      "name": "Bulgarian split squat",
+      "description": "Rest the top of your rear foot on a stable exercise bench. Keep your front foot planted and lower with control by bending the front knee. Push through the front foot to rise. Choose support height and depth that allow comfortable balance; additional weight is optional.",
+      "instructions": [
+        "Rest the top of your rear foot on a stable exercise bench. Keep your front foot planted and lower with control by bending the front knee. Push through the front foot to rise. Choose support height and depth that allow comfortable balance; additional weight is optional."
+      ],
+      "searchTerms": [
+        "Bulgarian split squat",
+        "Bulgarischer Split Squat"
+      ],
+      "reviewed": true
+    },
     "trainy:cycling": {
       "name": "Cycling",
       "description": "Endurance training on a bicycle or indoor bike.",
@@ -13505,6 +13469,227 @@
       ],
       "reviewed": true
     },
+    "trainy:routine_ankleRocks": {
+      "name": "Ankle rocks",
+      "description": "In a short split stance, move the front knee gently over the toes while keeping the heel down. Switch sides halfway.",
+      "instructions": [
+        "In a short split stance, move the front knee gently over the toes while keeping the heel down. Switch sides halfway."
+      ],
+      "searchTerms": [
+        "Ankle rocks"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "a106469ab2905e12583485ebaeac7eecf5c48cf149eb018e6f6c92123949e63f"
+    },
+    "trainy:routine_armCircles": {
+      "name": "Arm circles",
+      "description": "Raise arms comfortably to the sides and make small circles. Increase range only if pain-free.",
+      "instructions": [
+        "Raise arms comfortably to the sides and make small circles. Increase range only if pain-free."
+      ],
+      "searchTerms": [
+        "Arm circles"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "c243920df468cd7cd686a0503351aad1bb396e0a96217965d6027da7c9328772"
+    },
+    "trainy:routine_birdDog": {
+      "name": "Bird dog",
+      "description": "On hands and knees, slowly extend the opposite arm and leg. Keep the back steady, then switch.",
+      "instructions": [
+        "On hands and knees, slowly extend the opposite arm and leg. Keep the back steady, then switch."
+      ],
+      "searchTerms": [
+        "Bird dog"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "17f417684f9444bf6b9bc6bc738664f49b7129fffc6baa04249c3859bb3228d6"
+    },
+    "trainy:routine_chestStretch": {
+      "name": "Chest stretch",
+      "description": "Place a forearm gently against a doorway and turn slightly away. Keep the shoulder relaxed. Switch halfway.",
+      "instructions": [
+        "Place a forearm gently against a doorway and turn slightly away. Keep the shoulder relaxed. Switch halfway."
+      ],
+      "searchTerms": [
+        "Chest stretch"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "caeb90e80447fe384890b26e559762da8cae448f3a4650b3282dca0ea836560f"
+    },
+    "trainy:routine_gluteBridge": {
+      "name": "Glute bridge",
+      "description": "Lie on your back with knees bent. Lift hips without arching the lower back, then lower.",
+      "instructions": [
+        "Lie on your back with knees bent. Lift hips without arching the lower back, then lower."
+      ],
+      "searchTerms": [
+        "Glute bridge"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "f23b69687d1a92b512991f698d1807567ff7a4018ffaf167af17e37c82d69f2e"
+    },
+    "trainy:routine_gluteStretch": {
+      "name": "Glute stretch",
+      "description": "Lie on your back with one ankle over the opposite knee. Gently draw the lower leg toward you. Switch halfway.",
+      "instructions": [
+        "Lie on your back with one ankle over the opposite knee. Gently draw the lower leg toward you. Switch halfway."
+      ],
+      "searchTerms": [
+        "Glute stretch"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "a82522cef72b12c82920cc879c37fa62b497f8a184dfa05c28be09737e7d1b84"
+    },
+    "trainy:routine_hamstring": {
+      "name": "Hamstring stretch",
+      "description": "Place one heel in front with a soft knee. Gently hinge at the hips with a long back. Switch halfway.",
+      "instructions": [
+        "Place one heel in front with a soft knee. Gently hinge at the hips with a long back. Switch halfway."
+      ],
+      "searchTerms": [
+        "Hamstring stretch"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "d49a5c75a76737d77a4d693d302ce365777f0a81ffdc5ff7b41b03ae85b7035f"
+    },
+    "trainy:routine_hinge": {
+      "name": "Hip hinge",
+      "description": "Keep knees soft, send hips back and lean forward with a long spine. Return with control.",
+      "instructions": [
+        "Keep knees soft, send hips back and lean forward with a long spine. Return with control."
+      ],
+      "searchTerms": [
+        "Hip hinge"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "d4bf1473424ee99623cbdc00e765b79f76ad6539812e2e7a0018c9bbcd3922bd"
+    },
+    "trainy:routine_latStretch": {
+      "name": "Lat stretch",
+      "description": "Place hands on a stable surface. Send hips back and lengthen the back without forcing the shoulders.",
+      "instructions": [
+        "Place hands on a stable surface. Send hips back and lengthen the back without forcing the shoulders."
+      ],
+      "searchTerms": [
+        "Lat stretch"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "74c4250ebbb5c34e36f4348197ef6e1cea0eb9d20fef6e75d10ccf3610bf0304"
+    },
+    "trainy:routine_lateralLunge": {
+      "name": "Lateral lunge",
+      "description": "Step sideways and gently bend the loaded knee. Return to centre and switch.",
+      "instructions": [
+        "Step sideways and gently bend the loaded knee. Return to centre and switch."
+      ],
+      "searchTerms": [
+        "Lateral lunge"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "af0037cd6c0022f873bc6fe103d01dae956102844a46bcf8852df7cab74e4305"
+    },
+    "trainy:routine_quadStretch": {
+      "name": "Quadriceps stretch",
+      "description": "Hold a support and bring one foot behind you. Keep knees near each other and pelvis steady; do not pull hard. Switch halfway.",
+      "instructions": [
+        "Hold a support and bring one foot behind you. Keep knees near each other and pelvis steady; do not pull hard. Switch halfway."
+      ],
+      "searchTerms": [
+        "Quadriceps stretch"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "950468a2d5e8b4636dab586e0e0ae5a5dc10939ba3b0895df76ceaa37e6e32dc"
+    },
+    "trainy:routine_rotation": {
+      "name": "Thoracic rotation",
+      "description": "Stand tall and gently rotate the upper body left and right, keeping hips mostly still.",
+      "instructions": [
+        "Stand tall and gently rotate the upper body left and right, keeping hips mostly still."
+      ],
+      "searchTerms": [
+        "Thoracic rotation"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "ce86dbc10a086a650845af842aa2c3324b7729c6e1bc762ac3cd4cc18ccb75da"
+    },
+    "trainy:routine_scapularPushup": {
+      "name": "Scapular push-up",
+      "description": "On hands and knees with straight arms, gently move the shoulder blades together and apart.",
+      "instructions": [
+        "On hands and knees with straight arms, gently move the shoulder blades together and apart."
+      ],
+      "searchTerms": [
+        "Scapular push-up"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "8e76846462b70a12d31fe26f4649a714ff77c79cb65ab19ad565fc46ac3116f2"
+    },
+    "trainy:routine_shoulderCircles": {
+      "name": "Shoulder circles",
+      "description": "Relax your arms and make small, slow shoulder circles backwards and forwards.",
+      "instructions": [
+        "Relax your arms and make small, slow shoulder circles backwards and forwards."
+      ],
+      "searchTerms": [
+        "Shoulder circles"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "5c2f0b08c16e9e7c095c2e89e337141c7aec94a86352a02b3a90afcf73c0c572"
+    },
+    "trainy:routine_shoulderStretch": {
+      "name": "Posterior shoulder stretch",
+      "description": "Bring one arm across the body and gently support it with the other. Keep the shoulder down. Switch halfway.",
+      "instructions": [
+        "Bring one arm across the body and gently support it with the other. Keep the shoulder down. Switch halfway."
+      ],
+      "searchTerms": [
+        "Posterior shoulder stretch"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "5143d6418e8cd28b842b5fade0323930177f542020a349ad1ef34357b741a9a2"
+    },
+    "trainy:routine_squat": {
+      "name": "Easy squats",
+      "description": "Stand with feet comfortably apart. Lower hips slowly back and down, then stand. Use a comfortable depth.",
+      "instructions": [
+        "Stand with feet comfortably apart. Lower hips slowly back and down, then stand. Use a comfortable depth."
+      ],
+      "searchTerms": [
+        "Easy squats"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "3d4b1716a7cf61681dedd3df9fd8175c32bf220d96998d444845f4bfcdf0604d"
+    },
+    "trainy:routine_wallSlides": {
+      "name": "Wall slides",
+      "description": "Stand with your back lightly against a wall. Slide arms up and down without arching your back.",
+      "instructions": [
+        "Stand with your back lightly against a wall. Slide arms up and down without arching your back."
+      ],
+      "searchTerms": [
+        "Wall slides"
+      ],
+      "reviewed": true,
+      "translationMethod": "manual",
+      "sourceHash": "e42a62d8d8a36bbd61e46549e71b94a536d6e9dd1ffdc23da3f9c2078f99d81d"
+    },
     "trainy:running": {
       "name": "Running",
       "description": "Steady running for cardiovascular fitness and aerobic endurance.",
@@ -13518,6 +13703,30 @@
         "Jogging",
         "Distance run",
         "Endurance"
+      ],
+      "reviewed": true
+    },
+    "trainy:side_plank_leg_raise": {
+      "name": "Side plank with leg raise",
+      "description": "Support yourself on your forearm with the elbow below your shoulder. Lift your hips into a side plank, then raise and lower the top leg slowly while keeping the trunk steady. Reduce the range or support the lower knee if needed. Repeat on both sides.",
+      "instructions": [
+        "Support yourself on your forearm with the elbow below your shoulder. Lift your hips into a side plank, then raise and lower the top leg slowly while keeping the trunk steady. Reduce the range or support the lower knee if needed. Repeat on both sides."
+      ],
+      "searchTerms": [
+        "Side plank with leg raise",
+        "Seitstütz mit Beinheben"
+      ],
+      "reviewed": true
+    },
+    "trainy:standing_calf_raise": {
+      "name": "Standing calf raise",
+      "description": "Stand upright with your feet about hip-width apart. Rise onto the balls of your feet, pause briefly, then lower your heels slowly. Use light support for balance if needed. Additional weight is optional.",
+      "instructions": [
+        "Stand upright with your feet about hip-width apart. Rise onto the balls of your feet, pause briefly, then lower your heels slowly. Use light support for balance if needed. Additional weight is optional."
+      ],
+      "searchTerms": [
+        "Standing calf raise",
+        "Wadenheben im Stand"
       ],
       "reviewed": true
     },
@@ -13554,6 +13763,18 @@
       "translationMethod": "manual",
       "sourceHash": "cb92c38dc556c1d7e0f7b49c89215b8e17cbed1133a17bc512002f5df30ca442"
     },
+    "trainy:w_raises": {
+      "name": "Prone W raises",
+      "description": "Lie face down with a neutral neck and bend your elbows into a W. Lift your hands and elbows slightly, draw your shoulder blades gently back, then lower with control. Use a comfortable range without arching your lower back.",
+      "instructions": [
+        "Lie face down with a neutral neck and bend your elbows into a W. Lift your hands and elbows slightly, draw your shoulder blades gently back, then lower with control. Use a comfortable range without arching your lower back."
+      ],
+      "searchTerms": [
+        "Prone W raises",
+        "W-Raises in Bauchlage"
+      ],
+      "reviewed": true
+    },
     "trainy:walking": {
       "name": "Walking",
       "description": "Low-impact endurance activity at a brisk or relaxed walking pace.",
@@ -13571,5 +13792,5 @@
       "reviewed": true
     }
   },
-  "exerciseCount": 887
+  "exerciseCount": 904
 }

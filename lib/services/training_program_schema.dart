@@ -69,6 +69,11 @@ abstract final class TrainingProgramSchema {
         "ALTER TABLE workout_slot_prescriptions ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'",
       );
     }
+    if (!columns.contains('duration_seconds')) {
+      await db.execute(
+        'ALTER TABLE workout_slot_prescriptions ADD COLUMN duration_seconds INTEGER CHECK(duration_seconds BETWEEN 1 AND 3600)',
+      );
+    }
   }
 
   /// Idempotent, also used in the staging database after restoring older backups.

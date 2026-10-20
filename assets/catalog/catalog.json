@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 3,
-  "exerciseCount": 887,
+  "catalogVersion": 4,
+  "exerciseCount": 904,
   "releaseStatus": "complete",
   "sources": [
     {
@@ -16,129 +16,10 @@
     {
       "id": "trainy-core",
       "license": "Trainy project content",
-      "exerciseCount": 11
+      "exerciseCount": 28
     }
   ],
   "exercises": [
-    {
-      "id": "trainy:w_raises",
-      "activityTypeCode": "strength",
-      "movementFamilyId": "scapular_retraction",
-      "primaryMuscleIds": [
-        "shoulders"
-      ],
-      "secondaryMuscleIds": [],
-      "equipmentIds": [
-        "bodyweight"
-      ],
-      "goalCodes": [
-        "strength"
-      ],
-      "tracking": {
-        "sets": true,
-        "reps": true,
-        "weight": false,
-        "duration": false,
-        "distance": false
-      },
-      "imageAssetPath": "assets/catalog/covers/strength.webp",
-      "iconKey": "exercise",
-      "aliases": [
-        "Prone W raises",
-        "W-Raises in Bauchlage"
-      ],
-      "mediaId": "owned:category-strength"
-    },
-    {
-      "id": "trainy:bulgarian_split_squat",
-      "activityTypeCode": "strength",
-      "movementFamilyId": "split_squat",
-      "primaryMuscleIds": [
-        "quadriceps",
-        "glutes"
-      ],
-      "secondaryMuscleIds": [],
-      "equipmentIds": [
-        "bodyweight",
-        "bench"
-      ],
-      "goalCodes": [
-        "strength"
-      ],
-      "tracking": {
-        "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
-        "distance": false
-      },
-      "imageAssetPath": "assets/catalog/covers/strength.webp",
-      "iconKey": "exercise",
-      "aliases": [
-        "Bulgarian split squat",
-        "Bulgarischer Split Squat"
-      ],
-      "mediaId": "owned:category-strength"
-    },
-    {
-      "id": "trainy:standing_calf_raise",
-      "activityTypeCode": "strength",
-      "movementFamilyId": "calf_raise",
-      "primaryMuscleIds": [
-        "calves"
-      ],
-      "secondaryMuscleIds": [],
-      "equipmentIds": [
-        "bodyweight"
-      ],
-      "goalCodes": [
-        "strength"
-      ],
-      "tracking": {
-        "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
-        "distance": false
-      },
-      "imageAssetPath": "assets/catalog/covers/strength.webp",
-      "iconKey": "exercise",
-      "aliases": [
-        "Standing calf raise",
-        "Wadenheben im Stand"
-      ],
-      "mediaId": "owned:category-strength"
-    },
-    {
-      "id": "trainy:side_plank_leg_raise",
-      "activityTypeCode": "strength",
-      "movementFamilyId": "side_plank",
-      "primaryMuscleIds": [
-        "abdominals",
-        "glutes"
-      ],
-      "secondaryMuscleIds": [],
-      "equipmentIds": [
-        "bodyweight"
-      ],
-      "goalCodes": [
-        "strength"
-      ],
-      "tracking": {
-        "sets": true,
-        "reps": true,
-        "weight": false,
-        "duration": false,
-        "distance": false
-      },
-      "imageAssetPath": "assets/catalog/covers/strength.webp",
-      "iconKey": "exercise",
-      "aliases": [
-        "Side plank with leg raise",
-        "Seitstütz mit Beinheben"
-      ],
-      "mediaId": "owned:category-strength"
-    },
     {
       "id": "free:3_4_Sit-Up",
       "activityTypeCode": "strength",
@@ -156,7 +37,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -186,9 +67,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -278,9 +159,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -307,9 +188,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -370,7 +251,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -399,7 +280,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -461,7 +342,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -783,9 +664,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -812,9 +693,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -841,9 +722,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -905,9 +786,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -2377,7 +2258,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -2411,7 +2292,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -2445,7 +2326,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -2674,7 +2555,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -3074,7 +2955,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -3103,7 +2984,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -3200,7 +3081,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -3323,7 +3204,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -3530,9 +3411,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -3591,7 +3472,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -3622,7 +3503,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -4539,7 +4420,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -4568,7 +4449,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -4600,9 +4481,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -4734,7 +4615,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -4863,7 +4744,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -4894,7 +4775,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -4959,7 +4840,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -4990,7 +4871,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -5155,7 +5036,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -5188,9 +5069,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -5222,7 +5103,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -5253,7 +5134,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -5575,7 +5456,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -5799,7 +5680,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -5859,7 +5740,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -5956,7 +5837,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -6053,9 +5934,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -6114,7 +5995,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -6143,7 +6024,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -6172,7 +6053,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -6235,7 +6116,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -6266,7 +6147,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -6431,7 +6312,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -6579,7 +6460,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -6640,7 +6521,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -6840,7 +6721,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -7075,7 +6956,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -8139,7 +8020,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -8170,7 +8051,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -8264,9 +8145,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -8294,7 +8175,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -8324,9 +8205,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -8705,7 +8586,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -8792,7 +8673,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -8821,7 +8702,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -8977,7 +8858,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -9005,9 +8886,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -9109,7 +8990,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -9141,9 +9022,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -9171,7 +9052,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -9424,9 +9305,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -9709,7 +9590,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -9841,7 +9722,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -9868,7 +9749,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -9898,9 +9779,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -10021,9 +9902,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -10049,7 +9930,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -10082,7 +9963,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -10294,7 +10175,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -10323,7 +10204,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -10452,9 +10333,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -10576,9 +10457,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -10607,9 +10488,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -10708,7 +10589,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -10735,7 +10616,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -10765,9 +10646,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -10794,9 +10675,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -11166,7 +11047,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -11198,7 +11079,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -11264,7 +11145,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -11297,7 +11178,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -11330,7 +11211,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -11357,7 +11238,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -11386,7 +11267,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -11543,7 +11424,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -11578,7 +11459,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -11607,7 +11488,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -11636,7 +11517,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -11669,7 +11550,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -11730,7 +11611,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -11759,7 +11640,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -12596,9 +12477,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -12628,9 +12509,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -12694,7 +12575,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -12811,7 +12692,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -12875,9 +12756,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -13081,7 +12962,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -13210,9 +13091,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -13270,7 +13151,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -13334,7 +13215,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -13397,7 +13278,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -13851,9 +13732,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -13973,9 +13854,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -14002,9 +13883,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -14097,9 +13978,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -14275,9 +14156,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -14396,9 +14277,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -14427,9 +14308,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -14578,9 +14459,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -15009,7 +14890,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -15344,7 +15225,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -15372,9 +15253,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -15434,7 +15315,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -15463,7 +15344,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -15523,7 +15404,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -15552,7 +15433,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -16321,9 +16202,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -16570,9 +16451,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -16601,9 +16482,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -16633,9 +16514,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -16793,9 +16674,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -16893,7 +16774,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -16925,9 +16806,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -17168,9 +17049,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -17197,9 +17078,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -17225,7 +17106,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -17321,9 +17202,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -17352,7 +17233,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -17541,7 +17422,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -17568,7 +17449,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -18039,7 +17920,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -18077,7 +17958,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -18109,7 +17990,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -18141,7 +18022,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -18272,7 +18153,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -18304,7 +18185,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -18341,7 +18222,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -18371,9 +18252,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -18399,7 +18280,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -18429,9 +18310,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -18592,9 +18473,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -18963,7 +18844,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -19237,9 +19118,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -19375,7 +19256,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -19661,7 +19542,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -19733,7 +19614,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -19800,7 +19681,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -19900,9 +19781,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -19934,7 +19815,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -20141,9 +20022,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -20265,7 +20146,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -20472,7 +20353,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -20501,7 +20382,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -20533,9 +20414,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -20564,9 +20445,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -20626,9 +20507,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -20656,7 +20537,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -20745,7 +20626,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -20863,7 +20744,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -21104,9 +20985,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -21166,9 +21047,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -21194,7 +21075,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -21224,7 +21105,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -21257,7 +21138,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -21321,7 +21202,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -21409,9 +21290,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -21439,7 +21320,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -21468,7 +21349,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -21569,9 +21450,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -21698,7 +21579,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -21963,7 +21844,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -21994,7 +21875,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -22056,7 +21937,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -22088,9 +21969,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -23332,7 +23213,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -23393,7 +23274,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -23500,7 +23381,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -23603,9 +23484,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -24024,7 +23905,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -24421,7 +24302,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -24481,7 +24362,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -24510,7 +24391,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -24542,9 +24423,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -24571,9 +24452,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -24628,7 +24509,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -24693,7 +24574,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -25060,9 +24941,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -25117,7 +24998,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -25149,9 +25030,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -25179,7 +25060,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -25247,7 +25128,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -25279,7 +25160,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -25437,9 +25318,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -25741,9 +25622,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -26132,9 +26013,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -26263,9 +26144,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -26292,9 +26173,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -26417,7 +26298,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -26565,7 +26446,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -26596,7 +26477,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -26820,9 +26701,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -26850,7 +26731,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -26975,7 +26856,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -27043,7 +26924,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -27592,7 +27473,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -27717,7 +27598,7 @@
       "tracking": {
         "sets": true,
         "reps": true,
-        "weight": false,
+        "weight": true,
         "duration": false,
         "distance": false
       },
@@ -27749,9 +27630,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
-        "weight": true,
-        "duration": false,
+        "reps": false,
+        "weight": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -27781,7 +27662,7 @@
         "mobility"
       ],
       "tracking": {
-        "sets": false,
+        "sets": true,
         "reps": false,
         "weight": false,
         "duration": true,
@@ -27811,9 +27692,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -28017,6 +27898,37 @@
       "mediaId": "owned:category-pull"
     },
     {
+      "id": "trainy:bulgarian_split_squat",
+      "activityTypeCode": "strength",
+      "movementFamilyId": "split_squat",
+      "primaryMuscleIds": [
+        "quadriceps",
+        "glutes"
+      ],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight",
+        "bench"
+      ],
+      "goalCodes": [
+        "strength"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": true,
+        "weight": true,
+        "duration": false,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/squat.webp",
+      "iconKey": "exercise",
+      "aliases": [
+        "Bulgarian split squat",
+        "Bulgarischer Split Squat"
+      ],
+      "mediaId": "owned:category-squat"
+    },
+    {
       "id": "trainy:cycling",
       "activityTypeCode": "cycling",
       "movementFamilyId": "cycling",
@@ -28126,6 +28038,414 @@
       "mediaId": "owned:category-cardio"
     },
     {
+      "id": "trainy:routine_ankleRocks",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_ankleRocks",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_armCircles",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_armCircles",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_birdDog",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_birdDog",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_chestStretch",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_chestStretch",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_gluteBridge",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_gluteBridge",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_gluteStretch",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_gluteStretch",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_hamstring",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_hamstring",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_hinge",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_hinge",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_latStretch",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_latStretch",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_lateralLunge",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_lateralLunge",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_quadStretch",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_quadStretch",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_rotation",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_rotation",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_scapularPushup",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_scapularPushup",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_shoulderCircles",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_shoulderCircles",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_shoulderStretch",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_shoulderStretch",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_squat",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_squat",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:routine_wallSlides",
+      "activityTypeCode": "mobility",
+      "movementFamilyId": "routine_wallSlides",
+      "primaryMuscleIds": [],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "mobility"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": false,
+        "weight": false,
+        "duration": true,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/mobility.webp",
+      "iconKey": "exercise",
+      "aliases": [],
+      "mediaId": "owned:category-mobility"
+    },
+    {
       "id": "trainy:running",
       "activityTypeCode": "running",
       "movementFamilyId": "running",
@@ -28163,6 +28483,65 @@
       ],
       "essentialRank": 101,
       "mediaId": "owned:category-cardio"
+    },
+    {
+      "id": "trainy:side_plank_leg_raise",
+      "activityTypeCode": "strength",
+      "movementFamilyId": "side_plank",
+      "primaryMuscleIds": [
+        "abdominals",
+        "glutes"
+      ],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "strength"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": true,
+        "weight": true,
+        "duration": false,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/core.webp",
+      "iconKey": "exercise",
+      "aliases": [
+        "Side plank with leg raise",
+        "Seitstütz mit Beinheben"
+      ],
+      "mediaId": "owned:category-core"
+    },
+    {
+      "id": "trainy:standing_calf_raise",
+      "activityTypeCode": "strength",
+      "movementFamilyId": "calf_raise",
+      "primaryMuscleIds": [
+        "calves"
+      ],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "strength"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": true,
+        "weight": true,
+        "duration": false,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/squat.webp",
+      "iconKey": "exercise",
+      "aliases": [
+        "Standing calf raise",
+        "Wadenheben im Stand"
+      ],
+      "mediaId": "owned:category-squat"
     },
     {
       "id": "trainy:swimming",
@@ -28216,9 +28595,9 @@
       ],
       "tracking": {
         "sets": true,
-        "reps": true,
+        "reps": false,
         "weight": false,
-        "duration": false,
+        "duration": true,
         "distance": false
       },
       "imageAssetPath": "assets/catalog/covers/mobility.webp",
@@ -28230,6 +28609,35 @@
       ],
       "essentialRank": 209,
       "mediaId": "owned:category-mobility"
+    },
+    {
+      "id": "trainy:w_raises",
+      "activityTypeCode": "strength",
+      "movementFamilyId": "scapular_retraction",
+      "primaryMuscleIds": [
+        "shoulders"
+      ],
+      "secondaryMuscleIds": [],
+      "equipmentIds": [
+        "bodyweight"
+      ],
+      "goalCodes": [
+        "strength"
+      ],
+      "tracking": {
+        "sets": true,
+        "reps": true,
+        "weight": true,
+        "duration": false,
+        "distance": false
+      },
+      "imageAssetPath": "assets/catalog/covers/strength.webp",
+      "iconKey": "exercise",
+      "aliases": [
+        "Prone W raises",
+        "W-Raises in Bauchlage"
+      ],
+      "mediaId": "owned:category-strength"
     },
     {
       "id": "trainy:walking",

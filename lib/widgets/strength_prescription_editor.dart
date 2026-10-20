@@ -11,6 +11,7 @@ Future<StrengthPrescription?> editStrengthPrescription(
   final key = GlobalKey<FormState>();
   var sets = initial.sets, min = initial.minReps, max = initial.maxReps;
   var rest = initial.restSeconds;
+  var duration = initial.durationSeconds;
   return showDialog<StrengthPrescription>(
     context: context,
     builder:
@@ -22,11 +23,17 @@ Future<StrengthPrescription?> editStrengthPrescription(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (final field in ['sets', 'min', 'max', 'rest'])
+                  for (final field in [
+                    'sets',
+                    if (duration == null) ...['min', 'max'] else 'duration',
+                    'rest',
+                  ])
                     TextFormField(
                       initialValue:
                           '${field == 'sets'
                               ? sets
+                              : field == 'duration'
+                              ? duration
                               : field == 'min'
                               ? min
                               : field == 'rest'
@@ -35,7 +42,9 @@ Future<StrengthPrescription?> editStrengthPrescription(
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         labelText:
-                            field == 'rest'
+                            field == 'duration'
+                                ? c.strength('durationSeconds')
+                                : field == 'rest'
                                 ? c.strength('restSeconds')
                                 : field == 'sets'
                                 ? c.l10n.sets
@@ -48,6 +57,8 @@ Future<StrengthPrescription?> editStrengthPrescription(
                                 n >
                                     (field == 'sets'
                                         ? 50
+                                        : field == 'duration'
+                                        ? 3600
                                         : field == 'rest'
                                         ? 600
                                         : 200) ||
@@ -57,7 +68,9 @@ Future<StrengthPrescription?> editStrengthPrescription(
                       },
                       onChanged: (v) {
                         final n = int.tryParse(v) ?? 0;
-                        if (field == 'rest') {
+                        if (field == 'duration') {
+                          duration = n;
+                        } else if (field == 'rest') {
                           rest = n;
                         } else if (field == 'sets') {
                           sets = n;
@@ -87,6 +100,7 @@ Future<StrengthPrescription?> editStrengthPrescription(
                       minReps: min,
                       maxReps: max,
                       restSeconds: rest,
+                      durationSeconds: duration,
                     ),
                   );
                 }
