@@ -8,7 +8,11 @@ class UserTrainingProfile {
     this.strengthLevel = 'beginner',
     this.backupSensorData = false,
     this.healthEnabled = false,
+    this.strengthSetupVersion = 0,
+    this.strengthProfileId,
   });
+  final int strengthSetupVersion;
+  final String? strengthProfileId;
   final List<String> interests;
   final DistanceSystem units;
   final String strengthLevel;
@@ -19,6 +23,8 @@ class UserTrainingProfile {
     'strengthLevel': strengthLevel,
     'backupSensorData': backupSensorData,
     'healthEnabled': healthEnabled,
+    'strengthSetupVersion': strengthSetupVersion,
+    'strengthProfileId': strengthProfileId,
   };
   factory UserTrainingProfile.fromJson(Map<String, dynamic> j) =>
       UserTrainingProfile(
@@ -27,6 +33,8 @@ class UserTrainingProfile {
         strengthLevel: j['strengthLevel'] as String? ?? 'beginner',
         backupSensorData: j['backupSensorData'] == true,
         healthEnabled: j['healthEnabled'] == true,
+        strengthSetupVersion: j['strengthSetupVersion'] as int? ?? 0,
+        strengthProfileId: j['strengthProfileId'] as String?,
       );
 }
 
@@ -288,25 +296,32 @@ String? planPlacementWarning(
   final others = neighbors.where(
     (e) => e.id != entry.id && !excluded.contains(e.id),
   );
-  if (others.any((e) => dateKey(e.date) == dateKey(date))) return 'doubleDay';
-  bool demanding(ProgramEntry e) =>
-      e.cardio?.workout.templateCode == 'longRun' ||
-      (e.cardio?.workout.steps.any(
-            (s) =>
-                ![
-                  CardioIntensity.easy,
-                  CardioIntensity.recovery,
-                ].contains(s.intensity),
-          ) ??
-          false);
-  bool legs(ProgramEntry e) =>
-      plan.slots.any((s) => s.id == e.slotId && s.legHeavy);
+  Set<String> focus(ProgramEntry e) {
+    final declared =
+        plan.slots.where((s) => s.id == e.slotId).firstOrNull?.effectiveFocus ??
+        <String>{};
+    return declared
+        .expand(
+          (f) => switch (f) {
+            'push' => {'chest', 'shoulders', 'triceps'},
+            'pull' => {'back', 'biceps'},
+            'legs' => {'quads', 'glutes', 'hamstrings', 'calves'},
+            'arms' => {'biceps', 'triceps'},
+            _ => {f},
+          },
+        )
+        .toSet();
+  }
+
+  if (entry.kind != 'strength') return null;
   if (others.any(
     (e) =>
-        calendarDays(e.date, date).abs() <= 1 &&
-        ((legs(entry) && demanding(e)) || (demanding(entry) && legs(e))),
+        e.kind == 'strength' &&
+        dateKey(e.date) == dateKey(date) &&
+        ((entry.workoutId != null && entry.workoutId == e.workoutId) ||
+            focus(entry).intersection(focus(e)).isNotEmpty),
   )) {
-    return 'conflictHint';
+    return 'strengthOverlap';
   }
   return null;
 }

@@ -90,7 +90,19 @@ class AthleteRunningProfile {
     this.bestMeters = 5000,
     this.bestSeconds,
     this.bestDate,
+    this.setupVersion = 0,
+    this.confirmedAnswers = const {},
+    this.referenceKind,
+    this.returningAfterBreak = false,
+    this.loadSource = 'unknown',
   });
+  final int setupVersion;
+  final Set<String> confirmedAnswers;
+
+  /// normal, runWalk, maximal. Null means an unconfirmed legacy reference.
+  final String? referenceKind;
+  final bool returningAfterBreak;
+  final String loadSource;
   final double referenceMeters;
   final double? referenceSeconds;
   final DateTime? referenceDate;
@@ -106,8 +118,9 @@ class AthleteRunningProfile {
       bestSeconds ?? (isMaximal ? referenceSeconds : null);
   DateTime? get benchmarkDate => bestSeconds != null ? bestDate : referenceDate;
   double? get easySpeed =>
-      !isMaximal && referenceSeconds != null
-          ? referenceMeters / referenceSeconds!
+      !isMaximal && referenceKind != 'runWalk' && referenceSeconds != null
+          // Distance-normalized orientation only, never a race prediction.
+          ? 5000 / (referenceSeconds! * math.pow(5000 / referenceMeters, 1.06))
           : null;
   final double weeklyMeters;
   final double longestMeters;
@@ -185,6 +198,11 @@ class AthleteRunningProfile {
     'bestMeters': bestMeters,
     'bestSeconds': bestSeconds,
     'bestDate': bestDate?.toIso8601String(),
+    'setupVersion': setupVersion,
+    'confirmedAnswers': confirmedAnswers.toList(),
+    'referenceKind': referenceKind,
+    'returningAfterBreak': returningAfterBreak,
+    'loadSource': loadSource,
     'weeklyMeters': weeklyMeters == 0 ? null : weeklyMeters,
     'longestMeters': longestMeters == 0 ? null : longestMeters,
     'continuousMinutes': continuousMinutes == 0 ? null : continuousMinutes,
@@ -203,6 +221,13 @@ class AthleteRunningProfile {
   factory AthleteRunningProfile.fromJson(Map<String, dynamic> j) =>
       AthleteRunningProfile(
         referenceMeters: (j['referenceMeters'] as num?)?.toDouble() ?? 5000,
+        setupVersion: j['setupVersion'] as int? ?? 0,
+        confirmedAnswers: Set<String>.from(
+          j['confirmedAnswers'] as List? ?? [],
+        ),
+        referenceKind: j['referenceKind'] as String?,
+        returningAfterBreak: j['returningAfterBreak'] == true,
+        loadSource: j['loadSource'] as String? ?? 'unknown',
         referenceSeconds: (j['referenceSeconds'] as num?)?.toDouble(),
         referenceDate: DateTime.tryParse(j['referenceDate'] as String? ?? ''),
         isMaximal: j['isMaximal'] == true,
@@ -247,6 +272,7 @@ class CardioStep {
     this.standingRecovery = false,
     this.recoveryMovement = 'walk',
     this.targetSource = 'manual',
+    this.targetVariant = '',
   }) : id = id ?? UuidV4.generate();
   final String id;
   final String name;
@@ -264,6 +290,9 @@ class CardioStep {
 
   /// manual, benchmark, estimated, or effort. Only automatic targets regenerate.
   final String targetSource;
+
+  /// Retains the role of gentle intervals/progression when automatic targets refresh.
+  final String targetVariant;
 
   void validate() {
     if (!amount.isFinite ||
@@ -309,6 +338,7 @@ class CardioStep {
     bool? standingRecovery,
     String? recoveryMovement,
     String? targetSource,
+    String? targetVariant,
     bool clearTargets = false,
   }) => CardioStep(
     id: id ?? this.id,
@@ -329,6 +359,7 @@ class CardioStep {
     standingRecovery: standingRecovery ?? this.standingRecovery,
     recoveryMovement: recoveryMovement ?? this.recoveryMovement,
     targetSource: targetSource ?? this.targetSource,
+    targetVariant: targetVariant ?? this.targetVariant,
   );
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -347,6 +378,7 @@ class CardioStep {
     'standingRecovery': standingRecovery,
     'recoveryMovement': recoveryMovement,
     'targetSource': targetSource,
+    'targetVariant': targetVariant,
   };
   factory CardioStep.fromJson(Map<String, dynamic> j) => CardioStep(
     id: j['id'] as String,
@@ -369,6 +401,7 @@ class CardioStep {
         j['recoveryMovement'] as String? ??
         (j['standingRecovery'] == true ? 'rest' : 'walk'),
     targetSource: j['targetSource'] as String? ?? 'manual',
+    targetVariant: j['targetVariant'] as String? ?? '',
   );
 }
 
