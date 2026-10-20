@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'profile_readiness.dart';
+import 'running_assessment.dart';
 
 import '../models/cardio.dart';
 import '../utils/uuid_v4.dart';
@@ -102,7 +104,7 @@ abstract final class CardioTraining {
     CardioSport sport = CardioSport.running,
   }) {
     final v =
-        sport == CardioSport.running
+        sport == CardioSport.running && profile.referenceKind != 'runWalk'
             ? profile.fiveKmSpeed(now ?? DateTime.now())
             : null;
     double? low, high;
@@ -128,19 +130,20 @@ abstract final class CardioTraining {
         profile.easySpeed != null) {
       // Product heuristic in seconds per kilometre, not a performance prediction.
       final easy = profile.easySpeed!;
+      final easyPace = ((1000 / easy * 1.05) / 5).ceil() * 5.0;
       switch (intensity) {
         case CardioIntensity.easy:
         case CardioIntensity.recovery:
-          high = easy;
+          high = 1000 / easyPace;
         case CardioIntensity.steady:
+          low = 1000 / easyPace;
+          high = easy;
+        case CardioIntensity.threshold:
           low = easy;
           high = easy / .95;
-        case CardioIntensity.threshold:
-          low = easy / .95;
-          high = easy / .90;
         case CardioIntensity.interval:
-          low = easy / .90;
-          high = easy / .85;
+          low = easy;
+          high = easy / .95;
         case CardioIntensity.free:
           break;
       }
@@ -195,7 +198,24 @@ abstract final class CardioTraining {
     bool force = false,
   }) {
     if (!force && step.targetSource == 'manual') return step;
-    final target = prescribe(profile, step.intensity, now: now, sport: sport);
+    var target = prescribe(profile, step.intensity, now: now, sport: sport);
+    if (sport == CardioSport.running &&
+        step.intensity == CardioIntensity.steady) {
+      if (step.targetVariant == 'lightInterval' &&
+          !profile.hasRecentBenchmark(now ?? DateTime.now()) &&
+          profile.easySpeed != null) {
+        target = target.copyWith(
+          minSpeed: profile.easySpeed,
+          maxSpeed: profile.easySpeed! / .95,
+        );
+      } else if (step.targetVariant == 'progressionMid') {
+        final slow =
+            prescribe(profile, CardioIntensity.easy, now: now).maxSpeed;
+        if (slow != null && target.maxSpeed != null) {
+          target = target.copyWith(maxSpeed: (slow + target.maxSpeed!) / 2);
+        }
+      }
+    }
     return step.copyWith(
       clearTargets: true,
       minSpeed: target.minSpeed,
@@ -384,7 +404,7 @@ class RunningPlanRequest {
     'startDate': startDate.toIso8601String(),
     'targetSeconds': targetSeconds,
     'targetDate': targetDate?.toIso8601String(),
-    'rulesVersion': 2,
+    'rulesVersion': 3,
   };
 }
 
@@ -409,7 +429,7 @@ class RunningPlanGenerator {
     RunningPlanRequest request,
     CardioTranslate t,
   ) {
-    p.validate();
+    ProfileReadiness.requireRunning(p, now: request.startDate);
     if (![5000, 10000, 21097.5, 42195].contains(request.targetMeters) ||
         (request.targetSeconds != null &&
             (!request.targetSeconds!.isFinite ||
@@ -425,25 +445,14 @@ class RunningPlanGenerator {
             : request.targetMeters < 42000
             ? 16
             : 20;
-    final novice =
-        p.canRunFiveKm == false ||
-        (p.canRunFiveKm != true &&
-            (p.level == RunningLevel.starting ||
-                (p.level == null &&
-                    p.continuousMinutes > 0 &&
-                    p.continuousMinutes < 30)));
-    final unknown =
-        p.canRunFiveKm == null &&
-        p.continuousMinutes == 0 &&
-        p.weeklyMeters == 0;
-    final establishedBeginner =
-        p.canRunFiveKm == true && (p.recentRunsPerWeek ?? 0) >= 2;
+    final assessed = RunningAssessment.level(p);
+    final novice = assessed == RunningLevel.starting;
+    // Graduating from the walk/run phase does not make someone advanced.
+    final beginner = novice || assessed == RunningLevel.beginner;
     final marathon = request.targetMeters > 42000;
     final minimumBase =
         novice
             ? 9
-            : !establishedBeginner && p.experienceMonths < 2
-            ? 2
             : (marathon && (p.weeklyMeters < 30000 || p.longestMeters < 10000))
             ? 8
             : 0;
@@ -458,7 +467,7 @@ class RunningPlanGenerator {
     final baseWeeks = math.max(minimumBase, requestedWeeks - blockWeeks);
     final warnings = <String>[
       if (baseWeeks > 0) 'basePhase',
-      if (p.weekdays.length < (marathon ? 4 : 3)) 'infeasible',
+      if (p.weekdays.length < (marathon ? 4 : 2)) 'infeasible',
       if (p.weekdays.any((d) => p.weekdays.contains(d % 7 + 1))) 'restDays',
       if (request.targetSeconds != null) 'targetTimeInfo',
     ];
@@ -478,9 +487,8 @@ class RunningPlanGenerator {
       start.month,
       start.day - start.weekday + 1,
     );
-    final benchmarkSpeed = p.fiveKmSpeed(start);
     final easySpeed =
-        p.easySpeed ?? (benchmarkSpeed == null ? null : benchmarkSpeed * .725);
+        CardioTraining.prescribe(p, CardioIntensity.easy, now: start).maxSpeed;
     // Race speed is not evidence of volume tolerance. Unknown load stays time-based.
     // With no benchmark use reported continuous duration, never infer speed.
     var weeklySeconds =
@@ -558,19 +566,18 @@ class RunningPlanGenerator {
           );
         } else {
           final isLong = index == days.length - 1 && days.length > 1;
-          final qualityIndex = days.lastIndexWhere(
-            (day) => days.last - day >= 2,
-          );
+          var qualityIndex = days.lastIndexWhere((day) => days.last - day >= 2);
+          if (qualityIndex < 0 && beginner && days.length >= 2) {
+            qualityIndex = 0;
+          }
           final quality =
               !isTaper &&
               !recoveryWeek &&
-              !unknown &&
-              week >= (establishedBeginner ? 1 : math.max(baseWeeks, 2)) &&
-              days.length >= 3 &&
+              week >= (beginner ? 0 : baseWeeks) &&
+              days.length >= 2 &&
               index == qualityIndex;
           final advancedSecond =
-              (p.level == RunningLevel.experienced ||
-                  p.experienceMonths >= 12) &&
+              assessed == RunningLevel.experienced &&
               days.length >= 5 &&
               index == 0 &&
               qualityIndex > 0 &&
@@ -597,7 +604,7 @@ class RunningPlanGenerator {
                   : (budget - longSeconds) / (days.length - 1);
           final intensity =
               quality || advancedSecond
-                  ? (week.isEven
+                  ? (beginner || week.isEven
                       ? CardioIntensity.steady
                       : CardioIntensity.threshold)
                   : CardioIntensity.easy;
@@ -605,7 +612,7 @@ class RunningPlanGenerator {
               isLong
                   ? 'longRun'
                   : quality || advancedSecond
-                  ? (week.isEven ? 'progression' : 'threshold')
+                  ? (beginner || week.isEven ? 'progression' : 'threshold')
                   : 'easySession';
           final capped =
               isLong && easySpeed != null && p.longestMeters > 0
@@ -662,29 +669,74 @@ class RunningPlanGenerator {
                       ),
                     ],
           );
+          if (beginner && quality && week % 4 == 0) {
+            final easy = CardioTraining.prescribe(
+              p,
+              CardioIntensity.easy,
+              now: start,
+            );
+            final normal = CardioTraining.prescribe(
+              p,
+              CardioIntensity.steady,
+              now: start,
+            );
+            final slow = easy.maxSpeed, fast = normal.maxSpeed;
+            workout = CardioWorkout(
+              name: t('progression'),
+              templateCode: 'progression',
+              warmup: workout.warmup,
+              cooldown: workout.cooldown,
+              steps: [
+                easy.copyWith(id: UuidV4.generate(), amount: capped * .4),
+                normal.copyWith(
+                  id: UuidV4.generate(),
+                  targetVariant: 'progressionMid',
+                  amount: capped * .2,
+                  maxSpeed:
+                      slow == null || fast == null ? null : (slow + fast) / 2,
+                ),
+                normal.copyWith(id: UuidV4.generate(), amount: capped * .2),
+                easy.copyWith(id: UuidV4.generate(), amount: capped * .2),
+              ],
+            );
+          }
           if (quality &&
-              ((establishedBeginner && week <= 2) ||
-                  (week % 3 == 2 && capped >= 1200))) {
+              ((beginner && week % 4 != 0) ||
+                  (!beginner && week % 3 == 2 && capped >= 1200))) {
             // Scale interval density to the budget, keeping warm-up and easy exit.
-            final advanced =
-                !(establishedBeginner && week <= 2) &&
-                (p.level == RunningLevel.intermediate ||
-                    p.level == RunningLevel.experienced ||
-                    p.experienceMonths >= 6) &&
-                p.continuousMinutes >= 45;
+            final advanced = !beginner && p.continuousMinutes >= 45;
             final warmupSeconds = math.min(600.0, capped * .5);
             final cooldownSeconds = math.min(300.0, capped * .2);
             final available = capped - warmupSeconds - cooldownSeconds;
             final reps =
                 advanced
                     ? math.min(4, (available / 420).floor() + 1).clamp(2, 4)
-                    : (available / 120).floor().clamp(1, 4);
-            final recovery = advanced ? 180.0 : 90.0;
+                    : (available / (week % 4 == 2 ? 180 : 150)).floor().clamp(
+                      1,
+                      4,
+                    );
+            final recovery = advanced ? 180.0 : (week % 4 == 2 ? 120.0 : 90.0);
             final work = ((available - recovery * (reps - 1)) / reps).clamp(
               30.0,
               advanced ? 240.0 : 90.0,
             );
-            final intervalCode = advanced ? 'intervalSession' : 'fartlek';
+            final intervalCode =
+                advanced || week % 4 == 2 ? 'intervalSession' : 'fartlek';
+            var workStep = CardioTraining.prescribe(
+              p,
+              advanced ? CardioIntensity.interval : CardioIntensity.steady,
+              amount: work,
+              repeat: reps,
+              recovery: recovery,
+              now: start,
+            );
+            if (!advanced) {
+              workStep = CardioTraining.refreshTarget(
+                workStep.copyWith(targetVariant: 'lightInterval'),
+                p,
+                now: start,
+              );
+            }
             workout = CardioWorkout(
               name: t(intervalCode),
               templateCode: intervalCode,
@@ -697,14 +749,7 @@ class RunningPlanGenerator {
                   amount: warmupSeconds,
                   now: start,
                 ),
-                CardioTraining.prescribe(
-                  p,
-                  advanced ? CardioIntensity.interval : CardioIntensity.steady,
-                  amount: work,
-                  repeat: reps,
-                  recovery: recovery,
-                  now: start,
-                ),
+                workStep,
                 CardioTraining.prescribe(
                   p,
                   CardioIntensity.easy,

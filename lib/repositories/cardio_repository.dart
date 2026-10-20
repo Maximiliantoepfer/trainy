@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/cardio.dart';
 import '../services/cardio_training.dart';
 import '../services/database_service.dart';
+import '../services/profile_readiness.dart';
 import '../utils/uuid_v4.dart';
 
 class CardioRepository {
@@ -111,6 +112,16 @@ class CardioRepository {
 
   Future<void> savePlan(RunningPlanProposal proposal, String name) async =>
       db.transaction((txn) async {
+        final profiles = await txn.query('cardio_preferences');
+        ProfileReadiness.requireRunning(
+          AthleteRunningProfile.fromJson(
+            profiles.isEmpty
+                ? {}
+                : Map<String, dynamic>.from(
+                  jsonDecode(profiles.single['profile_json'] as String) as Map,
+                ),
+          ),
+        );
         final now = DateTime.now().toUtc().millisecondsSinceEpoch;
         await txn.insert('training_plans', {
           'id': proposal.id,

@@ -9,6 +9,9 @@ import 'package:trainy/services/cardio_training.dart';
 import 'package:trainy/services/database_schema_v2.dart';
 import 'package:trainy/services/database_service.dart';
 
+import 'support/confirmed_profiles.dart';
+import 'package:trainy/services/profile_readiness.dart';
+
 void main() {
   late Database db;
   late TrainingProgramRepository repo;
@@ -27,6 +30,7 @@ void main() {
     final service = DatabaseService(database: db);
     repo = TrainingProgramRepository(database: service);
     cardio = CardioRepository(database: service);
+    await seedProfiles(db);
   });
   tearDown(() async {
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
@@ -39,6 +43,11 @@ void main() {
   );
   RunningPlanProposal proposal() => RunningPlanGenerator().generate(
     const AthleteRunningProfile(
+      setupVersion: 1,
+      confirmedAnswers: confirmedAnswers,
+      referenceKind: 'normal',
+      referenceSeconds: 2700,
+      continuousMinutes: 45,
       canRunFiveKm: true,
       recentRunsPerWeek: 2,
       level: RunningLevel.beginner,
@@ -359,7 +368,7 @@ void main() {
   );
 
   test(
-    '5k-capable beginner gets light week-2 fartlek; unknown runner stays easy',
+    'continuous beginner gets light week-2 fartlek; incomplete runner is rejected',
     () {
       final p = proposal();
       final week2 = p.occurrences.where(
@@ -379,24 +388,18 @@ void main() {
               (s) => [
                 CardioIntensity.easy,
                 CardioIntensity.steady,
+                CardioIntensity.interval,
               ].contains(s.intensity),
             ),
         isTrue,
       );
-      final unknown = RunningPlanGenerator().generate(
-        const AthleteRunningProfile(),
-        RunningPlanRequest(targetMeters: 5000, startDate: start),
-        (s) => s,
-      );
       expect(
-        unknown.occurrences
-            .expand((o) => o.workout.steps)
-            .every(
-              (s) =>
-                  s.goal == StepGoal.time &&
-                  s.intensity == CardioIntensity.easy,
-            ),
-        isTrue,
+        () => RunningPlanGenerator().generate(
+          const AthleteRunningProfile(),
+          RunningPlanRequest(targetMeters: 5000, startDate: start),
+          (s) => s,
+        ),
+        throwsA(isA<ProfileIncomplete>()),
       );
       expect(ProgramSplits.recommended(3), 'fullBody');
       expect(ProgramSplits.recommended(4), 'upperLower');

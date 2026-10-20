@@ -12,9 +12,15 @@ import 'package:trainy/services/database_service.dart';
 import 'package:trainy/services/local_backup_service.dart';
 import 'package:trainy/services/cardio_schema.dart';
 
+import 'support/confirmed_profiles.dart';
+
 void main() {
   final now = DateTime(2026, 10, 19);
   final profile = AthleteRunningProfile(
+    setupVersion: 1,
+    confirmedAnswers: confirmedAnswers,
+    referenceKind: 'maximal',
+    level: RunningLevel.beginner,
     referenceSeconds: 1500,
     referenceDate: now,
     isMaximal: true,
@@ -165,6 +171,10 @@ void main() {
     }
     final novice = RunningPlanGenerator().generate(
       const AthleteRunningProfile(
+        setupVersion: 1,
+        confirmedAnswers: confirmedAnswers,
+        referenceKind: 'runWalk',
+        referenceSeconds: 3600,
         level: RunningLevel.starting,
         canRunFiveKm: false,
       ),
@@ -380,6 +390,7 @@ void main() {
           RunningPlanRequest(targetMeters: 5000, startDate: now),
           t,
         );
+        await repo.saveProfile(profile);
         await repo.savePlan(plan, 'Plan');
         await repo.savePlan(plan, 'Plan');
         final first = (await repo.occurrences()).first;

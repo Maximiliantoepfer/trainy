@@ -5,6 +5,7 @@ import '../models/training_program.dart';
 import '../services/cardio_training.dart';
 import '../services/database_service.dart';
 import '../services/training_program_schema.dart';
+import '../services/profile_readiness.dart';
 import '../utils/uuid_v4.dart';
 
 class TrainingProgramRepository {
@@ -71,6 +72,30 @@ class TrainingProgramRepository {
         'training_programs',
         where: 'id=?',
         whereArgs: [program.id],
+      );
+      final old =
+          existing.isEmpty
+              ? null
+              : TrainingProgram.fromJson(
+                _json(existing.single['program_json']),
+              );
+      final active = await txn.query('active_training_plan', where: 'id=0');
+      final newlyActivating =
+          activate &&
+          (active.isEmpty || active.single['plan_id'] != program.id);
+      await _requireProfiles(
+        txn,
+        strength:
+            program.currentSlots.any((s) => s.kind == 'strength') &&
+            (newlyActivating ||
+                old == null ||
+                !old.currentSlots.any((s) => s.kind == 'strength')),
+        running:
+            program.hasRunning &&
+            (newlyActivating ||
+                old == null ||
+                !old.hasRunning ||
+                running != null),
       );
       final existingWorkouts =
           existing.isEmpty
@@ -278,8 +303,106 @@ class TrainingProgramRepository {
     });
   }
 
-  Future<void> activate(String id) =>
-      db.transaction((txn) => _activate(txn, id));
+  Future<void> activate(String id) => db.transaction((txn) async {
+    final rows = await txn.query(
+      'training_programs',
+      where: 'id=?',
+      whereArgs: [id],
+    );
+    if (rows.isEmpty) throw StateError('Plan not found');
+    final p = TrainingProgram.fromJson(_json(rows.single['program_json']));
+    await _requireProfiles(
+      txn,
+      strength: p.currentSlots.any((s) => s.kind == 'strength'),
+      running: p.hasRunning,
+    );
+    await _activate(txn, id);
+  });
+
+  Future<void> addCardioOccurrence(
+    TrainingProgram program,
+    DateTime date,
+    CardioWorkout workout,
+  ) async {
+    workout.validate();
+    if (date.isBefore(
+          DateTime(program.start.year, program.start.month, program.start.day),
+        ) ||
+        (program.endDate != null && date.isAfter(program.endDate!))) {
+      throw const FormatException('Date outside plan');
+    }
+    await db.transaction((txn) async {
+      await _requireProfiles(txn, strength: false, running: true);
+      final rows = await txn.query(
+        'training_programs',
+        where: 'id=?',
+        whereArgs: [program.id],
+      );
+      if (rows.isEmpty) throw StateError('Plan not found');
+      final current = TrainingProgram.fromJson(
+        _json(rows.single['program_json']),
+      );
+      final next = current.copyWith(
+        runningDays: {...current.runningDays, date.weekday}.toList()..sort(),
+      );
+      await txn.update(
+        'training_programs',
+        {'program_json': jsonEncode(next.toJson())},
+        where: 'id=?',
+        whereArgs: [program.id],
+      );
+      await txn.insert('cardio_plans', {
+        'id': program.id,
+        'request_json': jsonEncode(
+          RunningPlanRequest(
+            targetMeters: next.targetMeters,
+            startDate: next.start,
+          ).toJson(),
+        ),
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      await txn.insert('cardio_occurrences', {
+        'id': UuidV4.generate(),
+        'plan_id': program.id,
+        'local_date': dateKey(date),
+        'workout_json': jsonEncode(workout.toJson()),
+        'locked': 1,
+      });
+    });
+  }
+
+  Future<void> _requireProfiles(
+    Transaction txn, {
+    required bool strength,
+    required bool running,
+  }) async {
+    if (running) {
+      final rows = await txn.query('cardio_preferences');
+      ProfileReadiness.requireRunning(
+        AthleteRunningProfile.fromJson(
+          rows.isEmpty ? {} : _json(rows.single['profile_json']),
+        ),
+      );
+    }
+    if (strength) {
+      final rows = await txn.query('user_training_profile');
+      final p = UserTrainingProfile.fromJson(
+        rows.isEmpty ? {} : _json(rows.single['profile_json']),
+      );
+      final places = await txn.query(
+        'training_profiles_v2',
+        where: 'id=? AND is_archived=0',
+        whereArgs: [p.strengthProfileId ?? ''],
+      );
+      final missing = ProfileReadiness.strengthStatus(
+        p,
+        hasPlace: places.isNotEmpty,
+      );
+      if (missing.isNotEmpty) {
+        throw ProfileIncomplete('strength', missing);
+      }
+    }
+  }
+
   Future<void> _activate(Transaction txn, String id) async {
     if ((await txn.query(
       'training_programs',

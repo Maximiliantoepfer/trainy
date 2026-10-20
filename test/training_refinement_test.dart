@@ -13,6 +13,8 @@ import 'package:trainy/services/database_service.dart';
 import 'package:trainy/services/strength_templates.dart';
 import 'package:trainy/widgets/activity_day_badge.dart';
 
+import 'support/confirmed_profiles.dart';
+
 void main() {
   test(
     'duration parser accepts minutes, localized decimals and explicit seconds',
@@ -60,14 +62,14 @@ void main() {
       );
       target.validate();
       expect(target.minSpeed, isNull);
-      expect(target.maxSpeed, closeTo(5000 / 2100, .0001));
+      expect(target.maxSpeed, closeTo(1000 / 445, .0001));
       expect(target.targetSource, 'estimated');
       final interval = CardioTraining.prescribe(
         easy,
         CardioIntensity.interval,
         now: now,
       );
-      expect(interval.minSpeed, closeTo(5000 / 2100 / .9, .0001));
+      expect(interval.minSpeed, closeTo(5000 / 2100, .0001));
       final manual = target.copyWith(targetSource: 'manual', maxSpeed: 1);
       expect(CardioTraining.refreshTarget(manual, p), same(manual));
       expect(
@@ -95,8 +97,13 @@ void main() {
   test(
     'first long run respects reported longest distance without a maximal test',
     () {
-      for (final seconds in [null, 2100.0]) {
+      for (final seconds in [2100.0, 2700.0]) {
         final profile = AthleteRunningProfile(
+          setupVersion: 1,
+          confirmedAnswers: confirmedAnswers,
+          referenceKind: 'normal',
+          level: RunningLevel.beginner,
+          continuousMinutes: 45,
           referenceSeconds: seconds,
           canRunFiveKm: true,
           recentRunsPerWeek: 3,
@@ -116,12 +123,7 @@ void main() {
                 .workout
                 .steps
                 .single;
-        if (seconds == null) {
-          expect(first.goal, StepGoal.distance);
-          expect(first.amount, 3000);
-        } else {
-          expect(first.amount * profile.easySpeed!, lessThanOrEqualTo(3000));
-        }
+        expect(first.amount * first.maxSpeed!, lessThanOrEqualTo(3000));
       }
     },
   );
@@ -237,6 +239,7 @@ void main() {
       );
       database = DatabaseService(database: db);
       programs = TrainingProgramRepository(database: database);
+      await seedProfiles(db);
       workouts = WorkoutPlanningRepository(database: database);
       await db.insert('training_profiles_v2', {
         'id': 'home',

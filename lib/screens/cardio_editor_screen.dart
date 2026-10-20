@@ -282,7 +282,13 @@ class _CardioStepState extends State<CardioStepScreen> {
     final profile = context.read<CardioProvider?>()?.profile;
     if (profile == null || (!force && _source == 'manual')) return;
     _suggestion = CardioTraining.refreshTarget(
-      _suggestion.copyWith(intensity: _intensity),
+      _suggestion.copyWith(
+        intensity: _intensity,
+        targetVariant:
+            _intensity == widget.step.intensity
+                ? widget.step.targetVariant
+                : '',
+      ),
       profile,
       sport: widget.sport,
       force: true,
@@ -369,6 +375,10 @@ class _CardioStepState extends State<CardioStepScreen> {
         standingRecovery: false,
         recoveryMovement: _recoveryMovement,
         targetSource: _source,
+        targetVariant:
+            _intensity == widget.step.intensity
+                ? widget.step.targetVariant
+                : '',
         minSpeed:
             _low.text == _speedText(_suggestion.minSpeed)
                 ? _suggestion.minSpeed

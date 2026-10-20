@@ -12,6 +12,7 @@ import 'package:trainy/repositories/workout_planning_repository.dart';
 import 'package:trainy/repositories/activity_repository.dart';
 import 'package:trainy/services/app_database.dart';
 import 'package:trainy/services/local_backup_service.dart';
+import 'support/confirmed_profiles.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +33,7 @@ void main() {
         final programs = TrainingProgramRepository();
         await programs.initialize();
         final originalDb = await AppDatabase.instance.database;
+        await seedProfiles(originalDb);
         await originalDb.insert('training_profiles_v2', {
           'id': 'backup-home',
           'name': 'Home',
@@ -115,7 +117,11 @@ void main() {
           'name': 'Not finished',
         });
         await programs.saveUserProfile(
-          const UserTrainingProfile(strengthLevel: 'experienced'),
+          const UserTrainingProfile(
+            strengthLevel: 'experienced',
+            strengthProfileId: 'confirmed-home',
+            strengthSetupVersion: 1,
+          ),
         );
         final id = await repo.begin(
           CardioWorkout(name: 'Offline run', steps: [CardioStep()]),
@@ -150,6 +156,12 @@ void main() {
         await input.close();
         await repo.saveProfile(
           AthleteRunningProfile(
+            setupVersion: 1,
+            confirmedAnswers: confirmedAnswers,
+            referenceKind: 'normal',
+            level: RunningLevel.beginner,
+            continuousMinutes: 45,
+            loadSource: 'historyConfirmed',
             backupSensorData: true,
             referenceSeconds: 1800,
             bestSeconds: 1500,
@@ -175,6 +187,13 @@ void main() {
         );
         expect((await db.query('workout_slot_prescriptions')).length, 2);
         expect((await repo.profile()).bestSeconds, 1500);
+        expect((await repo.profile()).confirmedAnswers, confirmedAnswers);
+        expect((await repo.profile()).loadSource, 'historyConfirmed');
+        expect((await programs.userProfile()).strengthSetupVersion, 1);
+        expect(
+          (await programs.userProfile()).strengthProfileId,
+          'confirmed-home',
+        );
         final restoredParts = await programs.entries(
           (await programs.plans()).single,
           plan.start,
