@@ -14,6 +14,12 @@ import 'cardio_profile_screen.dart';
 import 'cardio_editor_screen.dart';
 import 'training_library_screen.dart';
 import 'user_training_profile_screen.dart';
+import '../l10n/planning_l10n.dart';
+import '../services/profile_readiness.dart';
+import '../providers/training_profile_provider.dart';
+import '../widgets/plan_week_block.dart';
+import '../utils/goal_utils.dart';
+import '../utils/uuid_v4.dart';
 
 class TrainingPlanSetupScreen extends StatefulWidget {
   const TrainingPlanSetupScreen({
@@ -33,17 +39,39 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   final _form = GlobalKey<FormState>();
   TrainingProgram? _program;
   Set<String> _sports = {};
-  Set<String> _configured = {};
   Set<int> _available = {1, 2, 3, 4, 5, 6, 7};
   int _strengthCount = 3, _runningCount = 3;
-  int _step = 0, _week = 0;
+  int _step = 0, _previewWeeks = 4;
   bool _busy = false, _ready = false, _runningChanged = false;
   String? _error;
   RunningPlanProposal? _running;
   Future<void> _writes = Future.value();
   String get _draftKey => 'plan:${widget.existing?.id ?? 'new'}';
+  DateTime _previewMonday(int week) {
+    final start = _program!.start;
+    return DateTime(
+      start.year,
+      start.month,
+      start.day - start.weekday + 1 + week * 7,
+    );
+  }
+
+  DateTime? get _previewEnd {
+    final p = _program!;
+    if (p.endDate != null || p.currentSlots.isNotEmpty) return p.endDate;
+    final dates =
+        (_running?.occurrences ??
+                context.read<CardioProvider>().occurrences.where(
+                  (o) => o.planId == p.id,
+                ))
+            .map((o) => o.date)
+            .toList()
+          ..sort();
+    return dates.lastOrNull;
+  }
+
   List<String> get _steps =>
-      widget.initialSection != null
+      widget.existing != null && widget.initialSection != null
           ? [widget.initialSection!, 'preview']
           : [
             'interests',
@@ -61,8 +89,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   Future<void> _load() async {
     try {
       final repo = context.read<TrainingProgramProvider>().repository;
-      final profile = await repo.userProfile(),
-          draft = await repo.draft(_draftKey);
+      final draft = await repo.draft(_draftKey);
       if (!mounted) return;
       _program =
           widget.existing ??
@@ -74,9 +101,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
           );
       _sports =
           widget.existing == null
-              ? profile.interests
-                  .map((s) => s == 'cardio' ? 'running' : s)
-                  .toSet()
+              ? <String>{}
               : {
                 if (_program!.hasRunning) 'running',
                 ..._program!.slots.map((s) => s.kind),
@@ -105,7 +130,6 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
         _runningCount = draft['runningCount'] as int? ?? 3;
         _step = draft['step'] as int? ?? 0;
         _runningChanged = draft['runningChanged'] == true;
-        _configured = Set<String>.from(draft['configured'] as List? ?? []);
         final savedRunning = draft['running'] as Map?;
         if (savedRunning != null) {
           final r = Map<String, dynamic>.from(savedRunning);
@@ -141,21 +165,9 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
       _name.addListener(_persist);
       _target.addListener(_targetChanged);
       setState(() => _ready = true);
-      if (_steps[_step] == 'preview' && _running == null) await _preview();
-      if (draft != null &&
-          widget.existing == null &&
-          _steps[_step] == 'running' &&
-          await repo.draft('running-profile') != null &&
-          mounted) {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (_) => CardioProfileScreen(
-                  provider: context.read<CardioProvider>(),
-                ),
-          ),
-        );
+      if (_steps[_step] != 'interests') {
+        if (!await _ensureProfiles(_requiredSports)) return;
+        if (_steps[_step] == 'preview' && _running == null) await _preview();
       }
     } catch (_) {
       if (mounted) setState(() => _error = 'error');
@@ -184,7 +196,6 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
       'step': _step,
       'runningChanged': _runningChanged,
       'targetText': _target.text,
-      'configured': _configured.toList(),
       if (_running != null)
         'running': {
           'id': _running!.id,
@@ -329,11 +340,10 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
 
   Future<void> _preview() async {
     if (!_program!.hasRunning || !_runningChanged) return;
+    if (!await _ensureProfiles({'running'})) return;
+    if (!mounted) return;
     final cardio = context.read<CardioProvider>();
-    final p = await context
-        .read<TrainingProgramProvider>()
-        .repository
-        .withRecentLoad(cardio.profile, DateTime.now());
+    final p = cardio.profile;
     if (!mounted) return;
     final profile = AthleteRunningProfile.fromJson({
       ...p.toJson(),
@@ -422,6 +432,13 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     setState(() => _busy = true);
     try {
       if (step == 'preview') {
+        if (!await _ensureProfiles(_requiredSports)) return;
+        if (!mounted) return;
+        if (_program!.hasRunning && _runningChanged && _running == null) {
+          await _preview();
+          if (_running == null) return;
+          if (!mounted) return;
+        }
         if (_program!.endDate != null &&
             _running != null &&
             _running!.occurrences.any(
@@ -483,31 +500,13 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
         await context.read<CardioProvider>().load();
         if (mounted) Navigator.pop(context, true);
       } else {
+        final nextSport = _steps[_step + 1];
+        if (['strength', 'running'].contains(nextSport) &&
+            !await _ensureProfiles({nextSport})) {
+          return;
+        }
         if (_steps[_step + 1] == 'preview') await _preview();
         if (mounted) _change(() => _step++);
-        if (mounted &&
-            widget.existing == null &&
-            ['strength', 'running'].contains(_steps[_step]) &&
-            !_configured.contains(_steps[_step])) {
-          final sport = _steps[_step];
-          _configured.add(sport);
-          _persist();
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (_) =>
-                      sport == 'strength'
-                          ? const UserTrainingProfileScreen(
-                            strengthOnly: true,
-                            setup: true,
-                          )
-                          : CardioProfileScreen(
-                            provider: context.read<CardioProvider>(),
-                          ),
-            ),
-          );
-        }
       }
     } catch (_) {
       if (mounted) {
@@ -519,6 +518,57 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Set<String> get _requiredSports =>
+      widget.existing != null && widget.initialSection != null
+          ? {widget.initialSection!}
+          : _sports;
+
+  Future<bool> _ensureProfiles(Set<String> sports) async {
+    for (final sport in sports.where(
+      (s) => s == 'strength' || s == 'running',
+    )) {
+      if (!mounted) return false;
+      final cardio = context.read<CardioProvider>();
+      final repo = context.read<TrainingProgramProvider>().repository;
+      final places = context.read<TrainingProfileProvider>();
+      Future<bool> ready() async =>
+          sport == 'running'
+              ? ProfileReadiness.running(cardio.profile).isEmpty
+              : ProfileReadiness.strength(
+                await repo.userProfile(),
+                await places.profiles(),
+              ).isEmpty;
+      if (await ready()) continue;
+      if (!mounted) return false;
+      final completed = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) =>
+                  sport == 'running'
+                      ? CardioProfileScreen(
+                        provider: cardio,
+                        setupRepository: repo,
+                      )
+                      : const UserTrainingProfileScreen(
+                        strengthOnly: true,
+                        setup: true,
+                      ),
+        ),
+      );
+      if (!mounted) return false;
+      if (completed != true || !await ready()) {
+        if (mounted) setState(() => _error = 'profileRequired');
+        return false;
+      }
+      if (sport == 'running') {
+        _running = null;
+        _runningChanged = true;
+      }
+    }
+    return true;
   }
 
   Future<void> _assign(ProgramSlot s) async {
@@ -718,9 +768,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
             .firstOrNull;
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        s.kind == 'mobility' ? Icons.self_improvement : Icons.fitness_center,
-      ),
+      leading: GoalIcon(s.kind),
       title: Text(planLabel(context, s.label)),
       subtitle: Text(
         '${DateFormat.E(Localizations.localeOf(context).toString()).format(DateTime(2024, 1, s.weekday))}${s.cycleWeek == 0 ? '' : ' · ${context.plan('weekNumber')} ${s.cycleWeek}'} · ${workout?.name ?? context.plan('assignWorkout')}',
@@ -732,6 +780,189 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
       ),
       onTap: () => s.kind == 'strength' ? _editSlot(s) : _assign(s),
     );
+  }
+
+  Widget _weekPreview(int week) {
+    final p = _program!;
+    final monday = DateTime(
+      p.start.year,
+      p.start.month,
+      p.start.day - p.start.weekday + 1 + week * 7,
+    );
+    final running =
+        _running?.occurrences ??
+        context
+            .read<CardioProvider>()
+            .occurrences
+            .where((e) => e.planId == p.id)
+            .toList();
+    final entries = <ProgramEntry>[
+      for (var d = 0; d < 7; d++)
+        for (final s in p.slots.where(
+          (s) =>
+              s.weekday == d + 1 &&
+              (s.cycleWeek == 0 || s.cycleWeek == week % 2 + 1),
+        ))
+          if (!DateTime(
+                monday.year,
+                monday.month,
+                monday.day + d,
+              ).isBefore(p.start) &&
+              (p.endDate == null ||
+                  !DateTime(
+                    monday.year,
+                    monday.month,
+                    monday.day + d,
+                  ).isAfter(p.endDate!)) &&
+              (s.from == null ||
+                  !DateTime(
+                    monday.year,
+                    monday.month,
+                    monday.day + d,
+                  ).isBefore(s.from!)) &&
+              (s.until == null ||
+                  !DateTime(
+                    monday.year,
+                    monday.month,
+                    monday.day + d,
+                  ).isAfter(s.until!)))
+            ProgramEntry(
+              id: '${s.id}:$week',
+              planId: p.id,
+              date: DateTime(monday.year, monday.month, monday.day + d),
+              name: s.label,
+              kind: s.kind,
+              slotId: s.id,
+              workoutId: s.workoutId,
+            ),
+      for (final o in running)
+        if (calendarDays(o.date, monday) >= 0 &&
+            calendarDays(o.date, monday) < 7 &&
+            (p.endDate == null || !o.date.isAfter(p.endDate!)))
+          ProgramEntry(
+            id: o.id,
+            planId: p.id,
+            date: o.date,
+            name: o.workout.name,
+            kind: 'running',
+            cardio: o,
+            completed: o.status == 'completed',
+            sessionId: o.sessionId,
+          ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (entries.any(
+          (e) => planPlacementWarning(p, e, e.date, entries) != null,
+        ))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(context.planning('strengthOverlap')),
+          ),
+        PlanWeekBlock(
+          monday: monday,
+          planStart: p.start,
+          planEnd: p.endDate,
+          entries: entries,
+          onAdd: _addPreview,
+          entryBuilder:
+              (e) => PlanWorkoutTile(
+                entry: e,
+                units: context.read<CardioProvider>().profile.units,
+                onTap: () {
+                  if (e.cardio != null) {
+                    _editRun(e.cardio!);
+                  } else {
+                    _assign(p.slots.firstWhere((s) => s.id == e.slotId));
+                  }
+                },
+                onActions:
+                    e.cardio != null
+                        ? null
+                        : () => _editSlot(
+                          p.slots.firstWhere((s) => s.id == e.slotId),
+                        ),
+              ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addPreview(DateTime date) async {
+    final p = _program!;
+    if (date.isBefore(p.start) ||
+        (p.endDate != null && date.isAfter(p.endDate!))) {
+      return;
+    }
+    final choices = _sports.toList();
+    final sport = await choosePlanValue(
+      context,
+      'typeQuestion',
+      choices,
+      choices.first,
+    );
+    if (sport == null || !mounted || !await _ensureProfiles({sport})) return;
+    if (!mounted) return;
+    if (sport != 'running') {
+      final s = ProgramSlot(
+        weekday: date.weekday,
+        kind: sport,
+        label: sport == 'strength' ? 'fullBody' : 'mobility',
+        from: date,
+        until: date,
+      );
+      _change(
+        () => _program = _program!.copyWith(slots: [..._program!.slots, s]),
+      );
+      await _assign(s);
+      return;
+    }
+    final cardio = context.read<CardioProvider>();
+    final workout = await Navigator.push<CardioWorkout>(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => CardioEditorScreen(
+              workout: CardioTraining.template(
+                'easy5k',
+                cardio.profile,
+                context.cardio,
+              ),
+              units: cardio.profile.units,
+            ),
+      ),
+    );
+    if (workout == null || !mounted) return;
+    final previous = _running;
+    _change(() {
+      _runningChanged = true;
+      _program = _program!.copyWith(
+        runningDays: {..._program!.runningDays, date.weekday}.toList()..sort(),
+      );
+      _running = RunningPlanProposal(
+        id: previous?.id ?? p.id,
+        request:
+            previous?.request ??
+            RunningPlanRequest(
+              targetMeters: p.targetMeters,
+              startDate: p.start,
+            ),
+        baseWeeks: previous?.baseWeeks ?? 0,
+        warnings: previous?.warnings ?? [],
+        occurrences: [
+          ...previous?.occurrences ??
+              cardio.occurrences.where((e) => e.planId == p.id),
+          ScheduledCardioWorkout(
+            id: UuidV4.generate(),
+            planId: previous?.id ?? p.id,
+            date: date,
+            workout: workout,
+            locked: true,
+          ),
+        ],
+      );
+    });
   }
 
   @override
@@ -798,7 +1029,9 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        context.plan(title),
+                        title == 'interests'
+                            ? context.planning('chooseTraining')
+                            : context.plan(title),
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                       const SizedBox(height: 24),
@@ -1201,117 +1434,21 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                             context.plan('missingWorkouts'),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
-                        if (p.runningDays.any(
-                          (d) => _currentSlots.any((s) => s.weekday == d),
-                        ))
-                          PlanError('doubleDay'),
-                        if (_currentSlots.any(
-                          (s) =>
-                              s.legHeavy &&
-                              p.runningDays.any(
-                                (d) =>
-                                    (s.weekday - d).abs() <= 1 ||
-                                    (s.weekday - d).abs() == 6,
-                              ),
-                        )) ...[
-                          Text(
-                            context.plan('conflictHint'),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
+                        for (var week = 0; week < _previewWeeks; week++)
+                          if (_previewEnd == null ||
+                              !_previewMonday(week).isAfter(_previewEnd!))
+                            Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: _weekPreview(week),
+                            ),
+                        if (_previewEnd == null ||
+                            !_previewMonday(
+                              _previewWeeks,
+                            ).isAfter(_previewEnd!))
                           TextButton(
-                            onPressed: () => _change(() => _step = 0),
-                            child: Text(context.plan('changeDays')),
+                            onPressed: () => setState(() => _previewWeeks += 4),
+                            child: Text(context.planning('moreWeeks')),
                           ),
-                        ],
-                        Row(
-                          children: [
-                            IconButton(
-                              tooltip: context.plan('back'),
-                              onPressed:
-                                  _week == 0
-                                      ? null
-                                      : () => setState(() => _week--),
-                              icon: const Icon(Icons.chevron_left),
-                            ),
-                            Expanded(
-                              child: Text(
-                                '${context.plan('weekNumber')} ${_week + 1}',
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: context.plan('next'),
-                              onPressed: () => setState(() => _week++),
-                              icon: const Icon(Icons.chevron_right),
-                            ),
-                          ],
-                        ),
-                        for (var d = 1; d <= 7; d++) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Text(
-                              DateFormat.E(
-                                Localizations.localeOf(context).toString(),
-                              ).format(DateTime(2024, 1, d)),
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                          for (final s in _currentSlots.where(
-                            (s) =>
-                                s.weekday == d &&
-                                (s.cycleWeek == 0 ||
-                                    s.cycleWeek == _week % 2 + 1),
-                          ))
-                            _slot(s),
-                          for (final o
-                              in _running?.occurrences.where(
-                                    (o) =>
-                                        (p.endDate == null ||
-                                            !o.date.isAfter(p.endDate!)) &&
-                                        o.date.weekday == d &&
-                                        calendarDays(
-                                                  o.date,
-                                                  DateTime(
-                                                    p.start.year,
-                                                    p.start.month,
-                                                    p.start.day -
-                                                        p.start.weekday +
-                                                        1,
-                                                  ),
-                                                ) ~/
-                                                7 ==
-                                            _week,
-                                  ) ??
-                                  <ScheduledCardioWorkout>[])
-                            ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.directions_run),
-                              title: Text(o.workout.name),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () => _editRun(o),
-                              subtitle: Text(
-                                o.workout.steps
-                                    .map(
-                                      (s) => cardioStepDescription(
-                                        s,
-                                        context
-                                            .read<CardioProvider>()
-                                            .profile
-                                            .units,
-                                        context,
-                                      ),
-                                    )
-                                    .join('\n'),
-                              ),
-                            ),
-                          if (!_runningChanged && p.runningDays.contains(d))
-                            ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: const Icon(Icons.directions_run),
-                              title: Text(context.plan('running')),
-                              subtitle: Text(context.plan('myPlan')),
-                            ),
-                        ],
                         if (_running != null) ...[
                           const SizedBox(height: 16),
                           for (final warning in _running!.warnings)
@@ -1329,7 +1466,13 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
-                      if (_error != null) PlanError(_error!),
+                      if (_error != null)
+                        Text(
+                          context.planning(_error!),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
                     ],
                   ),
                 ),

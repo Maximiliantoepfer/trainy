@@ -1,4 +1,12 @@
 import 'package:flutter/material.dart';
+import '../widgets/plan_week_block.dart';
+import '../widgets/motivational_quote_card.dart';
+import '../l10n/planning_l10n.dart';
+import '../services/profile_readiness.dart';
+import '../services/cardio_training.dart';
+import '../providers/training_profile_provider.dart';
+import 'user_training_profile_screen.dart';
+import 'cardio_profile_screen.dart';
 import 'dart:convert';
 import '../providers/progress_provider.dart';
 import '../widgets/week_activity_card.dart';
@@ -61,25 +69,67 @@ class TrainingPlanCard extends StatelessWidget {
     }
     if (p != null) {
       return Card(
-        child: ListTile(
-          leading: const Icon(Icons.calendar_month_outlined),
-          title: Text(p.name),
-          subtitle: Text(
-            [
-              if (p.currentSlots.any((s) => s.kind == 'strength') &&
-                  p.strengthGoal.isNotEmpty)
-                planLabel(context, p.strengthGoal),
-              if (p.hasRunning && p.runningGoal.isNotEmpty)
-                planLabel(context, p.runningGoal),
-              '${p.days.length} ${context.cardio('days')}',
-            ].join(' · '),
-          ),
-          trailing: const Icon(Icons.chevron_right),
-          onTap:
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const TrainingPlanScreen()),
+        child: Column(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.calendar_month_outlined),
+              title: Text(p.name),
+              subtitle: Text(
+                [
+                  if (p.currentSlots.any((s) => s.kind == 'strength') &&
+                      p.strengthGoal.isNotEmpty)
+                    planLabel(context, p.strengthGoal),
+                  if (p.hasRunning && p.runningGoal.isNotEmpty)
+                    planLabel(context, p.runningGoal),
+                  '${p.days.length} ${context.cardio('days')}',
+                ].join(' · '),
               ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TrainingPlanScreen(),
+                    ),
+                  ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  if (p.currentSlots.any((s) => s.kind == 'strength'))
+                    TextButton(
+                      onPressed:
+                          () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => const UserTrainingProfileScreen(
+                                    strengthOnly: true,
+                                  ),
+                            ),
+                          ),
+                      child: Text(context.plan('strengthProfile')),
+                    ),
+                  if (p.hasRunning)
+                    TextButton(
+                      onPressed:
+                          () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => CardioProfileScreen(
+                                    provider: context.read<CardioProvider>(),
+                                  ),
+                            ),
+                          ),
+                      child: Text(context.plan('runningProfile')),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -125,13 +175,40 @@ class TrainingPlanScreen extends StatefulWidget {
 }
 
 class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
+  final _scroll = ScrollController();
+  int _weeks = 4, _backWeeks = 0;
   late DateTime _date = DateUtils.dateOnly(
     widget.initialDate ?? DateTime.now(),
   );
   @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  DateTime _weekStart(int offset) => DateTime(
+    _date.year,
+    _date.month,
+    _date.day - _date.weekday + 1 + offset * 7,
+  );
+
+  @override
   Widget build(BuildContext context) {
     final state = context.watch<TrainingProgramProvider>();
     final p = state.active;
+    final runningDates =
+        context
+            .watch<CardioProvider>()
+            .occurrences
+            .where((o) => o.planId == p?.id)
+            .map((o) => o.date)
+            .toList()
+          ..sort();
+    final calendarEnd =
+        p?.endDate ??
+        (p != null && p.currentSlots.isEmpty && runningDates.isNotEmpty
+            ? runningDates.last
+            : null);
     return Scaffold(
       appBar: AppBar(
         title: Text(p?.name ?? context.plan('myPlan')),
@@ -145,59 +222,100 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        controller: _scroll,
+        padding: const EdgeInsets.all(16),
         children: [
           if (p == null && state.plans.isEmpty) const TrainingPlanCard(),
           if (p != null) ...[
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.fitness_center),
-                    title: Text(context.plan('editStrength')),
-                    subtitle: Text(
-                      planLabel(
-                        context,
-                        p.strengthGoal.isEmpty
-                            ? 'generalFitness'
-                            : p.strengthGoal,
-                      ),
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap:
-                        () => openPlanSetup(
-                          context,
-                          plan: p,
-                          section: 'strength',
-                        ),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.directions_run),
-                    title: Text(context.plan('editRunning')),
-                    subtitle: Text(
-                      p.hasRunning
-                          ? CardioUnits.distance(
-                            p.targetMeters,
-                            context.read<CardioProvider>().profile.units,
-                            locale: Localizations.localeOf(context).toString(),
-                          )
-                          : context.plan('add'),
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap:
-                        () =>
-                            openPlanSetup(context, plan: p, section: 'running'),
-                  ),
-                ],
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                [
+                  if (p.currentSlots.any((s) => s.kind == 'strength'))
+                    planLabel(context, p.strengthGoal),
+                  if (p.hasRunning) planLabel(context, p.runningGoal),
+                  DateFormat.yMMMd(
+                    Localizations.localeOf(context).toString(),
+                  ).format(p.start),
+                  calendarEnd == null
+                      ? context.plan('indefinite')
+                      : DateFormat.yMMMd(
+                        Localizations.localeOf(context).toString(),
+                      ).format(calendarEnd),
+                ].join(' · '),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
-            const SizedBox(height: 24),
-            PlanWeekView(
-              program: p,
-              date: _date,
-              onDateChanged: (d) => setState(() => _date = d),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ActionChip(
+                  label: Text(context.plan('editStrength')),
+                  onPressed:
+                      () =>
+                          openPlanSetup(context, plan: p, section: 'strength'),
+                ),
+                ActionChip(
+                  label: Text(context.plan('editRunning')),
+                  onPressed:
+                      () => openPlanSetup(context, plan: p, section: 'running'),
+                ),
+                ActionChip(
+                  label: Text(context.planning('profiles')),
+                  onPressed:
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const UserTrainingProfileScreen(),
+                        ),
+                      ),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => setState(() => _backWeeks += 4),
+                    child: Text(context.planning('earlierWeeks')),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _date = DateUtils.dateOnly(DateTime.now());
+                      _backWeeks = 0;
+                      _weeks = 4;
+                    });
+                    if (_scroll.hasClients) _scroll.jumpTo(0);
+                  },
+                  child: Text(context.plan('today')),
+                ),
+              ],
+            ),
+            for (var week = -_backWeeks; week < _weeks; week++)
+              if (week <= 0 ||
+                  calendarEnd == null ||
+                  !_weekStart(week).isAfter(calendarEnd))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: PlanWeekView(
+                    key: ValueKey(
+                      '${p.id}:${dateKey(_date)}:$week:${context.watch<ProgressProvider?>()?.entries.length}',
+                    ),
+                    program: p,
+                    date: _weekStart(week),
+                    onDateChanged: (_) {},
+                  ),
+                ),
+            if (calendarEnd == null || !_weekStart(_weeks).isAfter(calendarEnd))
+              TextButton(
+                onPressed: () => setState(() => _weeks += 4),
+                child: Text(context.planning('moreWeeks')),
+              ),
+            const SizedBox(height: 16),
           ],
           if (state.plans.isNotEmpty &&
               (state.plans.length > 1 || p == null)) ...[
@@ -214,6 +332,40 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                         : const Icon(Icons.chevron_right),
                 onTap: () async {
                   try {
+                    final cardio = context.read<CardioProvider>();
+                    final equipment = context.read<TrainingProfileProvider>();
+                    if (saved.currentSlots.any((s) => s.kind == 'strength') &&
+                        ProfileReadiness.strength(
+                          await state.repository.userProfile(),
+                          await equipment.profiles(),
+                        ).isNotEmpty) {
+                      if (!context.mounted) return;
+                      final done = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => const UserTrainingProfileScreen(
+                                strengthOnly: true,
+                              ),
+                        ),
+                      );
+                      if (done != true || !context.mounted) return;
+                    }
+                    if (saved.hasRunning &&
+                        ProfileReadiness.running(cardio.profile).isNotEmpty) {
+                      if (!context.mounted) return;
+                      final done = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (_) => CardioProfileScreen(
+                                provider: cardio,
+                                setupRepository: state.repository,
+                              ),
+                        ),
+                      );
+                      if (done != true || !context.mounted) return;
+                    }
                     await state.activate(saved.id);
                   } catch (_) {
                     if (context.mounted) {
@@ -245,10 +397,12 @@ class PlanWeekView extends StatefulWidget {
     required this.onDateChanged,
     this.todayFirst = false,
     this.beforeEntries,
+    this.todayOverride,
   });
   final TrainingProgram? program;
   final Widget? beforeEntries;
   final DateTime date;
+  final DateTime? todayOverride;
   final ValueChanged<DateTime> onDateChanged;
   final bool todayFirst;
   @override
@@ -280,6 +434,113 @@ class _PlanWeekViewState extends State<PlanWeekView> {
       _monday,
       DateTime(_monday.year, _monday.month, _monday.day + 7),
     );
+  }
+
+  Future<void> _add(DateTime day) async {
+    final plan = widget.program;
+    if (plan == null ||
+        day.isBefore(DateUtils.dateOnly(plan.start)) ||
+        (plan.endDate != null && day.isAfter(plan.endDate!))) {
+      return;
+    }
+    final sport = await choosePlanValue(context, 'typeQuestion', [
+      'strength',
+      'running',
+      'mobility',
+    ], 'strength');
+    if (sport == null || !mounted) return;
+    final store = context.read<TrainingProgramProvider>();
+    final cardio = context.read<CardioProvider>();
+    try {
+      if (sport == 'running') {
+        if (ProfileReadiness.running(cardio.profile).isNotEmpty) {
+          final yes = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => CardioProfileScreen(
+                    provider: cardio,
+                    setupRepository: store.repository,
+                  ),
+            ),
+          );
+          if (yes != true || !mounted) return;
+        }
+        if (!mounted) return;
+        final workout = await Navigator.push<CardioWorkout>(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => CardioEditorScreen(
+                  workout: CardioTraining.template(
+                    'easy5k',
+                    cardio.profile,
+                    context.cardio,
+                  ),
+                  units: cardio.profile.units,
+                ),
+          ),
+        );
+        if (workout == null) return;
+        await store.repository.addCardioOccurrence(plan, day, workout);
+        await cardio.load();
+      } else {
+        final places = context.read<TrainingProfileProvider>();
+        if (sport == 'strength' &&
+            ProfileReadiness.strength(
+              await store.repository.userProfile(),
+              await places.profiles(),
+            ).isNotEmpty) {
+          if (!mounted) return;
+          final yes = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => const UserTrainingProfileScreen(
+                    strengthOnly: true,
+                    setup: true,
+                  ),
+            ),
+          );
+          if (yes != true || !mounted) return;
+        }
+        if (!mounted) return;
+        final id = await Navigator.push<String>(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => TrainingLibraryScreen(
+                  initialSport: sport,
+                  pickWorkout: true,
+                ),
+          ),
+        );
+        if (id == null) return;
+        await store.repository.save(
+          plan.copyWith(
+            slots: [
+              ...plan.slots,
+              ProgramSlot(
+                weekday: day.weekday,
+                label: sport == 'strength' ? 'fullBody' : 'mobility',
+                kind: sport,
+                workoutId: id,
+                from: day,
+                until: day,
+              ),
+            ],
+          ),
+        );
+      }
+      await store.load();
+      if (mounted) setState(_reload);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.plan('savingError'))));
+      }
+    }
   }
 
   Future<void> _open(ProgramEntry entry) async {
@@ -406,35 +667,18 @@ class _PlanWeekViewState extends State<PlanWeekView> {
       return;
     }
     if (!mounted) return;
-    final doubleDay = neighbors.any(
-      (e) => e.id != entry.id && dateKey(e.date) == dateKey(date),
-    );
-    bool demanding(ProgramEntry e) =>
-        e.cardio?.workout.templateCode == 'longRun' ||
-        (e.cardio?.workout.steps.any(
-              (s) =>
-                  ![
-                    CardioIntensity.easy,
-                    CardioIntensity.recovery,
-                  ].contains(s.intensity),
-            ) ??
-            false);
-    bool legs(ProgramEntry e) =>
-        widget.program!.slots.any((s) => s.id == e.slotId && s.legHeavy);
-    final recoveryConflict = neighbors.any(
-      (e) =>
-          e.id != entry.id &&
-          ((legs(entry) && demanding(e)) || (demanding(entry) && legs(e))),
+    final warning = planPlacementWarning(
+      widget.program!,
+      entry,
+      date,
+      neighbors,
     );
     final future = await showDialog<bool>(
       context: context,
       builder:
           (c) => AlertDialog(
             title: Text(c.plan('move')),
-            content:
-                doubleDay || recoveryConflict
-                    ? Text(c.plan(doubleDay ? 'doubleDay' : 'conflictHint'))
-                    : null,
+            content: warning != null ? Text(c.planning(warning)) : null,
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(c),
@@ -481,29 +725,11 @@ class _PlanWeekViewState extends State<PlanWeekView> {
     }
   }
 
-  Widget _entry(ProgramEntry e) => Card(
-    child: ListTile(
-      leading: Icon(
-        e.completed
-            ? Icons.check_circle_outline
-            : e.kind == 'running'
-            ? Icons.directions_run
-            : e.kind == 'mobility'
-            ? Icons.self_improvement
-            : Icons.fitness_center,
-      ),
-      title: Text(planLabel(context, e.name)),
-      subtitle: e.needsWorkout ? Text(context.plan('assignWorkout')) : null,
-      onTap: () => _open(e),
-      trailing:
-          e.completed || e.sessionId != null
-              ? null
-              : IconButton(
-                tooltip: context.plan('move'),
-                icon: const Icon(Icons.event_outlined),
-                onPressed: () => _actions(e),
-              ),
-    ),
+  Widget _entry(ProgramEntry e) => PlanWorkoutTile(
+    entry: e,
+    onTap: () => _open(e),
+    units: context.read<CardioProvider>().profile.units,
+    onActions: e.completed || e.sessionId != null ? null : () => _actions(e),
   );
 
   Future<void> _actions(ProgramEntry e) async {
@@ -604,7 +830,7 @@ class _PlanWeekViewState extends State<PlanWeekView> {
             context: context,
             builder:
                 (c) => AlertDialog(
-                  title: Text(c.plan(warning)),
+                  title: Text(c.planning(warning)),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(c, false),
@@ -643,53 +869,46 @@ class _PlanWeekViewState extends State<PlanWeekView> {
         return PlanError('error', onRetry: () => setState(_reload));
       }
       if (!snapshot.hasData) return const SizedBox(height: 48);
-      final entries = snapshot.data!,
-          locale = Localizations.localeOf(context).toString();
+      final entries = snapshot.data!;
       final selected =
           entries
               .where((e) => dateKey(e.date) == dateKey(widget.date))
               .toList();
+      if (!widget.todayFirst) {
+        return PlanWeekBlock(
+          monday: _monday,
+          planStart: widget.program?.start,
+          planEnd: widget.program?.endDate,
+          entries: entries,
+          entryBuilder: _entry,
+          onAdd: widget.program == null ? null : _add,
+        );
+      }
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           WeekActivityCard(
             date: widget.date,
+            todayOverride: widget.todayOverride,
             entries: entries,
             streak: context.watch<ProgressProvider?>()?.currentStreak ?? 0,
             onDateChanged: widget.onDateChanged,
           ),
-          if (widget.todayFirst) ...[
-            const SizedBox(height: 24),
-            if (widget.beforeEntries != null) widget.beforeEntries!,
-            Text(
-              dateKey(widget.date) == dateKey(DateTime.now())
-                  ? context.plan('today')
-                  : DateFormat.yMMMEd(locale).format(widget.date),
-              style: Theme.of(context).textTheme.titleLarge,
+          const SizedBox(height: 16),
+          if (widget.beforeEntries != null) widget.beforeEntries!,
+          MotivationalQuoteCard(date: widget.todayOverride),
+          if (widget.program != null || selected.isNotEmpty)
+            const SizedBox(height: 16),
+          if (selected.isEmpty && widget.program != null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(context.planning('restDay')),
             ),
-            const SizedBox(height: 12),
-            if (selected.isEmpty) Text(context.plan('restDay')),
-            for (final e in selected)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _entry(e),
-              ),
-          ],
-          if (!widget.todayFirst)
-            for (var d = 1; d <= 7; d++) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 20, bottom: 8),
-                child: Text(
-                  DateFormat.EEEE(locale).format(DateTime(2024, 1, d)),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              for (final e in entries.where((e) => e.date.weekday == d))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _entry(e),
-                ),
-            ],
+          for (final e in selected)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _entry(e),
+            ),
         ],
       );
     },

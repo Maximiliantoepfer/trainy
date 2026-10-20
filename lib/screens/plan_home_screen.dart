@@ -6,19 +6,21 @@ import '../providers/active_workout_provider.dart';
 import '../providers/cardio_provider.dart';
 import '../providers/progress_provider.dart';
 import '../widgets/active_workout_banner.dart';
-import '../widgets/motivational_quote_card.dart';
 import 'training_plan_screen.dart';
 import 'training_library_screen.dart';
 import 'cardio_session_screen.dart';
 
 class PlanHomeScreen extends StatefulWidget {
-  const PlanHomeScreen({super.key});
+  const PlanHomeScreen({super.key, this.todayOverride});
+  final DateTime? todayOverride;
   @override
   State<PlanHomeScreen> createState() => _PlanHomeScreenState();
 }
 
 class _PlanHomeScreenState extends State<PlanHomeScreen> {
-  DateTime _date = DateUtils.dateOnly(DateTime.now());
+  late DateTime _date = DateUtils.dateOnly(
+    widget.todayOverride ?? DateTime.now(),
+  );
   @override
   Widget build(BuildContext context) {
     final state = context.watch<TrainingProgramProvider>();
@@ -53,6 +55,7 @@ class _PlanHomeScreenState extends State<PlanHomeScreen> {
               ),
               program: state.active,
               date: _date,
+              todayOverride: widget.todayOverride,
               onDateChanged: (d) => setState(() => _date = d),
               todayFirst: true,
               beforeEntries: Column(
@@ -83,9 +86,7 @@ class _PlanHomeScreenState extends State<PlanHomeScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-            const MotivationalQuoteCard(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             const TrainingPlanCard(),
             const SizedBox(height: 16),
             TextButton(

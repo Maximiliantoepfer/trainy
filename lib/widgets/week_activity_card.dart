@@ -4,6 +4,7 @@ import '../l10n/plan_l10n.dart';
 import '../models/training_program.dart';
 import 'activity_day_badge.dart';
 import 'animated_flame_icon.dart';
+import '../l10n/planning_l10n.dart';
 
 class WeekActivityCard extends StatelessWidget {
   const WeekActivityCard({
@@ -12,25 +13,49 @@ class WeekActivityCard extends StatelessWidget {
     required this.entries,
     required this.onDateChanged,
     this.streak = 0,
+    this.todayOverride,
   });
   final DateTime date;
   final List<ProgramEntry> entries;
   final ValueChanged<DateTime> onDateChanged;
   final int streak;
+  final DateTime? todayOverride;
   @override
   Widget build(BuildContext context) {
     final monday = DateTime(date.year, date.month, date.day - date.weekday + 1);
     final locale = Localizations.localeOf(context).toString();
     final scheme = Theme.of(context).colorScheme;
+    final today = DateUtils.dateOnly(todayOverride ?? DateTime.now());
+    final thisMonday = DateTime(
+      today.year,
+      today.month,
+      today.day - today.weekday + 1,
+    );
+    final currentWeek = dateKey(monday) == dateKey(thisMonday);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             Row(
               children: [
+                Expanded(
+                  child: Text(
+                    context.planning(currentWeek ? 'currentWeek' : 'weekTitle'),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                if (dateKey(date) != dateKey(today))
+                  TextButton(
+                    onPressed: () => onDateChanged(today),
+                    child: Text(context.plan('today')),
+                  ),
+              ],
+            ),
+            Row(
+              children: [
                 IconButton(
-                  tooltip: context.plan('back'),
+                  tooltip: context.planning('previousWeek'),
                   icon: const Icon(Icons.chevron_left),
                   onPressed:
                       () => onDateChanged(
@@ -44,13 +69,8 @@ class WeekActivityCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-                if (streak > 0) ...[
-                  const SizedBox(width: 4),
-                  const AnimatedFlameIcon(size: 20),
-                  Text('$streak'),
-                ],
                 IconButton(
-                  tooltip: context.plan('next'),
+                  tooltip: context.planning('nextWeek'),
                   icon: const Icon(Icons.chevron_right),
                   onPressed:
                       () => onDateChanged(
@@ -59,7 +79,7 @@ class WeekActivityCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
             LayoutBuilder(
               builder:
                   (c, constraints) => SingleChildScrollView(
@@ -107,7 +127,8 @@ class WeekActivityCard extends StatelessWidget {
                                         children: [
                                           ActivityDayBadge(
                                             state: state,
-                                            selected: selected,
+                                            selected:
+                                                dateKey(day) == dateKey(today),
                                           ),
                                           const SizedBox(height: 6),
                                           Text(
@@ -142,6 +163,36 @@ class WeekActivityCard extends StatelessWidget {
                       ],
                     ),
                   ),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${DateFormat.yMMMEd(locale).format(date)}${dateKey(date) == dateKey(today) ? ' · ${context.plan('today')}' : ''}',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (streak > 0)
+                  const AnimatedFlameIcon(size: 28)
+                else
+                  Icon(
+                    Icons.local_fire_department_outlined,
+                    size: 28,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    streak > 0
+                        ? '$streak ${context.planning('streakSuffix')}'
+                        : context.planning('startStreak'),
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

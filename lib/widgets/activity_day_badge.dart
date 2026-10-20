@@ -64,7 +64,7 @@ class ActivityDayBadge extends StatelessWidget {
                     ? Icon(Icons.check_rounded, color: color, size: size * .48)
                     : state.kind == 'strength'
                     ? ImageIcon(
-                      const AssetImage('assets/icons/hantel.png'),
+                      const AssetImage('assets/icons/muskel.png'),
                       color: color,
                       size: size * .48,
                     )
@@ -93,11 +93,15 @@ class ActivityDayBadge extends StatelessWidget {
             ),
           if (state.fraction > 0 && !state.done)
             Positioned.fill(
+              left: 4,
+              right: 4,
+              top: 4,
+              bottom: 4,
               child: CircularProgressIndicator(
                 value: state.fraction,
                 strokeWidth: 3,
                 color: scheme.tertiary,
-                backgroundColor: scheme.outlineVariant,
+                backgroundColor: scheme.surfaceContainerHighest,
               ),
             ),
         ],

@@ -42,6 +42,15 @@ class _AnimatedFlameIconState extends State<AnimatedFlameIcon>
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.stop();
+      return Icon(
+        Icons.local_fire_department_rounded,
+        size: widget.size,
+        color: _flameColor,
+      );
+    }
+    if (!_controller.isAnimating) _controller.repeat(reverse: true);
     return AnimatedBuilder(
       animation: _controller,
       builder: (_, child) {

@@ -4,10 +4,11 @@ import '../data/motivational_quotes.dart';
 import '../l10n/l10n.dart';
 
 class MotivationalQuoteCard extends StatelessWidget {
-  const MotivationalQuoteCard({super.key});
+  const MotivationalQuoteCard({super.key, this.date});
+  final DateTime? date;
 
   String get _todaysQuoteKey {
-    final now = DateTime.now();
+    final now = date ?? DateTime.now();
     final index = (now.day + now.month * 31) % motivationalQuoteKeys.length;
     return motivationalQuoteKeys[index];
   }
@@ -20,7 +21,10 @@ class MotivationalQuoteCard extends StatelessWidget {
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 500),
+      duration:
+          MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       builder: (_, opacity, child) => Opacity(opacity: opacity, child: child),
       child: Card(
@@ -45,10 +49,10 @@ class MotivationalQuoteCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Text(
                 '„$quote"',
-                style: textTheme.bodyLarge?.copyWith(
+                style: textTheme.bodyMedium?.copyWith(
                   fontStyle: FontStyle.italic,
                 ),
               ),

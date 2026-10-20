@@ -18,6 +18,8 @@ import 'package:trainy/screens/training_plan_setup_screen.dart';
 import 'package:trainy/services/app_database.dart';
 import 'package:trainy/services/database_service.dart';
 import 'package:trainy/themes/app_theme.dart';
+import 'package:trainy/providers/training_profile_provider.dart';
+import 'package:trainy/repositories/training_profile_repository.dart';
 
 /// Real Android SQLite + complete local running setup. Android integration targets
 /// build as com.example.trainy.integration, separately from the installed app.
@@ -51,6 +53,12 @@ void main() {
               ChangeNotifierProvider.value(value: workouts),
               ChangeNotifierProvider.value(value: active),
               ChangeNotifierProvider(create: (_) => ProgressProvider()),
+              ChangeNotifierProvider(
+                create:
+                    (_) => TrainingProfileProvider(
+                      store: TrainingProfileRepository(database: database),
+                    ),
+              ),
             ],
             child: MaterialApp(
               theme: AppTheme.light(const Color(0xFF0EC7FF)),
@@ -62,28 +70,55 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Trainingsplan erstellen'));
         await tester.tap(find.text('Trainingsplan erstellen'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(FilterChip, 'Kraft'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Laufen'));
         await tester.tap(find.text('Weiter'));
         await tester.pumpAndSettle();
         expect(find.byType(CardioProfileScreen), findsOneWidget);
-        await tester.tap(find.text('Anfänger'));
-        await tester.ensureVisible(find.text('Ja'));
-        await tester.tap(find.text('Ja'));
-        await tester.tap(find.text('Weiter'));
-        await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextFormField).at(1), '32:30');
-        await tester.tap(find.text('Weiter'));
-        await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextFormField).first, '7,5');
-        await tester.ensureVisible(find.text('2'));
-        await tester.tap(find.text('2'));
-        await tester.tap(find.text('Weiter'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Speichern'));
+        Future<void> next() async {
+          await tester.tap(find.text('Weiter'));
+          await tester.pumpAndSettle();
+        }
+
+        Future<void> choose(String text) async {
+          await Scrollable.ensureVisible(
+            tester.element(find.text(text).first),
+            alignment: .5,
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(text).first);
+        }
+
+        await choose('Anfänger');
+        await next();
+        await choose('Weniger als 6 Monate');
+        await next();
+        await tester.enterText(
+          find.byKey(const ValueKey('running-continuous')),
+          '45',
+        );
+        await next();
+        await choose('2');
+        await next();
+        await choose('Weiß ich nicht');
+        await next();
+        await tester.enterText(
+          find.byKey(const ValueKey('running-time')),
+          '45',
+        );
+        await next();
+        await choose('Normaler Trainingslauf');
+        await next();
+        await tester.enterText(
+          find.byKey(const ValueKey('running-longest')),
+          '7,5',
+        );
+        await next();
+        await next();
+        await next();
+        await tester.tap(find.text('Profil bestätigen'));
         await tester.pumpAndSettle();
         expect(find.byType(CardioProfileScreen), findsNothing);
         expect(find.byType(TrainingPlanSetupScreen), findsOneWidget);
@@ -98,7 +133,8 @@ void main() {
         expect(find.byType(TrainingPlanSetupScreen), findsNothing);
         expect(find.text('Offline 5 km'), findsOneWidget);
         expect(plans.active?.name, 'Offline 5 km');
-        expect((await cardio.repository.profile()).referenceSeconds, 1950);
+        expect((await cardio.repository.profile()).referenceSeconds, 2700);
+        expect((await cardio.repository.profile()).setupVersion, 1);
         expect((await cardio.repository.profile()).canRunFiveKm, true);
         expect((await cardio.repository.occurrences()).length, greaterThan(15));
         expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);

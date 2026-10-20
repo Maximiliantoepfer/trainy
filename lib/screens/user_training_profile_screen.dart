@@ -9,6 +9,7 @@ import '../widgets/training_profile_settings_card.dart';
 import '../widgets/plan_controls.dart';
 import 'cardio_profile_screen.dart';
 import 'cardio_health_screen.dart';
+import 'strength_profile_screen.dart';
 
 class UserTrainingProfileScreen extends StatefulWidget {
   const UserTrainingProfileScreen({
@@ -49,13 +50,13 @@ class _UserTrainingProfileScreenState extends State<UserTrainingProfileScreen> {
   Future<void> _update(Map<String, dynamic> changes) async {
     setState(() => _busy = true);
     try {
+      final repo = context.read<TrainingProgramProvider>().repository;
+      final latest = await repo.userProfile();
       final p = UserTrainingProfile.fromJson({
-        ..._profile!.toJson(),
+        ...latest.toJson(),
         ...changes,
       });
-      await context.read<TrainingProgramProvider>().repository.saveUserProfile(
-        p,
-      );
+      await repo.saveUserProfile(p);
       if (!mounted) return;
       await context.read<CardioProvider>().load();
       if (mounted) {
@@ -73,6 +74,7 @@ class _UserTrainingProfileScreenState extends State<UserTrainingProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.strengthOnly) return const StrengthProfileScreen();
     final p = _profile;
     return Scaffold(
       bottomNavigationBar:

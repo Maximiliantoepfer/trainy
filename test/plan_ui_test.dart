@@ -29,12 +29,45 @@ import 'package:trainy/providers/training_profile_provider.dart';
 import 'package:trainy/repositories/training_profile_repository.dart';
 import 'package:trainy/models/training_profile.dart';
 import 'package:trainy/themes/app_theme.dart';
+import 'package:trainy/widgets/week_activity_card.dart';
+import 'package:trainy/widgets/activity_day_badge.dart';
+import 'package:trainy/widgets/plan_week_block.dart';
+import 'package:trainy/services/cardio_training.dart';
+
+import 'support/confirmed_profiles.dart';
+import 'package:trainy/screens/strength_profile_screen.dart';
 
 class EmptyEquipment extends TrainingProfileRepository {
   @override
+  Future<void> save(TrainingProfileRecord p) async {
+    items.removeWhere((e) => e.id == p.id);
+    items.add(p);
+  }
+
+  final items = <TrainingProfileRecord>[
+    TrainingProfileRecord(
+      id: 'home',
+      name: 'Home Gym',
+      equipmentCodes: {'dumbbell'},
+      createdAtUtc: DateTime.utc(2026),
+      updatedAtUtc: DateTime.utc(2026),
+    ),
+  ];
+  @override
+  Future<void> completeSetup({
+    required List<TrainingProfileRecord> profiles,
+    required String preferredProfileId,
+  }) async {
+    for (final p in profiles) {
+      items.removeWhere((e) => e.id == p.id);
+      items.add(p);
+    }
+  }
+
+  @override
   Future<List<TrainingProfileRecord>> profiles({
     bool includeArchived = false,
-  }) async => [];
+  }) async => items;
   @override
   Future<String?> selectedProfileId() async => null;
   @override
@@ -42,6 +75,17 @@ class EmptyEquipment extends TrainingProfileRepository {
 }
 
 class MemoryPrograms extends TrainingProgramRepository {
+  UserTrainingProfile user = const UserTrainingProfile();
+  @override
+  Future<void> saveUserProfile(UserTrainingProfile p) async {
+    user = p;
+  }
+
+  @override
+  Future<AthleteRunningProfile> withRecentLoad(
+    AthleteRunningProfile p,
+    DateTime now,
+  ) async => p;
   @override
   Future<List<ProgramEntry>> weekEntries(
     TrainingProgram? p,
@@ -54,8 +98,7 @@ class MemoryPrograms extends TrainingProgramRepository {
   @override
   Future<void> initialize() async {}
   @override
-  Future<UserTrainingProfile> userProfile() async =>
-      const UserTrainingProfile();
+  Future<UserTrainingProfile> userProfile() async => user;
   @override
   Future<List<TrainingProgram>> plans() async => saved;
   @override
@@ -92,6 +135,11 @@ class MemoryPrograms extends TrainingProgramRepository {
 }
 
 class MemoryCardio extends CardioRepository {
+  @override
+  Future<Map<String, CardioWorkout>> targetAdjustment(
+    AthleteRunningProfile p,
+  ) async => {};
+
   AthleteRunningProfile value = const AthleteRunningProfile();
   @override
   Future<AthleteRunningProfile> profile() async => value;
@@ -226,14 +274,201 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.runAsync(() async {
-      final c = tester.element(find.byKey(const ValueKey('plan-golden')));
+      final c = tester.element(
+        find.byKey(const ValueKey('plan-golden'), skipOffstage: false),
+      );
       await Future.wait([
         precacheImage(const AssetImage('assets/icons/sofa.png'), c),
         precacheImage(const AssetImage('assets/icons/hantel.png'), c),
+        precacheImage(const AssetImage('assets/icons/muskel.png'), c),
       ]);
     });
     await tester.pumpAndSettle();
   }
+
+  for (final dark in [false, true]) {
+    testWidgets('completed mixed week and true streak, reduced motion $dark', (
+      tester,
+    ) async {
+      final today = DateTime(2030, 1, 2);
+      final monday = DateTime(2029, 12, 31);
+      final entries = [
+        for (var i = 0; i < 3; i++)
+          ProgramEntry(
+            id: 's$i',
+            planId: 'p',
+            date: monday.add(Duration(days: i)),
+            name: 'Push + Bauch',
+            kind: 'strength',
+            completed: i < 2,
+          ),
+        ProgramEntry(
+          id: 'run',
+          planId: 'p',
+          date: today,
+          name: 'Easy',
+          kind: 'running',
+          completed: true,
+        ),
+      ];
+      DateTime? selected;
+      await mount(
+        tester,
+        Scaffold(
+          body: Builder(
+            builder:
+                (c) => MediaQuery(
+                  data: MediaQuery.of(c).copyWith(disableAnimations: true),
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      WeekActivityCard(
+                        date: monday,
+                        todayOverride: today,
+                        entries: entries,
+                        streak: datedPlanStreak(entries, today),
+                        onDateChanged: (d) => selected = d,
+                      ),
+                    ],
+                  ),
+                ),
+          ),
+        ),
+        dark: dark,
+      );
+      final badges =
+          tester
+              .widgetList<ActivityDayBadge>(find.byType(ActivityDayBadge))
+              .toList();
+      expect(badges[0].selected, false);
+      expect(badges[0].state.done, true);
+      expect(badges[2].selected, true);
+      expect(badges[2].state.kind, 'strength');
+      expect(badges[2].state.fraction, .5);
+      expect(find.text('2 Trainingstage in Folge'), findsOneWidget);
+      await expectLater(
+        find.byKey(const ValueKey('plan-golden')),
+        matchesGoldenFile('goldens/week_streak_${dark ? 'dark' : 'light'}.png'),
+      );
+      await tester.tap(find.text('Heute'));
+      expect(selected, today);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('calendar stacks workouts and compact rest days $dark', (
+      tester,
+    ) async {
+      final monday = DateTime(2030, 1, 7);
+      final running = CardioTraining.template(
+        'easy5k',
+        confirmedRunner(),
+        (s) => s,
+      );
+      final entries = [
+        ProgramEntry(
+          id: 's',
+          planId: 'p',
+          date: monday,
+          name: 'pushCore',
+          kind: 'strength',
+          completed: true,
+        ),
+        ProgramEntry(
+          id: 'r',
+          planId: 'p',
+          date: monday,
+          name: 'Lockerer Lauf',
+          kind: 'running',
+          cardio: ScheduledCardioWorkout(
+            id: 'r',
+            planId: 'p',
+            date: monday,
+            workout: running,
+          ),
+        ),
+      ];
+      await mount(
+        tester,
+        Scaffold(
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              for (var week = 0; week < 2; week++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: PlanWeekBlock(
+                    monday: monday.add(Duration(days: week * 7)),
+                    planStart: monday,
+                    entries: week == 0 ? entries : [],
+                    onAdd: (_) {},
+                    entryBuilder:
+                        (e) => PlanWorkoutTile(
+                          entry: e,
+                          units: DistanceSystem.metric,
+                          onTap: () {},
+                          onActions: () {},
+                        ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        dark: dark,
+      );
+      expect(find.textContaining('9:30'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await expectLater(
+        find.byKey(const ValueKey('plan-golden')),
+        matchesGoldenFile(
+          'goldens/plan_calendar_${dark ? 'dark' : 'light'}.png',
+        ),
+      );
+    });
+  }
+  testWidgets(
+    'strength setup requires each decision; Home Gym is a suggestion and drafts resume',
+    (tester) async {
+      await mount(tester, const TrainingPlanSetupScreen());
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(find.byType(StrengthProfileScreen), findsNothing);
+      await tester.tap(find.text('Kraft'));
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(find.byType(StrengthProfileScreen), findsOneWidget);
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(programs.user.strengthSetupVersion, 0);
+      expect(find.text('Bitte wähle eine Antwort.'), findsOneWidget);
+      await tester.tap(find.text('Anfänger'));
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(find.text('Home Gym'), findsOneWidget);
+      expect(programs.user.strengthSetupVersion, 0);
+      await tester.tap(find.text('Später'));
+      await tester.pumpAndSettle();
+      expect(programs.user.strengthSetupVersion, 0);
+      expect(programs.drafts['strength-profile']?['step'], 1);
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(find.byType(StrengthProfileScreen), findsOneWidget);
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Welche Geräte stehen dir zur Verfügung?'),
+        findsOneWidget,
+      );
+      expect(programs.user.strengthSetupVersion, 0);
+      await tester.tap(find.text('Profil bestätigen'));
+      await tester.pumpAndSettle();
+      expect(programs.user.strengthSetupVersion, 1);
+      expect(programs.user.strengthProfileId, 'home');
+      expect(programs.drafts['strength-profile'], isNull);
+      expect(find.byType(CardioProfileScreen), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   test(
     'chosen accent is exact; foregrounds and field outlines meet contrast',
@@ -281,7 +516,11 @@ void main() {
     testWidgets('plan-first empty home ${dark ? 'dark' : 'light'}', (
       tester,
     ) async {
-      await mount(tester, const PlanHomeScreen(), dark: dark);
+      await mount(
+        tester,
+        PlanHomeScreen(todayOverride: DateTime(2030, 1, 9)),
+        dark: dark,
+      );
       expect(find.text('Trainingsplan erstellen'), findsOneWidget);
       expect(find.text('Ohne Plan trainieren'), findsNothing);
       expect(find.text('Weiteres Workout starten'), findsOneWidget);
@@ -297,14 +536,17 @@ void main() {
   testWidgets(
     'new plan offers seven available days but only three strength sessions',
     (tester) async {
+      programs.user = const UserTrainingProfile(
+        strengthLevel: 'beginner',
+        strengthProfileId: 'home',
+        strengthSetupVersion: 1,
+      );
       await mount(tester, const TrainingPlanSetupScreen());
       expect(
         tester.widget<PlanDayPicker>(find.byType(PlanDayPicker)).selected,
         {1, 2, 3, 4, 5, 6, 7},
       );
-      await tester.tap(find.text('Weiter'));
-      await tester.pumpAndSettle();
-      // The contextual strength profile can be left without forcing equipment setup.
+      await tester.tap(find.text('Kraft'));
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
       expect(
@@ -498,6 +740,7 @@ void main() {
                 PlanWeekView(
                   program: p,
                   date: p.start,
+                  todayOverride: DateTime(2030, 1, 9),
                   onDateChanged: (_) {},
                   todayFirst: true,
                 ),
@@ -521,8 +764,9 @@ void main() {
     'performance question is readable at large text without a clipped label',
     (tester) async {
       programs.drafts['running-profile'] = {
+        'version': 1,
         'fields': {'distance': '5', 'time': '32:30'},
-        'step': 1,
+        'step': 5,
       };
       await mount(
         tester,
@@ -546,24 +790,55 @@ void main() {
         width: 320,
         scale: 1.6,
       );
-      await tester.scrollUntilVisible(find.text('Ja'), 200);
-      await tester.tap(find.text('Ja'));
-      await tester.tap(find.text('Weiter'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextFormField).at(1), '0:00');
-      await tester.tap(find.text('Weiter'));
-      await tester.pumpAndSettle();
+      Future<void> next() async {
+        await tester.tap(find.text('Weiter'));
+        await tester.pumpAndSettle();
+      }
+
+      Future<void> choose(String text) async {
+        await Scrollable.ensureVisible(
+          tester.element(find.text(text).first),
+          alignment: .5,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(text).first);
+      }
+
+      await choose('Anfänger');
+      await next();
+      await choose('Weniger als 6 Monate');
+      await next();
+      await tester.enterText(
+        find.byKey(const ValueKey('running-continuous')),
+        '45',
+      );
+      await next();
+      await choose('3');
+      await next();
+      await choose('Weiß ich nicht');
+      await next();
+      await tester.enterText(find.byKey(const ValueKey('running-time')), '0');
+      await next();
       expect(find.textContaining('Zeit über 0'), findsOneWidget);
-      await tester.enterText(find.byType(TextFormField).at(1), '32:30');
-      await tester.tap(find.text('Weiter'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextFormField).first, '7,5');
-      await tester.tap(find.text('Weiter'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(ExpansionTile));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextFormField).first, '60');
-      await tester.tap(find.text('Speichern'));
+      await tester.enterText(
+        find.byKey(const ValueKey('running-time')),
+        '32:30',
+      );
+      await next();
+      await choose('Normaler Trainingslauf');
+      await next();
+      await tester.enterText(
+        find.byKey(const ValueKey('running-longest')),
+        '7,5',
+      );
+      await next();
+      await tester.enterText(
+        find.byKey(const ValueKey('running-restPulse')),
+        '60',
+      );
+      await next();
+      await next();
+      await tester.tap(find.text('Profil bestätigen'));
       await tester.pumpAndSettle();
       expect(cardioRepo.value.canRunFiveKm, true);
       expect(cardioRepo.value.referenceSeconds, 1950);
@@ -574,38 +849,37 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-  testWidgets(
-    'plan draft resumes preview, displays missing assignments without claiming readiness',
-    (tester) async {
-      final p = TrainingProgram(
-        name: 'My week',
-        start: DateTime(2030, 1, 7),
-        slots: ProgramSplits.slots([1, 3, 5], 'fullBody'),
-      );
-      programs.drafts['plan:new'] = {
-        'program': p.toJson(),
-        'sports': ['strength'],
-        'available': [1, 3, 5],
-        'step': 2,
-        'runningChanged': false,
-      };
-      await mount(
-        tester,
-        const TrainingPlanSetupScreen(),
-        width: 320,
-        scale: 1.5,
-        locale: 'en',
-      );
-      expect(find.text('My week'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.textContaining('Assign workout').first,
-        220,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.textContaining('Assign workout'), findsWidgets);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('legacy plan draft cannot bypass the strength profile', (
+    tester,
+  ) async {
+    final p = TrainingProgram(
+      name: 'My week',
+      start: DateTime(2030, 1, 7),
+      slots: ProgramSplits.slots([1, 3, 5], 'fullBody'),
+    );
+    programs.drafts['plan:new'] = {
+      'program': p.toJson(),
+      'sports': ['strength'],
+      'available': [1, 3, 5],
+      'step': 2,
+      'runningChanged': false,
+    };
+    await mount(
+      tester,
+      const TrainingPlanSetupScreen(),
+      width: 320,
+      scale: 1.5,
+      locale: 'en',
+    );
+    expect(find.byType(StrengthProfileScreen), findsOneWidget);
+    expect(find.text('Use plan'), findsNothing);
+    await tester.tap(find.text('Later'));
+    await tester.pumpAndSettle();
+    expect(programs.user.strengthSetupVersion, 0);
+    expect(programs.saved, isEmpty);
+    expect(programs.drafts['plan:new'], isNotNull);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'metric draft survives an imperial switch without rounding canonical distances',
     (tester) async {
@@ -614,21 +888,64 @@ void main() {
       );
       await cardio.load();
       programs.drafts['running-profile'] = {
-        'fields': {'distance': '5', 'time': '32:30', 'longest': '7,5'},
+        'fields': {
+          'distance': '5',
+          'time': '32:30',
+          'longest': '7,5',
+          'continuous': '45',
+        },
         'canonicalMeters': {'distance': 5000.0, 'longest': 7500.0},
         'units': 'metric',
-        'step': 3,
-        'canFive': true,
+        'version': 1,
+        'step': 10,
+        'level': 'beginner',
+        'months': 2,
+        'frequency': 3,
+        'volume': null,
+        'kind': 'normal',
+        'confirmed': confirmedAnswers.toList(),
       };
       await mount(
         tester,
         CardioProfileScreen(provider: cardio, setupRepository: programs),
       );
-      await tester.tap(find.text('Speichern'));
+      await tester.tap(find.text('Profil bestätigen'));
       await tester.pumpAndSettle();
       expect(cardioRepo.value.referenceMeters, 5000);
       expect(cardioRepo.value.longestMeters, 7500);
       expect(cardioRepo.value.referenceSeconds, 1950);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'optional pulse zones remain visible as estimates in the review',
+    (tester) async {
+      programs.drafts['running-profile'] = {
+        'version': 1,
+        'step': 10,
+        'level': 'beginner',
+        'months': 2,
+        'frequency': 3,
+        'volume': null,
+        'kind': 'normal',
+        'confirmed': confirmedAnswers.toList(),
+        'units': 'metric',
+        'fields': {
+          'distance': '5',
+          'time': '45',
+          'continuous': '45',
+          'restPulse': '60',
+          'maxPulse': '190',
+        },
+      };
+      await mount(
+        tester,
+        CardioProfileScreen(provider: cardio, setupRepository: programs),
+      );
+      await tester.tap(find.text('Geschätzte Pulszonen'));
+      await tester.pumpAndSettle();
+      expect(find.text('138–151 bpm'), findsOneWidget);
+      expect(find.textContaining('keine Leistungsdiagnostik'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
