@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../l10n/strength_l10n.dart';
+import '../models/strength_equipment.dart';
 
 import '../l10n/l10n.dart';
 import '../models/training_profile.dart';
@@ -564,5 +566,8 @@ String equipmentLabel(BuildContext context, String code) => switch (code) {
   'cardio_machine' => context.l10n.equipmentCardioMachine,
   'bicycle' => context.l10n.equipmentBicycle,
   'pool' => context.l10n.equipmentPool,
-  _ => context.l10n.equipmentOther,
+  _ =>
+    StrengthEquipment.all.contains(code)
+        ? context.strength(code)
+        : context.l10n.equipmentOther,
 };

@@ -1,3 +1,4 @@
+import '../models/training_program.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../l10n/planning_l10n.dart';
@@ -350,6 +351,14 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
       await _writes;
       ProfileReadiness.requireRunning(p);
       await widget.provider.repository.saveProfile(p);
+      final user = await _repo.userProfile();
+      await _repo.saveUserProfile(
+        UserTrainingProfile.fromJson({
+          ...user.toJson(),
+          'interests': {...user.interests, 'running'}.toList(),
+          'interestsVersion': 1,
+        }),
+      );
       await _repo.clearDraft('running-profile');
       await widget.provider.load();
       final changes = await widget.provider.repository.targetAdjustment(p);
@@ -613,9 +622,14 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
           '${CardioUnits.distance(_meters('distance'), _original.units, locale: Localizations.localeOf(context).toString())} · ${CardioUnits.clock(_seconds ?? 0)}',
         ),
         if (_profile().zones.isNotEmpty)
-          ExpansionTile(
-            title: Text(context.cardio('zones')),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const SizedBox(height: 20),
+              Text(
+                context.cardio('zones'),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(context.planning('zoneInfo')),
@@ -623,7 +637,10 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
               for (final zone in _profile().zones.indexed)
                 ListTile(
                   title: Text('Zone ${zone.$1 + 1}'),
-                  trailing: Text('${zone.$2.$1}–${zone.$2.$2} bpm'),
+                  trailing: Text(
+                    '${zone.$2.$1}–${zone.$2.$2} bpm',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
                 ),
             ],
           ),

@@ -408,7 +408,8 @@ class _WorkoutGroupEditorState extends State<WorkoutGroupEditor> {
               slot.isOptional || slot.prescription != null
                   ? Text(
                     [
-                      if (slot.prescription != null) slot.prescription!.label,
+                      if (slot.prescription != null)
+                        '${slot.prescription!.label} · ${slot.prescription!.restSeconds} s',
                       if (slot.isOptional) context.l10n.optionalExercise,
                     ].join(' · '),
                   )

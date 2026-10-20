@@ -1,3 +1,7 @@
+import 'package:trainy/models/strength_equipment.dart';
+import 'package:trainy/services/strength_planning.dart';
+import 'package:trainy/screens/strength_proposal_screen.dart';
+import 'package:trainy/services/catalog_repository.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -160,6 +164,7 @@ class MemoryCardio extends CardioRepository {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
+    expect(await CatalogRepository.instance.load(), isTrue);
     final config = File('.dart_tool/package_config.json').absolute;
     final packages =
         jsonDecode(await config.readAsString())['packages'] as List;
@@ -444,15 +449,26 @@ void main() {
       await tester.tap(find.text('Anfänger'));
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
-      expect(find.text('Home Gym'), findsOneWidget);
+      expect(
+        find.text('Was möchtest du mit Krafttraining erreichen?'),
+        findsOneWidget,
+      );
       expect(programs.user.strengthSetupVersion, 0);
-      await tester.tap(find.text('Später'));
+      await tester.tap(find.byTooltip('Diesen Sport später einrichten'));
       await tester.pumpAndSettle();
       expect(programs.user.strengthSetupVersion, 0);
       expect(programs.drafts['strength-profile']?['step'], 1);
+      // Skipping only strength leads to a non-activatable empty preview.
+      await tester.tap(find.byType(BackButton).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Kraft'));
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
       expect(find.byType(StrengthProfileScreen), findsOneWidget);
+      await tester.tap(find.text('Fit bleiben'));
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(find.text('Home Gym'), findsWidgets);
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
       expect(
@@ -460,9 +476,13 @@ void main() {
         findsOneWidget,
       );
       expect(programs.user.strengthSetupVersion, 0);
+      await expectLater(
+        find.byType(StrengthProfileScreen),
+        matchesGoldenFile('goldens/strength_equipment_dark.png'),
+      );
       await tester.tap(find.text('Profil bestätigen'));
       await tester.pumpAndSettle();
-      expect(programs.user.strengthSetupVersion, 1);
+      expect(programs.user.strengthSetupVersion, 2);
       expect(programs.user.strengthProfileId, 'home');
       expect(programs.drafts['strength-profile'], isNull);
       expect(find.byType(CardioProfileScreen), findsNothing);
@@ -534,61 +554,113 @@ void main() {
     });
   }
   testWidgets(
-    'new plan offers seven available days but only three strength sessions',
+    'sport selection precedes frequency and seven available strength days',
     (tester) async {
       programs.user = const UserTrainingProfile(
         strengthLevel: 'beginner',
         strengthProfileId: 'home',
-        strengthSetupVersion: 1,
+        strengthProfileIds: ['home'],
+        strengthSetupVersion: 2,
+        strengthGoal: 'generalFitness',
+        strengthPreference: 'guided',
+        strengthAnswers: {'level', 'goal', 'places', 'equipment', 'preference'},
       );
       await mount(tester, const TrainingPlanSetupScreen());
+      expect(find.byType(PlanDayPicker), findsNothing);
+      await tester.tap(find.text('Kraft'));
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(find.text('3×'), findsOneWidget);
+      expect(find.byType(PlanDayPicker), findsNothing);
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
+      expect(find.text('45 min'), findsOneWidget);
+      await tester.tap(find.text('Weiter'));
+      await tester.pumpAndSettle();
       expect(
         tester.widget<PlanDayPicker>(find.byType(PlanDayPicker)).selected,
         {1, 2, 3, 4, 5, 6, 7},
       );
-      await tester.tap(find.text('Kraft'));
       await tester.tap(find.text('Weiter'));
       await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<PlanDayPicker>(find.byType(PlanDayPicker))
-            .selected
-            .length,
-        3,
-      );
-      await tester.tap(find.text('Dein Split'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Push + Bauch / Pull + Beine / Ganzkörper'));
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<PlanDayPicker>(find.byType(PlanDayPicker)).selected,
-        {1, 2, 5},
-      );
-      await tester.ensureVisible(find.text('Push + Bauch'));
-      await tester.tap(find.text('Push + Bauch'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(FilterChip, 'Push'), findsOneWidget);
-      expect(
-        tester
-            .widget<FilterChip>(find.widgetWithText(FilterChip, 'Bauch'))
-            .selected,
-        isTrue,
-      );
-      await tester.tap(find.widgetWithText(FilterChip, 'Pull'));
-      await tester.tap(find.text('Speichern'));
-      await tester.pumpAndSettle();
-      final draft = programs.drafts['plan:new']!;
-      final saved = TrainingProgram.fromJson(
-        Map<String, dynamic>.from(draft['program'] as Map),
-      );
-      expect(saved.split, 'custom');
-      expect(
-        saved.currentSlots.firstWhere((s) => s.weekday == 1).effectiveFocus,
-        {'push', 'pull', 'core'},
-      );
+      final draft =
+          programs.drafts.entries
+              .firstWhere((e) => e.key.startsWith('strength-plan:'))
+              .value;
+      expect((draft['slots'] as List).length, 3);
+      expect(draft['proposal'], isNotNull);
+      expect(find.text('Push + Abs / Pull + Legs'), findsWidgets);
       expect(tester.takeException(), isNull);
     },
   );
+  for (final large in [false, true]) {
+    testWidgets(
+      'generated workout variants remain readable and editable, large $large',
+      (tester) async {
+        final now = DateTime(2030);
+        final places = [
+          for (final id in ['Home Gym', 'Gym'])
+            TrainingProfileRecord(
+              id: id,
+              name: id,
+              equipmentCodes: StrengthEquipment.gym,
+              createdAtUtc: now,
+              updatedAtUtc: now,
+            ),
+        ];
+        const user = UserTrainingProfile(
+          strengthProfileId: 'Home Gym',
+          strengthProfileIds: ['Home Gym', 'Gym'],
+          strengthLevel: 'beginner',
+          strengthSetupVersion: 2,
+          strengthGoal: 'buildMuscle',
+          strengthPreference: 'guided',
+          strengthAnswers: {
+            'level',
+            'goal',
+            'places',
+            'equipment',
+            'preference',
+          },
+        );
+        final proposal = StrengthPlanning.generate(
+          planId: 'p',
+          user: user,
+          places: places,
+          slots: [ProgramSlot(weekday: 1, label: 'pushCore')],
+          goal: 'buildMuscle',
+          minutes: 45,
+          label: (_) => 'Push + Abs',
+        );
+        await mount(
+          tester,
+          StrengthProposalScreen(
+            workout: proposal.workouts.single,
+            places: places,
+          ),
+          dark: !large,
+          width: large ? 320 : 390,
+          scale: large ? 1.8 : 1,
+          locale: large ? 'en' : 'de',
+        );
+        expect(find.text('Home Gym'), findsOneWidget);
+        expect(find.text('Gym'), findsOneWidget);
+        await tester.tap(find.text('Gym'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        if (!large) {
+          await expectLater(
+            find.byKey(const ValueKey('plan-golden')),
+            matchesGoldenFile('goldens/strength_proposal_dark.png'),
+          );
+        }
+        await tester.tap(find.textContaining('2 ×').first);
+        await tester.pumpAndSettle();
+        expect(find.byType(TextFormField), findsNWidgets(4));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets('appearance fits small display and large German text', (
     tester,
   ) async {
@@ -871,9 +943,11 @@ void main() {
       scale: 1.5,
       locale: 'en',
     );
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
     expect(find.byType(StrengthProfileScreen), findsOneWidget);
     expect(find.text('Use plan'), findsNothing);
-    await tester.tap(find.text('Later'));
+    await tester.tap(find.byTooltip('Set up this activity later'));
     await tester.pumpAndSettle();
     expect(programs.user.strengthSetupVersion, 0);
     expect(programs.saved, isEmpty);

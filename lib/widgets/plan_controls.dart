@@ -1,3 +1,4 @@
+import '../l10n/strength_l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../l10n/plan_l10n.dart';
@@ -75,7 +76,7 @@ Future<String?> choosePlanValue(
 );
 
 String planLabel(BuildContext context, String value) {
-  final text = context.plan(value);
+  final text = context.strength(value);
   return text == 'k_$value' ? value : text;
 }
 

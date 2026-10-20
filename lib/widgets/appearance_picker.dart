@@ -1,3 +1,4 @@
+import '../l10n/strength_l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:provider/provider.dart';
@@ -125,20 +126,9 @@ class AppearancePicker extends StatelessWidget {
                 const SizedBox(height: 12),
                 LinearProgressIndicator(value: .65),
                 const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    'Trainy',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                Text(
+                  context.strength('previewLabel'),
+                  style: Theme.of(context).textTheme.labelLarge,
                 ),
               ],
             ),

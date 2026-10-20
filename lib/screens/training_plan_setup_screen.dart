@@ -20,6 +20,13 @@ import '../providers/training_profile_provider.dart';
 import '../widgets/plan_week_block.dart';
 import '../utils/goal_utils.dart';
 import '../utils/uuid_v4.dart';
+import '../l10n/strength_l10n.dart';
+import '../models/strength_plan.dart';
+import '../providers/exercise_provider.dart';
+import 'strength_plan_wizard.dart';
+import 'strength_proposal_screen.dart';
+import 'workout_detail_screen.dart';
+import '../widgets/strength_focus_editor.dart';
 
 class TrainingPlanSetupScreen extends StatefulWidget {
   const TrainingPlanSetupScreen({
@@ -45,6 +52,9 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   bool _busy = false, _ready = false, _runningChanged = false;
   String? _error;
   RunningPlanProposal? _running;
+  StrengthPlanProposal? _strength;
+  final _protectedEntries = <String, ProgramEntry>{};
+  var _strengthMoves = <String, String>{};
   Future<void> _writes = Future.value();
   String get _draftKey => 'plan:${widget.existing?.id ?? 'new'}';
   DateTime _previewMonday(int week) {
@@ -76,6 +86,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
           : [
             'interests',
             if (_sports.contains('strength')) 'strength',
+            if (_sports.contains('strength')) 'runningTransition',
             if (_sports.contains('running')) 'running',
             if (_sports.contains('mobility')) 'mobility',
             'preview',
@@ -128,7 +139,15 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
         _available = Set<int>.from(draft['available'] as List);
         _strengthCount = draft['strengthCount'] as int? ?? 3;
         _runningCount = draft['runningCount'] as int? ?? 3;
-        _step = draft['step'] as int? ?? 0;
+        _step = draft['wizardVersion'] == 2 ? draft['step'] as int? ?? 0 : 0;
+        if (draft['strength'] is Map) {
+          _strength = StrengthPlanProposal.fromJson(
+            Map<String, dynamic>.from(draft['strength']),
+          );
+        }
+        _strengthMoves.addAll(
+          Map<String, String>.from(draft['strengthMoves'] ?? const {}),
+        );
         _runningChanged = draft['runningChanged'] == true;
         final savedRunning = draft['running'] as Map?;
         if (savedRunning != null) {
@@ -155,6 +174,16 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
           );
         }
       }
+      if (widget.existing != null) {
+        for (final e in await repo.entries(
+          widget.existing!,
+          widget.existing!.start,
+          DateTime(DateTime.now().year + 2),
+        )) {
+          if (e.completed || e.sessionId != null) _protectedEntries[e.id] = e;
+        }
+      }
+      if (!mounted) return;
       _step = _step.clamp(0, _steps.length - 1);
       _name.text = _program!.name;
       _target.text =
@@ -165,9 +194,8 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
       _name.addListener(_persist);
       _target.addListener(_targetChanged);
       setState(() => _ready = true);
-      if (_steps[_step] != 'interests') {
-        if (!await _ensureProfiles(_requiredSports)) return;
-        if (_steps[_step] == 'preview' && _running == null) await _preview();
+      if (_steps[_step] == 'running' && !await _ensureProfiles({'running'})) {
+        _skipSport('running');
       }
     } catch (_) {
       if (mounted) setState(() => _error = 'error');
@@ -188,6 +216,9 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     );
     final repo = context.read<TrainingProgramProvider>().repository;
     final data = {
+      'wizardVersion': 2,
+      'strength': _strength?.toJson(),
+      'strengthMoves': {..._strengthMoves},
       'program': _program!.toJson(),
       'sports': _sports.toList(),
       'available': _available.toList(),
@@ -222,8 +253,8 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
 
   void _change(VoidCallback f, {bool running = false}) {
     setState(() {
-      f();
       _error = null;
+      f();
       if (running) {
         _runningChanged = true;
         _running = null;
@@ -415,6 +446,28 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
         return;
       }
       _distribute();
+      if (_sports.contains('running')) await _restoreRunningSettings();
+      if (!mounted) return;
+      final repo = context.read<TrainingProgramProvider>().repository;
+      final user = await repo.userProfile();
+      await repo.saveUserProfile(
+        UserTrainingProfile.fromJson({
+          ...user.toJson(),
+          'interests': _sports.toList(),
+          'interestsVersion': 1,
+        }),
+      );
+      if (!mounted) return;
+    }
+    if (step == 'runningTransition') {
+      await _restoreRunningSettings();
+      if (!mounted) return;
+      _sports.add('running');
+      if (!_program!.hasRunning) {
+        _program = _program!.copyWith(
+          runningDays: ProgramSplits.suggestedDays(_available, _runningCount),
+        );
+      }
     }
     if (step == 'strength' && !_currentSlots.any((s) => s.kind == 'strength') ||
         step == 'running' && !_program!.hasRunning) {
@@ -432,6 +485,14 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     setState(() => _busy = true);
     try {
       if (step == 'preview') {
+        if (_program!.days.isEmpty) {
+          setState(() => _error = 'emptyPlanHint');
+          return;
+        }
+        if (_generatedStrength != null && !_generatedStrength!.ready) {
+          setState(() => _error = 'reviewRequired');
+          return;
+        }
         if (!await _ensureProfiles(_requiredSports)) return;
         if (!mounted) return;
         if (_program!.hasRunning && _runningChanged && _running == null) {
@@ -489,26 +550,35 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
         }
         if (!mounted) return;
         final store = context.read<TrainingProgramProvider>();
+        final locale = Localizations.localeOf(context).languageCode;
         await _writes;
         await store.repository.save(
           _program!.copyWith(name: _name.text),
           running: _runningChanged ? _running : null,
+          strength: _generatedStrength,
+          locale: locale,
+          strengthMoves: _strengthMoves,
         );
         await store.repository.clearDraft(_draftKey);
         await store.load();
+        if (!mounted) return;
+        await context.read<WorkoutProvider>().loadWorkouts();
+        if (!mounted) return;
+        await context.read<ExerciseProvider?>()?.loadExercises();
         if (!mounted) return;
         await context.read<CardioProvider>().load();
         if (mounted) Navigator.pop(context, true);
       } else {
         final nextSport = _steps[_step + 1];
-        if (['strength', 'running'].contains(nextSport) &&
-            !await _ensureProfiles({nextSport})) {
+        if (nextSport == 'running' && !await _ensureProfiles({nextSport})) {
+          if (mounted) _skipSport('running');
           return;
         }
         if (_steps[_step + 1] == 'preview') await _preview();
         if (mounted) _change(() => _step++);
       }
-    } catch (_) {
+    } catch (error, stack) {
+      debugPrint('Saving training plan failed: $error\n$stack');
       if (mounted) {
         setState(() => _error = 'savingError');
         ScaffoldMessenger.of(
@@ -520,10 +590,101 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     }
   }
 
+  /// Manually assigned workouts replace their generated draft, including its
+  /// readiness check; an unused reduced draft must not block activation.
+  StrengthPlanProposal? get _generatedStrength =>
+      _strength == null
+          ? null
+          : StrengthPlanProposal(
+            workouts:
+                _strength!.workouts
+                    .where(
+                      (w) => _program!.slots.any(
+                        (s) => s.id == w.slotId && s.workoutId == null,
+                      ),
+                    )
+                    .toList(),
+          );
+
   Set<String> get _requiredSports =>
       widget.existing != null && widget.initialSection != null
           ? {widget.initialSection!}
           : _sports;
+
+  Future<void> _restoreRunningSettings() async {
+    final draft = await context
+        .read<TrainingProgramProvider>()
+        .repository
+        .draft('running-plan:${_program!.id}');
+    if (draft == null || !mounted) return;
+    final deferred = TrainingProgram.fromJson(draft);
+    _program = _program!.copyWith(
+      runningDays: deferred.runningDays,
+      runningGoal: deferred.runningGoal,
+      targetMeters: deferred.targetMeters,
+      targetSeconds: deferred.targetSeconds,
+      targetDate: deferred.targetDate,
+    );
+    if (deferred.targetSeconds != null) {
+      _target.text = CardioUnits.clock(deferred.targetSeconds!);
+    }
+  }
+
+  Future<void> _skipSport(String sport) async {
+    if (widget.existing != null && widget.initialSection == sport) {
+      Navigator.pop(context, false);
+      return;
+    }
+    if (sport == 'running') {
+      await context.read<TrainingProgramProvider>().repository.saveDraft(
+        'running-plan:${_program!.id}',
+        _program!.toJson(),
+      );
+      if (!mounted) return;
+    }
+    _change(() {
+      _sports.remove(sport);
+      if (sport == 'running') {
+        _program = _program!.copyWith(runningDays: []);
+        _running = null;
+      } else {
+        _program = _program!.copyWith(
+          slots: _program!.slots.where((s) => s.kind != sport).toList(),
+        );
+        if (sport == 'strength') _strength = null;
+      }
+      _step = _steps.length - 1;
+      if (sport == 'strength' && _sports.contains('running')) {
+        _step = _steps.indexOf('runningTransition');
+      }
+      if (_step < 0) _step = _steps.indexOf('running');
+      if (_step < 0) _step = _steps.length - 1;
+    });
+    if (_steps[_step] == 'running' &&
+        !await _ensureProfiles({'running'}) &&
+        mounted) {
+      await _skipSport('running');
+    }
+  }
+
+  void _strengthComplete(StrengthSetupResult result) {
+    _change(() {
+      _strength = result.proposal;
+      _program = _program!.copyWith(
+        strengthGoal: result.goal,
+        strengthSettings: {
+          ...result.settings,
+          'proposal': result.proposal.toJson(),
+        },
+        slots: [
+          ..._program!.slots.where((s) => s.kind != 'strength'),
+          ...result.slots,
+        ],
+      );
+      _step = _steps.indexOf('runningTransition');
+      if (_step < 0) _step = _steps.length - 1;
+    });
+  }
 
   Future<bool> _ensureProfiles(Set<String> sports) async {
     for (final sport in sports.where(
@@ -594,153 +755,17 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   }
 
   Future<void> _editSlot(ProgramSlot slot) async {
-    var focus = slot.effectiveFocus;
-    final name = TextEditingController(
-      text:
-          slot.label == 'custom' ||
-                  ProgramSplits.focusFor(slot.label).isNotEmpty
-              ? ''
-              : slot.label,
-    );
-    final result = await showModalBottomSheet<ProgramSlot>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder:
-          (c) => StatefulBuilder(
-            builder:
-                (c, set) => SafeArea(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        20,
-                        0,
-                        20,
-                        24 + MediaQuery.viewInsetsOf(c).bottom,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            c.plan('focus'),
-                            style: Theme.of(c).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final key in [
-                                'push',
-                                'pull',
-                                'legs',
-                                'core',
-                              ])
-                                FilterChip(
-                                  label: Text(c.plan(key)),
-                                  selected: focus.contains(key),
-                                  onSelected:
-                                      (v) => set(() {
-                                        focus =
-                                            v
-                                                ? {...focus, key}
-                                                : ({...focus}..remove(key));
-                                      }),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: name,
-                            decoration: InputDecoration(
-                              labelText: c.plan('name'),
-                            ),
-                          ),
-                          ExpansionTile(
-                            tilePadding: EdgeInsets.zero,
-                            title: Text(c.plan('muscleFocus')),
-                            children: [
-                              Wrap(
-                                spacing: 8,
-                                children: [
-                                  for (final key in [
-                                    'chest',
-                                    'back',
-                                    'shoulders',
-                                    'arms',
-                                    'quads',
-                                    'glutes',
-                                    'calves',
-                                  ])
-                                    FilterChip(
-                                      label: Text(c.plan(key)),
-                                      selected: focus.contains(key),
-                                      onSelected:
-                                          (v) => set(
-                                            () =>
-                                                focus =
-                                                    v
-                                                        ? {...focus, key}
-                                                        : ({...focus}
-                                                          ..remove(key)),
-                                          ),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          FilledButton(
-                            onPressed: () {
-                              final code =
-                                  [
-                                    'fullBody',
-                                    'upper',
-                                    'legs',
-                                    'pushCore',
-                                    'pullLegs',
-                                    'push',
-                                    'pull',
-                                    'core',
-                                  ].where((key) {
-                                    final f = ProgramSplits.focusFor(key);
-                                    return f.length == focus.length &&
-                                        f.containsAll(focus);
-                                  }).firstOrNull ??
-                                  'custom';
-                              Navigator.pop(
-                                c,
-                                slot.copyWith(
-                                  label:
-                                      name.text.trim().isEmpty
-                                          ? code
-                                          : name.text.trim(),
-                                  focus: focus.toList(),
-                                ),
-                              );
-                            },
-                            child: Text(c.plan('save')),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-          ),
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    name.dispose();
-    if (result == null || !mounted) return;
-    _change(
-      () =>
-          _program = _program!.copyWith(
-            split: 'custom',
-            slots: [
-              for (final s in _program!.slots) s.id == slot.id ? result : s,
-            ],
-          ),
-    );
+    final result = await editStrengthFocus(context, slot);
+    if (result != null && mounted) {
+      _change(
+        () =>
+            _program = _program!.copyWith(
+              slots: [
+                for (final s in _program!.slots) s.id == slot.id ? result : s,
+              ],
+            ),
+      );
+    }
   }
 
   Widget _choice(
@@ -782,6 +807,227 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     );
   }
 
+  Future<void> _reviewStrength(StrengthWorkoutDraft draft) async {
+    final places = await context.read<TrainingProfileProvider>().profiles();
+    if (!mounted) return;
+    final result = await Navigator.push<StrengthWorkoutDraft>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StrengthProposalScreen(workout: draft, places: places),
+      ),
+    );
+    if (result != null && mounted) {
+      _change(
+        () =>
+            _strength = StrengthPlanProposal(
+              workouts: [
+                for (final w in _strength!.workouts)
+                  w.id == result.id ? result : w,
+              ],
+            ),
+      );
+    }
+  }
+
+  List<ProgramEntry> _strengthPreviewEntries(DateTime monday) {
+    final p = _program!, result = <ProgramEntry>[];
+    var horizon = DateTime(monday.year, monday.month, monday.day + 7);
+    for (final key in _strengthMoves.keys) {
+      final original = DateTime.tryParse(
+        key.substring(key.lastIndexOf(':') + 1),
+      );
+      if (original != null && !original.isBefore(horizon)) {
+        horizon = DateTime(original.year, original.month, original.day + 1);
+      }
+    }
+    final firstMonday = DateTime(
+      p.start.year,
+      p.start.month,
+      p.start.day - p.start.weekday + 1,
+    );
+    for (
+      var date = DateUtils.dateOnly(p.start);
+      date.isBefore(horizon);
+      date = DateTime(date.year, date.month, date.day + 1)
+    ) {
+      if (p.endDate != null && date.isAfter(p.endDate!)) break;
+      final week = calendarDays(date, firstMonday) ~/ 7;
+      for (final slot in p.slots.where(
+        (s) =>
+            s.weekday == date.weekday &&
+            (s.cycleWeek == 0 || s.cycleWeek == week % 2 + 1) &&
+            (s.from == null || !date.isBefore(s.from!)) &&
+            (s.until == null || !date.isAfter(s.until!)),
+      )) {
+        final id = '${slot.id}:${dateKey(date)}';
+        final target =
+            _strengthMoves[id] == null
+                ? date
+                : DateTime.parse(_strengthMoves[id]!);
+        if (calendarDays(target, monday) < 0 ||
+            calendarDays(target, monday) >= 7) {
+          continue;
+        }
+        final protected = _protectedEntries[id];
+        if (protected != null) {
+          result.add(protected);
+          continue;
+        }
+        final draft =
+            _generatedStrength?.workouts
+                .where((w) => w.slotId == slot.id)
+                .firstOrNull;
+        final assigned =
+            context
+                .read<WorkoutProvider>()
+                .workouts
+                .where((w) => w.canonicalId == slot.workoutId)
+                .firstOrNull;
+        result.add(
+          ProgramEntry(
+            id: id,
+            planId: p.id,
+            date: target,
+            originalDate: date,
+            name: assigned?.name ?? draft?.name ?? slot.label,
+            kind: slot.kind,
+            slotId: slot.id,
+            workoutId: slot.workoutId ?? draft?.id,
+          ),
+        );
+      }
+    }
+    return result;
+  }
+
+  String? _proposalSummary(ProgramEntry e) {
+    final w =
+        _generatedStrength?.workouts
+            .where((w) => w.slotId == e.slotId)
+            .firstOrNull;
+    final v = w?.variants.firstOrNull;
+    return v == null
+        ? null
+        : '${v.exercises.length} ${context.strength('exercises')} · ~${(v.estimatedSeconds / 60).ceil()} min';
+  }
+
+  Future<void> _choosePreviewDate(ProgramEntry e) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: e.date,
+      firstDate: _program!.start,
+      lastDate: _program!.endDate ?? DateTime(2100),
+    );
+    if (date != null && mounted) _movePreview(e, date);
+  }
+
+  void _movePreview(ProgramEntry e, DateTime date) {
+    if (e.completed || e.sessionId != null) return;
+    final previousMoves = Map<String, String>.from(_strengthMoves),
+        previousRunning = _running;
+    _change(() {
+      if (e.cardio == null) {
+        _strengthMoves[e.id] = dateKey(date);
+      } else {
+        final source = _running;
+        final items =
+            source?.occurrences ??
+            context
+                .read<CardioProvider>()
+                .occurrences
+                .where((o) => o.planId == _program!.id)
+                .toList();
+        _running = RunningPlanProposal(
+          id: source?.id ?? _program!.id,
+          request:
+              source?.request ??
+              RunningPlanRequest(
+                targetMeters: _program!.targetMeters,
+                startDate: _program!.start,
+              ),
+          baseWeeks: source?.baseWeeks ?? 0,
+          warnings: source?.warnings ?? [],
+          occurrences: [
+            for (final o in items)
+              o.id == e.id
+                  ? ScheduledCardioWorkout(
+                    id: o.id,
+                    planId: o.planId,
+                    date: date,
+                    workout: o.workout,
+                    locked: true,
+                    status: o.status,
+                    sessionId: o.sessionId,
+                  )
+                  : o,
+          ],
+        );
+        _runningChanged = true;
+      }
+    });
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.strength('moved')),
+        action: SnackBarAction(
+          label: context.strength('undoMove'),
+          onPressed: () {
+            _change(() {
+              _strengthMoves = previousMoves;
+              _running = previousRunning;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _swapPreview(
+    ProgramEntry entry,
+    List<ProgramEntry> entries,
+  ) async {
+    final other = await showModalBottomSheet<ProgramEntry>(
+      context: context,
+      showDragHandle: true,
+      builder:
+          (c) => SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final e in entries.where(
+                  (e) =>
+                      e.id != entry.id && !e.completed && e.sessionId == null,
+                ))
+                  ListTile(
+                    title: Text(planLabel(c, e.name)),
+                    subtitle: Text(DateFormat.yMMMd().format(e.date)),
+                    onTap: () => Navigator.pop(c, e),
+                  ),
+              ],
+            ),
+          ),
+    );
+    if (other == null || !mounted) return;
+    final beforeMoves = Map<String, String>.from(_strengthMoves),
+        beforeRunning = _running;
+    _movePreview(entry, other.date);
+    _movePreview(other, entry.date);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.plan('swap')),
+        action: SnackBarAction(
+          label: context.strength('undoMove'),
+          onPressed:
+              () => _change(() {
+                _strengthMoves = beforeMoves;
+                _running = beforeRunning;
+              }),
+        ),
+      ),
+    );
+  }
+
   Widget _weekPreview(int week) {
     final p = _program!;
     final monday = DateTime(
@@ -797,44 +1043,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
             .where((e) => e.planId == p.id)
             .toList();
     final entries = <ProgramEntry>[
-      for (var d = 0; d < 7; d++)
-        for (final s in p.slots.where(
-          (s) =>
-              s.weekday == d + 1 &&
-              (s.cycleWeek == 0 || s.cycleWeek == week % 2 + 1),
-        ))
-          if (!DateTime(
-                monday.year,
-                monday.month,
-                monday.day + d,
-              ).isBefore(p.start) &&
-              (p.endDate == null ||
-                  !DateTime(
-                    monday.year,
-                    monday.month,
-                    monday.day + d,
-                  ).isAfter(p.endDate!)) &&
-              (s.from == null ||
-                  !DateTime(
-                    monday.year,
-                    monday.month,
-                    monday.day + d,
-                  ).isBefore(s.from!)) &&
-              (s.until == null ||
-                  !DateTime(
-                    monday.year,
-                    monday.month,
-                    monday.day + d,
-                  ).isAfter(s.until!)))
-            ProgramEntry(
-              id: '${s.id}:$week',
-              planId: p.id,
-              date: DateTime(monday.year, monday.month, monday.day + d),
-              name: s.label,
-              kind: s.kind,
-              slotId: s.id,
-              workoutId: s.workoutId,
-            ),
+      ..._strengthPreviewEntries(monday),
       for (final o in running)
         if (calendarDays(o.date, monday) >= 0 &&
             calendarDays(o.date, monday) < 7 &&
@@ -866,23 +1075,73 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
           planEnd: p.endDate,
           entries: entries,
           onAdd: _addPreview,
+          onMove: _movePreview,
           entryBuilder:
-              (e) => PlanWorkoutTile(
-                entry: e,
-                units: context.read<CardioProvider>().profile.units,
-                onTap: () {
-                  if (e.cardio != null) {
-                    _editRun(e.cardio!);
-                  } else {
-                    _assign(p.slots.firstWhere((s) => s.id == e.slotId));
-                  }
-                },
-                onActions:
-                    e.cardio != null
-                        ? null
-                        : () => _editSlot(
-                          p.slots.firstWhere((s) => s.id == e.slotId),
+              (e) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PlanWorkoutTile(
+                    entry: e,
+                    units: context.read<CardioProvider>().profile.units,
+                    detail: _proposalSummary(e),
+                    onTap: () {
+                      if (e.cardio != null) {
+                        _editRun(e.cardio!);
+                      } else {
+                        final draft =
+                            _generatedStrength?.workouts
+                                .where((w) => w.slotId == e.slotId)
+                                .firstOrNull;
+                        if (draft != null) {
+                          _reviewStrength(draft);
+                        } else {
+                          final assigned =
+                              context
+                                  .read<WorkoutProvider>()
+                                  .workouts
+                                  .where((w) => w.canonicalId == e.workoutId)
+                                  .firstOrNull;
+                          if (assigned == null) {
+                            _assign(
+                              p.slots.firstWhere((s) => s.id == e.slotId),
+                            );
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (_) =>
+                                        WorkoutDetailScreen(workout: assigned),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+                  ),
+                  if (!e.completed && e.sessionId == null)
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        TextButton(
+                          onPressed: () => _choosePreviewDate(e),
+                          child: Text(context.plan('move')),
                         ),
+                        TextButton(
+                          onPressed: () => _swapPreview(e, entries),
+                          child: Text(context.plan('swap')),
+                        ),
+                        if (e.cardio == null)
+                          TextButton(
+                            onPressed:
+                                () => _assign(
+                                  p.slots.firstWhere((s) => s.id == e.slotId),
+                                ),
+                            child: Text(context.strength('replaceWorkout')),
+                          ),
+                      ],
+                    ),
+                ],
               ),
         ),
       ],
@@ -975,6 +1234,14 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final p = _program, title = _ready ? _steps[_step] : 'createPlan';
+    if (_ready && title == 'strength') {
+      return StrengthPlanWizard(
+        key: ValueKey('strength-wizard-${p!.id}'),
+        program: p,
+        onComplete: _strengthComplete,
+        onSkip: () => _skipSport('strength'),
+      );
+    }
     return PopScope(
       canPop: !_busy && _step == 0,
       onPopInvokedWithResult: (didPop, result) {
@@ -982,6 +1249,18 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          leading: BackButton(
+            onPressed:
+                _busy
+                    ? null
+                    : () {
+                      if (_step > 0) {
+                        _change(() => _step--);
+                      } else {
+                        Navigator.maybePop(context);
+                      }
+                    },
+          ),
           title: Text(
             context.plan(widget.existing == null ? 'createPlan' : 'myPlan'),
           ),
@@ -991,6 +1270,10 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                   _busy
                       ? null
                       : () async {
+                        if (title == 'running') {
+                          await _skipSport('running');
+                          return;
+                        }
                         await _writes;
                         if (context.mounted) Navigator.pop(context);
                       },
@@ -1006,7 +1289,11 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                   child: FilledButton(
                     onPressed: _busy ? null : _next,
                     child: Text(
-                      context.plan(title == 'preview' ? 'activate' : 'next'),
+                      title == 'runningTransition'
+                          ? context.strength('configureRunning')
+                          : context.plan(
+                            title == 'preview' ? 'activate' : 'next',
+                          ),
                     ),
                   ),
                 ),
@@ -1025,13 +1312,13 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                     padding: const EdgeInsets.all(20),
                     children: [
                       LinearProgressIndicator(
-                        value: (_step + 1) / _steps.length,
+                        value: _busy ? null : (_step + 1) / _steps.length,
                       ),
                       const SizedBox(height: 24),
                       Text(
                         title == 'interests'
                             ? context.planning('chooseTraining')
-                            : context.plan(title),
+                            : context.strength(title),
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                       const SizedBox(height: 24),
@@ -1051,111 +1338,16 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                               ),
                           ],
                         ),
-                        const SizedBox(height: 24),
-                        Text(
-                          context.plan('availableDays'),
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 12),
-                        PlanDayPicker(
-                          selected: _available,
-                          onChanged: (v) => _change(() => _available = v),
-                        ),
-                        if (_available.isNotEmpty)
-                          for (final sport in [
-                            'strength',
-                            'running',
-                          ].where(_sports.contains)) ...[
-                            const SizedBox(height: 16),
-                            DropdownButtonFormField<int>(
-                              value: (sport == 'strength'
-                                      ? _strengthCount
-                                      : _runningCount)
-                                  .clamp(1, _available.length),
-                              decoration: InputDecoration(
-                                labelText:
-                                    '${context.plan(sport)} · ${context.plan('sessionsPerWeek')}',
-                              ),
-                              items: [
-                                for (var i = 1; i <= _available.length; i++)
-                                  DropdownMenuItem(value: i, child: Text('$i')),
-                              ],
-                              onChanged:
-                                  (v) => _change(() {
-                                    if (sport == 'strength') {
-                                      _strengthCount = v!;
-                                    } else {
-                                      _runningCount = v!;
-                                    }
-                                  }),
-                            ),
-                          ],
                       ],
-                      if (title == 'strength') ...[
-                        Text(
-                          context.plan('strengthDays'),
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 12),
-                        PlanDayPicker(
-                          selected:
-                              _currentSlots
-                                  .where((s) => s.kind == 'strength')
-                                  .map((s) => s.weekday)
-                                  .toSet(),
-                          available: _available,
-                          onChanged: (v) => _change(() => _setStrengthDays(v)),
-                        ),
-                        const SizedBox(height: 24),
-                        _choice(
-                          'split',
-                          p!.split,
-                          [
-                            'fullBody',
-                            'upperLower',
-                            'pushPullLegs',
-                            'mixedSplit',
-                            'custom',
-                          ],
-                          (v) => _setStrengthDays(
-                            v == 'mixedSplit' &&
-                                    _available.containsAll({1, 2, 5})
-                                ? {1, 2, 5}
-                                : _currentSlots
-                                    .where((s) => s.kind == 'strength')
-                                    .map((s) => s.weekday)
-                                    .toSet(),
-                            split: v,
+                      if (title == 'runningTransition') ...[
+                        Text(context.strength('strengthPrepared')),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () => _skipSport('running'),
+                          child: Text(
+                            context.strength('continueWithoutRunning'),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        _choice(
-                          'strengthGoal',
-                          p.strengthGoal.isEmpty
-                              ? 'generalFitness'
-                              : p.strengthGoal,
-                          ['generalFitness', 'buildMuscle', 'getStronger'],
-                          (v) => _program = p.copyWith(strengthGoal: v),
-                        ),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(context.plan('strengthProfile')),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap:
-                              () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => const UserTrainingProfileScreen(
-                                        strengthOnly: true,
-                                      ),
-                                ),
-                              ),
-                        ),
-                        for (final s in _currentSlots.where(
-                          (s) => s.kind == 'strength',
-                        ))
-                          _slot(s),
                       ],
                       if (title == 'running') ...[
                         PlanDayPicker(

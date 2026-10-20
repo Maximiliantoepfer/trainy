@@ -132,7 +132,8 @@ class WeekActivityCard extends StatelessWidget {
                                           ),
                                           const SizedBox(height: 6),
                                           Text(
-                                            DateFormat.E(locale).format(day),
+                                            '${DateFormat.E(locale).format(day)}\n${day.day}',
+                                            textAlign: TextAlign.center,
                                             style: Theme.of(
                                               c,
                                             ).textTheme.labelLarge?.copyWith(
@@ -165,14 +166,6 @@ class WeekActivityCard extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '${DateFormat.yMMMEd(locale).format(date)}${dateKey(date) == dateKey(today) ? ' · ${context.plan('today')}' : ''}',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-            ),
-            const SizedBox(height: 8),
             Row(
               children: [
                 if (streak > 0)

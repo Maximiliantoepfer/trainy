@@ -1,3 +1,4 @@
+import 'plan_drag_target.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../l10n/planning_l10n.dart';
@@ -17,7 +18,9 @@ class PlanWeekBlock extends StatelessWidget {
     this.planStart,
     this.planEnd,
     this.onAdd,
+    this.onMove,
   });
+  final void Function(ProgramEntry, DateTime)? onMove;
   final DateTime monday;
   final DateTime? planStart;
   final DateTime? planEnd;
@@ -90,89 +93,104 @@ class PlanWeekBlock extends StatelessWidget {
                         .where((e) => dateKey(e.date) == dateKey(day))
                         .toList();
                 final isToday = dateKey(day) == dateKey(today);
-                return Column(
-                  children: [
-                    Divider(height: 1, color: divider),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 48,
-                            child: Column(
-                              children: [
-                                Text(
-                                  DateFormat.E(locale).format(day),
-                                  style: Theme.of(c).textTheme.labelSmall,
-                                ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color:
-                                        isToday
-                                            ? scheme.primary
-                                            : Colors.transparent,
+                return PlanDayDropTarget(
+                  day: day,
+                  onMove: onMove,
+                  enabled:
+                      (planStart == null ||
+                          !day.isBefore(DateUtils.dateOnly(planStart!))) &&
+                      (planEnd == null ||
+                          !day.isAfter(DateUtils.dateOnly(planEnd!))),
+                  child: Column(
+                    children: [
+                      Divider(height: 1, color: divider),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 48,
+                              child: Column(
+                                children: [
+                                  Text(
+                                    DateFormat.E(locale).format(day),
+                                    style: Theme.of(c).textTheme.labelSmall,
                                   ),
-                                  child: Text(
-                                    '${day.day}',
-                                    style: Theme.of(
-                                      c,
-                                    ).textTheme.titleMedium?.copyWith(
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
                                       color:
                                           isToday
-                                              ? scheme.onPrimary
-                                              : scheme.onSurface,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (items.isEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
+                                              ? scheme.primary
+                                              : Colors.transparent,
                                     ),
                                     child: Text(
-                                      context.planning('restDay'),
-                                      style: TextStyle(
-                                        color: scheme.onSurfaceVariant,
+                                      '${day.day}',
+                                      style: Theme.of(
+                                        c,
+                                      ).textTheme.titleMedium?.copyWith(
+                                        color:
+                                            isToday
+                                                ? scheme.onPrimary
+                                                : scheme.onSurface,
                                       ),
                                     ),
                                   ),
-                                for (final e in items)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: entryBuilder(e),
-                                  ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          if (onAdd != null &&
-                              !day.isBefore(today) &&
-                              (planEnd == null ||
-                                  !day.isAfter(DateUtils.dateOnly(planEnd!))) &&
-                              (planStart == null ||
-                                  !day.isBefore(
-                                    DateUtils.dateOnly(planStart!),
-                                  )))
-                            IconButton(
-                              tooltip: context.plan('add'),
-                              onPressed: () => onAdd!(day),
-                              icon: const Icon(Icons.add, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (items.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Text(
+                                        context.planning('restDay'),
+                                        style: TextStyle(
+                                          color: scheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  for (final e in items)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: PlanDraggable(
+                                        entry: e,
+                                        enabled: onMove != null,
+                                        child: entryBuilder(e),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
-                        ],
+                            if (onAdd != null &&
+                                !day.isBefore(today) &&
+                                (planEnd == null ||
+                                    !day.isAfter(
+                                      DateUtils.dateOnly(planEnd!),
+                                    )) &&
+                                (planStart == null ||
+                                    !day.isBefore(
+                                      DateUtils.dateOnly(planStart!),
+                                    )))
+                              IconButton(
+                                tooltip: context.plan('add'),
+                                onPressed: () => onAdd!(day),
+                                icon: const Icon(Icons.add, size: 20),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 );
               },
             ),
@@ -189,8 +207,10 @@ class PlanWorkoutTile extends StatelessWidget {
     required this.onTap,
     required this.units,
     this.onActions,
+    this.detail,
   });
   final ProgramEntry entry;
+  final String? detail;
   final VoidCallback onTap;
   final VoidCallback? onActions;
   final DistanceSystem units;
@@ -219,6 +239,7 @@ class PlanWorkoutTile extends StatelessWidget {
           );
     final target = targets.firstOrNull;
     final info = [
+      if (detail != null) detail!,
       if (e.needsWorkout && !e.completed) context.plan('assignWorkout'),
       if (meters > 0)
         CardioUnits.distance(
@@ -279,12 +300,6 @@ class PlanWorkoutTile extends StatelessWidget {
                     color: scheme.tertiary,
                     size: 20,
                   ),
-                )
-              else if (onActions != null)
-                IconButton(
-                  tooltip: context.plan('edit'),
-                  onPressed: onActions,
-                  icon: const Icon(Icons.more_horiz, size: 20),
                 )
               else
                 const SizedBox(width: 12),

@@ -420,6 +420,7 @@ class WorkoutDetailScreen extends StatefulWidget {
   const WorkoutDetailScreen({
     this.plannedOccurrenceId,
     this.trainingProgramId,
+    this.planActions,
     super.key,
     required this.workout,
     this.repository,
@@ -427,6 +428,7 @@ class WorkoutDetailScreen extends StatefulWidget {
   });
   final WorkoutPlanningRepository? repository;
   final String? plannedOccurrenceId, trainingProgramId;
+  final Widget? planActions;
   final TrainingProfileStore? profileStore;
 
   final Workout workout;
@@ -984,6 +986,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                   controller: _scroll,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
                   children: [
+                    if (widget.planActions != null) widget.planActions!,
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Row(

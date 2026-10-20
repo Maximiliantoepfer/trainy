@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/l10n.dart';
 import '../l10n/plan_l10n.dart';
+import '../l10n/strength_l10n.dart';
 import '../models/workout_planning.dart';
 
 Future<StrengthPrescription?> editStrengthPrescription(
@@ -9,6 +10,7 @@ Future<StrengthPrescription?> editStrengthPrescription(
 ) async {
   final key = GlobalKey<FormState>();
   var sets = initial.sets, min = initial.minReps, max = initial.maxReps;
+  var rest = initial.restSeconds;
   return showDialog<StrengthPrescription>(
     context: context,
     builder:
@@ -20,33 +22,44 @@ Future<StrengthPrescription?> editStrengthPrescription(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (final field in ['sets', 'min', 'max'])
+                  for (final field in ['sets', 'min', 'max', 'rest'])
                     TextFormField(
                       initialValue:
                           '${field == 'sets'
                               ? sets
                               : field == 'min'
                               ? min
+                              : field == 'rest'
+                              ? rest
                               : max}',
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         labelText:
-                            field == 'sets'
+                            field == 'rest'
+                                ? c.strength('restSeconds')
+                                : field == 'sets'
                                 ? c.l10n.sets
                                 : '${c.l10n.repetitions} · ${field == 'min' ? 'min' : 'max'}',
                       ),
                       validator: (v) {
                         final n = int.tryParse(v ?? '');
                         return n == null ||
-                                n < 1 ||
-                                n > (field == 'sets' ? 50 : 200) ||
+                                n < (field == 'rest' ? 0 : 1) ||
+                                n >
+                                    (field == 'sets'
+                                        ? 50
+                                        : field == 'rest'
+                                        ? 600
+                                        : 200) ||
                                 (field == 'max' && n < min)
                             ? c.plan('positiveError')
                             : null;
                       },
                       onChanged: (v) {
                         final n = int.tryParse(v) ?? 0;
-                        if (field == 'sets') {
+                        if (field == 'rest') {
+                          rest = n;
+                        } else if (field == 'sets') {
                           sets = n;
                         } else if (field == 'min') {
                           min = n;
@@ -73,6 +86,7 @@ Future<StrengthPrescription?> editStrengthPrescription(
                       sets: sets,
                       minReps: min,
                       maxReps: max,
+                      restSeconds: rest,
                     ),
                   );
                 }

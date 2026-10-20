@@ -1,3 +1,4 @@
+import '../l10n/strength_l10n.dart';
 import 'package:flutter/material.dart';
 import '../widgets/plan_week_block.dart';
 import '../widgets/motivational_quote_card.dart';
@@ -92,42 +93,6 @@ class TrainingPlanCard extends StatelessWidget {
                       builder: (_) => const TrainingPlanScreen(),
                     ),
                   ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  if (p.currentSlots.any((s) => s.kind == 'strength'))
-                    TextButton(
-                      onPressed:
-                          () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => const UserTrainingProfileScreen(
-                                    strengthOnly: true,
-                                  ),
-                            ),
-                          ),
-                      child: Text(context.plan('strengthProfile')),
-                    ),
-                  if (p.hasRunning)
-                    TextButton(
-                      onPressed:
-                          () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (_) => CardioProfileScreen(
-                                    provider: context.read<CardioProvider>(),
-                                  ),
-                            ),
-                          ),
-                      child: Text(context.plan('runningProfile')),
-                    ),
-                ],
-              ),
             ),
           ],
         ),
@@ -262,7 +227,7 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                       () => openPlanSetup(context, plan: p, section: 'running'),
                 ),
                 ActionChip(
-                  label: Text(context.planning('profiles')),
+                  label: Text(context.strength('myProfile')),
                   onPressed:
                       () => Navigator.push(
                         context,
@@ -577,7 +542,13 @@ class _PlanWeekViewState extends State<PlanWeekView> {
     if (entry.cardio != null) {
       await Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => PlannedCardioScreen(entry: entry)),
+        MaterialPageRoute(
+          builder:
+              (_) => PlannedCardioScreen(
+                entry: entry,
+                planActions: _planActions(entry),
+              ),
+        ),
       );
     } else if (entry.needsWorkout) {
       final id = await Navigator.push<String>(
@@ -632,12 +603,108 @@ class _PlanWeekViewState extends State<PlanWeekView> {
                   workout: w,
                   plannedOccurrenceId: entry.id,
                   trainingProgramId: entry.planId,
+                  planActions: _planActions(entry),
                 ),
           ),
         );
       }
     }
     if (mounted) setState(_reload);
+  }
+
+  Widget _planActions(ProgramEntry e) =>
+      e.completed || e.sessionId != null
+          ? const SizedBox.shrink()
+          : Wrap(
+            spacing: 8,
+            children: [
+              for (final action in [
+                'move',
+                'swap',
+                'replaceWorkout',
+                if (e.cardio == null && e.workoutId != null)
+                  e.splitSourceId == null ? 'splitSession' : 'undoSplit',
+              ])
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await _actions(e, chosen: action);
+                  },
+                  child: Text(context.strength(action)),
+                ),
+            ],
+          );
+
+  Future<void> _drop(ProgramEntry e, DateTime date) async {
+    final store = context.read<TrainingProgramProvider>(),
+        cardio = context.read<CardioProvider>();
+    try {
+      if (e.cardio != null) {
+        await cardio.repository.move(e.cardio!, date, future: false);
+        await cardio.load();
+      } else {
+        await store.repository.moveStrength(
+          widget.program!,
+          e,
+          date,
+          future: false,
+        );
+      }
+      await store.load();
+      if (!mounted) return;
+      setState(_reload);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.strength('moved')),
+          action: SnackBarAction(
+            label: context.strength('undoMove'),
+            onPressed: () async {
+              try {
+                // Read back before undoing: a workout started in the meantime stays protected.
+                final moved =
+                    (await store.repository.entries(
+                      widget.program!,
+                      date,
+                      DateTime(date.year, date.month, date.day + 1),
+                    )).where((x) => x.id == e.id).firstOrNull;
+                if (moved == null || moved.completed || moved.sessionId != null) {
+                  return;
+                }
+                if (moved.cardio != null) {
+                  await cardio.repository.move(
+                    moved.cardio!,
+                    e.date,
+                    future: false,
+                  );
+                  await cardio.load();
+                } else {
+                  await store.repository.moveStrength(
+                    widget.program!,
+                    moved,
+                    e.date,
+                    future: false,
+                  );
+                }
+                await store.load();
+                if (mounted) setState(_reload);
+              } catch (_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.plan('savingError'))),
+                  );
+                }
+              }
+            },
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.plan('savingError'))));
+      }
+    }
   }
 
   Future<void> _move(ProgramEntry entry) async {
@@ -732,30 +799,32 @@ class _PlanWeekViewState extends State<PlanWeekView> {
     onActions: e.completed || e.sessionId != null ? null : () => _actions(e),
   );
 
-  Future<void> _actions(ProgramEntry e) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder:
-          (c) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final key in [
-                  'move',
-                  'swap',
-                  if (e.cardio == null && e.workoutId != null)
-                    e.splitSourceId == null ? 'splitSession' : 'undoSplit',
-                ])
-                  ListTile(
-                    title: Text(c.plan(key)),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.pop(c, key),
-                  ),
-              ],
-            ),
-          ),
-    );
+  Future<void> _actions(ProgramEntry e, {String? chosen}) async {
+    final action =
+        chosen ??
+        await showModalBottomSheet<String>(
+          context: context,
+          showDragHandle: true,
+          builder:
+              (c) => SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final key in [
+                      'move',
+                      'swap',
+                      if (e.cardio == null && e.workoutId != null)
+                        e.splitSourceId == null ? 'splitSession' : 'undoSplit',
+                    ])
+                      ListTile(
+                        title: Text(c.plan(key)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.pop(c, key),
+                      ),
+                  ],
+                ),
+              ),
+        );
     if (action == null || !mounted) return;
     try {
       final store = context.read<TrainingProgramProvider>();
@@ -763,7 +832,43 @@ class _PlanWeekViewState extends State<PlanWeekView> {
         await _move(e);
         return;
       }
-      if (action == 'splitSession') {
+      if (action == 'replaceWorkout') {
+        if (e.cardio != null) {
+          final value = await Navigator.push<CardioWorkout>(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => CardioEditorScreen(
+                    workout: e.cardio!.workout,
+                    units: context.read<CardioProvider>().profile.units,
+                  ),
+            ),
+          );
+          if (value == null || !mounted) return;
+          await context.read<CardioProvider>().repository.editOccurrence(
+            e.cardio!,
+            value,
+          );
+          if (mounted) await context.read<CardioProvider>().load();
+        } else {
+          final id = await Navigator.push<String>(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => TrainingLibraryScreen(
+                    initialSport: e.kind,
+                    pickWorkout: true,
+                  ),
+            ),
+          );
+          if (id == null) return;
+          await store.repository.replaceStrengthOccurrence(
+            widget.program!,
+            e,
+            id,
+          );
+        }
+      } else if (action == 'splitSession') {
         await Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => StrengthSplitScreen(entry: e)),
@@ -881,6 +986,7 @@ class _PlanWeekViewState extends State<PlanWeekView> {
           planEnd: widget.program?.endDate,
           entries: entries,
           entryBuilder: _entry,
+          onMove: widget.program == null ? null : _drop,
           onAdd: widget.program == null ? null : _add,
         );
       }
@@ -916,7 +1022,8 @@ class _PlanWeekViewState extends State<PlanWeekView> {
 }
 
 class PlannedCardioScreen extends StatefulWidget {
-  const PlannedCardioScreen({super.key, required this.entry});
+  const PlannedCardioScreen({super.key, required this.entry, this.planActions});
+  final Widget? planActions;
   final ProgramEntry entry;
   @override
   State<PlannedCardioScreen> createState() => _PlannedCardioScreenState();
@@ -946,6 +1053,7 @@ class _PlannedCardioScreenState extends State<PlannedCardioScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          if (widget.planActions != null) widget.planActions!,
           for (final step in _workout.steps)
             ListTile(
               contentPadding: EdgeInsets.zero,

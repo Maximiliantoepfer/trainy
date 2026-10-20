@@ -16,6 +16,8 @@ class ProfileQuestion extends StatelessWidget {
     required this.onLater,
     this.busy = false,
     this.error,
+    this.nextLabel,
+    this.laterLabel,
   });
   final String title, question;
   final int step, count;
@@ -23,7 +25,7 @@ class ProfileQuestion extends StatelessWidget {
   final List<Widget> children;
   final VoidCallback onNext, onBack, onLater;
   final bool busy;
-  final String? error;
+  final String? error, nextLabel, laterLabel;
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: step == 0 && !busy,
@@ -35,9 +37,12 @@ class ProfileQuestion extends StatelessWidget {
         title: Text(title),
         leading: BackButton(onPressed: busy ? null : onBack),
         actions: [
-          TextButton(
-            onPressed: busy ? null : onLater,
-            child: Text(context.planning('later')),
+          Tooltip(
+            message: laterLabel ?? context.planning('later'),
+            child: TextButton(
+              onPressed: busy ? null : onLater,
+              child: Text(context.planning('later')),
+            ),
           ),
         ],
       ),
@@ -46,7 +51,8 @@ class ProfileQuestion extends StatelessWidget {
         child: FilledButton(
           onPressed: busy ? null : onNext,
           child: Text(
-            context.planning(step == count - 1 ? 'confirmProfile' : 'next'),
+            nextLabel ??
+                context.planning(step == count - 1 ? 'confirmProfile' : 'next'),
           ),
         ),
       ),
@@ -56,7 +62,7 @@ class ProfileQuestion extends StatelessWidget {
           key: ValueKey('profile-question-$step'),
           padding: const EdgeInsets.all(20),
           children: [
-            LinearProgressIndicator(value: (step + 1) / count),
+            LinearProgressIndicator(value: busy ? null : (step + 1) / count),
             const SizedBox(height: 24),
             Text(question, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 16),

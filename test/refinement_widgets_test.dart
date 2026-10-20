@@ -85,7 +85,7 @@ void main() {
         expect(day.state.kind, 'strength');
         expect(day.state.fraction, .5);
         expect(day.state.done, false);
-        await t.tap(find.text('Di'));
+        await t.tap(find.text('Di\n8'));
         expect(selected, DateTime(2030, 1, 8));
         expect(t.takeException(), isNull);
       },

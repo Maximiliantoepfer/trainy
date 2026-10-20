@@ -52,10 +52,7 @@ class _UserTrainingProfileScreenState extends State<UserTrainingProfileScreen> {
     try {
       final repo = context.read<TrainingProgramProvider>().repository;
       final latest = await repo.userProfile();
-      final p = UserTrainingProfile.fromJson({
-        ...latest.toJson(),
-        ...changes,
-      });
+      final p = UserTrainingProfile.fromJson({...latest.toJson(), ...changes});
       await repo.saveUserProfile(p);
       if (!mounted) return;
       await context.read<CardioProvider>().load();
@@ -134,7 +131,10 @@ class _UserTrainingProfileScreenState extends State<UserTrainingProfileScreen> {
                                               )
                                               .toSet();
                                       v ? values.add(s) : values.remove(s);
-                                      _update({'interests': values.toList()});
+                                      _update({
+                                        'interests': values.toList(),
+                                        'interestsVersion': 1,
+                                      });
                                     },
                           ),
                       ],

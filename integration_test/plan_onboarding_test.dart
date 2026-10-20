@@ -1,3 +1,5 @@
+import 'package:trainy/screens/strength_profile_screen.dart';
+import 'package:trainy/services/catalog_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -145,6 +147,113 @@ void main() {
         cardio.dispose();
         workouts.dispose();
         active.dispose();
+        await db.close();
+      }
+    },
+  );
+  testWidgets(
+    'strength proposal activates complete workouts and running is explicitly deferred',
+    (tester) async {
+      final db = await AppDatabase.instance.openIsolated(inMemoryDatabasePath);
+      final database = DatabaseService(database: db);
+      final repo = TrainingProgramRepository(database: database);
+      final plans = TrainingProgramProvider(repository: repo);
+      final cardio = CardioProvider(
+        repository: CardioRepository(database: database),
+      );
+      final workouts = WorkoutProvider(
+        repository: WorkoutPlanningRepository(database: database),
+      );
+      final active = ActiveWorkoutProvider();
+      final profiles = TrainingProfileProvider(
+        store: TrainingProfileRepository(database: database),
+      );
+      try {
+        await plans.load();
+        await cardio.load();
+        await profiles.reload();
+        expect(await CatalogRepository.instance.load(), isTrue);
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: plans),
+              ChangeNotifierProvider.value(value: cardio),
+              ChangeNotifierProvider.value(value: workouts),
+              ChangeNotifierProvider.value(value: active),
+              ChangeNotifierProvider.value(value: profiles),
+              ChangeNotifierProvider(create: (_) => ProgressProvider()),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.dark(const Color(0xFFFF5722)),
+              locale: const Locale('de'),
+              supportedLocales: AppLocalizations.supportedLocales,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              home: const PlanHomeScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        Future<void> tap(String label) async {
+          await tester.ensureVisible(find.text(label).first);
+          await tester.tap(find.text(label).first);
+          await tester.pumpAndSettle();
+        }
+
+        await tap('Trainingsplan erstellen');
+        await tap('Kraft');
+        await tap('Laufen');
+        await tap('Weiter');
+        expect(find.byType(StrengthProfileScreen), findsOneWidget);
+        await tap('Anfänger');
+        await tap('Weiter');
+        await tap('Fit bleiben');
+        await tap('Weiter');
+        await tap('Gym');
+        await tap('Weiter');
+        await tap('Profil bestätigen');
+        expect((await repo.userProfile()).strengthSetupVersion, 2);
+        await tap('Weiter');
+        await tap('60 min');
+        await tap('Weiter');
+        await tap('Weiter');
+        expect(find.byType(CardioProfileScreen), findsNothing);
+        await tap('Weiter');
+        expect(find.text('Dein Kraftplan ist vorbereitet.'), findsOneWidget);
+        expect(find.byType(CardioProfileScreen), findsNothing);
+        await tap('Jetzt ohne Laufen fortfahren');
+        await tester.enterText(
+          find.byType(TextFormField).first,
+          'Kraft komplett',
+        );
+        await tap('Plan verwenden');
+        for (
+          var i = 0;
+          i < 150 && find.byType(TrainingPlanSetupScreen).evaluate().isNotEmpty;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(TrainingPlanSetupScreen), findsNothing);
+        expect(plans.active?.name, 'Kraft komplett');
+        expect(plans.active!.hasRunning, isFalse);
+        expect(workouts.workouts.length, 3);
+        for (final slot in plans.active!.currentSlots) {
+          expect(slot.workoutId, isNotNull);
+          final setups = await WorkoutPlanningRepository(
+            database: database,
+          ).setupsForWorkout(slot.workoutId!);
+          expect(setups.single.exerciseCount, greaterThan(2));
+        }
+        expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        plans.dispose();
+        cardio.dispose();
+        workouts.dispose();
+        active.dispose();
+        profiles.dispose();
         await db.close();
       }
     },
