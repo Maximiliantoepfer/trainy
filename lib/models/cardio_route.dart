@@ -14,7 +14,7 @@ List<List<RoutePoint>> routeSegments(List<Map<String, dynamic>> samples) {
   for (final sample in samples) {
     final lat = (sample['latitude'] as num?)?.toDouble(),
         lon = (sample['longitude'] as num?)?.toDouble();
-    if (lat == null ||
+    if (sample['active'] == false || lat == null ||
         lon == null ||
         !lat.isFinite ||
         !lon.isFinite ||
@@ -28,7 +28,7 @@ List<List<RoutePoint>> routeSegments(List<Map<String, dynamic>> samples) {
     final gap =
         stored != null
             ? stored != previousSegment
-            : previousTime == null ||
+            : sample['gap'] == true || previousTime == null ||
                 time == null ||
                 time - previousTime > 15000;
     if (segments.isEmpty || gap) segments.add([]);

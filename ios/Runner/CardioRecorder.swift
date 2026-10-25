@@ -110,6 +110,10 @@ final class CardioRecorder: NSObject, CardioHostApi, CLLocationManagerDelegate, 
     }
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) { engine?.state["gps"] = "gpsLost" }
     private func say(_ text: String) {
+        guard let event = engine?.state["audioEvent"] as? [String: Any],
+              let priority = event["priority"] as? Int else { return }
+        if priority >= 80 { speech.stopSpeaking(at: .immediate) }
+        else if speech.isSpeaking { return }
         guard !text.isEmpty else { return }
         let language = engine?.state["locale"] as? String ?? "en"
         guard let voice = AVSpeechSynthesisVoice(language: language) else { engine?.state["audioUnavailable"] = true; return }

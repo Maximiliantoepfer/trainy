@@ -22,7 +22,8 @@ class CardioService : Service(), LocationListener {
     private var engine: CardioEngine? = null
     private var tts: TextToSpeech? = null
     private var speechReady = false
-    private val pendingSpeech = mutableListOf<String>()
+    private val pendingSpeech = mutableListOf<JSONObject>()
+    private var activeSpeechId: String? = null
     private var queuedSpeech = 0
     private val audio by lazy { getSystemService(AUDIO_SERVICE) as AudioManager }
     private val audioAttributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
@@ -55,10 +56,13 @@ class CardioService : Service(), LocationListener {
                     tts?.setAudioAttributes(audioAttributes)
                     tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                         override fun onStart(id: String?) {}
-                        override fun onDone(id: String?) = releaseSpeechFocus()
-                        @Deprecated("Legacy callback") override fun onError(id: String?) = releaseSpeechFocus()
+                        override fun onDone(id: String?) { if (id == activeSpeechId) releaseSpeechFocus() }
+                        @Deprecated("Legacy callback") override fun onError(id: String?) {
+                            handler.post { engine?.state?.put("audioUnavailable", true) }
+                            if (id == activeSpeechId) releaseSpeechFocus()
+                        }
                     })
-                    pendingSpeech.toList().forEach { say(it) }; pendingSpeech.clear()
+                    pendingSpeech.toList().forEach { deliver(it) }; pendingSpeech.clear()
                 } else engine?.state?.put("audioUnavailable", true)
             } else engine?.state?.put("audioUnavailable", true)
         }
@@ -94,12 +98,28 @@ class CardioService : Service(), LocationListener {
     }
     private fun say(message: String) {
         if (message.isBlank()) return
-        if (!speechReady) { if (pendingSpeech.size < 3) pendingSpeech.add(message); return }
+        val event = engine?.state?.optJSONObject("audioEvent") ?: return
+        if (!speechReady) {
+            if (event.optInt("priority") >= 80) pendingSpeech.clear()
+            if (pendingSpeech.size < 3) pendingSpeech.add(JSONObject(event.toString()))
+            return
+        }
+        deliver(event)
+    }
+    private fun deliver(event: JSONObject) {
+        val state = engine?.state ?: return
+        if (event.optInt("index") != state.optInt("index") || event.optDouble("expires") < state.optDouble("elapsedSeconds")) return
+        val interrupt = event.optInt("priority") >= 80
+        // Never accumulate an audible backlog. Low-priority coaching expires if busy.
+        if (!interrupt && queuedSpeech > 0) return
         if (queuedSpeech == 0 && audio.requestAudioFocus(audioFocus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             engine?.state?.put("audioUnavailable", true); return
         }
-        queuedSpeech++
-        if (tts?.speak(message, TextToSpeech.QUEUE_ADD, null, java.util.UUID.randomUUID().toString()) == TextToSpeech.ERROR) releaseSpeechFocus()
+        activeSpeechId = "${event.optString("id")}:${SystemClock.elapsedRealtimeNanos()}"
+        queuedSpeech = 1
+        if (tts?.speak(event.getString("text"), TextToSpeech.QUEUE_FLUSH, null, activeSpeechId) == TextToSpeech.ERROR) {
+            state.put("audioUnavailable", true); releaseSpeechFocus()
+        }
     }
     private fun releaseSpeechFocus() { handler.post {
         queuedSpeech = (queuedSpeech - 1).coerceAtLeast(0)

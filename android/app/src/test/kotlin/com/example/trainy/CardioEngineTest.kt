@@ -6,6 +6,53 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class CardioEngineTest {
+    @Test fun sharedPlatformReplay() {
+        val file = java.io.File("../../test/fixtures/cardio_replay.json")
+        val cases = JSONObject(file.readText()).getJSONArray("cases")
+        for (i in 0 until cases.length()) {
+            val fixture = cases.getJSONObject(i)
+            val state = CardioEngine.fresh(JSONObject().put("version", 1).put("sessionId", fixture.getString("name"))
+                .put("indoor", fixture.getBoolean("indoor")).put("steps", fixture.getJSONArray("steps")))
+            state.put("countdown", 0)
+            val engine = CardioEngine(state) {}
+            val ticks = fixture.getJSONArray("ticks")
+            for (n in 0 until ticks.length()) engine.tick(ticks.getDouble(n))
+            assertEquals(fixture.getString("expectedStatus"), state.getString("status"))
+            assertEquals(fixture.getDouble("expectedSeconds"), state.getDouble("activeSeconds"), .001)
+            assertEquals(fixture.getInt("expectedIndex"), state.getInt("index"))
+        }
+    }
+    @Test fun slowRunningWithoutSpeedAccumulatesAgainstAnchor() {
+        val e = engine(listOf(step("a", 1000.0, "distance")))
+        for (second in 0..60) {
+            e.tick(second.toDouble())
+            e.location(52.0 + second * .000009, 13.0, 5.0, null, second.toDouble(), second * 1000L)
+        }
+        assertTrue(e.state.getDouble("distanceMeters") > 55)
+        assertTrue(e.state.getDouble("distanceMeters") < 65)
+    }
+    @Test fun distanceOvershootUsesLatestFixIntervalNotWholeRun() {
+        val e = engine(listOf(step("a", 1000.0, "distance"), step("b", 60.0)))
+        e.location(52.0, 13.0, 5.0, 10.0, 100.0, 100000)
+        e.state.put("stepMeters", 950.0).put("stepSeconds", 910.0)
+            .put("distanceMeters", 950.0).put("activeSeconds", 910.0)
+        e.location(52.00089932, 13.0, 5.0, 10.0, 110.0, 110000)
+        assertEquals(1, e.state.getInt("index"))
+        assertEquals(5.0, e.state.getDouble("stepSeconds"), .01)
+        assertEquals(50.0, e.state.getDouble("stepMeters"), .1)
+    }
+    @Test fun routeMarksPauseAndCueIdentitySurvivesRecovery() {
+        val cues = mutableListOf<String>()
+        val e = engine(listOf(step("a", 60.0)), indoor = false, cues = cues)
+        for (second in 0..35) e.tick(second.toDouble())
+        e.pause()
+        assertFalse(e.location(52.0, 13.0, 5.0, 1.0, 36.0, 36000)!!.getBoolean("active"))
+        val resumed = CardioEngine(JSONObject(e.state.toString()), cues::add)
+        resumed.resume()
+        for (second in 36..80) resumed.tick(second.toDouble())
+        assertEquals(1, cues.count { it == "half a" })
+        assertEquals(1, cues.count { it == "completed" })
+    }
     private fun step(id: String, amount: Double, goal: String = "time", movement: String = "run") = JSONObject()
         .put("id", id).put("amount", amount).put("goal", goal).put("movement", movement).put("primaryTarget", "effort")
         .put("displayName", id).put("startCue", "start $id").put("halfCue", "half $id").put("nearCue", "near $id")

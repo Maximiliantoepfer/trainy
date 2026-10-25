@@ -1,0 +1,8 @@
+{
+  "description": "Deterministic synthetic replay shared by Android and iOS; not a physical GPS acceptance test.",
+  "cases": [
+    {"name": "time", "indoor": true, "steps": [{"id":"a","goal":"time","amount":2.5},{"id":"b","goal":"time","amount":2.5}], "ticks":[0,1,2,3,4,5,6], "expectedStatus":"completed", "expectedSeconds":5, "expectedIndex":1},
+    {"name":"distance-gps-loss", "indoor":false, "steps":[{"id":"a","goal":"distance","amount":100}], "ticks":[0,1,2,3,4,5,6], "expectedStatus":"active", "expectedSeconds":6, "expectedIndex":0},
+    {"name":"mixed", "indoor":false, "steps":[{"id":"a","goal":"time","amount":2.5},{"id":"b","goal":"distance","amount":100}], "ticks":[0,1,2,3,4,5,6], "expectedStatus":"active", "expectedSeconds":6, "expectedIndex":1}
+  ]
+}

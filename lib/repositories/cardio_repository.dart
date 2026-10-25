@@ -528,7 +528,7 @@ class CardioRepository {
             jsonDecode(row['sample_json'] as String) as Map<String, dynamic>;
         final lat = point['latitude'] as num?, lon = point['longitude'] as num?;
         final time = point['timestamp'] as num?;
-        if (lat == null ||
+        if (point['active'] == false || lat == null ||
             lon == null ||
             !lat.isFinite ||
             !lon.isFinite ||
@@ -541,7 +541,7 @@ class CardioRepository {
           continue;
         }
         final gap =
-            previous == null || time - (previous['timestamp'] as num) > 15000;
+            point['gap'] == true || previous == null || time - (previous['timestamp'] as num) > 15000;
         if (gap) {
           if (previous != null) keep(previous);
           segment++;

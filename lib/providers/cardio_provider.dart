@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import '../services/cardio_speech.dart';
 import 'package:flutter/foundation.dart';
 import '../models/cardio.dart';
 import '../repositories/cardio_repository.dart';
@@ -190,17 +191,24 @@ class CardioProvider extends ChangeNotifier {
     }
     String amount(CardioStep s, double fraction) =>
         s.goal == StepGoal.time
-            ? '${CardioUnits.clock(s.amount * fraction)} ${t('minutes')}'
+            ? CardioSpeech.duration(s.amount * fraction, locale)
             : CardioUnits.distance(s.amount * fraction, profile.units);
     final steps =
         workout.expandedSteps().map((s) {
           final name = s.name.isNotEmpty ? s.name : t(s.intensity.name);
-          final target = CardioTraining.targetDescription(
+          var target = CardioTraining.targetDescription(
             s,
             profile.units,
             t,
             cycling: workout.sport == CardioSport.cycling,
           );
+          if (workout.sport == CardioSport.running && s.primaryTarget == 'pace') {
+            if (s.maxSpeed != null && s.minSpeed == null) {
+              target = '${t('notFaster')} ${CardioSpeech.pace(s.maxSpeed!, profile.units, locale)}';
+            } else if (s.minSpeed != null && s.maxSpeed != null) {
+              target = '${CardioSpeech.pace(s.maxSpeed!, profile.units, locale)} – ${CardioSpeech.pace(s.minSpeed!, profile.units, locale)}';
+            }
+          }
           return {
             ...s.toJson(),
             'displayName': name,

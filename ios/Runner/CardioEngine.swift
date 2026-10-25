@@ -14,6 +14,16 @@ final class CardioEngine {
     var current: [String: Any] { steps[index] }
     func number(_ key: String) -> Double { (state[key] as? NSNumber)?.doubleValue ?? 0 }
     func message(_ key: String) -> String { (state["messages"] as? [String: String])?[key] ?? key }
+    private func cue(_ text: String, kind: String, priority: Int = 30, unique: Bool = true) {
+        guard !text.isEmpty else { return }
+        let id = "\(state["sessionId"] as? String ?? ""):\(index):\(kind)"
+        var sent = state["cueIds"] as? [String] ?? []
+        if unique && sent.contains(id) { return }
+        if unique { sent.append(id); state["cueIds"] = sent }
+        state["audioEvent"] = ["id": id, "index": index, "priority": priority,
+                               "expires": number("elapsedSeconds") + 8, "text": text]
+        speak(text)
+    }
     init(_ state: [String: Any], speak: @escaping (String) -> Void) { self.state = state; self.speak = speak }
     static func fresh(_ snapshot: [String: Any]) -> [String: Any] {
         snapshot.merging(["status": "active", "index": 0, "activeSeconds": 0.0, "elapsedSeconds": 0.0,
@@ -30,13 +40,13 @@ final class CardioEngine {
             state["gps"] = stale ? "gpsLost" : "gpsReady"
             if stale {
                 state.removeValue(forKey: "speed"); stillSince = nil; outsideSince = nil
-                if old == "gpsReady" { speak(message("gpsLost")) }
+                if old == "gpsReady" { cue(message("gpsLost"), kind: "gpsLost", priority: 40, unique: false) }
             }
         }
         guard state["status"] as? String == "active" else { return }
         if number("countdown") > 0 {
             state["countdown"] = max(0, number("countdown") - dt)
-            if number("countdown") == 0 { speak(current["startCue"] as? String ?? "") }
+            if number("countdown") == 0 { cue(current["startCue"] as? String ?? "", kind: "start", priority: 90) }
             return
         }
         state["activeSeconds"] = number("activeSeconds") + dt
@@ -49,17 +59,17 @@ final class CardioEngine {
                 if now - stillSince! >= 10 { pause(automatic: true); return }
             } else { stillSince = nil }
         }
-        advance()
+        advance(deltaSeconds: dt, deltaMeters: 0)
         guard state["status"] as? String == "active" else { return }
         let distance = current["goal"] as? String == "distance"
         let progress = number(distance ? "stepMeters" : "stepSeconds")
         let amount = (current["amount"] as? NSNumber)?.doubleValue ?? 1
         if amount >= (distance ? 300 : 60) && progress >= amount / 2 && state["half"] as? Bool != true {
-            state["half"] = true; speak(current["halfCue"] as? String ?? message("half"))
+            state["half"] = true; cue(current["halfCue"] as? String ?? message("half"), kind: "half")
         }
         let near = distance ? 100.0 : 15.0
         if amount >= near * 3 && amount - progress <= near && state["near"] as? Bool != true {
-            state["near"] = true; speak(current["nearCue"] as? String ?? message("nearEnd"))
+            state["near"] = true; cue(current["nearCue"] as? String ?? message("nearEnd"), kind: "near", priority: 50)
         }
         coach(now)
     }
@@ -71,21 +81,25 @@ final class CardioEngine {
         let distance = previous.map { fix.distance(from: $0.0) } ?? 0
         let maximum = state["sport"] as? String == "cycling" ? 35.0 : 12.0
         if previous != nil && (gap <= 0 || (gap <= 15 && distance / gap > maximum)) { return nil }
-        previous = (fix, now); lastFix = now
-        let measured = fix.speed >= 0 && fix.speed <= maximum ? fix.speed :
-            (gap > 0 && gap <= 15 && distance > max(3, fix.horizontalAccuracy / 2) ? distance / gap : 0)
+        let reported = fix.speed.isFinite && fix.speed >= 0 && fix.speed <= maximum ? fix.speed : nil
+        let resolved = previous == nil || gap > 15 || reported != nil || distance >= max(3, max(fix.horizontalAccuracy, previous?.0.horizontalAccuracy ?? 0) / 2)
+        if resolved { previous = (fix, now) }
+        lastFix = now
+        let measured = reported ?? (gap > 0 && gap <= 15 && resolved ? distance / gap : number("motionSpeed"))
         speeds.append((now, measured)); speeds.removeAll { now - $0.0 > 15 }
         state["motionSpeed"] = measured
         state["speed"] = speeds.map { $0.1 }.reduce(0, +) / Double(speeds.count); state["gps"] = "gpsReady"
         let wasActive = state["status"] as? String == "active"
         if state["status"] as? String == "paused" && state["autoPaused"] as? Bool == true && measured > 0.7 { resume() }
-        if wasActive && state["status"] as? String == "active" && number("countdown") == 0 && gap > 0 && gap <= 15 && measured >= 0.35 {
+        let active = wasActive && state["status"] as? String == "active" && number("countdown") == 0
+        if active && resolved && gap > 0 && gap <= 15 && measured >= 0.35 {
             state["distanceMeters"] = number("distanceMeters") + distance
             state["stepMeters"] = number("stepMeters") + distance
+            advance(deltaSeconds: min(gap, number("stepSeconds")), deltaMeters: distance)
         }
         let seq = (state["sequence"] as? Int ?? -1) + 1; state["sequence"] = seq
         return ["sequence": seq, "timestamp": Int(fix.timestamp.timeIntervalSince1970 * 1000), "latitude": fix.coordinate.latitude,
-                "longitude": fix.coordinate.longitude, "accuracy": fix.horizontalAccuracy, "speed": measured, "source": "phone_gps"]
+                "longitude": fix.coordinate.longitude, "accuracy": fix.horizontalAccuracy, "speed": measured, "source": "phone_gps", "active": active, "gap": gap > 15]
     }
     private func coach(_ now: Double) {
         guard number("stepSeconds") >= 20, state["gps"] as? String == "gpsReady", current["primaryTarget"] as? String == "pace" else { return }
@@ -97,7 +111,7 @@ final class CardioEngine {
         if !fast && !slow { outsideSince = nil; return }
         if outsideSince == nil { outsideSince = now }
         if now - outsideSince! >= 10 && now - lastCorrection >= 45 {
-            speak(message(fast ? "slower" : "faster")); lastCorrection = now; outsideSince = nil
+            cue(message(fast ? "slower" : "faster"), kind: "pace", unique: false); lastCorrection = now; outsideSince = nil
         }
     }
     private func record(partial: Bool = false) {
@@ -106,24 +120,28 @@ final class CardioEngine {
                         "seconds": number("stepSeconds"), "meters": number("stepMeters"), "partial": partial])
         state["results"] = results
     }
-    private func advance() {
+    private func advance(deltaSeconds: Double, deltaMeters: Double) {
+        var intervalSeconds = deltaSeconds, intervalMeters = deltaMeters
         while state["status"] as? String == "active" {
             let step = current
             let progress = number(step["goal"] as? String == "distance" ? "stepMeters" : "stepSeconds")
             let amount = (step["amount"] as? NSNumber)?.doubleValue ?? 1
             if progress < amount { return }
-            let fraction = min(1, max(0, amount / progress))
-            let carrySeconds = number("stepSeconds") * (1 - fraction), carryMeters = number("stepMeters") * (1 - fraction)
+            let delta = step["goal"] as? String == "distance" ? intervalMeters : intervalSeconds
+            let remaining = delta > 0 ? min(1, max(0, (progress - amount) / delta)) : 0
+            let carrySeconds = intervalSeconds * remaining, carryMeters = intervalMeters * remaining
             state["stepSeconds"] = number("stepSeconds") - carrySeconds; state["stepMeters"] = number("stepMeters") - carryMeters
-            record(); speak(step["endCue"] as? String ?? message("completed"))
+            record()
+            if index + 1 < steps.count { cue(step["endCue"] as? String ?? message("completed"), kind: "end", priority: 80) }
             if number("stepSeconds") > 0 && number("stepMeters") > 0 {
                 let unit = (state["unitMeters"] as? NSNumber)?.doubleValue ?? 1000
                 if state["sport"] as? String == "cycling" {
                     let speed = number("stepMeters") / number("stepSeconds") * 3600 / unit
-                    speak("\(message("average")): \(String(format: "%.1f", locale: Locale(identifier: state["locale"] as? String ?? "en"), speed)) \(unit > 1500 ? "mph" : "km/h")")
+                    cue("\(message("average")): \(String(format: "%.1f", locale: Locale(identifier: state["locale"] as? String ?? "en"), speed)) \(unit > 1500 ? "mph" : "km/h")", kind: "average")
                 } else {
                     let seconds = Int((unit * number("stepSeconds") / number("stepMeters")).rounded())
-                    speak("\(message("average")): \(seconds / 60):\(String(format: "%02d", seconds % 60)) \(unit > 1500 ? "/mi" : "/km")")
+                    let de = (state["locale"] as? String ?? "en").hasPrefix("de")
+                    cue("\(message("average")): \(seconds / 60) \(de ? "Minuten" : "minutes") \(seconds % 60) \(de ? "Sekunden pro" : "seconds per") \(unit > 1500 ? (de ? "Meile" : "mile") : (de ? "Kilometer" : "kilometre"))", kind: "average")
                 }
             }
             if index + 1 >= steps.count {
@@ -132,17 +150,20 @@ final class CardioEngine {
             }
             state["index"] = index + 1; state["stepSeconds"] = carrySeconds; state["stepMeters"] = carryMeters
             state["half"] = false; state["near"] = false; stillSince = nil; outsideSince = nil
-            speak(current["startCue"] as? String ?? "")
+            intervalSeconds = carrySeconds; intervalMeters = carryMeters
+            cue(current["startCue"] as? String ?? "", kind: "start", priority: 90)
         }
     }
     func pause(automatic: Bool = false) {
         guard state["status"] as? String == "active" else { return }
-        state["status"] = "paused"; state["autoPaused"] = automatic; speak(message("paused"))
+        state["status"] = "paused"; state["autoPaused"] = automatic; state["hadPause"] = true; previous = nil
+        cue(message("paused"), kind: "paused", priority: 100, unique: false)
     }
     func resume() {
         guard state["status"] as? String == "paused" else { return }
         state["status"] = "active"; state["autoPaused"] = false
-        stillSince = nil; previous = nil; speeds = []; outsideSince = nil; lastTick = nil; speak(message("resume"))
+        stillSince = nil; previous = nil; speeds = []; outsideSince = nil; lastTick = nil
+        cue(message("resume"), kind: "resume", priority: 100, unique: false)
     }
     func finish() {
         if state["status"] as? String == "completed" { return }
@@ -150,6 +171,7 @@ final class CardioEngine {
         complete()
     }
     private func complete() {
-        state["status"] = "completed"; state["endedAt"] = Int(Date().timeIntervalSince1970 * 1000); speak(message("completed"))
+        state["status"] = "completed"; state["endedAt"] = Int(Date().timeIntervalSince1970 * 1000)
+        cue(message("completed"), kind: "completed", priority: 100)
     }
 }

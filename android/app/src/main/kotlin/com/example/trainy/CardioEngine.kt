@@ -19,7 +19,17 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
     private val current get() = steps.getJSONObject(index)
     private fun value(key: String) = state.optDouble(key, 0.0)
     private fun text(key: String) = state.optJSONObject("messages")?.optString(key, key) ?: key
-    private fun emit(key: String) { speak(text(key)) }
+    private fun cue(message: String, kind: String, priority: Int = 30, unique: Boolean = true) {
+        if (message.isBlank()) return
+        val id = "${state.optString("sessionId")}:$index:$kind"
+        val sent = state.optJSONArray("cueIds") ?: JSONArray().also { state.put("cueIds", it) }
+        if (unique && (0 until sent.length()).any { sent.optString(it) == id }) return
+        if (unique) sent.put(id)
+        state.put("audioEvent", JSONObject().put("id", id).put("index", index)
+            .put("priority", priority).put("expires", value("elapsedSeconds") + 8).put("text", message))
+        speak(message)
+    }
+    private fun emit(key: String) { cue(text(key), key, if (key in listOf("completed", "paused", "resume")) 100 else 40, key == "completed") }
 
     fun tick(now: Double) {
         val dt = lastTick?.let { (now - it).coerceIn(0.0, 5.0) } ?: 0.0
@@ -38,7 +48,7 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
         if (state.optString("status") != "active") return
         if (state.optDouble("countdown", 0.0) > 0) {
             state.put("countdown", max(0.0, value("countdown") - dt))
-            if (value("countdown") == 0.0) speak(current.optString("startCue"))
+            if (value("countdown") == 0.0) cue(current.optString("startCue"), "start", 90)
             return
         }
         state.put("activeSeconds", value("activeSeconds") + dt)
@@ -51,17 +61,17 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
                 if (now - stillSince!! >= 10) { pause(true); return }
             } else stillSince = null
         }
-        advance()
+        advance(dt, 0.0)
         if (state.optString("status") != "active") return
         val step = current
         val progress = if (step.optString("goal") == "distance") value("stepMeters") else value("stepSeconds")
         val amount = step.getDouble("amount")
         if (progress >= amount / 2 && !state.optBoolean("half") && amount >= if (step.optString("goal") == "distance") 300 else 60) {
-            state.put("half", true); speak(step.optString("halfCue", text("half")))
+            state.put("half", true); cue(step.optString("halfCue", text("half")), "half")
         }
         val near = if (step.optString("goal") == "distance") 100.0 else 15.0
         if (amount >= near * 3 && amount - progress <= near && !state.optBoolean("near")) {
-            state.put("near", true); speak(step.optString("nearCue", text("nearEnd")))
+            state.put("near", true); cue(step.optString("nearCue", text("nearEnd")), "near", 50)
         }
         coach(now)
     }
@@ -76,24 +86,31 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
         val maxSpeed = if (state.optString("sport") == "cycling") 35.0 else 12.0
         if (gap <= 0 && old != null) return null
         if (old != null && gap <= 15 && distance / gap > maxSpeed) return null
-        previous = fix; lastFix = now
-        val measured = speed?.takeIf { it.isFinite() && it >= 0 && it <= maxSpeed }
-            ?: if (old != null && gap <= 15 && distance > max(3.0, accuracy / 2)) distance / gap else 0.0
+        val reported = speed?.takeIf { it.isFinite() && it >= 0 && it <= maxSpeed }
+        // Accumulate small fixes against an anchor. This measures slow running while
+        // keeping sub-accuracy stationary jitter from becoming distance.
+        val resolved = old == null || gap > 15 || reported != null || distance >= max(3.0, max(accuracy, old.accuracy) / 2)
+        if (resolved) previous = fix
+        lastFix = now
+        val measured = reported ?: if (old != null && gap in .01..15.0 && resolved) distance / gap else state.optDouble("motionSpeed", 0.0)
         speeds.add(now to measured); speeds.removeAll { now - it.first > 15 }
         state.put("speed", speeds.map { it.second }.average())
         state.put("motionSpeed", measured)
         state.put("gps", "gpsReady")
         val wasActive = state.optString("status") == "active"
         if (state.optString("status") == "paused" && state.optBoolean("autoPaused") && measured > .7) resume()
-        if (wasActive && state.optString("status") == "active" && value("countdown") == 0.0 && gap in .01..15.0 && measured >= .35) {
+        val active = wasActive && state.optString("status") == "active" && value("countdown") == 0.0
+        if (active && resolved && gap in .01..15.0 && measured >= .35) {
             state.put("distanceMeters", value("distanceMeters") + distance)
             state.put("stepMeters", value("stepMeters") + distance)
+            advance(min(gap, value("stepSeconds")), distance)
         }
         val seq = state.optInt("sequence", -1) + 1
         state.put("sequence", seq)
         return JSONObject().put("sequence", seq).put("timestamp", wallMillis)
             .put("latitude", lat).put("longitude", lon).put("accuracy", accuracy)
-            .put("speed", measured).put("source", "phone_gps")
+            .put("speed", measured).put("source", "phone_gps").put("active", active)
+            .put("gap", gap > 15)
     }
 
     private fun coach(now: Double) {
@@ -119,27 +136,31 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
             .put("seconds", value("stepSeconds")).put("meters", value("stepMeters"))
             .put("partial", partial))
     }
-    private fun advance() {
+    private fun advance(deltaSeconds: Double, deltaMeters: Double) {
+        var intervalSeconds = deltaSeconds
+        var intervalMeters = deltaMeters
         while (state.optString("status") == "active") {
             val s = current
             val isDistance = s.getString("goal") == "distance"
             val progress = if (isDistance) value("stepMeters") else value("stepSeconds")
             if (progress < s.getDouble("amount")) return
-            val fraction = (s.getDouble("amount") / progress).coerceIn(0.0, 1.0)
-            val carrySeconds = value("stepSeconds") * (1 - fraction)
-            val carryMeters = value("stepMeters") * (1 - fraction)
+            val delta = if (isDistance) intervalMeters else intervalSeconds
+            val remaining = if (delta > 0) ((progress - s.getDouble("amount")) / delta).coerceIn(0.0, 1.0) else 0.0
+            val carrySeconds = intervalSeconds * remaining
+            val carryMeters = intervalMeters * remaining
             state.put("stepSeconds", value("stepSeconds") - carrySeconds)
                 .put("stepMeters", value("stepMeters") - carryMeters)
             record()
-            speak(s.optString("endCue", text("completed")))
+            if (index + 1 < steps.length()) cue(s.optString("endCue", text("completed")), "end", 80)
             if (value("stepSeconds") > 0 && value("stepMeters") > 0) {
                 val unit = state.optDouble("unitMeters", 1000.0)
                 if (state.optString("sport") == "cycling") {
                     val speed = value("stepMeters") / value("stepSeconds") * 3600 / unit
-                    speak("${text("average")}: ${String.format(java.util.Locale.forLanguageTag(state.optString("locale", "en")), "%.1f", speed)} ${if (unit > 1500) "mph" else "km/h"}")
+                    cue("${text("average")}: ${String.format(java.util.Locale.forLanguageTag(state.optString("locale", "en")), "%.1f", speed)} ${if (unit > 1500) "mph" else "km/h"}", "average")
                 } else {
                     val paceSeconds = (unit * value("stepSeconds") / value("stepMeters")).roundToInt()
-                    speak("${text("average")}: ${paceSeconds / 60}:${(paceSeconds % 60).toString().padStart(2, '0')} ${if (unit > 1500) "/mi" else "/km"}")
+                    val de = state.optString("locale", "en").startsWith("de")
+                    cue("${text("average")}: ${paceSeconds / 60} ${if (de) "Minuten" else "minutes"} ${paceSeconds % 60} ${if (de) "Sekunden pro" else "seconds per"} ${if (unit > 1500) { if (de) "Meile" else "mile" } else { if (de) "Kilometer" else "kilometre" }}", "average")
                 }
             }
             if (index + 1 >= steps.length()) {
@@ -150,12 +171,14 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
             state.put("index", index + 1).put("stepSeconds", carrySeconds).put("stepMeters", carryMeters)
                 .put("half", false).put("near", false)
             stillSince = null; outsideSince = null
-            speak(current.optString("startCue"))
+            intervalSeconds = carrySeconds; intervalMeters = carryMeters
+            cue(current.optString("startCue"), "start", 90)
         }
     }
     fun pause(automatic: Boolean = false) {
         if (state.optString("status") != "active") return
         state.put("status", "paused").put("autoPaused", automatic); emit("paused")
+        state.put("hadPause", true); previous = null
     }
     fun resume() {
         if (state.optString("status") != "paused") return

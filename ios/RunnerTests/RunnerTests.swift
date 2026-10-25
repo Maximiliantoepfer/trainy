@@ -5,6 +5,21 @@ import CoreLocation
 @testable import Runner
 
 class RunnerTests: XCTestCase {
+  func testSharedPlatformReplay() throws {
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    let bytes = try Data(contentsOf: root.appendingPathComponent("test/fixtures/cardio_replay.json"))
+    let document = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+    for fixture in try XCTUnwrap(document["cases"] as? [[String: Any]]) {
+      let snapshot: [String: Any] = ["version": 1, "sessionId": fixture["name"]!,
+        "indoor": fixture["indoor"]!, "steps": fixture["steps"]!]
+      let engine = CardioEngine(CardioEngine.fresh(snapshot), speak: { _ in })
+      engine.state["countdown"] = 0.0
+      for tick in try XCTUnwrap(fixture["ticks"] as? [Double]) { engine.tick(tick) }
+      XCTAssertEqual(engine.state["status"] as? String, fixture["expectedStatus"] as? String)
+      XCTAssertEqual(engine.number("activeSeconds"), (fixture["expectedSeconds"] as! NSNumber).doubleValue, accuracy: 0.001)
+      XCTAssertEqual(engine.index, fixture["expectedIndex"] as? Int)
+    }
+  }
 
   func testEasyPaceCapNeverRequestsAcceleration() {
     for speed in [1.0, 4.0] {
