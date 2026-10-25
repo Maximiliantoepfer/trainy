@@ -456,6 +456,7 @@ class CardioWorkout {
     this.autoPause = true,
     this.ruleVersion,
     this.runWalkStage,
+    this.trainingPhase,
   }) : id = id ?? UuidV4.generate();
   final String id;
   final String name;
@@ -466,6 +467,7 @@ class CardioWorkout {
   final String? templateCode;
   final bool autoPause;
   final int? ruleVersion, runWalkStage;
+  final String? trainingPhase;
   void validate() {
     if (name.trim().isEmpty ||
         steps.isEmpty ||
@@ -522,6 +524,7 @@ class CardioWorkout {
     autoPause: false,
     ruleVersion: ruleVersion,
     runWalkStage: runWalkStage,
+    trainingPhase: trainingPhase,
     steps:
         steps.map((s) {
           if (s.goal == StepGoal.time) return s;
@@ -551,10 +554,12 @@ class CardioWorkout {
     'autoPause': autoPause,
     'ruleVersion': ruleVersion,
     'runWalkStage': runWalkStage,
+    'trainingPhase': trainingPhase,
   };
   factory CardioWorkout.fromJson(Map<String, dynamic> j) => CardioWorkout(
     ruleVersion: j['ruleVersion'] as int?,
     runWalkStage: j['runWalkStage'] as int?,
+    trainingPhase: j['trainingPhase'] as String?,
     id: j['id'] as String,
     name: j['name'] as String,
     sport: CardioSport.values.byName(j['sport'] as String),

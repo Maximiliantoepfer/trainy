@@ -259,6 +259,7 @@ class AdaptiveRunningPlanEngine {
             templateCode: walking ? 'walkPreparation' : 'runWalk',
             ruleVersion: rules.version,
             runWalkStage: stage,
+            trainingPhase: 'base',
             steps:
                 walking
                     ? [
@@ -398,6 +399,14 @@ class AdaptiveRunningPlanEngine {
             templateCode: code,
             ruleVersion: rules.version,
             steps: steps,
+            trainingPhase:
+                taper
+                    ? 'taper'
+                    : recovery
+                    ? 'recovery'
+                    : insufficient
+                    ? 'base'
+                    : 'build',
             warmup: CardioTraining.routine('running'),
             cooldown: CardioTraining.routine('running', cooling: true),
           );

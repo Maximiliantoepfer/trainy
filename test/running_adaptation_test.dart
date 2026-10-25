@@ -57,6 +57,7 @@ void main() {
     String status = 'planned',
     String? sessionId,
     String code = 'easySession',
+    String? phase = 'build',
     List<CardioStep>? steps,
   }) => ScheduledCardioWorkout(
     id: id,
@@ -68,6 +69,7 @@ void main() {
     workout: CardioWorkout(
       name: 'Run',
       templateCode: code,
+      trainingPhase: phase,
       steps:
           steps ??
           [
@@ -174,6 +176,57 @@ void main() {
         engine.propose(p, unproven, [occurrence('easy')], (s) => s).changes,
         isEmpty,
       );
+    },
+  );
+  test(
+    'positive adaptations preserve recovery, taper and unknown legacy phases',
+    () {
+      final p = confirmedRunner();
+      final sessions = [
+        for (final phase in ['recovery', 'taper', null])
+          occurrence(phase ?? 'legacy', phase: phase),
+      ];
+      for (final data in [
+        engine.evaluate([run(1), run(3), run(6)], now),
+        RunningFitnessSnapshot(
+          asOf: now,
+          toleratedRuns: 3,
+          weeklySeconds: 9000,
+          longestSeconds: 3600,
+        ),
+      ]) {
+        expect(engine.propose(p, data, sessions, (s) => s).changes, isEmpty);
+      }
+      final difficult = RunningFitnessSnapshot(asOf: now, difficult: true);
+      expect(
+        engine.propose(p, difficult, sessions, (s) => s).changes,
+        hasLength(3),
+      );
+      final workout = sessions.first.workout;
+      expect(
+        CardioWorkout.fromJson(workout.toJson()).trainingPhase,
+        'recovery',
+      );
+      expect(workout.timeReplacement().trainingPhase, 'recovery');
+      final plan = RunningPlanGenerator().generate(
+        p,
+        RunningPlanRequest(targetMeters: 5000, startDate: now),
+        (s) => s,
+      );
+      expect(
+        plan.occurrences
+            .where(
+              (o) =>
+                  o.date
+                          .difference(DateTime(now.year, now.month, now.day))
+                          .inDays ~/
+                      7 ==
+                  3,
+            )
+            .every((o) => o.workout.trainingPhase == 'recovery'),
+        true,
+      );
+      expect(plan.occurrences.last.workout.trainingPhase, 'taper');
     },
   );
   test(

@@ -410,6 +410,12 @@ class RunningFitness {
         continue;
       }
       final w = o.workout;
+      // A planned recovery/taper must not be undone by a positive adaptation.
+      // Legacy plans have no reliable phase metadata; never guess their load.
+      if (reason != 'reduceLoad' &&
+          !['base', 'build'].contains(w.trainingPhase)) {
+        continue;
+      }
       if (reason == 'buildLoad' &&
           w.steps.every(
             (s) =>
@@ -430,8 +436,8 @@ class RunningFitness {
             routines;
         final loadCap =
             fitness.weeklySeconds / math.max(1, planning.desiredDays ?? 3);
-        // Never raise a light/recovery week to catch up missing volume, nor
-        // make a long run exceed recent demonstrated tolerance.
+        // Never catch up missing volume or make a long run exceed recent
+        // demonstrated tolerance. Phase protection is checked above.
         final ceiling =
             w.templateCode == 'longRun' ? fitness.longestSeconds : loadCap;
         final next = math.min(
