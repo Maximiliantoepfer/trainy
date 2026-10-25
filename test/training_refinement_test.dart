@@ -101,6 +101,7 @@ void main() {
         final profile = AthleteRunningProfile(
           setupVersion: 1,
           confirmedAnswers: confirmedAnswers,
+          planning: confirmedPlanning,
           referenceKind: 'normal',
           level: RunningLevel.beginner,
           continuousMinutes: 45,

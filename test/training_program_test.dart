@@ -45,6 +45,7 @@ void main() {
     const AthleteRunningProfile(
       setupVersion: 1,
       confirmedAnswers: confirmedAnswers,
+      planning: confirmedPlanning,
       referenceKind: 'normal',
       referenceSeconds: 2700,
       continuousMinutes: 45,

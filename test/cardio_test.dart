@@ -19,6 +19,7 @@ void main() {
   final profile = AthleteRunningProfile(
     setupVersion: 1,
     confirmedAnswers: confirmedAnswers,
+    planning: confirmedPlanning,
     referenceKind: 'maximal',
     level: RunningLevel.beginner,
     referenceSeconds: 1500,
@@ -173,6 +174,7 @@ void main() {
       const AthleteRunningProfile(
         setupVersion: 1,
         confirmedAnswers: confirmedAnswers,
+        planning: confirmedPlanning,
         referenceKind: 'runWalk',
         referenceSeconds: 3600,
         level: RunningLevel.starting,

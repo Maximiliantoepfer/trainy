@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'running_preferences.dart';
 import 'package:intl/intl.dart';
 
 import '../utils/uuid_v4.dart';
@@ -95,7 +96,9 @@ class AthleteRunningProfile {
     this.referenceKind,
     this.returningAfterBreak = false,
     this.loadSource = 'unknown',
+    this.planning = const RunningPreferences(),
   });
+  final RunningPreferences planning;
   final int setupVersion;
   final Set<String> confirmedAnswers;
 
@@ -119,8 +122,7 @@ class AthleteRunningProfile {
   DateTime? get benchmarkDate => bestSeconds != null ? bestDate : referenceDate;
   double? get easySpeed =>
       !isMaximal && referenceKind != 'runWalk' && referenceSeconds != null
-          // Distance-normalized orientation only, never a race prediction.
-          ? 5000 / (referenceSeconds! * math.pow(5000 / referenceMeters, 1.06))
+          ? referenceMeters / referenceSeconds!
           : null;
   final double weeklyMeters;
   final double longestMeters;
@@ -138,6 +140,7 @@ class AthleteRunningProfile {
   final List<String> interests;
 
   void validate() {
+    planning.validate();
     if (referenceMeters <= 0 ||
         !referenceMeters.isFinite ||
         bestMeters <= 0 ||
@@ -170,15 +173,17 @@ class AthleteRunningProfile {
     }
   }
 
-  bool hasRecentBenchmark(DateTime now) =>
+  bool hasRecentBenchmark(DateTime now, {int maximumAgeDays = 90}) =>
       benchmarkSeconds != null &&
       benchmarkDate != null &&
       !benchmarkDate!.isAfter(now) &&
-      now.difference(benchmarkDate!).inDays <= 90;
+      now.difference(benchmarkDate!).inDays <= maximumAgeDays;
   double equivalentSeconds(double meters) =>
       benchmarkSeconds! * math.pow(meters / benchmarkMeters, 1.06);
-  double? fiveKmSpeed(DateTime now) =>
-      hasRecentBenchmark(now) ? 5000 / equivalentSeconds(5000) : null;
+  double? fiveKmSpeed(DateTime now, {int maximumAgeDays = 90}) =>
+      hasRecentBenchmark(now, maximumAgeDays: maximumAgeDays)
+          ? 5000 / equivalentSeconds(5000)
+          : null;
   int? pulse(double fraction) =>
       restingHeartRate == null || maximumHeartRate == null
           ? null
@@ -186,12 +191,18 @@ class AthleteRunningProfile {
                   fraction * (maximumHeartRate! - restingHeartRate!))
               .round();
   List<(int, int)> get zones =>
-      restingHeartRate == null || maximumHeartRate == null
+      planning.zoneMethod == 'manual' && planning.zoneBounds.length == 6
+          ? List.generate(
+            5,
+            (i) => (planning.zoneBounds[i], planning.zoneBounds[i + 1]),
+          )
+          : restingHeartRate == null || maximumHeartRate == null
           ? []
           : List.generate(5, (i) => (pulse(.5 + i * .1)!, pulse(.6 + i * .1)!));
 
   Map<String, dynamic> toJson() => {
     'referenceMeters': referenceMeters,
+    'planning': planning.toJson(),
     'referenceSeconds': referenceSeconds,
     'referenceDate': referenceDate?.toIso8601String(),
     'isMaximal': isMaximal,
@@ -220,6 +231,9 @@ class AthleteRunningProfile {
   };
   factory AthleteRunningProfile.fromJson(Map<String, dynamic> j) =>
       AthleteRunningProfile(
+        planning: RunningPreferences.fromJson(
+          Map<String, dynamic>.from(j['planning'] as Map? ?? {}),
+        ),
         referenceMeters: (j['referenceMeters'] as num?)?.toDouble() ?? 5000,
         setupVersion: j['setupVersion'] as int? ?? 0,
         confirmedAnswers: Set<String>.from(
@@ -440,6 +454,8 @@ class CardioWorkout {
     this.cooldown = const [],
     this.templateCode,
     this.autoPause = true,
+    this.ruleVersion,
+    this.runWalkStage,
   }) : id = id ?? UuidV4.generate();
   final String id;
   final String name;
@@ -449,6 +465,7 @@ class CardioWorkout {
   final List<RoutineStep> warmup, cooldown;
   final String? templateCode;
   final bool autoPause;
+  final int? ruleVersion, runWalkStage;
   void validate() {
     if (name.trim().isEmpty ||
         steps.isEmpty ||
@@ -503,6 +520,8 @@ class CardioWorkout {
     cooldown: cooldown,
     templateCode: templateCode,
     autoPause: false,
+    ruleVersion: ruleVersion,
+    runWalkStage: runWalkStage,
     steps:
         steps.map((s) {
           if (s.goal == StepGoal.time) return s;
@@ -530,8 +549,12 @@ class CardioWorkout {
     'cooldown': cooldown.map((s) => s.toJson()).toList(),
     'templateCode': templateCode,
     'autoPause': autoPause,
+    'ruleVersion': ruleVersion,
+    'runWalkStage': runWalkStage,
   };
   factory CardioWorkout.fromJson(Map<String, dynamic> j) => CardioWorkout(
+    ruleVersion: j['ruleVersion'] as int?,
+    runWalkStage: j['runWalkStage'] as int?,
     id: j['id'] as String,
     name: j['name'] as String,
     sport: CardioSport.values.byName(j['sport'] as String),

@@ -40,7 +40,17 @@ abstract final class ProfileReadiness {
         'frequency',
         'volume',
         'reference',
-        'referenceKind',
+        if (p.referenceKind != 'none') 'referenceKind',
+        'goal',
+        'complaints',
+        'weeklyMinutes',
+        'desiredDays',
+        'availableDays',
+        'minutesPerSession',
+        'hardTrainingDays',
+        'routePreference',
+        'walkBreaks',
+        'audio',
       ])
         if (!p.confirmedAnswers.contains(answer)) answer,
       if (p.level == null) 'level',
@@ -60,19 +70,41 @@ abstract final class ProfileReadiness {
               (p.restingHeartRate != null &&
                   p.maximumHeartRate! <= p.restingHeartRate!)))
         'maxPulse',
-      if (p.referenceSeconds == null ||
-          !p.referenceSeconds!.isFinite ||
-          p.referenceSeconds! <= 0 ||
-          !p.referenceMeters.isFinite ||
-          p.referenceMeters <= 0)
+      if (p.referenceKind != 'none' &&
+          (p.referenceSeconds == null ||
+              !p.referenceSeconds!.isFinite ||
+              p.referenceSeconds! <= 0 ||
+              !p.referenceMeters.isFinite ||
+              p.referenceMeters <= 0))
         'reference',
-      if (!['normal', 'runWalk', 'maximal'].contains(p.referenceKind))
+      if (!['none', 'normal', 'runWalk', 'maximal'].contains(p.referenceKind))
         'referenceKind',
       if (p.referenceKind == 'maximal' &&
           (p.referenceDate == null ||
               p.referenceDate!.isAfter(now ?? DateTime.now())))
         'testDate',
       if (p.setupVersion < 1) 'confirmProfile',
+      if (![
+        'runFaster',
+        'runFurther',
+        'firstDistance',
+      ].contains(p.planning.goal))
+        'goal',
+      if (!['none', 'pain', 'medical'].contains(p.planning.complaints))
+        'complaints',
+      if (p.planning.minutesPerSession == null) 'minutesPerSession',
+      if (p.planning.desiredDays == null) 'desiredDays',
+      if (p.planning.desiredDays != null &&
+          p.weekdays.toSet().length < p.planning.desiredDays!)
+        'availableDays',
+      if (!['time', 'distance'].contains(p.planning.routePreference))
+        'routePreference',
+      if (p.planning.walkBreaks == null) 'walkBreaks',
+      if (p.planning.audio == null) 'audio',
+      if (p.continuousMinutes < 30 && p.planning.walkPreparation == null)
+        'walkPreparation',
+      if (p.continuousMinutes < 30 && p.planning.walkMinutes == null)
+        'walkMinutes',
     ];
     return missing.toSet().toList();
   }
