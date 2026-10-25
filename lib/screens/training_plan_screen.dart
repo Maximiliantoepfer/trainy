@@ -29,6 +29,7 @@ import 'workout_detail_screen.dart';
 import 'cardio_session_screen.dart';
 import 'cardio_editor_screen.dart';
 import 'running_workout_picker.dart';
+import 'cardio_screen.dart';
 
 Future<void> openPlanSetup(
   BuildContext context, {
@@ -273,7 +274,7 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                       : DateFormat.yMMMd(
                         Localizations.localeOf(context).toString(),
                       ).format(calendarEnd),
-                ].join(' · '),
+                ].where((value) => value.trim().isNotEmpty).join(' · '),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -305,6 +306,18 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                         ),
                       ),
                 ),
+                if (p.hasRunning)
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.auto_graph_outlined),
+                    label: Text(context.cardio('adapt')),
+                    onPressed: () async {
+                      await CardioScreen.showAdaptation(
+                        context,
+                        context.read<CardioProvider>(),
+                      );
+                      if (mounted) setState(() {});
+                    },
+                  ),
               ],
             ),
             const SizedBox(height: 16),

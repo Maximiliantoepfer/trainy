@@ -28,6 +28,30 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
   final _originalText = <String, String>{};
   final _canonical = <String, double>{};
   final _confirmed = <String>{};
+  final _planning = <String, dynamic>{};
+  List<int> _availableDays = [1, 2, 3, 4, 5, 6, 7];
+  static const _adaptive = {
+    'goal',
+    'complaints',
+    'walkMinutes',
+    'walkPreparation',
+    'weeklyMinutes',
+    'longestMinutes',
+    'longestDate',
+    'longestEffort',
+    'desiredDays',
+    'availableDays',
+    'minutesPerSession',
+    'hardTrainingDays',
+    'highLoadTolerated',
+    'pulseSource',
+    'zoneMethod',
+    'routePreference',
+    'walkBreaks',
+    'audio',
+    'customDayBudgets',
+    'routeMeters',
+  };
   late final _repo =
       widget.setupRepository ??
       TrainingProgramRepository(database: widget.provider.repository.db);
@@ -46,17 +70,47 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
   int _step = 0;
   Future<void> _writes = Future.value();
   List<String> get _steps => [
+    'goal',
+    'complaints',
     'level',
-    'experience',
     'continuous',
+    if (_level == RunningLevel.starting ||
+        (_fields['continuous'] != null &&
+            (_number('continuous') ?? 0) < 30)) ...[
+      'walkMinutes',
+      'walkPreparation',
+    ],
     'frequency',
     'volume',
-    'reference',
-    'referenceKind',
-    if (_kind == 'maximal') 'testDate',
+    'weeklyMinutes',
     'longest',
+    'longestMinutes',
+    if (_planning['longestMinutes'] != null) ...[
+      'longestDate',
+      'longestEffort',
+    ],
+    'experience',
+    'desiredDays',
+    'availableDays',
+    'minutesPerSession',
+    'customDayBudgets',
+    if (_planning['customDayBudgets'] == true)
+      ..._availableDays.map((d) => 'budget$d'),
+    'hardTrainingDays',
+    if (_level == RunningLevel.experienced) 'highLoadTolerated',
+    'reference',
+    if (_kind != 'none') 'referenceKind',
+    if (_kind == 'maximal') 'testDate',
     'restPulse',
     'maxPulse',
+    'pulseSource',
+    'zoneMethod',
+    if (_planning['zoneMethod'] == 'manual')
+      ...List.generate(6, (i) => 'zone$i'),
+    'routePreference',
+    if (_planning['routePreference'] == 'distance') 'routeMeters',
+    'walkBreaks',
+    'audio',
     'review',
   ];
 
@@ -72,6 +126,9 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
     try {
       final p = widget.provider.profile;
       _original = p;
+      _planning.addAll(p.planning.toJson());
+      _availableDays =
+          p.setupVersion == 0 ? [1, 2, 3, 4, 5, 6, 7] : [...p.weekdays];
       _loadSource = p.loadSource;
       final unit = CardioUnits.distanceUnit(p.units);
       final locale = Localizations.localeOf(context).toString();
@@ -110,7 +167,14 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
       _confirmed.addAll(p.confirmedAnswers);
       final draft = await _repo.draft('running-profile');
       if (!mounted) return;
+      String? restoredStep;
       if (draft != null) {
+        _planning.addAll(
+          Map<String, dynamic>.from(draft['planning'] as Map? ?? {}),
+        );
+        if (draft['availableDays'] is List) {
+          _availableDays = List<int>.from(draft['availableDays'] as List);
+        }
         // Older values survive, but visited flags never count as confirmation.
         final saved = Map<String, dynamic>.from(draft['fields'] as Map? ?? {});
         for (final key in values.keys) {
@@ -144,7 +208,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
                 .where((l) => l.name == draft['level'])
                 .firstOrNull ??
             _level;
-        if (draft['version'] == 1) {
+        if ([1, 2].contains(draft['version'])) {
           _months = draft['months'] as int?;
           _frequency = draft['frequency'] as int?;
           _volume = (draft['volume'] as num?)?.toDouble();
@@ -155,7 +219,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
           _confirmed
             ..clear()
             ..addAll(List<String>.from(draft['confirmed'] as List? ?? []));
-          _step = (draft['step'] as int? ?? 0).clamp(0, _steps.length - 1);
+          if (draft['version'] == 2) restoredStep = draft['stepKey'] as String?;
         }
       }
       _otherDistance = _canonical['distance'] != 5000;
@@ -163,6 +227,12 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
         _fields[entry.key] = TextEditingController(text: entry.value)
           ..addListener(_persist);
       }
+      // Conditional questions depend on restored controller values. Resolve
+      // the named step only after all those values have been installed.
+      _step =
+          restoredStep == null
+              ? 0
+              : _steps.indexOf(restoredStep).clamp(0, _steps.length - 1);
       setState(() => _ready = true);
       // History is a suggestion, never an implicit answer to a required question.
       try {
@@ -190,14 +260,19 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
           ? _canonical[key]!
           : (_number(key) ?? 0) * CardioUnits.distanceUnit(_original.units);
   double? get _seconds =>
-      _fields['time']!.text == _originalText['time']
+      _kind == 'none'
+          ? null
+          : _fields['time']!.text == _originalText['time']
           ? _original.referenceSeconds
           : CardioUnits.parseDuration(_fields['time']!.text);
 
   void _persist() {
     if (!_ready) return;
     final data = <String, dynamic>{
-      'version': 1,
+      'version': 2,
+      'stepKey': _steps[_step],
+      'planning': _planning,
+      'availableDays': _availableDays,
       'step': _step,
       'level': _level?.name,
       'months': _months,
@@ -232,7 +307,9 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
 
   AthleteRunningProfile _profile() => AthleteRunningProfile.fromJson({
     ..._original.toJson(),
-    'setupVersion': 1,
+    'setupVersion': 2,
+    'planning': _planning,
+    'weekdays': _availableDays,
     'confirmedAnswers': _confirmed.toList(),
     'level': _level?.name,
     'experienceMonths': _months ?? 0,
@@ -263,6 +340,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
   String? _validate(String key, String? raw) {
     final empty = (raw ?? '').trim().isEmpty;
     if (key == 'time') {
+      if (_kind == 'none') return null;
       return _seconds == null || _seconds! <= 0
           ? context.planning('normalDurationError')
           : null;
@@ -298,6 +376,24 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
   Future<void> _next() async {
     if (_busy || !_form.currentState!.validate()) return;
     final key = _steps[_step];
+    if (_adaptive.contains(key) &&
+        ![
+          'weeklyMinutes',
+          'longestMinutes',
+          'hardTrainingDays',
+          'availableDays',
+          'pulseSource',
+        ].contains(key) &&
+        _planning[key] == null) {
+      setState(() => _error = 'answerRequired');
+      return;
+    }
+    if (key == 'availableDays' &&
+        (_availableDays.isEmpty ||
+            _availableDays.length < (_planning['desiredDays'] as int? ?? 1))) {
+      setState(() => _error = 'answerRequired');
+      return;
+    }
     if ((key == 'level' && _level == null) ||
         (key == 'experience' && _months == null) ||
         (['frequency', 'volume'].contains(key) && !_confirmed.contains(key)) ||
@@ -340,6 +436,12 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
         _step = index < 0 ? 0 : index;
         _error = 'answerRequired';
       });
+      return;
+    }
+    try {
+      p.validate();
+    } catch (_) {
+      setState(() => _error = 'numberError');
       return;
     }
     if (_level!.index > RunningAssessment.level(p).index && !_returning) {
@@ -435,6 +537,197 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
     if (d != null && mounted) _change(() => _date = d);
   }
 
+  List<Widget> _planningQuestion(String key) {
+    String label(String value) => context.running(value);
+    final choices = <String, List<Object>>{
+      'goal': ['runFaster', 'runFurther', 'firstDistance'],
+      'complaints': ['none', 'pain', 'medical'],
+      'walkPreparation': [true, false],
+      'highLoadTolerated': [true, false],
+      'walkBreaks': [true, false],
+      'audio': [true, false],
+      'customDayBudgets': [false, true],
+      'desiredDays': [1, 2, 3, 4, 5, 6],
+      'pulseSource': ['unknown', 'watch', 'chest', 'diagnostic'],
+      'zoneMethod': ['karvonen', 'manual'],
+      'routePreference': ['time', 'distance'],
+    };
+    if (choices.containsKey(key)) {
+      return [
+        for (final v in choices[key]!)
+          _choice<Object>(
+            v,
+            _planning[key],
+            v is bool
+                ? label(v ? 'yes' : 'no')
+                : v is int
+                ? '$v'
+                : label('$v'),
+            (value) {
+              _planning[key] = value;
+              _confirmed.add(key);
+            },
+          ),
+        if (key == 'desiredDays' && _planning[key] == 1)
+          Text(label('singleDayHint')),
+        if (key == 'complaints') Text(label('restrictedTraining')),
+        if (key == 'zoneMethod') Text(label('manualZoneHint')),
+      ];
+    }
+    if (key == 'availableDays' || key == 'hardTrainingDays') {
+      final selected =
+          key == 'availableDays'
+              ? _availableDays
+              : List<int>.from(_planning['hardTrainingDays'] as List? ?? []);
+      return [
+        for (var day = 1; day <= 7; day++)
+          CheckboxListTile(
+            title: Text(
+              DateFormat.EEEE(
+                Localizations.localeOf(context).toString(),
+              ).format(DateTime(2026, 10, 19 + day - 1)),
+            ),
+            value: selected.contains(day),
+            onChanged:
+                (v) => _change(() {
+                  v == true ? selected.add(day) : selected.remove(day);
+                  selected.sort();
+                  if (key == 'availableDays') {
+                    _availableDays = selected;
+                  } else {
+                    _planning[key] = selected;
+                  }
+                }),
+          ),
+      ];
+    }
+    if (key == 'longestDate') {
+      return [
+        ListTile(
+          title: Text(
+            _planning[key] == null
+                ? label(key)
+                : DateFormat.yMMMd().format(
+                  DateTime.parse(_planning[key] as String),
+                ),
+          ),
+          trailing: const Icon(Icons.calendar_today_outlined),
+          onTap: () async {
+            final now = DateTime.now();
+            final result = await showDatePicker(
+              context: context,
+              initialDate: now,
+              firstDate: now.subtract(const Duration(days: 30)),
+              lastDate: now,
+            );
+            if (result != null) {
+              _change(() => _planning[key] = result.toIso8601String());
+            }
+          },
+        ),
+      ];
+    }
+    final zone = key.startsWith('zone') && key != 'zoneMethod';
+    final dayBudget = key.startsWith('budget');
+    final day = dayBudget ? key.substring(6) : null;
+    final dayMinutes = Map<String, dynamic>.from(
+      _planning['dayMinutes'] as Map? ?? {},
+    );
+    final route = key == 'routeMeters';
+    final distanceUnit = CardioUnits.distanceUnit(_original.units);
+    final zoneIndex = zone ? int.parse(key.substring(4)) : -1;
+    final bounds = List<int>.from(_planning['zoneBounds'] as List? ?? []);
+    final optional = ['weeklyMinutes', 'longestMinutes'].contains(key);
+    return [
+      if (key == 'minutesPerSession') Text(label('timeBudgetHint')),
+      TextFormField(
+        key: ValueKey(key),
+        initialValue:
+            zone
+                ? (bounds.length > zoneIndex ? '${bounds[zoneIndex]}' : '')
+                : dayBudget
+                ? '${dayMinutes[day] ?? _planning['minutesPerSession'] ?? 45}'
+                : route
+                ? (_planning[key] == null
+                    ? ''
+                    : ((_planning[key] as num) / distanceUnit).toStringAsFixed(
+                      2,
+                    ))
+                : _planning[key]?.toString() ?? '',
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          suffixText:
+              zone
+                  ? 'bpm'
+                  : route
+                  ? (_original.units == DistanceSystem.metric ? 'km' : 'mi')
+                  : key == 'longestEffort'
+                  ? '/ 10'
+                  : 'min',
+        ),
+        validator: (raw) {
+          if (optional && (raw ?? '').trim().isEmpty) return null;
+          if (route) {
+            final meters =
+                (double.tryParse((raw ?? '').replaceAll(',', '.')) ?? 0) *
+                distanceUnit;
+            return meters >= 100 && meters <= 100000
+                ? null
+                : context.planning('numberError');
+          }
+          final v = int.tryParse(raw ?? '');
+          if (v == null ||
+              v <
+                  (zone
+                      ? 25
+                      : key == 'walkMinutes' || key == 'weeklyMinutes'
+                      ? 0
+                      : 1) ||
+              v >
+                  (zone
+                      ? 250
+                      : key == 'longestEffort'
+                      ? 10
+                      : key == 'weeklyMinutes'
+                      ? 1800
+                      : 300) ||
+              ((key == 'minutesPerSession' || dayBudget) && v < 10)) {
+            return context.planning('numberError');
+          }
+          if (zone &&
+              zoneIndex > 0 &&
+              bounds.length >= zoneIndex &&
+              v <= bounds[zoneIndex - 1]) {
+            return context.planning('pulseOrder');
+          }
+          return null;
+        },
+        onChanged: (text) {
+          final value = int.tryParse(text);
+          if (route) {
+            _planning[key] =
+                (double.tryParse(text.replaceAll(',', '.')) ?? 0) *
+                distanceUnit;
+          } else if (dayBudget) {
+            dayMinutes[day!] = value;
+            _planning['dayMinutes'] = dayMinutes;
+          } else if (zone) {
+            while (bounds.length <= zoneIndex) {
+              bounds.add(0);
+            }
+            bounds[zoneIndex] = value ?? 0;
+            _planning['zoneBounds'] = bounds;
+            _planning['zoneSource'] = 'manual';
+          } else {
+            _planning[key] = value;
+          }
+          _persist();
+        },
+      ),
+      if (optional) Text(label('unknown')),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_ready) {
@@ -464,6 +757,10 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
       _ => key,
     };
     final content = <Widget>[
+      if (_adaptive.contains(key) ||
+          key.startsWith('budget') ||
+          RegExp(r'^zone[0-5]$').hasMatch(key))
+        ..._planningQuestion(key),
       if (key == 'level') ...[
         for (final l in RunningLevel.values)
           _choice(l, _level, context.planning(l.name), (v) => _level = v),
@@ -558,11 +855,26 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
         ),
       ],
       if (key == 'reference') ...[
+        TextButton(
+          onPressed:
+              () => _change(() {
+                _kind = 'none';
+                _fields['time']!.clear();
+                _confirmed.add('reference');
+                _step++;
+              }),
+          child: Text(context.running('skipReference')),
+        ),
         if (_otherDistance)
           _field('distance', suffix: unit, label: context.planning('distance')),
         Text(context.planning('referenceHelp')),
         const SizedBox(height: 16),
         _field('time', suffix: 'min'),
+        if (_kind == 'none')
+          TextButton(
+            onPressed: () => _change(() => _kind = null),
+            child: Text(context.planning('referenceQuestion')),
+          ),
         if (!_otherDistance)
           TextButton(
             onPressed: () => _change(() => _otherDistance = true),
@@ -618,9 +930,11 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
           }),
         ),
         const SizedBox(height: 16),
-        Text(
-          '${CardioUnits.distance(_meters('distance'), _original.units, locale: Localizations.localeOf(context).toString())} · ${CardioUnits.clock(_seconds ?? 0)}',
-        ),
+        if (_kind != 'none')
+          Text(
+            '${CardioUnits.distance(_meters('distance'), _original.units, locale: Localizations.localeOf(context).toString())} · ${CardioUnits.clock(_seconds ?? 0)}',
+          ),
+        if (_kind == 'none') Text(context.running('noReference')),
         if (_profile().zones.isNotEmpty)
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -632,7 +946,11 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(context.planning('zoneInfo')),
+                child: Text(
+                  _planning['zoneMethod'] == 'manual'
+                      ? context.running('manualZoneHint')
+                      : context.planning('zoneInfo'),
+                ),
               ),
               for (final zone in _profile().zones.indexed)
                 ListTile(
@@ -657,7 +975,14 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
     ];
     return ProfileQuestion(
       title: context.planning('runningProfile'),
-      question: context.planning(title),
+      question:
+          key.startsWith('budget')
+              ? '${context.running('minutesPerSession')} · ${DateFormat.EEEE(Localizations.localeOf(context).toString()).format(DateTime(2026, 10, 18 + int.parse(key.substring(6))))}'
+              : _adaptive.contains(key)
+              ? context.running(key)
+              : RegExp(r'^zone[0-5]$').hasMatch(key)
+              ? '${context.running('zoneBoundary')} ${int.parse(key.substring(4)) + 1} / 6'
+              : context.planning(title),
       step: _step,
       count: _steps.length,
       formKey: _form,

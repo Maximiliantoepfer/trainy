@@ -51,6 +51,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   int _strengthCount = 3, _runningCount = 3;
   int _step = 0, _previewWeeks = 4;
   bool _busy = false, _ready = false, _runningChanged = false;
+  bool _runningProfileApplied = false;
   String? _error;
   RunningPlanProposal? _running;
   StrengthPlanProposal? _strength;
@@ -135,6 +136,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
       }
       _runningChanged = widget.existing == null;
       if (draft != null) {
+        _runningProfileApplied = draft['runningProfileApplied'] == true;
         _program = TrainingProgram.fromJson(
           Map<String, dynamic>.from(draft['program'] as Map),
         );
@@ -236,6 +238,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
       'runningCount': _runningCount,
       'step': _step,
       'runningChanged': _runningChanged,
+      'runningProfileApplied': _runningProfileApplied,
       'runningEdits': _runningEdits.toList(),
       'targetText': _target.text,
       if (_running != null)
@@ -393,12 +396,18 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
     final profile = AthleteRunningProfile.fromJson({
       ...p.toJson(),
       'weekdays': _program!.runningDays,
+      'planning': {
+        ...p.planning.toJson(),
+        'desiredDays': _program!.runningDays.length,
+      },
     });
     final seconds = CardioUnits.parseDuration(_target.text);
     _program = _program!.copyWith(
       targetSeconds: seconds,
       clearTargetTime: seconds == null,
     );
+    final fitness = await cardio.repository.fitness();
+    if (!mounted) return;
     _running = RunningPlanGenerator().generate(
       profile,
       RunningPlanRequest(
@@ -406,6 +415,23 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
         startDate: _program!.start,
         targetSeconds: seconds,
         targetDate: _program!.targetDate,
+        goal: _program!.runningGoal,
+        fitness: fitness,
+        hardTrainingDays:
+            _program!.currentSlots
+                .where(
+                  (s) => s.effectiveFocus.any(
+                    (f) => [
+                      'legs',
+                      'quads',
+                      'hamstrings',
+                      'glutes',
+                      'fullBody',
+                    ].contains(f),
+                  ),
+                )
+                .map((s) => s.weekday)
+                .toList(),
       ),
       context.cardio,
     );
@@ -743,7 +769,14 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                 await repo.userProfile(),
                 await places.profiles(),
               ).isEmpty;
-      if (await ready()) continue;
+      if (await ready()) {
+        if (sport == 'running' &&
+            widget.existing == null &&
+            !_runningProfileApplied) {
+          _useRunningProfile(cardio.profile);
+        }
+        continue;
+      }
       if (!mounted) return false;
       final completed = await Navigator.push<bool>(
         context,
@@ -767,11 +800,32 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
         return false;
       }
       if (sport == 'running') {
+        if (widget.existing == null) _useRunningProfile(cardio.profile);
         _running = null;
         _runningChanged = true;
       }
     }
     return true;
+  }
+
+  void _useRunningProfile(AthleteRunningProfile profile) {
+    _runningProfileApplied = true;
+    _runningCount = profile.planning.desiredDays ?? 3;
+    final available = profile.weekdays.where(_available.contains).toList();
+    // Keep explicit availability, including if it cannot fit the requested count.
+    // The profile/generator validation then asks for a concrete correction.
+    _program = _program!.copyWith(
+      runningGoal: profile.planning.goal ?? 'runFaster',
+      runningDays: ProgramSplits.suggestedDays(
+        available,
+        _runningCount,
+        avoid:
+            _currentSlots
+                .where((s) => s.kind == 'strength')
+                .map((s) => s.weekday)
+                .toSet(),
+      ),
+    );
   }
 
   Future<void> _assign(ProgramSlot s) async {

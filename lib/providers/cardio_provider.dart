@@ -202,11 +202,14 @@ class CardioProvider extends ChangeNotifier {
             t,
             cycling: workout.sport == CardioSport.cycling,
           );
-          if (workout.sport == CardioSport.running && s.primaryTarget == 'pace') {
+          if (workout.sport == CardioSport.running &&
+              s.primaryTarget == 'pace') {
             if (s.maxSpeed != null && s.minSpeed == null) {
-              target = '${t('notFaster')} ${CardioSpeech.pace(s.maxSpeed!, profile.units, locale)}';
+              target =
+                  '${t('notFaster')} ${CardioSpeech.pace(s.maxSpeed!, profile.units, locale)}';
             } else if (s.minSpeed != null && s.maxSpeed != null) {
-              target = '${CardioSpeech.pace(s.maxSpeed!, profile.units, locale)} – ${CardioSpeech.pace(s.minSpeed!, profile.units, locale)}';
+              target =
+                  '${CardioSpeech.pace(s.maxSpeed!, profile.units, locale)} – ${CardioSpeech.pace(s.minSpeed!, profile.units, locale)}';
             }
           }
           return {
@@ -233,6 +236,7 @@ class CardioProvider extends ChangeNotifier {
           'sport': workout.sport.name,
           'indoor': workout.indoor,
           'autoPause': workout.autoPause,
+          'audioEnabled': profile.planning.audio ?? true,
           'locale': locale,
           'steps': steps,
           'startedAt': DateTime.now().toUtc().millisecondsSinceEpoch,

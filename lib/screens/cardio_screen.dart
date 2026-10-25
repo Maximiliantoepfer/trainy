@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../services/profile_readiness.dart';
 import 'package:flutter/material.dart';
 import 'training_plan_setup_screen.dart';
 import 'package:intl/intl.dart';
@@ -79,111 +80,95 @@ class CardioScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _adapt(BuildContext context, CardioProvider p) async {
-    final changes = <String, CardioWorkout>{};
-    // Only suggest easing the next seven days, never silently increase workload.
-    final now = DateTime.now();
-    final recent = p.history.where(
-      (r) =>
-          now
-              .difference(
-                DateTime.fromMillisecondsSinceEpoch(r['started_at_utc'] as int),
-              )
-              .inDays <
-          14,
-    );
-    final difficult = recent.any((r) {
-      final feedback =
-          (jsonDecode(r['snapshot_json'] as String) as Map)['feedback'] as Map?;
-      return feedback?['discomfort'] == true ||
-          (feedback?['rpe'] as num? ?? 0) >= 8;
-    });
-    final missed =
-        p.occurrences
-            .where(
-              (o) =>
-                  o.status != 'completed' &&
-                  o.date.isBefore(now) &&
-                  now.difference(o.date).inDays <= 14,
-            )
-            .length;
-    if (difficult || missed >= 2) {
-      for (final o in p.occurrences.where(
-        (o) =>
-            !o.locked &&
-            o.status == 'planned' &&
-            o.date.isAfter(now) &&
-            o.date.difference(now).inDays <= 7,
-      )) {
-        changes[o.id] = CardioWorkout(
-          id: o.workout.id,
-          name: o.workout.name,
-          sport: o.workout.sport,
-          indoor: o.workout.indoor,
-          warmup: o.workout.warmup,
-          cooldown: o.workout.cooldown,
-          autoPause: o.workout.autoPause,
-          steps:
-              o.workout.steps
-                  .map(
-                    (s) => CardioTraining.prescribe(
-                      p.profile,
-                      CardioIntensity.easy,
-                      goal: s.goal,
-                      amount: s.amount * .9,
-                      repeat: s.repeat,
-                      recovery: s.recoverySeconds,
-                      sport: o.workout.sport,
-                    ).copyWith(id: s.id, movement: s.movement),
-                  )
-                  .toList(),
-        );
-      }
-    }
-    final yes = await showDialog<bool>(
-      context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: Text(ctx.cardio('adapt')),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    changes.isEmpty
-                        ? ctx.cardio('noAdjustment')
-                        : ctx.cardio('adaptInfo'),
-                  ),
-                  for (final o in p.occurrences.where(
-                    (o) => changes.containsKey(o.id),
-                  ))
+  static Future<void> showAdaptation(
+    BuildContext context,
+    CardioProvider p,
+  ) async {
+    try {
+      final proposal = await p.repository.adaptation(context.cardio);
+      if (!context.mounted) return;
+      final yes = await showDialog<bool>(
+        context: context,
+        builder:
+            (ctx) => AlertDialog(
+              title: Text(ctx.cardio('adapt')),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      '${DateFormat.yMMMd(Localizations.localeOf(ctx).toString()).format(o.date)} · ${o.workout.name} · −10%',
+                      ctx.running('reason'),
+                      style: Theme.of(ctx).textTheme.titleMedium,
                     ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(ctx.cardio('cancel')),
-              ),
-              if (changes.isNotEmpty)
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: Text(ctx.cardio('accept')),
+                    Text(ctx.running(proposal.reason)),
+                    const SizedBox(height: 16),
+                    Text(
+                      ctx.running('changes'),
+                      style: Theme.of(ctx).textTheme.titleMedium,
+                    ),
+                    if (proposal.changes.isEmpty)
+                      Text(ctx.cardio('noAdjustment')),
+                    for (final o in p.occurrences.where(
+                      (o) => proposal.changes.containsKey(o.id),
+                    )) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${DateFormat.yMMMd(Localizations.localeOf(ctx).toString()).format(o.date)} · ${o.workout.name}',
+                      ),
+                      for (final step in proposal.changes[o.id]!.steps)
+                        Text(
+                          '${step.goal == StepGoal.time ? CardioUnits.clock(step.amount) : CardioUnits.distance(step.amount, p.profile.units)} · ${CardioTraining.targetDescription(step, p.profile.units, ctx.cardio)}',
+                        ),
+                    ],
+                    const SizedBox(height: 16),
+                    Text(
+                      ctx.running('consideredRuns'),
+                      style: Theme.of(ctx).textTheme.titleMedium,
+                    ),
+                    for (final row in p.history.where(
+                      (r) => (proposal.reason == 'easyPaceEvidence'
+                              ? proposal.fitness.easySourceIds
+                              : proposal.fitness.sourceIds)
+                          .contains(r['id']),
+                    ))
+                      Text(
+                        '${DateFormat.yMMMd().format(DateTime.fromMillisecondsSinceEpoch(row['started_at_utc'] as int))} · ${row['name_snapshot']}',
+                      ),
+                    Text(
+                      '${ctx.running('ruleVersion')}: ${proposal.ruleVersion}',
+                    ),
+                  ],
                 ),
-            ],
-          ),
-    );
-    if (yes == true) {
-      try {
-        await p.repository.applyAdjustment(changes);
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(ctx.cardio('cancel')),
+                ),
+                if (proposal.changes.isNotEmpty)
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text(ctx.cardio('accept')),
+                  ),
+              ],
+            ),
+      );
+      if (yes == true) {
+        await p.repository.acceptAdaptation(proposal);
         await p.load();
-      } catch (_) {
-        if (context.mounted) _error(context);
       }
+    } on ProfileIncomplete {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.running('profileRequired'))),
+      );
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => CardioProfileScreen(provider: p)),
+      );
+    } catch (_) {
+      if (context.mounted) const CardioScreen()._error(context);
     }
   }
 
@@ -257,7 +242,7 @@ class CardioScreen extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 12),
-                if (p.profile.referenceSeconds == null)
+                if (ProfileReadiness.running(p.profile).isNotEmpty)
                   Card(
                     child: ListTile(
                       leading: const Icon(Icons.person_outline),
@@ -272,6 +257,7 @@ class CardioScreen extends StatelessWidget {
                           ),
                     ),
                   ),
+                const SizedBox(height: 8),
                 FilledButton.icon(
                   icon: const Icon(Icons.add),
                   label: Text(context.cardio('newWorkout')),
@@ -284,6 +270,25 @@ class CardioScreen extends StatelessWidget {
                           context.cardio,
                         ),
                       ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.directions_run_outlined),
+                    title: Text(context.cardio('drills')),
+                    trailing: const Icon(Icons.play_arrow),
+                    onTap:
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) => CardioRoutinePlayer(
+                                  steps: CardioTraining.routine('drills'),
+                                  cooling: false,
+                                ),
+                          ),
+                        ),
+                  ),
                 ),
                 for (final w in p.workouts)
                   Card(
@@ -439,7 +444,7 @@ class CardioScreen extends StatelessWidget {
                 ),
                 if (p.occurrences.isNotEmpty)
                   TextButton(
-                    onPressed: () => _adapt(context, p),
+                    onPressed: () => showAdaptation(context, p),
                     child: Text(context.cardio('adapt')),
                   ),
                 for (final o in p.occurrences)

@@ -955,9 +955,9 @@ void main() {
     'performance question is readable at large text without a clipped label',
     (tester) async {
       programs.drafts['running-profile'] = {
-        'version': 1,
+        'version': 2,
         'fields': {'distance': '5', 'time': '32:30'},
-        'step': 5,
+        'stepKey': 'reference',
       };
       await mount(
         tester,
@@ -965,6 +965,7 @@ void main() {
         width: 390,
         scale: 1.3,
       );
+      expect(find.byKey(const ValueKey('running-time')), findsOneWidget);
       expect(tester.takeException(), isNull);
       await expectLater(
         find.byKey(const ValueKey('plan-golden')),
@@ -995,9 +996,11 @@ void main() {
         await tester.tap(find.text(text).first);
       }
 
-      await choose('Anfänger');
+      await choose('Tempo verbessern');
       await next();
-      await choose('Weniger als 6 Monate');
+      await choose('Keine');
+      await next();
+      await choose('Anfänger');
       await next();
       await tester.enterText(
         find.byKey(const ValueKey('running-continuous')),
@@ -1008,6 +1011,26 @@ void main() {
       await next();
       await choose('Weiß ich nicht');
       await next();
+      await next(); // unknown weekly minutes
+      await tester.enterText(
+        find.byKey(const ValueKey('running-longest')),
+        '7,5',
+      );
+      await next();
+      await next(); // unknown longest duration
+      await choose('Weniger als 6 Monate');
+      await next();
+      await choose('3');
+      await next();
+      await next(); // explicitly confirm available days
+      await tester.enterText(
+        find.byKey(const ValueKey('minutesPerSession')),
+        '45',
+      );
+      await next();
+      await choose('Nein');
+      await next();
+      await next(); // no other strenuous training
       await tester.enterText(find.byKey(const ValueKey('running-time')), '0');
       await next();
       expect(find.textContaining('Zeit über 0'), findsOneWidget);
@@ -1019,15 +1042,19 @@ void main() {
       await choose('Normaler Trainingslauf');
       await next();
       await tester.enterText(
-        find.byKey(const ValueKey('running-longest')),
-        '7,5',
-      );
-      await next();
-      await tester.enterText(
         find.byKey(const ValueKey('running-restPulse')),
         '60',
       );
       await next();
+      await next();
+      await next(); // optional pulse source
+      await choose('Karvonen-Schätzung');
+      await next();
+      await choose('Nach Zeit');
+      await next();
+      await choose('Ja');
+      await next();
+      await choose('Ja');
       await next();
       await tester.tap(find.text('Profil bestätigen'));
       await tester.pumpAndSettle();
@@ -1089,8 +1116,9 @@ void main() {
         },
         'canonicalMeters': {'distance': 5000.0, 'longest': 7500.0},
         'units': 'metric',
-        'version': 1,
-        'step': 10,
+        'version': 2,
+        'stepKey': 'review',
+        'planning': confirmedPlanning.toJson(),
         'level': 'beginner',
         'months': 2,
         'frequency': 3,
@@ -1114,8 +1142,9 @@ void main() {
     'optional pulse zones remain visible as estimates in the review',
     (tester) async {
       programs.drafts['running-profile'] = {
-        'version': 1,
-        'step': 10,
+        'version': 2,
+        'stepKey': 'review',
+        'planning': confirmedPlanning.toJson(),
         'level': 'beginner',
         'months': 2,
         'frequency': 3,
@@ -1135,8 +1164,7 @@ void main() {
         tester,
         CardioProfileScreen(provider: cardio, setupRepository: programs),
       );
-      await tester.tap(find.text('Geschätzte Pulszonen'));
-      await tester.pumpAndSettle();
+      expect(find.byType(ExpansionTile), findsNothing);
       expect(find.text('138–151 bpm'), findsOneWidget);
       expect(find.textContaining('keine Leistungsdiagnostik'), findsOneWidget);
       expect(tester.takeException(), isNull);

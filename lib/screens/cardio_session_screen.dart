@@ -621,6 +621,9 @@ class CardioSummaryScreen extends StatefulWidget {
 class _SummaryState extends State<CardioSummaryScreen> {
   double _effort = 5;
   bool _discomfort = false, _saved = false;
+  bool? _talkComfort;
+  String? _recovery, _runType;
+  String _environment = 'unknown';
   late final Future<List<Map<String, dynamic>>> _route;
   @override
   void initState() {
@@ -631,6 +634,10 @@ class _SummaryState extends State<CardioSummaryScreen> {
     final feedback = widget.snapshot?['feedback'] as Map?;
     _effort = (feedback?['rpe'] as num?)?.toDouble() ?? 5;
     _discomfort = feedback?['discomfort'] == true;
+    _talkComfort = feedback?['talkComfort'] as bool?;
+    _recovery = feedback?['recovery'] as String?;
+    _environment = feedback?['environment'] as String? ?? 'unknown';
+    _runType = feedback?['runType'] as String?;
   }
 
   @override
@@ -742,6 +749,77 @@ class _SummaryState extends State<CardioSummaryScreen> {
                   _saved = false;
                 }),
           ),
+          const SizedBox(height: 16),
+          Text(context.running('talkComfort')),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final value in [true, false])
+                ChoiceChip(
+                  label: Text(context.running(value ? 'yes' : 'no')),
+                  selected: _talkComfort == value,
+                  onSelected:
+                      (_) => setState(() {
+                        _talkComfort = value;
+                        _saved = false;
+                      }),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(context.running('recovery')),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final value in ['ready', 'tired', 'poor'])
+                ChoiceChip(
+                  label: Text(context.running(value)),
+                  selected: _recovery == value,
+                  onSelected:
+                      (_) => setState(() {
+                        _recovery = value;
+                        _saved = false;
+                      }),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(context.running('environment')),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final value in ['unknown', 'flat', 'hills', 'heat'])
+                ChoiceChip(
+                  label: Text(context.running(value)),
+                  selected: _environment == value,
+                  onSelected:
+                      (_) => setState(() {
+                        _environment = value;
+                        _saved = false;
+                      }),
+                ),
+            ],
+          ),
+          if (widget.snapshot?['health'] != null) ...[
+            const SizedBox(height: 16),
+            Text(context.running('runType')),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final value in ['easy', 'otherRun'])
+                  ChoiceChip(
+                    label: Text(context.running(value)),
+                    selected: _runType == value,
+                    onSelected:
+                        (_) => setState(() {
+                          _runType = value;
+                          _saved = false;
+                        }),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 16),
           FilledButton(
             onPressed:
                 _saved
@@ -752,6 +830,10 @@ class _SummaryState extends State<CardioSummaryScreen> {
                           r['sessionId'] as String,
                           _effort.round(),
                           _discomfort,
+                          talkComfort: _talkComfort,
+                          recovery: _recovery,
+                          environment: _environment,
+                          runType: _runType,
                         );
                         await p.load();
                         if (mounted) setState(() => _saved = true);
