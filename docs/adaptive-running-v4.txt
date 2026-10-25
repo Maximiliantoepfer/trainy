@@ -1,0 +1,145 @@
+TRAINY — TRACKING UND ADAPTIVE LAUFPLANUNG V4
+Stand: 26.10.2026
+
+IMPLEMENTIERT
+
+Health: eigener typisierter Pigeon-Vertrag, Health Connect 1.1.0 und HealthKit.
+Training/Distanz benötigen keine Kalorien- oder Schrittberechtigung. Puls und
+Routen bleiben optional; Routen werden erst auf ausdrückliche Aktion importiert.
+Paket-/Bundlekennung und externe Datensatz-ID bestimmen die Herkunft. Eigene
+Exporte werden ausgeschlossen, überlappende fremde Quellen nicht summiert.
+Mehrdeutige Werte bleiben unbekannt. Aktive und verstrichene Zeit sind getrennt.
+Workout- und Routenexport haben getrennte Retry-Zustände und stabile IDs.
+HealthKit gibt keine verlässliche Leseberechtigung bekannt; die UI behauptet sie
+nicht. Fremde Health-Daten werden weder verändert noch gelöscht.
+
+GPS/Audio: monotone Zeit, akzeptierte Messungen, Aufteilung von Messintervallen
+über Abschnittsgrenzen, keine erfundene Strecke bei Lücken oder Ausreißern.
+Langsames Laufen bleibt ohne native Geschwindigkeitsangabe auswertbar. Pause,
+Gehabschnitt und GPS-Verlust sind getrennte Zustände; Routen enthalten Lücken.
+Native Checkpoints erhalten Sitzungs-ID, Abschnittsfortschritt und Ansage-IDs.
+Ansagen haben Priorität, Abschnittsbezug und Ablaufzeit. Veraltete Hinweise werden
+verworfen; Easy-Hinweise fordern nie zum Beschleunigen auf. Offline-TTS spricht
+Dauer und Pace mit Einheiten. Fehler sind sichtbar, die Aufzeichnung läuft weiter.
+Kein Live-Puls, kein Brustgurt und keine Live-Smartwatch-Verbindung.
+
+Adaption: 28 Tage Belastung, 30 Tage längster Lauf, maximal 90 Tage alte Bestzeit.
+Easy-Pace benötigt mindestens drei geeignete Läufe mit mindestens 20 Minuten,
+guter Messqualität, bestätigtem Sprechkomfort und unauffälliger Rückmeldung.
+Höchstens sechs vergleichbare Läufe, nach Aktualität gewichteter Median,
+Ausreißerfilter, getrennte Umgebungen. Keine Durchschnittspace aus Run-Walk,
+Intervallen oder pausierten Einheiten. Health zählt erst nach akzeptiertem Import.
+Ohne belastbare Daten keine erfundene Verbesserung. Eine normale Referenz wird
+nicht zur Wettkampfleistung umgerechnet. Puls allein verändert keine Pace.
+
+Vorschläge erhöhen Geschwindigkeit zunächst höchstens um 2 % pro sieben Tage
+oder den Umfang, nie beides zugleich. Run-Walk steigt nach drei gut vertragenen
+Abschlüssen der aktuellen Stufe. Beschwerden/ungenügende Erholung führen zu
+Reduktionsvorschlägen. Änderungen zeigen Gründe, berücksichtigte Einheiten und
+Regelversion und benötigen Bestätigung. Gesperrte, begonnene, abgeschlossene
+Einheiten und manuelle Ziele bleiben geschützt. Entlastung und Taper werden
+nicht durch positive Adaption aufgehoben; bei alten Plänen ohne eindeutige
+Phasenangabe wird keine automatische Steigerung vorgeschlagen.
+
+Generator: vier Belastbarkeitsstufen, ein bis sechs Lauftage, eigene Rotationen,
+Zielausrichtung, Tagesbudgets einschließlich Warm-up/Cool-down, Berücksichtigung
+anstrengender Krafttage. Anfänger erhalten höchstens einen dosierten Schwerpunkt;
+zwei nur bei sehr erfahrenen Nutzern mit mindestens fünf Tagen und bestätigter
+Verträglichkeit. Separate Anforderungen und Taper für 5/10 km, Halbmarathon und
+Marathon; unzureichende Grundlage führt zunächst zu einem Aufbaublock.
+
+Serielles Profil: Ziel, Einschränkungen, aktuelle Lauf-/Gehfähigkeit, tatsächliche
+Häufigkeit und Umfang, längster Lauf, Erfahrung, gewünschte Häufigkeit, Tage,
+Gesamtzeit und abweichende Tagesbudgets, andere Belastungen, optionale Referenz,
+Pulsquelle/manuelle Zonen, Routenpräferenz, Gehpausen und Ansagen. Antworten werden
+als Entwurf erhalten; Historie bestätigt sie nicht automatisch. Ohne Referenzzeit
+ist ein zeit- und anstrengungsbasierter Einstieg möglich. Feedback ist optional.
+Lauf-ABC ist auch unabhängig startbar. Bestehende Pläne erfordern keine Neueinrichtung.
+
+KONFIGURATION UND DATEN
+
+Regeln/Rotationen: assets/config/running_rules.json, derzeit Version 4.
+Jede numerische Regel benennt ihre Produktbegründung; Quellen und deren begrenzte
+Aussage sind separat aufgeführt. Grenzwerte sind Produktheuristiken, keine
+medizinische Sicherheitsgarantie und kein Leistungsversprechen.
+Nach Änderungen: dart run tool/generate_running_rules.dart
+Der Test running_adaptation_test.dart prüft die Übereinstimmung mit der gebündelten
+generierten Datei sowie Eingabegrenzen. Validierung und Schutzregeln bleiben im Code.
+Pigeon-Dateien aus pigeons/health_api.dart und pigeons/cardio_api.dart regenerieren,
+nicht einzeln von Hand ändern. Generierte Dart-/Kotlin-/Swift-Dateien sind versioniert.
+Neue Profilantworten, Feedback, Zonen, Phasen, angenommene Vorschläge und Versionen
+werden additiv gespeichert und per Backup/Restore erhalten. Fehlende alte Antworten
+werden nicht als bestätigt migriert; Termine und historische IDs bleiben bestehen.
+
+AUTOMATISIERTE ABNAHME
+
+- Flutter: 224 Tests einschließlich Generator-Matrix über vier Stufen, sechs
+  Häufigkeiten, drei Ziele und vier Distanzen; Adaption, UI, Migration und Backup.
+- flutter analyze: keine Probleme.
+- Android/JUnit: 18 Engine- und 2 Journaltests, keine Fehler.
+- Isolierter Android-Workflow: 3 Onboarding- und 3 Cardio/Health-Integrationstests.
+  Der GPS-Test erreicht tatsächlich 100 Meter aus Emulator-Koordinaten und wechselt
+  anschließend in einen Zeitabschnitt. Der Health-Test prüft den echten Kanal und
+  Fehlervertrag ohne Berechtigungsdialoge, Kontozugriff oder Testdatenschreiben.
+- Gemeinsame synthetische GPS-/Zeit-Replays für Android/iOS; sie ersetzen keine
+  gemessene Außenstrecke. Swift-Tests sind vorhanden, unter Windows NICHT ausgeführt.
+- Golden-Bilder für Kalender, Laufbibliothek und Laufprofil visuell geprüft;
+  Widgets decken Deutsch/Englisch, Einheiten und große Schrift ab.
+
+Reproduzieren:
+  flutter test --reporter expanded
+  flutter analyze
+  cd android; ./gradlew :app:testDebugUnitTest
+  ./tool/test_android_integration.ps1 -DeviceId emulator-5554 -Test plan_onboarding_test
+  ./tool/test_android_integration.ps1 -DeviceId emulator-5554 -Test cardio_native_test
+Die letzten zwei Befehle vom Projektverzeichnis aus, ausschließlich im isolierten
+Workflow. Alle Geräte-Integrationstests laufen mit com.example.trainy.integration.
+
+KURZE CHECKLISTE: REALE ANDROID-ABNAHME (NOCH OFFEN)
+
+Vorbereitung: tool/build_android_acceptance.ps1 erstellt
+build/app/outputs/acceptance/trainy-acceptance.apk, App-ID
+com.example.trainy.acceptance, Anzeigename "Trainy (Abnahme)".
+Das Skript installiert nichts und stellt anschließend den normalen APK-Build wieder
+her. Nur diese separate APK installieren. Bestehende Trainy-App nicht deinstallieren
+oder zurücksetzen. Für GPS/Audio ohne Google-Anmeldung/Backup beginnen. Android-,
+Geräte- und Kopfhörermodell notieren. Ansagen aktivieren, lokale TTS-Stimme prüfen.
+
+1. Kurzes Testworkout: 2 Minuten locker, 100 Meter, 1 Minute gehen. Bluetooth-
+   Kopfhörer verbinden, Testansage muss HÖRBAR sein. Flugmodus mit anschließend
+   aktiviertem Bluetooth ist optional: Zeit/Pace/Distanz müssen offline arbeiten.
+2. Bekannte kurze Außenstrecke: zuerst GPS-Fix abwarten, dann mit ausgeschaltetem
+   Bildschirm gehen/langsam laufen. Jeder Abschnitt endet bei seinem Zeit-/
+   Distanzziel, die Wechselansage kommt einmal. Route und Distanz danach vergleichen.
+3. Manuell pausieren und einige Meter gehen: keine gezählte Trainingsstrecke.
+   Fortsetzen; Gehabschnitt bleibt ein echter Abschnitt. Bei schlechtem Empfang
+   keine Sprünge oder erfundenen Strecken; Verlust wird sichtbar, Lücke bleibt.
+4. Musik plus Kopfhörer, kurzer Anruf, Kopfhörer trennen/verbinden: Ansagen danach
+   prüfen. Keine verspätete Flut alter Hinweise. Bei Audiofehler muss die App den
+   Fehler anzeigen, Aufzeichnung darf nicht abbrechen. Stumm bedeutet NICHT bestanden.
+5. Health zunächst nur notwendige Rechte geben, Puls/Route verweigern: Training
+   muss trotzdem importierbar sein. Ein vorhandenes Training zweimal abrufen und
+   akzeptieren: keine doppelte Einheit, Herkunft korrekt, fehlende Werte unbekannt.
+6. Eigenes kurzes Workout "Trainy Abnahme Test" exportieren, dann Route ausdrücklich
+   freigeben. Wiederholter Export/Retry darf kein zweites Training anlegen. Ohne
+   Routenzustimmung bleibt das Workout nutzbar. Fremde Datensätze nicht löschen.
+7. App schließen und wieder öffnen: gespeicherte Einheit/Route/Feedback vorhanden.
+   Bei unterbrochener Aufnahme pausierte Wiederaufnahme anbieten, keine doppelte ID.
+   Ein OS-Force-Stop ist KEIN Nachweis ununterbrochener Hintergrundaufzeichnung.
+
+Rückmeldung je Punkt: bestanden/fehlgeschlagen/nicht geprüft, ungefähre Uhrzeit,
+Gerät/Android-Version, Screenshot oder konkrete fehlende Ansage. Bei Schmerzen
+abbrechen; diese Abnahme ist ein Funktionstest, kein Leistungstest.
+
+OFFENE FREIGABEN / BEWUSSTE GRENZEN
+
+- Reale Android-Außenstrecke, Bluetooth/TTS/Musik/Anruf und echte Health-Rechte/
+  Import/Export sind noch NICHT abgenommen. Emulator ohne Audio belegt kein Hören.
+- Kein Mac/Xcode/iPhone verfügbar: iOS-Build, XCTest, HealthKit-Capability und
+  reale iOS-Hintergrund-/Routen-/Audiotests bleiben ausdrücklich offen.
+- Journal-Recovery ist pausiert; OS-Force-Stop kann Daten seit letztem Checkpoint
+  verlieren. Keine Behauptung lückenloser Aufnahme nach erzwungenem Prozessende.
+- Gemessene Pace garantiert keine physiologische Zone. Manuelle Zonen haben
+  Vorrang, aber ohne Live-Puls gibt es keine pulsabhängige Echtzeitsteuerung.
+- Store-Freigabe/Signing, Kontolöschung auf echten Cloudkonten und medizinische
+  Wirksamkeitsvalidierung sind nicht durch diese automatisierten Tests abgedeckt.

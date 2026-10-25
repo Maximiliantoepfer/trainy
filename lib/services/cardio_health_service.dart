@@ -28,8 +28,9 @@ class CardioHealthService {
   Future<void> connect() async {
     accessState = await health.access(true, false, true, false);
     if (!accessState!.available) throw StateError('health_unavailable');
-    if (accessState!.readState == 'denied')
+    if (accessState!.readState == 'denied') {
       throw StateError('health_permission');
+    }
     final p = await repository.profile();
     await repository.saveProfile(
       AthleteRunningProfile.fromJson({...p.toJson(), 'healthEnabled': true}),
@@ -40,8 +41,9 @@ class CardioHealthService {
     if (!(await repository.profile()).healthEnabled) return;
     accessState = await health.access(false, false, false, false);
     if (!accessState!.available) throw StateError('health_unavailable');
-    if (accessState!.readState == 'denied')
+    if (accessState!.readState == 'denied') {
       throw StateError('health_permission');
+    }
     final now = DateTime.now();
     final data = await health.workouts(
       now.subtract(const Duration(days: 29)).millisecondsSinceEpoch,
@@ -263,8 +265,9 @@ class CardioHealthService {
             point,
             record['start'] as int,
             record['end'] as int,
-          ))
+          )) {
             continue;
+          }
           await txn.insert('cardio_sensor_samples', {
             'session_id': id,
             'sequence': sequence++,
@@ -373,8 +376,9 @@ class CardioHealthService {
         if (p['active'] == false ||
             p['latitude'] is! num ||
             p['longitude'] is! num ||
-            p['timestamp'] is! num)
+            p['timestamp'] is! num) {
           continue;
+        }
         final point = HealthRoutePoint(
           timestamp: (p['timestamp'] as num).toInt(),
           latitude: (p['latitude'] as num).toDouble(),

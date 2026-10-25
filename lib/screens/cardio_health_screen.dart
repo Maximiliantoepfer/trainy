@@ -44,7 +44,7 @@ class _HealthState extends State<CardioHealthScreen> {
       if (mounted) await context.read<CardioProvider>().load();
     } catch (error) {
       final code = error.toString();
-      if (mounted)
+      if (mounted) {
         setState(
           () =>
               _error = context.l10n.healthStatus(
@@ -55,6 +55,7 @@ class _HealthState extends State<CardioHealthScreen> {
                     : 'failed',
               ),
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

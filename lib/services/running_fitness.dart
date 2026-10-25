@@ -191,6 +191,16 @@ class RunningFitness {
                 feedback.effort >= 8 ||
                 feedback.recovery == 'poor');
         if (age <= 14 && bad) difficult = true;
+        // A stopped/partially recorded session may still report symptoms, but
+        // cannot prove a tolerated long run or justify a load/pace increase.
+        if (runtime['finishedEarly'] == true ||
+            runtime['recovered'] == true ||
+            (runtime['results'] as List? ?? []).any(
+              (r) => (r as Map)['partial'] == true,
+            )) {
+          excluded[id] = 'incomplete';
+          continue;
+        }
         if (age <= 14 &&
             feedback != null &&
             !bad &&

@@ -3,12 +3,45 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:trainy/services/generated/cardio_api.g.dart';
+import 'package:trainy/services/generated/health_api.g.dart';
 
 /// Device smoke test, built as com.example.trainy.integration on Android.
 /// Run tool/test_android_integration.ps1 -DeviceId emulator-5554 -Test cardio_native_test.
 /// It verifies the APK identity BEFORE Flutter captures it for teardown.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'typed Health adapter reports access without requesting or writing health data',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: Text('Health contract test'))),
+      );
+      final api = HealthHostApi();
+      final access = await api.access(false, false, false, false);
+      expect(access.ownSource, 'com.example.trainy.integration');
+      expect([
+        'unavailable',
+        'denied',
+        'limited',
+        'granted',
+      ], contains(access.readState));
+      // Invalid records exercise the native error contract without creating data.
+      await expectLater(
+        api.saveWorkout(
+          HealthWorkout(
+            id: '',
+            source: access.ownSource,
+            name: 'INVALID Trainy test — must not be saved',
+            sport: 'running',
+            start: 0,
+            end: 0,
+            indoor: false,
+          ),
+        ),
+        throwsA(isA<Exception>()),
+      );
+    },
+  );
   testWidgets(
     'outdoor recorder accepts an emulator GPS route and preserves pause',
     (tester) async {
@@ -38,9 +71,16 @@ void main() {
             'steps': [
               {
                 'id': 'easy',
-                'amount': 120,
-                'goal': 'time',
+                'amount': 100,
+                'goal': 'distance',
                 'movement': 'run',
+                'primaryTarget': 'effort',
+              },
+              {
+                'id': 'finish',
+                'amount': 2,
+                'goal': 'time',
+                'movement': 'walk',
                 'primaryTarget': 'effort',
               },
             ],
@@ -68,6 +108,16 @@ void main() {
         await api.resume();
         await Future<void>.delayed(const Duration(seconds: 2));
         expect((jsonDecode((await api.state())!) as Map)['status'], 'active');
+        for (var attempt = 0; attempt < 90; attempt++) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          state = jsonDecode((await api.state())!) as Map;
+          if (state['status'] == 'completed') break;
+        }
+        expect(state['status'], 'completed');
+        final results = state['results'] as List;
+        expect(results.length, 2);
+        expect(results.first['meters'] as num, closeTo(100, .1));
+        expect(results.last['seconds'] as num, closeTo(2, .01));
       } finally {
         final raw = await api.state();
         if (raw != null && (jsonDecode(raw) as Map)['sessionId'] == id) {

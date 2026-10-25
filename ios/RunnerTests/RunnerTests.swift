@@ -5,6 +5,23 @@ import CoreLocation
 @testable import Runner
 
 class RunnerTests: XCTestCase {
+  func testDelayedTickAndLateGpsCrossing() {
+    let snapshot: [String: Any] = ["sessionId": "mixed", "indoor": false, "autoPause": false,
+      "steps": [["id": "time", "goal": "time", "amount": 5.0, "movement": "run"],
+                ["id": "distance", "goal": "distance", "amount": 50.0, "movement": "run"]]]
+    let engine = CardioEngine(CardioEngine.fresh(snapshot), speak: { _ in })
+    engine.state["countdown"] = 0.0
+    engine.tick(0)
+    func fix(_ latitude: Double) -> CLLocation { CLLocation(coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: 13),
+      altitude: 0, horizontalAccuracy: 3, verticalAccuracy: 3, course: 0, speed: 2, timestamp: Date()) }
+    _ = engine.location(fix(52), now: 0)
+    engine.tick(10)
+    _ = engine.location(fix(52.000179864), now: 10)
+    XCTAssertEqual(engine.number("stepMeters"), 10, accuracy: 0.15)
+    XCTAssertEqual(engine.number("activeSeconds"), 10, accuracy: 0.001)
+    let results = engine.state["results"] as! [[String: Any]]
+    XCTAssertEqual((results[0]["meters"] as! NSNumber).doubleValue, 10, accuracy: 0.15)
+  }
   func testSharedPlatformReplay() throws {
     let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     let bytes = try Data(contentsOf: root.appendingPathComponent("test/fixtures/cardio_replay.json"))
@@ -26,7 +43,7 @@ class RunnerTests: XCTestCase {
       var cues: [String] = []
       let snapshot: [String: Any] = ["sessionId": "cap", "indoor": false, "autoPause": true,
         "messages": ["faster": "faster", "slower": "slower"],
-        "steps": [["id": "easy", "goal": "time", "amount": 300.0, "movement": "run", "primaryTarget": "pace", "maxSpeed": 2.5]]]
+        "steps": [["id": "easy", "goal": "time", "amount": 300.0, "movement": "run", "primaryTarget": "pace", "maxSpeed": 2.5, "minSpeed": 2.0, "intensity": "easy"]]]
       let engine = CardioEngine(CardioEngine.fresh(snapshot), speak: { cues.append($0) })
       engine.state["countdown"] = 0.0
       for second in 0...90 {

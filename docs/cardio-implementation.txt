@@ -1,6 +1,11 @@
 TRAINY CARDIO — Implementierungsstand und Release-Prüfung
 Stand: 19.10.2026
 
+HISTORISCHER STAND: Die folgenden Architektur- und Testergebnisse dokumentieren
+die erste Ausbaustufe. Für Health, GPS/Audio, Laufprofile, Pace und Adaption gilt
+seit 25.10.2026 docs/adaptive-running-v4.txt. Dort stehen die aktuellen Grenzen,
+Tests und die Anleitung zur getrennten Android-Abnahmeinstallation.
+
 UMFANG
 
 Die erste Implementierungsstufe ist Smartphone-first und lokal. Sie enthält
@@ -179,12 +184,13 @@ Befehle (vom Projektverzeichnis, Gradle aus android/):
   flutter test --reporter expanded
   flutter build apk --debug -t lib/main.dart
   ./gradlew :app:testDebugUnitTest --tests com.example.trainy.CardioEngineTest --tests com.example.trainy.CardioSampleJournalTest
-  flutter test integration_test/cardio_native_test.dart -d <device-id>
+  ./tool/test_android_integration.ps1 -DeviceId emulator-5554 -Test cardio_native_test
 
-Emulator-Test benötigt ACTIVITY_RECOGNITION für com.example.trainy. Er lehnt ein
-bestehendes natives Journal ab, verändert keine SQLite-Nutzerdaten und bestätigt
-nur die selbst gestartete Testsession. Testlauf kann die Emulator-App danach
-entfernen; nicht auf einem persönlichen Gerät mit wichtigen Daten ausführen.
+Android-Integration ausschließlich über den obigen isolierten Workflow starten.
+Er prüft die separate App-ID com.example.trainy.integration vor der Installation.
+Keine direkten flutter-test-Geräteaufrufe und keine Produktionstests auf einem
+persönlichen Gerät. Die reale manuelle Abnahme verwendet die nochmals getrennte
+App-ID com.example.trainy.acceptance; siehe adaptive-running-v4.txt.
 
 Pigeon neu generieren:
   dart run pigeon --input pigeons/cardio_api.dart --package_name trainy --dart_out lib/services/generated/cardio_api.g.dart --kotlin_out android/app/src/main/kotlin/com/example/trainy/CardioApi.g.kt --kotlin_package com.example.trainy --swift_out ios/Runner/CardioApi.g.swift

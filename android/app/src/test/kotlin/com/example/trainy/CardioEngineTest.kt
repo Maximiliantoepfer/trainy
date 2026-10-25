@@ -6,6 +6,40 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class CardioEngineTest {
+    @Test fun stationaryFixesWithoutSpeedStillAutoPause() {
+        val e = engine(listOf(step("a", 300.0)))
+        for (second in 0..35) {
+            e.tick(second.toDouble())
+            e.location(52.0 + minOf(second, 5) * .000009, 13.0, 3.0, null, second.toDouble(), second * 1000L)
+        }
+        assertEquals("paused", e.state.getString("status"))
+        assertTrue(e.state.getBoolean("autoPaused"))
+    }
+    @Test fun delayedTickKeepsMonotonicTimeAndCountdownOvershoot() {
+        val e = engine(listOf(step("a", 10.0), step("b", 20.0)), indoor = true)
+        e.state.put("countdown", 3.0)
+        e.tick(0.0); e.tick(18.0)
+        assertEquals(15.0, e.state.getDouble("activeSeconds"), .001)
+        assertEquals(1, e.state.getInt("index"))
+        assertEquals(5.0, e.state.getDouble("stepSeconds"), .001)
+    }
+    @Test fun lateFixSplitsDistanceAcrossTimeBoundary() {
+        val e = engine(listOf(step("a", 5.0), step("b", 50.0, "distance")))
+        e.tick(0.0); e.location(52.0, 13.0, 3.0, 2.0, 0.0, 0)
+        e.tick(10.0)
+        e.location(52.000179864, 13.0, 3.0, 2.0, 10.0, 10000)
+        assertEquals(10.0, e.state.getJSONArray("results").getJSONObject(0).getDouble("meters"), .1)
+        assertEquals(10.0, e.state.getDouble("stepMeters"), .1)
+        assertEquals(20.0, e.state.getDouble("distanceMeters"), .1)
+    }
+    @Test fun optingOutOfSpeechDoesNotDisableRecording() {
+        val cues = mutableListOf<String>()
+        val e = engine(listOf(step("a", 60.0)), indoor = true, cues = cues)
+        e.state.put("audioEnabled", false)
+        e.tick(0.0); e.tick(60.0)
+        assertEquals("completed", e.state.getString("status"))
+        assertTrue(cues.isEmpty())
+    }
     @Test fun sharedPlatformReplay() {
         val file = java.io.File("../../test/fixtures/cardio_replay.json")
         val cases = JSONObject(file.readText()).getJSONArray("cases")
@@ -136,6 +170,7 @@ class CardioEngineTest {
         for (speed in listOf(1.0, 4.0)) {
             val cues = mutableListOf<String>()
             val s = step("easy", 300.0).put("primaryTarget", "pace").put("maxSpeed", 2.5)
+                .put("intensity", "easy").put("minSpeed", 2.0)
             val e = engine(listOf(s), cues = cues)
             for (second in 0..90) {
                 e.location(52.0 + second * .000009, 13.0, 5.0, speed, second.toDouble(), second * 1000L)

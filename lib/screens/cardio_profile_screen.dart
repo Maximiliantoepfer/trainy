@@ -941,7 +941,9 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
             children: [
               const SizedBox(height: 20),
               Text(
-                context.cardio('zones'),
+                _planning['zoneMethod'] == 'manual'
+                    ? '${context.cardio('heartRate')} · ${context.running('manual')}'
+                    : context.cardio('zones'),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               Padding(

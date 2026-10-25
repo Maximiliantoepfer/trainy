@@ -15,7 +15,7 @@ final class CardioEngine {
     func number(_ key: String) -> Double { (state[key] as? NSNumber)?.doubleValue ?? 0 }
     func message(_ key: String) -> String { (state["messages"] as? [String: String])?[key] ?? key }
     private func cue(_ text: String, kind: String, priority: Int = 30, unique: Bool = true) {
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty, state["audioEnabled"] as? Bool != false else { return }
         let id = "\(state["sessionId"] as? String ?? ""):\(index):\(kind)"
         var sent = state["cueIds"] as? [String] ?? []
         if unique && sent.contains(id) { return }
@@ -31,7 +31,7 @@ final class CardioEngine {
                           "results": [[String: Any]](), "gps": "gpsWaiting", "sequence": -1]) { _, new in new }
     }
     func tick(_ now: Double) {
-        let dt = lastTick.map { min(5, max(0, now - $0)) } ?? 0
+        var dt = lastTick.map { max(0, now - $0) } ?? 0
         lastTick = now
         if state["status"] as? String == "completed" { return }
         state["elapsedSeconds"] = number("elapsedSeconds") + dt
@@ -45,9 +45,11 @@ final class CardioEngine {
         }
         guard state["status"] as? String == "active" else { return }
         if number("countdown") > 0 {
+            let waiting = number("countdown")
             state["countdown"] = max(0, number("countdown") - dt)
-            if number("countdown") == 0 { cue(current["startCue"] as? String ?? "", kind: "start", priority: 90) }
-            return
+            dt = max(0, dt - waiting)
+            if number("countdown") == 0 { previous = nil; cue(current["startCue"] as? String ?? "", kind: "start", priority: 90) }
+            if dt == 0 { return }
         }
         state["activeSeconds"] = number("activeSeconds") + dt
         if state["gps"] as? String == "gpsReady" && state["indoor"] as? Bool != true { state["gpsCoveredSeconds"] = number("gpsCoveredSeconds") + dt }
@@ -85,7 +87,7 @@ final class CardioEngine {
         let resolved = previous == nil || gap > 15 || reported != nil || distance >= max(3, max(fix.horizontalAccuracy, previous?.0.horizontalAccuracy ?? 0) / 2)
         if resolved { previous = (fix, now) }
         lastFix = now
-        let measured = reported ?? (gap > 0 && gap <= 15 && resolved ? distance / gap : number("motionSpeed"))
+        let measured = reported ?? (gap > 0 && gap <= 15 ? distance / gap : 0)
         speeds.append((now, measured)); speeds.removeAll { now - $0.0 > 15 }
         state["motionSpeed"] = measured
         state["speed"] = speeds.map { $0.1 }.reduce(0, +) / Double(speeds.count); state["gps"] = "gpsReady"
@@ -93,9 +95,20 @@ final class CardioEngine {
         if state["status"] as? String == "paused" && state["autoPaused"] as? Bool == true && measured > 0.7 { resume() }
         let active = wasActive && state["status"] as? String == "active" && number("countdown") == 0
         if active && resolved && gap > 0 && gap <= 15 && measured >= 0.35 {
+            let currentSeconds = min(gap, number("stepSeconds"))
+            var pastSeconds = gap - currentSeconds
+            var results = state["results"] as? [[String: Any]] ?? []
+            for i in results.indices.reversed() {
+                if pastSeconds <= 0 { break }
+                let seconds = min(pastSeconds, (results[i]["seconds"] as? NSNumber)?.doubleValue ?? 0)
+                results[i]["meters"] = ((results[i]["meters"] as? NSNumber)?.doubleValue ?? 0) + distance * seconds / gap
+                pastSeconds -= seconds
+            }
+            state["results"] = results
+            let currentDistance = pastSeconds == gap ? distance : distance * currentSeconds / gap
             state["distanceMeters"] = number("distanceMeters") + distance
-            state["stepMeters"] = number("stepMeters") + distance
-            advance(deltaSeconds: min(gap, number("stepSeconds")), deltaMeters: distance)
+            state["stepMeters"] = number("stepMeters") + currentDistance
+            advance(deltaSeconds: currentSeconds, deltaMeters: currentDistance)
         }
         let seq = (state["sequence"] as? Int ?? -1) + 1; state["sequence"] = seq
         return ["sequence": seq, "timestamp": Int(fix.timestamp.timeIntervalSince1970 * 1000), "latitude": fix.coordinate.latitude,
@@ -107,7 +120,7 @@ final class CardioEngine {
         let speed = number("speed")
         if speed <= 0.35 { outsideSince = nil; return }
         let fast = high.map { $0 > 0 && 1000 / speed < 1000 / $0 - 20 } ?? false
-        let slow = low.map { $0 > 0 && 1000 / speed > 1000 / $0 + 20 } ?? false
+        let slow = !["easy", "recovery"].contains(current["intensity"] as? String ?? "") && (low.map { $0 > 0 && 1000 / speed > 1000 / $0 + 20 } ?? false)
         if !fast && !slow { outsideSince = nil; return }
         if outsideSince == nil { outsideSince = now }
         if now - outsideSince! >= 10 && now - lastCorrection >= 45 {

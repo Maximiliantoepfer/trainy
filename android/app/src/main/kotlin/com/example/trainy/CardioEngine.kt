@@ -20,7 +20,7 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
     private fun value(key: String) = state.optDouble(key, 0.0)
     private fun text(key: String) = state.optJSONObject("messages")?.optString(key, key) ?: key
     private fun cue(message: String, kind: String, priority: Int = 30, unique: Boolean = true) {
-        if (message.isBlank()) return
+        if (message.isBlank() || !state.optBoolean("audioEnabled", true)) return
         val id = "${state.optString("sessionId")}:$index:$kind"
         val sent = state.optJSONArray("cueIds") ?: JSONArray().also { state.put("cueIds", it) }
         if (unique && (0 until sent.length()).any { sent.optString(it) == id }) return
@@ -32,7 +32,7 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
     private fun emit(key: String) { cue(text(key), key, if (key in listOf("completed", "paused", "resume")) 100 else 40, key == "completed") }
 
     fun tick(now: Double) {
-        val dt = lastTick?.let { (now - it).coerceIn(0.0, 5.0) } ?: 0.0
+        var dt = lastTick?.let { max(0.0, now - it) } ?: 0.0
         lastTick = now
         if (state.optString("status") == "completed") return
         state.put("elapsedSeconds", value("elapsedSeconds") + dt)
@@ -47,9 +47,14 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
         }
         if (state.optString("status") != "active") return
         if (state.optDouble("countdown", 0.0) > 0) {
+            val waiting = value("countdown")
             state.put("countdown", max(0.0, value("countdown") - dt))
-            if (value("countdown") == 0.0) cue(current.optString("startCue"), "start", 90)
-            return
+            dt = max(0.0, dt - waiting)
+            if (value("countdown") == 0.0) {
+                previous = null
+                cue(current.optString("startCue"), "start", 90)
+            }
+            if (dt == 0.0) return
         }
         state.put("activeSeconds", value("activeSeconds") + dt)
         if (state.optString("gps") == "gpsReady" && !state.optBoolean("indoor")) state.put("gpsCoveredSeconds", value("gpsCoveredSeconds") + dt)
@@ -92,7 +97,7 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
         val resolved = old == null || gap > 15 || reported != null || distance >= max(3.0, max(accuracy, old.accuracy) / 2)
         if (resolved) previous = fix
         lastFix = now
-        val measured = reported ?: if (old != null && gap in .01..15.0 && resolved) distance / gap else state.optDouble("motionSpeed", 0.0)
+        val measured = reported ?: if (old != null && gap in .01..15.0) distance / gap else 0.0
         speeds.add(now to measured); speeds.removeAll { now - it.first > 15 }
         state.put("speed", speeds.map { it.second }.average())
         state.put("motionSpeed", measured)
@@ -101,9 +106,23 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
         if (state.optString("status") == "paused" && state.optBoolean("autoPaused") && measured > .7) resume()
         val active = wasActive && state.optString("status") == "active" && value("countdown") == 0.0
         if (active && resolved && gap in .01..15.0 && measured >= .35) {
+            // A timer may already have completed time sections since the last
+            // accepted fix. Attribute their share retrospectively, never all
+            // of the measurement to the newly opened distance section.
+            val currentSeconds = min(gap, value("stepSeconds"))
+            var pastSeconds = gap - currentSeconds
+            val results = state.getJSONArray("results")
+            for (i in results.length() - 1 downTo 0) {
+                if (pastSeconds <= 0) break
+                val result = results.getJSONObject(i)
+                val seconds = min(pastSeconds, result.optDouble("seconds", 0.0))
+                result.put("meters", result.optDouble("meters", 0.0) + distance * seconds / gap)
+                pastSeconds -= seconds
+            }
+            val currentDistance = if (pastSeconds == gap) distance else distance * currentSeconds / gap
             state.put("distanceMeters", value("distanceMeters") + distance)
-            state.put("stepMeters", value("stepMeters") + distance)
-            advance(min(gap, value("stepSeconds")), distance)
+            state.put("stepMeters", value("stepMeters") + currentDistance)
+            advance(currentSeconds, currentDistance)
         }
         val seq = state.optInt("sequence", -1) + 1
         state.put("sequence", seq)
@@ -121,7 +140,7 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
         if (speed <= .35) { outsideSince = null; return }
         val pace = 1000 / speed
         val tooFast = !s.isNull("maxSpeed") && s.optDouble("maxSpeed") > 0 && pace < 1000 / s.getDouble("maxSpeed") - 20
-        val tooSlow = !s.isNull("minSpeed") && s.optDouble("minSpeed") > 0 && pace > 1000 / s.getDouble("minSpeed") + 20
+        val tooSlow = s.optString("intensity") !in listOf("easy", "recovery") && !s.isNull("minSpeed") && s.optDouble("minSpeed") > 0 && pace > 1000 / s.getDouble("minSpeed") + 20
         if (!tooFast && !tooSlow) { outsideSince = null; return }
         if (outsideSince == null) outsideSince = now
         if (now - outsideSince!! >= 10 && now - lastCorrection >= 45) {

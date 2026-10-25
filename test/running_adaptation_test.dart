@@ -251,6 +251,29 @@ void main() {
     },
   );
   test(
+    'incomplete sessions do not establish load or long-run tolerance but retain symptom evidence',
+    () {
+      final data = engine.evaluate([
+        run(1, runtime: {'finishedEarly': true}),
+        run(2, runtime: {'recovered': true}),
+        run(
+          3,
+          runtime: {
+            'results': [
+              {'partial': true},
+            ],
+          },
+          feedback: {'discomfort': true},
+        ),
+      ], now);
+      expect(data.weeklySeconds, 0);
+      expect(data.longestSeconds, 0);
+      expect(data.toleratedRuns, 0);
+      expect(data.difficult, true);
+      expect(data.excluded.values, everyElement('incomplete'));
+    },
+  );
+  test(
     'intervals, walks, pauses, poor GPS and incomplete runs cannot calibrate easy pace',
     () {
       for (final runtime in [

@@ -19,6 +19,7 @@ val dartDefines = (project.findProperty("dart-defines") as? String).orEmpty().sp
 }
 val integrationTarget = targetPath.startsWith("integration_test/") || targetPath.contains("/integration_test/") ||
     dartDefines.any { it.startsWith("INTEGRATION_TEST_SHOULD_REPORT_RESULTS_TO_NATIVE=") }
+val acceptanceTarget = dartDefines.contains("TRAINY_ISOLATED_ACCEPTANCE=true")
 
 android {
     namespace = "com.example.trainy"
@@ -32,8 +33,8 @@ android {
     kotlinOptions { jvmTarget = JavaVersion.VERSION_11.toString() }
 
     defaultConfig {
-        applicationId = if (integrationTarget) "com.example.trainy.integration" else "com.example.trainy"
-        manifestPlaceholders["trainyLabel"] = if (integrationTarget) "Trainy (Tests)" else "trainy"
+        applicationId = if (acceptanceTarget) "com.example.trainy.acceptance" else if (integrationTarget) "com.example.trainy.integration" else "com.example.trainy"
+        manifestPlaceholders["trainyLabel"] = if (acceptanceTarget) "Trainy (Abnahme)" else if (integrationTarget) "Trainy (Tests)" else "trainy"
         minSdk = 26
         targetSdk = 35           // optional explizit
         versionCode = flutter.versionCode
@@ -51,7 +52,7 @@ flutter {
 
 // Local integration tests do not initialize Firebase or use production accounts.
 tasks.matching { it.name.endsWith("GoogleServices") }.configureEach {
-    enabled = !integrationTarget
+    enabled = !integrationTarget && !acceptanceTarget
 }
 
 dependencies {
