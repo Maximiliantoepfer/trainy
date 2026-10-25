@@ -9,6 +9,26 @@ class AppLocalizationsDe extends AppLocalizations {
   AppLocalizationsDe([String locale = 'de']) : super(locale);
 
   @override
+  String healthStatus(String key) {
+    String _temp0 = intl.Intl.selectLogic(
+      key,
+      {
+        'unavailable': 'Health ist auf diesem Gerät nicht verfügbar.',
+        'denied': 'Trainingszugriff fehlt. Bitte prüfe die Freigaben.',
+        'limited': 'Zugriff eingeschränkt. Fehlende Zusatzdaten bleiben unbekannt.',
+        'unknown': 'Apple Health zeigt den Lesezugriff nicht an. Fehlende Daten können auch an Freigaben liegen.',
+        'empty': 'Keine neuen Trainings gefunden.',
+        'synced': 'Synchronisiert.',
+        'failed': 'Synchronisierung fehlgeschlagen. Du kannst sie erneut versuchen.',
+        'route': 'Route einschließen (separate Freigabe)',
+        'routeFailed': 'Training übernommen. Die Route konnte nicht übernommen werden.',
+        'other': '',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
   String refinementText(String key) {
     String _temp0 = intl.Intl.selectLogic(
       key,

@@ -9,6 +9,26 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String healthStatus(String key) {
+    String _temp0 = intl.Intl.selectLogic(
+      key,
+      {
+        'unavailable': 'Health is not available on this device.',
+        'denied': 'Workout access is missing. Please check permissions.',
+        'limited': 'Limited access. Missing optional data remains unknown.',
+        'unknown': 'Apple Health does not disclose read access. Missing data can also reflect permissions.',
+        'empty': 'No new workouts found.',
+        'synced': 'Synced.',
+        'failed': 'Sync failed. You can try again.',
+        'route': 'Include route (separate permission)',
+        'routeFailed': 'Workout imported. The route could not be imported.',
+        'other': '',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
   String refinementText(String key) {
     String _temp0 = intl.Intl.selectLogic(
       key,

@@ -12,6 +12,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import org.json.JSONObject
 
 class MainActivity : FlutterFragmentActivity(), CardioHostApi {
+    private val healthAdapter by lazy { HealthAdapter(this) }
     private var permissionReply: ((Result<String>) -> Unit)? = null
     private var permissionOutdoor = true
     private var requestedLocale = "en"
@@ -20,6 +21,7 @@ class MainActivity : FlutterFragmentActivity(), CardioHostApi {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         CardioHostApi.setUp(flutterEngine.dartExecutor.binaryMessenger, this)
+        HealthHostApi.setUp(flutterEngine.dartExecutor.binaryMessenger, healthAdapter)
     }
     override fun capabilities() = JSONObject().put("available", true).put("indoorBackground", true).toString()
     override fun prepare(outdoor: Boolean, locale: String, callback: (Result<String>) -> Unit) {

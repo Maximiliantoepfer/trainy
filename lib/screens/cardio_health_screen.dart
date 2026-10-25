@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../l10n/cardio_l10n.dart';
+import '../l10n/l10n.dart';
 import '../models/cardio.dart';
 import '../providers/cardio_provider.dart';
 import '../services/cardio_health_service.dart';
@@ -16,6 +17,7 @@ class CardioHealthScreen extends StatefulWidget {
 class _HealthState extends State<CardioHealthScreen> {
   List<Map<String, dynamic>> _pending = [];
   bool _busy = false;
+  bool _includeRoute = false;
   String? _error;
   late final CardioHealthService _service;
   @override
@@ -40,8 +42,19 @@ class _HealthState extends State<CardioHealthScreen> {
       await action();
       await _load();
       if (mounted) await context.read<CardioProvider>().load();
-    } catch (_) {
-      if (mounted) setState(() => _error = context.cardio('healthError'));
+    } catch (error) {
+      final code = error.toString();
+      if (mounted)
+        setState(
+          () =>
+              _error = context.l10n.healthStatus(
+                code.contains('unavailable')
+                    ? 'unavailable'
+                    : code.contains('permission') || code.contains('denied')
+                    ? 'denied'
+                    : 'failed',
+              ),
+        );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -97,6 +110,7 @@ class _HealthState extends State<CardioHealthScreen> {
       () => _service.accept(
         record,
         name: name,
+        includeRoute: _includeRoute,
         linkSessionId:
             selected.startsWith('session:') ? selected.substring(8) : null,
         occurrenceId:
@@ -116,6 +130,19 @@ class _HealthState extends State<CardioHealthScreen> {
           Text(context.cardio('healthInfo')),
           const SizedBox(height: 16),
           Text(context.cardio('privacyBody')),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: Text(context.l10n.healthStatus('route')),
+            value: _includeRoute,
+            onChanged:
+                _busy ? null : (value) => setState(() => _includeRoute = value),
+          ),
+          if (_service.accessState != null)
+            Text(context.l10n.healthStatus(_service.accessState!.readState)),
+          if (_service.syncState != 'idle')
+            Text(context.l10n.healthStatus(_service.syncState)),
+          if (_service.routeState != null && _service.routeState != 'available')
+            Text(context.l10n.healthStatus('routeFailed')),
           const SizedBox(height: 16),
           FilledButton(
             onPressed:
@@ -194,14 +221,25 @@ class _HealthState extends State<CardioHealthScreen> {
               ),
               trailing:
                   (jsonDecode(s['snapshot_json'] as String)
-                              as Map)['healthExport'] ==
-                          'done'
+                                  as Map)['healthExport'] ==
+                              'done' &&
+                          (!_includeRoute ||
+                              (jsonDecode(s['snapshot_json'] as String)
+                                      as Map)['healthRouteExport'] ==
+                                  'done')
                       ? const Icon(Icons.check)
                       : IconButton(
                         tooltip: context.cardio('export'),
                         icon: const Icon(Icons.upload_outlined),
                         onPressed:
-                            _busy ? null : () => _run(() => _service.export(s)),
+                            _busy
+                                ? null
+                                : () => _run(
+                                  () => _service.export(
+                                    s,
+                                    includeRoute: _includeRoute,
+                                  ),
+                                ),
                       ),
             ),
         ],

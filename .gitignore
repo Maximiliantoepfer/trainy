@@ -63,3 +63,5 @@ app.*.map.json
 /android/app/release
 
 .claude/
+# Kotlin incremental compiler state is local build output.
+android/.kotlin/

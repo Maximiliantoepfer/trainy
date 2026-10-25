@@ -95,6 +95,12 @@ abstract class AppLocalizations {
     Locale('en')
   ];
 
+  /// No description provided for @healthStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'{key, select, unavailable{Health is not available on this device.} denied{Workout access is missing. Please check permissions.} limited{Limited access. Missing optional data remains unknown.} unknown{Apple Health does not disclose read access. Missing data can also reflect permissions.} empty{No new workouts found.} synced{Synced.} failed{Sync failed. You can try again.} route{Include route (separate permission)} routeFailed{Workout imported. The route could not be imported.} other{}}'**
+  String healthStatus(String key);
+
   /// No description provided for @refinementText.
   ///
   /// In en, this message translates to:

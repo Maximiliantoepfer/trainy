@@ -1,17 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:health/health.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/cardio.dart';
 import '../repositories/cardio_repository.dart';
 import '../utils/uuid_v4.dart';
+import 'generated/health_api.g.dart';
 
 /// Health stores are post-workout inboxes, never a live watch connection.
 class CardioHealthService {
-  CardioHealthService(this.repository, {Health? health})
-    : health = health ?? Health();
+  CardioHealthService(this.repository, {HealthHostApi? health})
+    : health = health ?? HealthHostApi();
   final CardioRepository repository;
-  final Health health;
+  final HealthHostApi health;
+  HealthAccess? accessState;
+  String syncState = 'idle';
+  String? routeState;
   String get provider => Platform.isIOS ? 'healthkit' : 'health_connect';
   static CardioSport? sport(String type) => switch (type) {
     'RUNNING' || 'RUNNING_TREADMILL' => CardioSport.running,
@@ -23,18 +26,10 @@ class CardioHealthService {
     _ => null,
   };
   Future<void> connect() async {
-    if (!Platform.isAndroid && !Platform.isIOS) {
-      throw UnsupportedError('health_unavailable');
-    }
-    await health.configure();
-    if (Platform.isAndroid && !await health.isHealthConnectAvailable()) {
-      throw StateError('health_unavailable');
-    }
-    final ok = await health.requestAuthorization(
-      [HealthDataType.WORKOUT, HealthDataType.HEART_RATE],
-      permissions: [HealthDataAccess.READ, HealthDataAccess.READ],
-    );
-    if (!ok) throw StateError('health_permission');
+    accessState = await health.access(true, false, true, false);
+    if (!accessState!.available) throw StateError('health_unavailable');
+    if (accessState!.readState == 'denied')
+      throw StateError('health_permission');
     final p = await repository.profile();
     await repository.saveProfile(
       AthleteRunningProfile.fromJson({...p.toJson(), 'healthEnabled': true}),
@@ -43,31 +38,27 @@ class CardioHealthService {
 
   Future<void> refresh() async {
     if (!(await repository.profile()).healthEnabled) return;
-    await health.configure();
+    accessState = await health.access(false, false, false, false);
+    if (!accessState!.available) throw StateError('health_unavailable');
+    if (accessState!.readState == 'denied')
+      throw StateError('health_permission');
     final now = DateTime.now();
-    final data = await health.getHealthDataFromTypes(
-      types: [HealthDataType.WORKOUT],
-      startTime: now.subtract(const Duration(days: 29)),
-      endTime: now,
+    final data = await health.workouts(
+      now.subtract(const Duration(days: 29)).millisecondsSinceEpoch,
+      now.millisecondsSinceEpoch,
     );
+    var imported = 0;
     for (final point in data) {
-      if (point.value is! WorkoutHealthValue ||
-          point.sourceId == 'com.example.trainy') {
-        continue;
-      }
-      final value = point.value as WorkoutHealthValue;
-      final activity = sport(value.workoutActivityType.name);
+      if (point.source == accessState!.ownSource) continue;
+      final activity =
+          CardioSport.values.where((s) => s.name == point.sport).firstOrNull;
       if (activity == null ||
-          point.uuid.isEmpty ||
-          !point.dateTo.isAfter(point.dateFrom)) {
+          point.id.isEmpty ||
+          point.source.isEmpty ||
+          point.end <= point.start) {
         continue;
       }
-      // Distances from the plugin's workout summary are canonical meters.
-      final rawDistance =
-          point.workoutSummary?.totalDistance.toDouble() ??
-          (value.totalDistanceUnit == HealthDataUnit.METER
-              ? value.totalDistance?.toDouble()
-              : null);
+      final rawDistance = point.distance;
       // Some providers encode a missing distance as zero. Do not present it as measured.
       final distance =
           rawDistance != null && rawDistance.isFinite && rawDistance > 0
@@ -75,24 +66,26 @@ class CardioHealthService {
               : null;
       final record = {
         'provider': provider,
-        'externalId': point.uuid,
+        'externalId': point.id,
         'sport': activity.name,
-        'sourceId': point.sourceId,
-        'sourceName': point.sourceName,
-        'sourceDeviceId': point.sourceDeviceId,
-        'start': point.dateFrom.millisecondsSinceEpoch,
-        'end': point.dateTo.millisecondsSinceEpoch,
+        'sourceId': point.source,
+        'sourceName': point.source,
+        'sourceDeviceId': point.device,
+        'start': point.start,
+        'end': point.end,
         'distance': distance,
-        'indoor':
-            value.workoutActivityType.name.contains('STATIONARY') ||
-            value.workoutActivityType.name.contains('TREADMILL'),
+        'activeSeconds': point.activeSeconds,
+        'averageHeartRate': point.averageHeartRate,
+        'indoor': point.indoor,
       };
       await repository.db.insert('cardio_health_inbox', {
         'provider': provider,
-        'external_id': point.uuid,
+        'external_id': point.id,
         'record_json': jsonEncode(record),
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      imported++;
     }
+    syncState = imported == 0 ? 'empty' : 'synced';
   }
 
   Future<List<Map<String, dynamic>>> pending() async =>
@@ -135,33 +128,24 @@ class CardioHealthService {
     String? linkSessionId,
     String? occurrenceId,
     required String name,
+    bool includeRoute = false,
   }) async {
-    double? averageHeartRate;
-    // Same source and device only. An overlapping record is not proof of association.
-    try {
-      final points = await health.getHealthDataFromTypes(
-        types: [HealthDataType.HEART_RATE],
-        startTime: DateTime.fromMillisecondsSinceEpoch(record['start'] as int),
-        endTime: DateTime.fromMillisecondsSinceEpoch(record['end'] as int),
-      );
-      final rates =
-          points
-              .where(
-                (p) =>
-                    p.sourceId == record['sourceId'] &&
-                    p.sourceDeviceId == record['sourceDeviceId'] &&
-                    p.value is NumericHealthValue,
-              )
-              .map(
-                (p) => (p.value as NumericHealthValue).numericValue.toDouble(),
-              )
-              .where((v) => v.isFinite && v >= 25 && v <= 250)
-              .toList();
-      if (rates.isNotEmpty) {
-        averageHeartRate = rates.reduce((a, b) => a + b) / rates.length;
+    final rawHeartRate = (record['averageHeartRate'] as num?)?.toDouble();
+    final averageHeartRate =
+        rawHeartRate != null &&
+                rawHeartRate.isFinite &&
+                rawHeartRate >= 25 &&
+                rawHeartRate <= 250
+            ? rawHeartRate
+            : null;
+    HealthRoute? route;
+    if (includeRoute) {
+      try {
+        route = await health.route(record['externalId'] as String);
+        routeState = route.state;
+      } catch (_) {
+        routeState = 'failed';
       }
-    } catch (_) {
-      /* Partial health permissions do not block workout import. */
     }
     await repository.db.transaction((txn) async {
       final existing = await txn.query(
@@ -173,7 +157,14 @@ class CardioHealthService {
       final id = linkSessionId ?? UuidV4.generate();
       if (linkSessionId == null) {
         final start = record['start'] as int, end = record['end'] as int;
-        final seconds = (end - start) / 1000;
+        final elapsed = (end - start) / 1000;
+        final active = (record['activeSeconds'] as num?)?.toDouble();
+        final knownActive =
+            active != null &&
+            active.isFinite &&
+            active > 0 &&
+            active <= elapsed;
+        final seconds = knownActive ? active : elapsed;
         final meters = (record['distance'] as num?)?.toDouble();
         final runtime = {
           'sessionId': id,
@@ -185,13 +176,13 @@ class CardioHealthService {
           'startedAt': start,
           'endedAt': end,
           'activeSeconds': seconds,
-          'elapsedSeconds': seconds,
+          'elapsedSeconds': elapsed,
           'distanceMeters': meters ?? 0,
           'averageHeartRate': averageHeartRate,
           'results': <Object>[],
           'cooldown': <Object>[],
           'source': record['provider'],
-          'durationBasis': 'elapsed',
+          'durationBasis': knownActive ? 'active' : 'elapsed',
         };
         await txn.insert('activity_sessions', {
           'id': id,
@@ -264,6 +255,31 @@ class CardioHealthService {
           whereArgs: [id],
         );
       }
+      // Never replace the phone's own measured route when linking a watch workout.
+      if (linkSessionId == null && route?.state == 'available') {
+        var sequence = 0;
+        for (final point in route!.points) {
+          if (!validRoutePoint(
+            point,
+            record['start'] as int,
+            record['end'] as int,
+          ))
+            continue;
+          await txn.insert('cardio_sensor_samples', {
+            'session_id': id,
+            'sequence': sequence++,
+            'sample_json': jsonEncode({
+              'timestamp': point.timestamp,
+              'latitude': point.latitude,
+              'longitude': point.longitude,
+              'accuracy': point.accuracy,
+              'altitude': point.altitude,
+              'active': true,
+              'source': record['provider'],
+            }),
+          });
+        }
+      }
       await txn.insert('health_record_links', {
         'id': UuidV4.generate(),
         'session_id': id,
@@ -289,85 +305,93 @@ class CardioHealthService {
     });
   }
 
-  Future<void> export(Map<String, Object?> session) async {
+  static bool validRoutePoint(HealthRoutePoint p, int start, int end) =>
+      p.latitude.isFinite &&
+      p.longitude.isFinite &&
+      p.latitude.abs() <= 90 &&
+      p.longitude.abs() <= 180 &&
+      p.timestamp >= start &&
+      p.timestamp <= end &&
+      (p.accuracy == null ||
+          (p.accuracy!.isFinite && p.accuracy! >= 0 && p.accuracy! <= 100));
+
+  Future<void> export(
+    Map<String, Object?> session, {
+    bool includeRoute = false,
+  }) async {
     if (session['source'] != 'manual') {
       throw StateError('Do not re-export an import');
     }
-    await health.configure();
     final runtime =
         jsonDecode(session['runtime_json'] as String) as Map<String, dynamic>;
-    final distanceType =
-        Platform.isAndroid
-            ? HealthDataType.DISTANCE_DELTA
-            : runtime['sport'] == 'cycling'
-            ? HealthDataType.DISTANCE_CYCLING
-            : HealthDataType.DISTANCE_WALKING_RUNNING;
-    final granted = await health.requestAuthorization(
-      [HealthDataType.WORKOUT, distanceType],
-      permissions: [HealthDataAccess.READ_WRITE, HealthDataAccess.READ_WRITE],
-    );
-    if (!granted) throw StateError('health_permission');
+    accessState = await health.access(true, true, false, includeRoute);
+    if (!accessState!.available) throw StateError('health_unavailable');
+    if (!accessState!.canWrite) throw StateError('health_permission');
     final snapshot =
         jsonDecode(session['snapshot_json'] as String) as Map<String, dynamic>;
-    if (snapshot['healthExport'] == 'done') return;
-    // Plugin has no external idempotency key. Never automatically retry uncertain writes.
-    final start = DateTime.fromMillisecondsSinceEpoch(
-      session['started_at_utc'] as int,
-    );
-    final end = DateTime.fromMillisecondsSinceEpoch(
-      session['ended_at_utc'] as int,
-    );
-    final existing = await health.getHealthDataFromTypes(
-      types: [HealthDataType.WORKOUT],
-      startTime: start.subtract(const Duration(seconds: 1)),
-      endTime: end.add(const Duration(seconds: 1)),
-    );
-    if (existing.any(
-      (p) =>
-          p.sourceId == 'com.example.trainy' &&
-          (p.dateFrom.millisecondsSinceEpoch - start.millisecondsSinceEpoch)
-                  .abs() <
-              1000,
-    )) {
-      snapshot['healthExport'] = 'done';
-    } else {
-      if (snapshot['healthExport'] == 'pending') {
-        throw StateError('health_export_uncertain');
-      }
-      snapshot['healthExport'] = 'pending';
-      await repository.db.update(
-        'cardio_session_details',
-        {'snapshot_json': jsonEncode(snapshot)},
-        where: 'session_id = ?',
-        whereArgs: [session['id']],
-      );
-      final type = switch (runtime['sport']) {
-        'running' => HealthWorkoutActivityType.RUNNING,
-        'walking' => HealthWorkoutActivityType.WALKING,
-        'cycling' => HealthWorkoutActivityType.BIKING,
-        'elliptical' => HealthWorkoutActivityType.ELLIPTICAL,
-        'rowing' => HealthWorkoutActivityType.ROWING,
-        'stepper' => HealthWorkoutActivityType.STAIR_CLIMBING,
-        _ => HealthWorkoutActivityType.OTHER,
-      };
-      final ok = await health.writeWorkoutData(
-        activityType: type,
+    final start = session['started_at_utc'] as int;
+    final end = session['ended_at_utc'] as int;
+    // Native adapters reconcile legacy exports and use stable IDs for all retries.
+    final externalId = await health.saveWorkout(
+      HealthWorkout(
+        id: '',
+        source: accessState!.ownSource,
+        clientId: session['id'] as String,
+        name: session['name_snapshot'] as String,
+        sport: runtime['sport'] as String,
         start: start,
         end: end,
-        title: session['name_snapshot'] as String,
-        totalDistance:
-            runtime['indoor'] == true
+        indoor: runtime['indoor'] == true,
+        activeSeconds: (runtime['activeSeconds'] as num?)?.toDouble(),
+        distance:
+            runtime['distanceMeasured'] == false || runtime['indoor'] == true
                 ? null
-                : (runtime['distanceMeters'] as num?)?.round(),
-      );
-      if (!ok) throw StateError('health_export_uncertain');
-      snapshot['healthExport'] = 'done';
-    }
+                : (runtime['distanceMeters'] as num?)?.toDouble(),
+      ),
+    );
+    snapshot['healthExportId'] = externalId;
+    snapshot['healthExport'] = 'done';
+    snapshot['healthRouteExport'] =
+        includeRoute ? 'pending' : snapshot['healthRouteExport'];
     await repository.db.update(
       'cardio_session_details',
       {'snapshot_json': jsonEncode(snapshot)},
       where: 'session_id = ?',
       whereArgs: [session['id']],
     );
+    if (includeRoute) {
+      final samples = await repository.db.query(
+        'cardio_sensor_samples',
+        where: 'session_id = ?',
+        whereArgs: [session['id']],
+        orderBy: 'sequence',
+      );
+      final points = <HealthRoutePoint>[];
+      for (final row in samples) {
+        final p =
+            jsonDecode(row['sample_json'] as String) as Map<String, dynamic>;
+        if (p['active'] == false ||
+            p['latitude'] is! num ||
+            p['longitude'] is! num ||
+            p['timestamp'] is! num)
+          continue;
+        final point = HealthRoutePoint(
+          timestamp: (p['timestamp'] as num).toInt(),
+          latitude: (p['latitude'] as num).toDouble(),
+          longitude: (p['longitude'] as num).toDouble(),
+          accuracy: (p['accuracy'] as num?)?.toDouble(),
+          altitude: (p['altitude'] as num?)?.toDouble(),
+        );
+        if (validRoutePoint(point, start, end)) points.add(point);
+      }
+      if (points.isNotEmpty) await health.saveRoute(externalId, points);
+      snapshot['healthRouteExport'] = points.isEmpty ? 'noData' : 'done';
+      await repository.db.update(
+        'cardio_session_details',
+        {'snapshot_json': jsonEncode(snapshot)},
+        where: 'session_id = ?',
+        whereArgs: [session['id']],
+      );
+    }
   }
 }
