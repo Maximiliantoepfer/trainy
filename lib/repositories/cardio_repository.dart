@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../services/running_fitness.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/cardio.dart';
 import '../services/cardio_training.dart';
@@ -301,6 +302,111 @@ class CardioRepository {
     }
   });
 
+  Future<RunningFitnessSnapshot> fitness({DateTime? now}) async {
+    final p = await profile();
+    final stages =
+        p.planning.adaptationHistory
+            .where((e) => e['runWalkStage'] != null)
+            .toList();
+    return RunningFitness().evaluate(
+      await history(),
+      now ?? DateTime.now(),
+      runWalkStage: p.planning.runWalkStage,
+      stageSince:
+          stages.isEmpty
+              ? null
+              : DateTime.tryParse(stages.last['createdAt'] as String? ?? ''),
+    );
+  }
+
+  Future<RunningAdaptationProposal> adaptation(
+    CardioTranslate t, {
+    DateTime? now,
+  }) async {
+    final p = await profile();
+    ProfileReadiness.requireRunning(p, now: now);
+    return RunningFitness().propose(
+      p,
+      await fitness(now: now),
+      await occurrences(),
+      t,
+    );
+  }
+
+  /// One transaction: protected rows are rechecked at acceptance time, and the
+  /// applied rule/evidence are saved with the profile for backup and audit.
+  Future<void> acceptAdaptation(RunningAdaptationProposal proposal) async {
+    if (proposal.changes.isEmpty) return;
+    await db.transaction((txn) async {
+      final rows = await txn.query('cardio_preferences');
+      if (rows.isEmpty) throw StateError('missing_profile');
+      final json =
+          jsonDecode(rows.single['profile_json'] as String)
+              as Map<String, dynamic>;
+      final p = AthleteRunningProfile.fromJson(json);
+      ProfileReadiness.requireRunning(p);
+      final history = [...p.planning.adaptationHistory];
+      final key = proposal.createdAt.toIso8601String();
+      if (history.any((e) => e['createdAt'] == key)) return;
+      if (proposal.easySpeed != null &&
+          p.planning.paceUpdatedAt != null &&
+          proposal.createdAt.difference(p.planning.paceUpdatedAt!).inDays < 7) {
+        throw StateError('stale_proposal');
+      }
+      var changed = 0;
+      for (final e in proposal.changes.entries) {
+        final current = await txn.query(
+          'cardio_occurrences',
+          where:
+              "id=? AND status='planned' AND locked=0 AND session_id IS NULL AND local_date>=?",
+          whereArgs: [e.key, dateKey(DateTime.now())],
+        );
+        if (current.isEmpty) continue;
+        final old = CardioWorkout.fromJson(
+          jsonDecode(current.single['workout_json'] as String)
+              as Map<String, dynamic>,
+        );
+        final updated = e.value;
+        if (old.sport != updated.sport) throw StateError('sport_changed');
+        for (final manual in old.steps.where(
+          (s) => s.targetSource == 'manual',
+        )) {
+          final replacement =
+              updated.steps.where((s) => s.id == manual.id).firstOrNull;
+          if (replacement == null ||
+              jsonEncode(manual.toJson()) != jsonEncode(replacement.toJson())) {
+            throw StateError('manual_target_changed');
+          }
+        }
+        updated.validate();
+        changed += await txn.update(
+          'cardio_occurrences',
+          {'workout_json': jsonEncode(updated.toJson())},
+          where: 'id=?',
+          whereArgs: [e.key],
+        );
+      }
+      if (changed == 0) return;
+      history.add(proposal.toJson());
+      json['planning'] = {
+        ...p.planning.toJson(),
+        if (proposal.easySpeed != null) ...{
+          'easySpeed': proposal.easySpeed,
+          'paceUpdatedAt': key,
+        },
+        if (proposal.runWalkStage != null)
+          'runWalkStage': proposal.runWalkStage,
+        if (proposal.walkPreparation != null)
+          'walkPreparation': proposal.walkPreparation,
+        'adaptationHistory': history,
+      };
+      AthleteRunningProfile.fromJson(json).validate();
+      await txn.update('cardio_preferences', {
+        'profile_json': jsonEncode(json),
+      }, where: 'id=0');
+    });
+  }
+
   Future<Map<String, CardioWorkout>> targetAdjustment(
     AthleteRunningProfile profile,
   ) async {
@@ -528,7 +634,8 @@ class CardioRepository {
             jsonDecode(row['sample_json'] as String) as Map<String, dynamic>;
         final lat = point['latitude'] as num?, lon = point['longitude'] as num?;
         final time = point['timestamp'] as num?;
-        if (point['active'] == false || lat == null ||
+        if (point['active'] == false ||
+            lat == null ||
             lon == null ||
             !lat.isFinite ||
             !lon.isFinite ||
@@ -541,7 +648,9 @@ class CardioRepository {
           continue;
         }
         final gap =
-            point['gap'] == true || previous == null || time - (previous['timestamp'] as num) > 15000;
+            point['gap'] == true ||
+            previous == null ||
+            time - (previous['timestamp'] as num) > 15000;
         if (gap) {
           if (previous != null) keep(previous);
           segment++;
@@ -556,7 +665,20 @@ class CardioRepository {
     return result;
   }
 
-  Future<void> feedback(String id, int effort, bool discomfort) async {
+  Future<void> feedback(
+    String id,
+    int effort,
+    bool discomfort, {
+    bool? talkComfort,
+    String? recovery,
+    String environment = 'unknown',
+    String? runType,
+  }) async {
+    if (effort < 1 ||
+        effort > 10 ||
+        (recovery != null && !['ready', 'tired', 'poor'].contains(recovery))) {
+      throw const FormatException('Invalid feedback');
+    }
     final rows = await db.query(
       'cardio_session_details',
       where: 'session_id = ?',
@@ -566,7 +688,15 @@ class CardioRepository {
     final value =
         jsonDecode(rows.single['snapshot_json'] as String)
             as Map<String, dynamic>;
-    value['feedback'] = {'rpe': effort, 'discomfort': discomfort};
+    value['feedback'] =
+        RunFeedback(
+          effort: effort,
+          discomfort: discomfort,
+          talkComfort: talkComfort,
+          recovery: recovery,
+          environment: environment,
+          runType: runType,
+        ).toJson();
     await db.update(
       'cardio_session_details',
       {'snapshot_json': jsonEncode(value)},

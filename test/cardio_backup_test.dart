@@ -4,6 +4,7 @@ import 'package:archive/archive_io.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:trainy/models/cardio.dart';
+import 'package:trainy/models/running_preferences.dart';
 import 'package:trainy/repositories/cardio_repository.dart';
 import 'package:trainy/repositories/training_program_repository.dart';
 import 'package:trainy/models/training_program.dart';
@@ -154,10 +155,41 @@ void main() {
           3,
         );
         await input.close();
+        await repo.feedback(
+          id,
+          4,
+          false,
+          talkComfort: true,
+          recovery: 'ready',
+          environment: 'flat',
+        );
+        final adaptivePlanning = RunningPreferences.fromJson({
+          ...confirmedPlanning.toJson(),
+          'zoneMethod': 'manual',
+          'zoneSource': 'diagnostic',
+          'zoneBounds': [100, 120, 140, 160, 180, 200],
+          'dayMinutes': {'1': 30},
+          'runWalkStage': 2,
+          'adaptationHistory': [
+            {
+              'createdAt': '2026-10-20T12:00:00',
+              'ruleVersion': 4,
+              'fitness': {
+                'sourceIds': [id],
+              },
+            },
+          ],
+        });
+        await programs.saveDraft('running-profile', {
+          'version': 2,
+          'stepKey': 'audio',
+          'planning': adaptivePlanning.toJson(),
+        });
         await repo.saveProfile(
           AthleteRunningProfile(
             setupVersion: 1,
             confirmedAnswers: confirmedAnswers,
+            planning: adaptivePlanning,
             referenceKind: 'normal',
             level: RunningLevel.beginner,
             continuousMinutes: 45,
@@ -189,6 +221,17 @@ void main() {
         expect((await repo.profile()).bestSeconds, 1500);
         expect((await repo.profile()).confirmedAnswers, confirmedAnswers);
         expect((await repo.profile()).loadSource, 'historyConfirmed');
+        expect(
+          (await repo.profile()).planning.toJson(),
+          adaptivePlanning.toJson(),
+        );
+        expect((await programs.draft('running-profile'))!['stepKey'], 'audio');
+        final restoredFeedback =
+            jsonDecode(
+              (await repo.history()).single['snapshot_json'] as String,
+            )['feedback'];
+        expect(restoredFeedback['talkComfort'], true);
+        expect(restoredFeedback['recovery'], 'ready');
         expect((await programs.userProfile()).strengthSetupVersion, 1);
         expect(
           (await programs.userProfile()).strengthProfileId,

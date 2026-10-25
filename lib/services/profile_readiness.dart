@@ -99,6 +99,9 @@ abstract final class ProfileReadiness {
         'availableDays',
       if (!['time', 'distance'].contains(p.planning.routePreference))
         'routePreference',
+      if (p.planning.routePreference == 'distance' &&
+          p.planning.routeMeters == null)
+        'routeMeters',
       if (p.planning.walkBreaks == null) 'walkBreaks',
       if (p.planning.audio == null) 'audio',
       if (p.continuousMinutes < 30 && p.planning.walkPreparation == null)

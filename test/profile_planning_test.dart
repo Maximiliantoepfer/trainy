@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:trainy/models/cardio.dart';
@@ -60,7 +59,7 @@ void main() {
     expect(easy.targetSource, 'estimated');
     final interval = CardioTraining.prescribe(p, CardioIntensity.interval);
     expect(interval.minSpeed, closeTo(5000 / 2700, .00001));
-    expect(interval.maxSpeed, closeTo(5000 / 2700 / .95, .00001));
+    expect(interval.maxSpeed, closeTo(5000 / 2700 * 1.05, .00001));
     final manual = easy.copyWith(maxSpeed: 2, targetSource: 'manual');
     expect(CardioTraining.refreshTarget(manual, p), same(manual));
     final walk = confirmedRunner({
@@ -73,13 +72,13 @@ void main() {
   });
 
   test(
-    'other distances normalize orientation but do not become race benchmarks',
+    'normal references use actual average pace without race normalization',
     () {
       final p = confirmedRunner({
         'referenceMeters': 10000,
         'referenceSeconds': 6000,
       });
-      expect(p.easySpeed, closeTo(5000 / (6000 * math.pow(.5, 1.06)), .00001));
+      expect(p.easySpeed, closeTo(10000 / 6000, .00001));
       expect(p.fiveKmSpeed(start), isNull);
       expect(
         AthleteRunningProfile.fromJson(
@@ -104,7 +103,7 @@ void main() {
         expect(updated.targetVariant, variant);
         expect(updated.intensity, CardioIntensity.steady);
         if (variant == 'lightInterval') {
-          expect(updated.maxSpeed, closeTo(changed.easySpeed! / .95, .00001));
+          expect(updated.maxSpeed, closeTo(changed.easySpeed! * 1.05, .00001));
         } else {
           expect(updated.maxSpeed, lessThan(changed.easySpeed!));
         }
@@ -128,7 +127,7 @@ void main() {
       );
       expect(
         RunningAssessment.level(confirmedRunner({'returningAfterBreak': true})),
-        RunningLevel.starting,
+        RunningLevel.beginner,
       );
       expect(
         RunningAssessment.level(confirmedRunner({'level': 'experienced'})),
@@ -153,6 +152,10 @@ void main() {
             'experienceMonths': 24,
             'longestMeters': 15000,
             'recentRunsPerWeek': 5,
+            'planning': {
+              ...confirmedPlanning.toJson(),
+              'highLoadTolerated': true,
+            },
           }),
         ),
         RunningLevel.experienced,
