@@ -1063,6 +1063,8 @@ void main() {
       await next();
       await choose('Anfänger');
       await next();
+      await choose('Weniger als 6 Monate');
+      await next();
       await tester.enterText(
         find.byKey(const ValueKey('running-continuous')),
         '45',
@@ -1072,14 +1074,19 @@ void main() {
       await next();
       await choose('Weiß ich nicht');
       await next();
-      await next(); // unknown weekly minutes
+      await tester.tap(find.byType(ExpansionTile).first);
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('running-longest')),
         '7,5',
       );
       await next();
-      await next(); // unknown longest duration
-      await choose('Weniger als 6 Monate');
+      await tester.tap(find.byIcon(Icons.calendar_today_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      await next();
+      await tester.enterText(find.byKey(const ValueKey('longestEffort')), '4');
       await next();
       await choose('3');
       await next();
@@ -1111,12 +1118,7 @@ void main() {
       await next(); // optional pulse source
       await choose('Karvonen-Schätzung');
       await next();
-      await choose('Nach Zeit');
-      await next();
-      await choose('Ja');
-      await next();
-      await choose('Ja');
-      await next();
+      await next(); // optional favorite routes
       await tester.tap(find.text('Profil bestätigen'));
       await tester.pumpAndSettle();
       expect(cardioRepo.value.canRunFiveKm, true);
@@ -1179,7 +1181,11 @@ void main() {
         'units': 'metric',
         'version': 2,
         'stepKey': 'review',
-        'planning': confirmedPlanning.toJson(),
+        'planning': {
+          ...confirmedPlanning.toJson(),
+          'longestDate': DateTime.now().toIso8601String(),
+          'longestEffort': 4,
+        },
         'level': 'beginner',
         'months': 2,
         'frequency': 3,

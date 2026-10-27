@@ -9,15 +9,22 @@ import '../repositories/training_program_repository.dart';
 import '../services/profile_readiness.dart';
 import '../services/running_assessment.dart';
 import '../widgets/profile_question.dart';
+import '../models/running_preferences.dart';
+import '../widgets/favorite_routes_editor.dart';
+import 'running_replan_screen.dart';
 
 class CardioProfileScreen extends StatefulWidget {
   const CardioProfileScreen({
     super.key,
     required this.provider,
     this.setupRepository,
+    this.initialQuestion,
+    this.offerReplan = true,
   });
   final CardioProvider provider;
   final TrainingProgramRepository? setupRepository;
+  final String? initialQuestion;
+  final bool offerReplan;
   @override
   State<CardioProfileScreen> createState() => _CardioProfileScreenState();
 }
@@ -51,6 +58,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
     'audio',
     'customDayBudgets',
     'routeMeters',
+    'breakWeeks',
   };
   late final _repo =
       widget.setupRepository ??
@@ -73,6 +81,8 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
     'goal',
     'complaints',
     'level',
+    if (_level != RunningLevel.starting || _returning) 'experience',
+    if (_returning) 'breakWeeks',
     'continuous',
     if (_level == RunningLevel.starting ||
         (_fields['continuous'] != null &&
@@ -82,20 +92,16 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
     ],
     'frequency',
     'volume',
-    'weeklyMinutes',
     'longest',
-    'longestMinutes',
-    if (_planning['longestMinutes'] != null) ...[
+    if (_planning['longestMinutes'] != null ||
+        (_fields['longest'] != null && _meters('longest') > 0)) ...[
       'longestDate',
       'longestEffort',
     ],
-    'experience',
     'desiredDays',
     'availableDays',
     'minutesPerSession',
     'customDayBudgets',
-    if (_planning['customDayBudgets'] == true)
-      ..._availableDays.map((d) => 'budget$d'),
     'hardTrainingDays',
     if (_level == RunningLevel.experienced) 'highLoadTolerated',
     'reference',
@@ -107,10 +113,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
     'zoneMethod',
     if (_planning['zoneMethod'] == 'manual')
       ...List.generate(6, (i) => 'zone$i'),
-    'routePreference',
-    if (_planning['routePreference'] == 'distance') 'routeMeters',
-    'walkBreaks',
-    'audio',
+    'routes',
     'review',
   ];
 
@@ -127,6 +130,11 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
       final p = widget.provider.profile;
       _original = p;
       _planning.addAll(p.planning.toJson());
+      _planning['goal'] ??= 'runFaster';
+      _planning['complaints'] ??= 'none';
+      _planning['customDayBudgets'] = p.planning.dayMinutes.isNotEmpty;
+      _planning['audio'] ??= true;
+      _planning['walkBreaks'] ??= true;
       _availableDays =
           p.setupVersion == 0 ? [1, 2, 3, 4, 5, 6, 7] : [...p.weekdays];
       _loadSource = p.loadSource;
@@ -222,6 +230,28 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
           if (draft['version'] == 2) restoredStep = draft['stepKey'] as String?;
         }
       }
+      if (!_confirmed.contains('hardTrainingDays')) {
+        final programs = await _repo.plans();
+        final activeId = await _repo.activeId();
+        final program = programs.where((p) => p.id == activeId).firstOrNull;
+        final draft = await _repo.draft('plan:new');
+        final draftProgram =
+            draft?['program'] is Map
+                ? TrainingProgram.fromJson(
+                  Map<String, dynamic>.from(draft!['program'] as Map),
+                )
+                : null;
+        _planning['hardTrainingDays'] =
+            (draftProgram ?? program)?.currentSlots
+                .where((s) => s.kind == 'strength' && s.legHeavy)
+                .map((s) => s.weekday)
+                .toSet()
+                .toList() ??
+            _planning['hardTrainingDays'] ??
+            [];
+      }
+      _planning['goal'] ??= 'runFaster';
+      _planning['complaints'] ??= 'none';
       _otherDistance = _canonical['distance'] != 5000;
       for (final entry in values.entries) {
         _fields[entry.key] = TextEditingController(text: entry.value)
@@ -230,9 +260,11 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
       // Conditional questions depend on restored controller values. Resolve
       // the named step only after all those values have been installed.
       _step =
-          restoredStep == null
+          (widget.initialQuestion ?? restoredStep) == null
               ? 0
-              : _steps.indexOf(restoredStep).clamp(0, _steps.length - 1);
+              : _steps
+                  .indexOf(widget.initialQuestion ?? restoredStep!)
+                  .clamp(0, _steps.length - 1);
       setState(() => _ready = true);
       // History is a suggestion, never an implicit answer to a required question.
       try {
@@ -307,7 +339,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
 
   AthleteRunningProfile _profile() => AthleteRunningProfile.fromJson({
     ..._original.toJson(),
-    'setupVersion': 2,
+    'setupVersion': 3,
     'planning': _planning,
     'weekdays': _availableDays,
     'confirmedAnswers': _confirmed.toList(),
@@ -331,7 +363,10 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
                 : null),
     'recentRunsPerWeek': _frequency,
     'weeklyMeters': _volume,
-    'loadSource': _volume == null ? 'unknown' : _loadSource,
+    'loadSource':
+        _volume == null && _planning['weeklyMinutes'] == null
+            ? 'unknown'
+            : _loadSource,
     'longestMeters': _meters('longest'),
     'restingHeartRate': _number('restPulse')?.toInt(),
     'maximumHeartRate': _number('maxPulse')?.toInt(),
@@ -396,7 +431,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
     }
     if ((key == 'level' && _level == null) ||
         (key == 'experience' && _months == null) ||
-        (['frequency', 'volume'].contains(key) && !_confirmed.contains(key)) ||
+        (key == 'frequency' && !_confirmed.contains(key)) ||
         (key == 'referenceKind' && _kind == null)) {
       setState(() => _error = 'answerRequired');
       return;
@@ -406,8 +441,41 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
       return;
     }
     _confirmed.add(key);
+    if (key == 'level' && _level == RunningLevel.starting && !_returning) {
+      _months = 0;
+      _confirmed.add('experience');
+    }
+    if (key == 'volume') _confirmed.add('weeklyMinutes');
+    if (key == 'customDayBudgets' && _planning[key] != true) {
+      _planning['dayMinutes'] = <String, int>{};
+    }
+    if (key == 'routes') {
+      _planning['routePreference'] = 'distance';
+      _confirmed.add('routes');
+    }
     if (key != 'review') {
-      _change(() => _step++);
+      final followUp = switch (key) {
+        'level' => _steps.contains('experience') ? 'experience' : null,
+        'experience' => _returning ? 'breakWeeks' : null,
+        'longest' => _steps.contains('longestDate') ? 'longestDate' : null,
+        'longestDate' => 'longestEffort',
+        'reference' => _kind != 'none' ? 'referenceKind' : null,
+        'referenceKind' => _kind == 'maximal' ? 'testDate' : null,
+        'zoneMethod' => _planning['zoneMethod'] == 'manual' ? 'zone0' : null,
+        'zone0' => 'zone1',
+        'zone1' => 'zone2',
+        'zone2' => 'zone3',
+        'zone3' => 'zone4',
+        'zone4' => 'zone5',
+        _ => null,
+      };
+      _change(
+        () =>
+            _step =
+                widget.initialQuestion == null
+                    ? _step + 1
+                    : _steps.indexOf(followUp ?? 'review'),
+      );
       return;
     }
     // Validate all screens again, including imported or restored drafts.
@@ -463,29 +531,20 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
       );
       await _repo.clearDraft('running-profile');
       await widget.provider.load();
-      final changes = await widget.provider.repository.targetAdjustment(p);
-      if (changes.isNotEmpty && mounted) {
-        final yes = await showDialog<bool>(
-          context: context,
-          builder:
-              (c) => AlertDialog(
-                title: Text(c.planning('regenerate')),
-                content: Text(c.planning('regenerateHint')),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(c, false),
-                    child: Text(c.planning('later')),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(c, true),
-                    child: Text(c.planning('save')),
-                  ),
-                ],
-              ),
-        );
-        if (yes == true) {
-          await widget.provider.repository.applyAdjustment(changes);
-          await widget.provider.load();
+      if (widget.offerReplan && widget.setupRepository == null) {
+        final activeId = await _repo.activeId();
+        final active =
+            (await _repo.plans())
+                .where((p) => p.id == activeId && p.hasRunning)
+                .firstOrNull;
+        if (active != null && mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RunningReplanScreen(plan: active),
+            ),
+          );
+          return;
         }
       }
       if (mounted) Navigator.pop(context, true);
@@ -537,6 +596,79 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
     if (d != null && mounted) _change(() => _date = d);
   }
 
+  List<Widget> _volumeQuestion() {
+    final mode =
+        _planning['volumeUnit'] as String? ??
+        (_planning['weeklyMinutes'] != null
+            ? 'minutes'
+            : _volume != null
+            ? 'distance'
+            : 'unknown');
+    return [
+      Wrap(
+        spacing: 8,
+        children: [
+          for (final value in ['minutes', 'distance', 'unknown'])
+            ChoiceChip(
+              label: Text(context.recording(value)),
+              selected: mode == value,
+              onSelected:
+                  (_) => _change(() {
+                    _planning['volumeUnit'] = value;
+                    _volume = null;
+                    _planning['weeklyMinutes'] = null;
+                    _loadSource =
+                        value == 'unknown' ? 'unknown' : 'selfReported';
+                  }),
+            ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      if (mode != 'unknown')
+        TextFormField(
+          key: ValueKey('volume-$mode'),
+          initialValue:
+              mode == 'minutes'
+                  ? _planning['weeklyMinutes']?.toString() ?? ''
+                  : _volume == null
+                  ? ''
+                  : (_volume! / CardioUnits.distanceUnit(_original.units))
+                      .toString(),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            suffixText:
+                mode == 'minutes'
+                    ? 'min'
+                    : _original.units == DistanceSystem.metric
+                    ? 'km'
+                    : 'mi',
+          ),
+          validator: (raw) {
+            final v = double.tryParse((raw ?? '').replaceAll(',', '.'));
+            return v != null &&
+                    v.isFinite &&
+                    v >= 0 &&
+                    v <= (mode == 'minutes' ? 1800 : 300)
+                ? null
+                : context.planning('numberError');
+          },
+          onChanged: (raw) {
+            final v = double.tryParse(raw.replaceAll(',', '.'));
+            if (mode == 'minutes') {
+              _planning['weeklyMinutes'] = v;
+            } else {
+              _volume =
+                  v == null
+                      ? null
+                      : v * CardioUnits.distanceUnit(_original.units);
+            }
+            _loadSource = 'selfReported';
+            _persist();
+          },
+        ),
+    ];
+  }
+
   List<Widget> _planningQuestion(String key) {
     String label(String value) => context.running(value);
     final choices = <String, List<Object>>{
@@ -570,7 +702,48 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
           ),
         if (key == 'desiredDays' && _planning[key] == 1)
           Text(label('singleDayHint')),
-        if (key == 'complaints') Text(label('restrictedTraining')),
+        if (key == 'complaints' && _planning[key] != 'none')
+          Text(label('restrictedTraining')),
+        if (key == 'customDayBudgets' && _planning[key] == true)
+          for (final day in _availableDays)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      DateFormat.EEEE(
+                        Localizations.localeOf(context).toString(),
+                      ).format(DateTime(2026, 10, 18 + day)),
+                    ),
+                  ),
+                  Expanded(
+                    child: TextFormField(
+                      key: ValueKey('day-budget-$day'),
+                      initialValue:
+                          '${(_planning['dayMinutes'] as Map?)?['$day'] ?? _planning['minutesPerSession'] ?? 45}',
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(suffixText: 'min'),
+                      validator: (raw) {
+                        final n = int.tryParse(raw ?? '');
+                        return n != null && n >= 10 && n <= 300
+                            ? null
+                            : context.planning('numberError');
+                      },
+                      onChanged: (raw) {
+                        final values = Map<String, dynamic>.from(
+                          _planning['dayMinutes'] as Map? ?? {},
+                        );
+                        values['$day'] = int.tryParse(raw);
+                        _planning['dayMinutes'] = values;
+                        _persist();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
         if (key == 'zoneMethod') Text(label('manualZoneHint')),
       ];
     }
@@ -663,6 +836,8 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
                   ? (_original.units == DistanceSystem.metric ? 'km' : 'mi')
                   : key == 'longestEffort'
                   ? '/ 10'
+                  : key == 'breakWeeks'
+                  ? context.recording('weeks')
                   : 'min',
         ),
         validator: (raw) {
@@ -690,6 +865,8 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
                       ? 10
                       : key == 'weeklyMinutes'
                       ? 1800
+                      : key == 'breakWeeks'
+                      ? 520
                       : 300) ||
               ((key == 'minutesPerSession' || dayBudget) && v < 10)) {
             return context.planning('numberError');
@@ -762,8 +939,33 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
           RegExp(r'^zone[0-5]$').hasMatch(key))
         ..._planningQuestion(key),
       if (key == 'level') ...[
-        for (final l in RunningLevel.values)
-          _choice(l, _level, context.planning(l.name), (v) => _level = v),
+        _choice(
+          'new',
+          _returning
+              ? 'returning'
+              : _level == RunningLevel.starting
+              ? 'new'
+              : _level?.name,
+          context.recording('newRunner'),
+          (_) {
+            _level = RunningLevel.starting;
+            _returning = false;
+          },
+        ),
+        _choice(
+          'returning',
+          _returning ? 'returning' : null,
+          context.recording('returning'),
+          (_) {
+            _returning = true;
+            _level ??= RunningLevel.beginner;
+          },
+        ),
+        for (final l in RunningLevel.values.skip(1))
+          _choice(l, _returning ? null : _level, context.planning(l.name), (v) {
+            _level = v;
+            _returning = false;
+          }),
       ],
       if (key == 'experience') ...[
         for (final e
@@ -773,26 +975,37 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
               6: 'sixMonths',
               24: 'twoYears',
             }.entries)
-          _choice(
-            e.key,
-            _returning ? null : _months,
-            context.planning(e.value),
-            (v) {
-              _months = v;
-              _returning = false;
-            },
-          ),
-        _choice(-1, _returning ? -1 : null, context.planning('returning'), (_) {
-          _months = 0;
-          _returning = true;
-        }),
+          _choice(e.key, _months, context.planning(e.value), (v) {
+            _months = v;
+          }),
       ],
       if (key == 'continuous') ...[
-        Text(context.planning('continuousHelp')),
+        Align(
+          alignment: Alignment.centerRight,
+          child: IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: context.planning('continuousHelp'),
+            onPressed:
+                () => showDialog<void>(
+                  context: context,
+                  builder:
+                      (c) => AlertDialog(
+                        content: Text(c.planning('continuousHelp')),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(c),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                ),
+          ),
+        ),
         const SizedBox(height: 16),
         _field('continuous', suffix: 'min'),
       ],
       if (key == 'frequency') ...[
+        Text(context.recording('frequencyHint')),
         _choice(
           -1,
           _frequency == null && _confirmed.contains(key) ? -1 : null,
@@ -813,13 +1026,13 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
           }),
       ],
       if (key == 'volume') ...[
-        Text(context.planning('volumeHelp')),
-        const SizedBox(height: 8),
         if ((_history?.weeklyMeters ?? 0) > 0)
           OutlinedButton(
             onPressed:
                 () => _change(() {
                   _volume = _history!.weeklyMeters;
+                  _planning['weeklyMinutes'] = null;
+                  _planning['volumeUnit'] = 'distance';
                   _loadSource = 'historyConfirmed';
                   _confirmed.add(key);
                 }),
@@ -827,32 +1040,7 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
               '${context.planning('historySuggestion')}: ${CardioUnits.distance(_history!.weeklyMeters, _original.units)}',
             ),
           ),
-        if (_loadSource == 'historyConfirmed' && _volume != null)
-          Text('✓ ${CardioUnits.distance(_volume!, _original.units)}'),
-        for (final m in [0, 5000, 15000, 30000, 50000, 70000])
-          _choice(
-            m.toDouble(),
-            _volume,
-            m == 0
-                ? context.planning('volume0')
-                : _original.units == DistanceSystem.metric
-                ? context.planning('volume${m ~/ 1000}')
-                : '${CardioUnits.distance(m.toDouble(), _original.units, locale: Localizations.localeOf(context).toString())} ≈',
-            (v) {
-              _volume = v;
-              _loadSource = 'selfReported';
-              _confirmed.add(key);
-            },
-          ),
-        _choice(
-          -1.0,
-          _confirmed.contains(key) && _volume == null ? -1.0 : null,
-          context.planning('unknown'),
-          (_) {
-            _volume = null;
-            _confirmed.add(key);
-          },
-        ),
+        ..._volumeQuestion(),
       ],
       if (key == 'reference') ...[
         TextButton(
@@ -907,9 +1095,24 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
           onTap: _pickDate,
         ),
       if (key == 'longest') ...[
-        Text(context.planning('longestHelp')),
+        ..._planningQuestion('longestMinutes'),
+        ExpansionTile(
+          title: Text(context.recording('optionalDistance')),
+          children: [_field('longest', suffix: unit)],
+        ),
         const SizedBox(height: 16),
-        _field('longest', suffix: unit),
+        TextButton(
+          onPressed:
+              () => _change(() {
+                _fields['longest']!.clear();
+                _planning['longestMinutes'] = null;
+                _planning['longestDate'] = null;
+                _planning['longestEffort'] = null;
+                _confirmed.add('longest');
+                _step++;
+              }),
+          child: Text(context.recording('unknown')),
+        ),
       ],
       if (key == 'restPulse' || key == 'maxPulse') ...[
         Text(context.planning('pulseOptional')),
@@ -974,11 +1177,44 @@ class _CardioProfileScreenState extends State<CardioProfileScreen> {
             child: Text(context.planning('useSuggestedLevel')),
           ),
       ],
+      if (key == 'routes')
+        FavoriteRoutesEditor(
+          routes:
+              (_planning['favoriteRoutes'] as List? ?? [])
+                  .map(
+                    (r) => FavoriteRunningRoute.fromJson(
+                      Map<String, dynamic>.from(r as Map),
+                    ),
+                  )
+                  .toList(),
+          units: _original.units,
+          onChanged:
+              (routes) => _change(
+                () =>
+                    _planning['favoriteRoutes'] =
+                        routes.map((r) => r.toJson()).toList(),
+              ),
+        ),
     ];
     return ProfileQuestion(
       title: context.planning('runningProfile'),
       question:
-          key.startsWith('budget')
+          [
+                'level',
+                'volume',
+                'longest',
+                'routes',
+                'breakWeeks',
+                'customDayBudgets',
+              ].contains(key)
+              ? context.recording(
+                key == 'level'
+                    ? 'context'
+                    : key == 'customDayBudgets'
+                    ? 'dayBudgets'
+                    : key,
+              )
+              : key.startsWith('budget')
               ? '${context.running('minutesPerSession')} · ${DateFormat.EEEE(Localizations.localeOf(context).toString()).format(DateTime(2026, 10, 18 + int.parse(key.substring(6))))}'
               : _adaptive.contains(key)
               ? context.running(key)

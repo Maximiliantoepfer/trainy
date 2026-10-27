@@ -101,7 +101,9 @@ class _CardioEditorState extends State<CardioEditorScreen> {
       trainingPhase: widget.workout.trainingPhase,
       targetsUpdatedAt: widget.workout.targetsUpdatedAt,
       targetEvidenceIds: widget.workout.targetEvidenceIds,
-      steps: [..._steps],
+      // Explicit editing leaves a free workout: no hidden whole-route target
+      // may override a distance the user just entered.
+      steps: [for (final step in _steps) step.copyWith(clearRoute: true)],
       warmup: _warmup,
       cooldown: _cooldown,
     );

@@ -31,6 +31,7 @@ import 'cardio_editor_screen.dart';
 import 'running_workout_picker.dart';
 import '../widgets/running_recommendation_card.dart';
 import '../widgets/running_forecast_view.dart';
+import 'running_replan_screen.dart';
 
 Future<void> openPlanSetup(
   BuildContext context, {
@@ -292,9 +293,25 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                 ),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.directions_run),
-                  label: Text(context.plan('running')),
+                  label: Text(
+                    p.hasRunning
+                        ? context.recording('replan')
+                        : context.plan('running'),
+                  ),
                   onPressed:
-                      () => openPlanSetup(context, plan: p, section: 'running'),
+                      () =>
+                          p.hasRunning
+                              ? Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RunningReplanScreen(plan: p),
+                                ),
+                              )
+                              : openPlanSetup(
+                                context,
+                                plan: p,
+                                section: 'running',
+                              ),
                 ),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.person_outline),
@@ -1140,6 +1157,19 @@ class _PlannedCardioScreenState extends State<PlannedCardioScreen> {
               '${context.cardio('time')}: ${CardioUnits.clock(seconds)}',
               style: Theme.of(context).textTheme.titleLarge,
             ),
+            const SizedBox(height: 16),
+          ],
+          if (_workout.routeMeters != null) ...[
+            Text(
+              '${_workout.routeName?.isNotEmpty == true ? '${_workout.routeName} · ' : ''}${CardioUnits.distance(_workout.routeMeters!, p.profile.units)}',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            if (_workout.estimatedSeconds != null)
+              Text(
+                '${context.recording('estimatedDuration')}: ≈ ${CardioUnits.clock(_workout.estimatedSeconds!)}',
+              ),
+            const SizedBox(height: 8),
+            Text(context.recording('routeFit')),
             const SizedBox(height: 16),
           ],
           if (editable) ...[

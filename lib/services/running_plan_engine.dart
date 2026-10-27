@@ -6,6 +6,8 @@ import 'profile_readiness.dart';
 import 'running_assessment.dart';
 import 'running_rules.dart';
 import 'running_week_schedule.dart';
+import 'running_routes.dart';
+import '../models/running_preferences.dart';
 
 /// Original, deterministic time-based templates. Calendar dates never graduate
 /// a run/walk stage; only a confirmed adaptation can do that.
@@ -50,6 +52,15 @@ class AdaptiveRunningPlanEngine {
     );
     final fitness = request.fitness;
     final restricted = planning.restricted || fitness?.difficult == true;
+    final returningBase =
+        p.returningAfterBreak &&
+        (fitness?.toleratedRuns ?? 0) <
+            rules.integer('returningSuccessfulSessions');
+    final strenuousLong =
+        (planning.longestEffort ?? 0) >= rules.number('strenuousLongEffort');
+    final returningEasyOnly =
+        returningBase &&
+        (planning.breakWeeks ?? 0) >= rules.integer('returningLongBreakWeeks');
     final easy =
         CardioTraining.prescribe(p, CardioIntensity.easy, now: start).maxSpeed;
     final reported =
@@ -101,13 +112,15 @@ class AdaptiveRunningPlanEngine {
     final recentLong =
         (fitness?.longestSeconds ?? 0) > 0
             ? fitness!.longestSeconds
-            : planning.longestMinutes != null &&
+            : !strenuousLong &&
+                planning.longestMinutes != null &&
                 planning.longestDate != null &&
                 !planning.longestDate!.isAfter(start) &&
                 start.difference(planning.longestDate!).inDays <=
                     rules.integer('longRunDays')
             ? planning.longestMinutes! * 60
-            : p.longestMeters > 0 &&
+            : !strenuousLong &&
+                p.longestMeters > 0 &&
                 easy != null &&
                 planning.longestDate != null &&
                 !planning.longestDate!.isAfter(start) &&
@@ -116,7 +129,7 @@ class AdaptiveRunningPlanEngine {
             ? p.longestMeters / easy
             : math.min(
               p.continuousMinutes * 60.0,
-              p.longestMeters > 0 && easy != null
+              !strenuousLong && p.longestMeters > 0 && easy != null
                   ? p.longestMeters / easy
                   : double.infinity,
             );
@@ -154,7 +167,11 @@ class AdaptiveRunningPlanEngine {
           planning.paceUpdatedAt != null &&
           start.difference(planning.paceUpdatedAt!).inDays < 7;
       final growth =
-          paceRecentlyChanged || novice || restricted
+          paceRecentlyChanged ||
+                  novice ||
+                  restricted ||
+                  strenuousLong ||
+                  returningBase
               ? 1.0
               : math
                   .pow(1 + rules.number('loadIncrease'), week ~/ 2)
@@ -182,6 +199,7 @@ class AdaptiveRunningPlanEngine {
         final quality =
             !novice &&
             !restricted &&
+            !returningEasyOnly &&
             !recovery &&
             !taper &&
             qualityWeek &&
@@ -190,6 +208,7 @@ class AdaptiveRunningPlanEngine {
             hard.every((d) => separated(days[index], d));
         final secondQuality =
             !quality &&
+            !returningBase &&
             !restricted &&
             level == RunningLevel.experienced &&
             planning.highLoadTolerated == true &&
@@ -284,8 +303,10 @@ class AdaptiveRunningPlanEngine {
         } else {
           final code =
               quality || secondQuality
-                  ? rotation[(week - week ~/ 4 + (secondQuality ? 2 : 0)) %
-                      rotation.length]
+                  ? returningBase
+                      ? 'progression'
+                      : rotation[(week - week ~/ 4 + (secondQuality ? 2 : 0)) %
+                          rotation.length]
                   : isLong
                   ? 'longRun'
                   : 'easySession';
@@ -298,24 +319,7 @@ class AdaptiveRunningPlanEngine {
                 now: start,
               );
           if (!quality && !secondQuality) {
-            final route =
-                planning.routePreference == 'distance'
-                    ? planning.routeMeters
-                    : null;
-            if (!isLong && route != null && easy != null) {
-              if (route > duration * easy) warnings.add('routeBudget');
-              steps.add(
-                CardioTraining.prescribe(
-                  p,
-                  CardioIntensity.easy,
-                  goal: StepGoal.distance,
-                  amount: math.min(route, duration * easy),
-                  now: start,
-                ),
-              );
-            } else {
-              steps.add(prescribe(duration, CardioIntensity.easy));
-            }
+            steps.add(prescribe(duration, CardioIntensity.easy));
           } else if (code == 'progression') {
             final easyTarget = prescribe(duration * .5, CardioIntensity.easy);
             final normal = prescribe(duration * .2, CardioIntensity.steady);
@@ -385,7 +389,70 @@ class AdaptiveRunningPlanEngine {
               prescribe(cool, CardioIntensity.easy),
             ]);
           }
+          FavoriteRunningRoute? route;
+          double? estimated;
+          if (easy != null && !restricted) {
+            // Legacy distances migrate on read. An explicitly empty list means
+            // that the user removed them; never resurrect the old preference.
+            final preferences = planning.favoriteRoutes;
+            // Fixed quality/recovery repetitions remain unchanged. Only the last easy
+            // portion fills the chosen total, using live total distance at runtime.
+            double estimateMeters(CardioStep s) =>
+                s.goal == StepGoal.distance
+                    ? s.amount
+                    : s.amount * s.repeat * (s.maxSpeed ?? easy) +
+                        s.recoverySeconds *
+                            (s.repeat - 1) *
+                            easy *
+                            rules.number('recoverySpeedFactor');
+            final priorMeters = steps
+                .take(steps.length - 1)
+                .fold<double>(0, (sum, s) => sum + estimateMeters(s));
+            final priorSeconds = steps
+                .take(steps.length - 1)
+                .fold<double>(
+                  0,
+                  (sum, s) =>
+                      sum +
+                      (s.goal == StepGoal.time
+                          ? s.amount * s.repeat +
+                              s.recoverySeconds * (s.repeat - 1)
+                          : s.amount / easy),
+                );
+            // 10% time reserve: an easy ceiling is not a promised speed.
+            final maximum =
+                math.min(duration, cap) *
+                easy /
+                rules.number('routeTimeReserveFactor');
+            route = RunningRoutes.select(
+              preferences,
+              weekday: days[index],
+              maximumMeters: maximum,
+              minimumMeters:
+                  (quality || secondQuality)
+                      ? priorMeters + easy * 60
+                      : isLong
+                      ? maximum * .8
+                      : 0,
+              defaultMeters: rules.number('defaultRouteMeters'),
+            );
+            if (route != null) {
+              final last = steps.removeLast();
+              steps.add(
+                last.copyWith(
+                  goal: StepGoal.distance,
+                  amount: route.meters - priorMeters,
+                  routeTotalMeters: route.meters,
+                ),
+              );
+              estimated =
+                  priorSeconds + (route.meters - priorMeters) / easy + 360;
+            }
+          }
           workout = CardioWorkout(
+            routeName: route?.name,
+            routeMeters: route?.meters,
+            estimatedSeconds: estimated ?? duration + 360,
             name: t(code),
             templateCode: code,
             ruleVersion: rules.version,

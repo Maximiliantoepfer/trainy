@@ -256,13 +256,16 @@ class PlanWorkoutTile extends StatelessWidget {
     final info = [
       if (detail != null) detail!,
       if (e.needsWorkout && !e.completed) context.plan('assignWorkout'),
-      if (meters > 0)
+      if ((e.cardio?.workout.routeMeters ?? meters) > 0)
         CardioUnits.distance(
-          meters,
+          e.cardio?.workout.routeMeters ?? meters,
           units,
           locale: Localizations.localeOf(context).toString(),
         ),
-      if (seconds > 0) CardioUnits.clock(seconds),
+      if (e.cardio?.workout.estimatedSeconds != null)
+        '≈ ${CardioUnits.clock(e.cardio!.workout.estimatedSeconds!)}'
+      else if (seconds > 0)
+        CardioUnits.clock(seconds),
       if (target != null)
         target.minSpeed == null
             ? '${context.planning('paceLimit')} ${CardioUnits.pace(target.maxSpeed, units)}'

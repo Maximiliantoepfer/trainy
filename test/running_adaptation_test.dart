@@ -33,6 +33,7 @@ void main() {
       'activeSeconds': 1800,
       'distanceMeters': 1800 * speed,
       'gpsCoveredSeconds': 1800,
+      'measurementVersion': 2,
       'indoor': false,
       'results': [
         {'partial': false},
@@ -91,6 +92,44 @@ void main() {
     expect(() => RunningRules.fromJson(source), throwsFormatException);
   });
   test(
+    'open continuation adds load but not pace evidence; old GPS is not certified',
+    () {
+      final history = [
+        for (final day in [1, 3, 6])
+          run(
+            day,
+            runtime: {
+              'goalReached': true,
+              'plannedHadPause': false,
+              'hadPause': true,
+              'activeSeconds': 2400,
+              'distanceMeters': 4200,
+              'gpsCoveredSeconds': 2400,
+              'results': [
+                {'seconds': 1800, 'meters': 3600, 'partial': false},
+                {
+                  'seconds': 600,
+                  'meters': 600,
+                  'partial': false,
+                  'continuation': true,
+                },
+              ],
+            },
+          ),
+      ];
+      final fitness = engine.evaluate(history, now);
+      expect(fitness.easySpeed, 2);
+      expect(fitness.weeklySeconds, 1800);
+      expect(fitness.longestSeconds, 2400);
+      final legacy = engine.evaluate([
+        for (final day in [1, 3, 6])
+          run(day, runtime: {'measurementVersion': null}),
+      ], now);
+      expect(legacy.easySpeed, isNull);
+      expect(legacy.sourceIds, hasLength(3));
+    },
+  );
+  test(
     'route preference and per-day budgets use canonical meters without inventing a pace',
     () {
       final p = confirmedRunner({
@@ -107,10 +146,9 @@ void main() {
         (s) => s,
       );
       final easy = result.occurrences.first.workout.steps.first;
-      expect(easy.goal, StepGoal.distance);
-      expect(easy.amount, lessThan(4000));
-      expect(easy.amount / easy.maxSpeed! + 360, lessThanOrEqualTo(1800.01));
-      expect(result.warnings, contains('routeBudget'));
+      expect(easy.goal, StepGoal.time);
+      expect(easy.amount + 360, lessThanOrEqualTo(1800.01));
+      expect(result.occurrences.first.workout.routeMeters, isNull);
       final noPace = AthleteRunningProfile.fromJson({
         ...p.toJson(),
         'referenceKind': 'none',

@@ -1,3 +1,39 @@
+class FavoriteRunningRoute {
+  const FavoriteRunningRoute({
+    required this.id,
+    required this.meters,
+    this.name = '',
+    this.weekdays = const [],
+  });
+  final String id, name;
+  final double meters;
+  final List<int> weekdays;
+  void validate() {
+    if (id.isEmpty ||
+        !meters.isFinite ||
+        meters < 100 ||
+        meters > 100000 ||
+        name.length > 80 ||
+        weekdays.any((d) => d < 1 || d > 7)) {
+      throw const FormatException('Invalid favorite route');
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'meters': meters,
+    'weekdays': weekdays,
+  };
+  factory FavoriteRunningRoute.fromJson(Map<String, dynamic> j) =>
+      FavoriteRunningRoute(
+        id: j['id'] as String,
+        meters: (j['meters'] as num).toDouble(),
+        name: j['name'] as String? ?? '',
+        weekdays: List<int>.from(j['weekdays'] as List? ?? []),
+      );
+}
+
 /// Additive profile answers. Null means unknown, never implicitly confirmed.
 class RunningPreferences {
   const RunningPreferences({
@@ -27,6 +63,9 @@ class RunningPreferences {
     this.runWalkStage = 0,
     this.adaptationHistory = const [],
     this.dismissedAdaptations = const [],
+    this.healthRoutes = true,
+    this.favoriteRoutes = const [],
+    this.breakWeeks,
   });
   final String? goal, complaints, routePreference, pulseSource;
   final bool? walkPreparation, highLoadTolerated, walkBreaks, audio;
@@ -39,8 +78,19 @@ class RunningPreferences {
   final int runWalkStage;
   final List<Map<String, dynamic>> adaptationHistory;
   final List<String> dismissedAdaptations;
+  final bool healthRoutes;
+  final List<FavoriteRunningRoute> favoriteRoutes;
+  final int? breakWeeks;
   bool get restricted => complaints != null && complaints != 'none';
   void validate() {
+    for (final route in favoriteRoutes) {
+      route.validate();
+    }
+    if (favoriteRoutes.map((r) => r.id).toSet().length !=
+            favoriteRoutes.length ||
+        (breakWeeks != null && (breakWeeks! < 1 || breakWeeks! > 520))) {
+      throw const FormatException('Invalid routes or training break');
+    }
     if ((minutesPerSession != null &&
             (minutesPerSession! < 10 || minutesPerSession! > 300)) ||
         dayMinutes.entries.any(
@@ -84,6 +134,9 @@ class RunningPreferences {
   }
 
   Map<String, dynamic> toJson() => {
+    'version': 3,
+    'favoriteRoutes': favoriteRoutes.map((r) => r.toJson()).toList(),
+    'breakWeeks': breakWeeks,
     'goal': goal,
     'complaints': complaints,
     'walkMinutes': walkMinutes,
@@ -110,6 +163,7 @@ class RunningPreferences {
     'runWalkStage': runWalkStage,
     'adaptationHistory': adaptationHistory,
     'dismissedAdaptations': dismissedAdaptations,
+    'healthRoutes': healthRoutes,
   };
   factory RunningPreferences.fromJson(Map<String, dynamic> j) =>
       RunningPreferences(
@@ -146,5 +200,24 @@ class RunningPreferences {
         dismissedAdaptations: List<String>.from(
           j['dismissedAdaptations'] as List? ?? [],
         ),
+        healthRoutes: j['healthRoutes'] != false,
+        breakWeeks: j['breakWeeks'] as int?,
+        favoriteRoutes:
+            j['favoriteRoutes'] is List
+                ? (j['favoriteRoutes'] as List)
+                    .map(
+                      (r) => FavoriteRunningRoute.fromJson(
+                        Map<String, dynamic>.from(r as Map),
+                      ),
+                    )
+                    .toList()
+                : j['routeMeters'] is num && (j['routeMeters'] as num) > 0
+                ? [
+                  FavoriteRunningRoute(
+                    id: 'legacy-route',
+                    meters: (j['routeMeters'] as num).toDouble(),
+                  ),
+                ]
+                : const [],
       );
 }

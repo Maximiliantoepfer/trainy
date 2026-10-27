@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:crypto/crypto.dart';
 import '../models/cardio.dart';
+import '../models/cardio_recording.dart';
 import 'cardio_training.dart';
 import 'running_rules.dart';
 
@@ -181,10 +182,27 @@ class RunningFitness {
     for (final row in sorted) {
       final id = row['id'] as String? ?? '';
       try {
-        final runtime =
+        final originalRuntime =
             jsonDecode(row['runtime_json'] as String) as Map<String, dynamic>;
         final snapshot =
             jsonDecode(row['snapshot_json'] as String) as Map<String, dynamic>;
+        var recording = CardioRecording.preferred(snapshot, originalRuntime);
+        // A watch may have no usable time/distance. Keep one source per run,
+        // but do not discard a valid phone measurement in that case.
+        if (recording != null &&
+            !recording.phone &&
+            ((recording.runtime['activeSeconds'] as num? ?? 0) <= 0 ||
+                (recording.runtime['distanceMeters'] as num? ?? 0) <= 0 ||
+                (recording.runtime['durationBasis'] == 'elapsed' &&
+                    (snapshot['feedback'] as Map?)?['continuous'] != true))) {
+          recording =
+              CardioRecording.all(
+                snapshot,
+                originalRuntime,
+              ).where((r) => r.phone).firstOrNull ??
+              recording;
+        }
+        final runtime = recording?.runtime ?? originalRuntime;
         final date = DateTime.fromMillisecondsSinceEpoch(
           row['started_at_utc'] as int,
         );
@@ -195,12 +213,24 @@ class RunningFitness {
             runtime['sport'] != 'running') {
           continue;
         }
-        final source = row['source'] as String?;
+        final source =
+            recording?.phone == true
+                ? 'manual'
+                : recording?.source ?? row['source'] as String?;
         if (source != 'manual' && snapshot['health'] == null) {
           excluded[id] = 'unaccepted';
           continue;
         }
-        final health = snapshot['health'] as Map?;
+        final health =
+            recording?.phone == true
+                ? null
+                : recording != null
+                ? {
+                  'sourceId': recording.source,
+                  'externalId': recording.externalId,
+                  'provider': recording.id.split(':').first,
+                }
+                : snapshot['health'] as Map?;
         final identity =
             health == null
                 ? id
@@ -323,7 +353,8 @@ class RunningFitness {
                 ? true
                 : runtime['indoor'] == true
                 ? runtime['distanceMeasured'] == true
-                : coverage != null &&
+                : (runtime['measurementVersion'] as num? ?? 0) >= 2 &&
+                    coverage != null &&
                     coverage / seconds >= rules.number('minimumGpsCoverage');
         if (age > rules.number('historyDays') ||
             !easy ||
@@ -332,7 +363,9 @@ class RunningFitness {
             seconds < rules.number('minimumEasySeconds') ||
             meters <= 0 ||
             meters / seconds > 8 ||
-            runtime['hadPause'] == true ||
+            (runtime['goalReached'] == true
+                ? runtime['plannedHadPause'] == true
+                : runtime['hadPause'] == true) ||
             runtime['finishedEarly'] == true ||
             (runtime['results'] as List? ?? []).any(
               (r) => (r as Map)['partial'] == true,
@@ -351,9 +384,32 @@ class RunningFitness {
         final environment =
             '${runtime['indoor'] == true ? 'indoor' : 'outdoor'}:${feedback.environment}'
             '${source != 'manual' && health != null ? ':health:${health['sourceId']}' : ''}';
+        // The extra section contributes to load above, but is not pace evidence.
+        final planned =
+            (runtime['results'] as List? ?? [])
+                .cast<Map>()
+                .where((r) => r['continuation'] != true)
+                .toList();
+        final paceSeconds =
+            runtime['goalReached'] == true && planned.isNotEmpty
+                ? planned.fold<double>(
+                  0,
+                  (n, r) => n + (r['seconds'] as num? ?? 0),
+                )
+                : seconds;
+        final paceMeters =
+            runtime['goalReached'] == true && planned.isNotEmpty
+                ? planned.fold<double>(
+                  0,
+                  (n, r) => n + (r['meters'] as num? ?? 0),
+                )
+                : meters;
+        if (paceSeconds < rules.number('minimumEasySeconds') || paceMeters <= 0) {
+          continue;
+        }
         groups.putIfAbsent(environment, () => []).add((
           id: id,
-          speed: meters / seconds,
+          speed: paceMeters / paceSeconds,
           date: date,
         ));
       } catch (_) {
@@ -540,6 +596,9 @@ class RunningFitness {
       } else if (reason == 'reduceLoad') {
         changes[o.id] = CardioWorkout.fromJson({
           ...w.toJson(),
+          'routeName': null,
+          'routeMeters': null,
+          'estimatedSeconds': null,
           'steps': [
             for (final s in w.steps)
               if (s.targetSource == 'manual')

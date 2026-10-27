@@ -265,6 +265,8 @@ void main() {
         await next();
         await choose('Anfänger');
         await next();
+        await choose('Weniger als 6 Monate');
+        await next();
         await tester.enterText(
           find.byKey(const ValueKey('running-continuous')),
           '45',
@@ -274,15 +276,7 @@ void main() {
         await next();
         await choose('Weiß ich nicht');
         await next();
-        await next(); // optional weekly minutes
-        await tester.enterText(
-          find.byKey(const ValueKey('running-longest')),
-          '7,5',
-        );
-        await next();
-        await next(); // optional longest duration
-        await choose('Weniger als 6 Monate');
-        await next();
+        await next(); // optional longest run, one question
         await choose('3');
         await next();
         await next(); // available days
@@ -306,12 +300,7 @@ void main() {
         await next(); // pulse source
         await choose('Karvonen-Schätzung');
         await next();
-        await choose('Nach Zeit');
-        await next();
-        await choose('Ja');
-        await next();
-        await choose('Ja');
-        await next();
+        await next(); // optional favorite routes; no walk-break/audio questions
         await tester.tap(find.text('Profil bestätigen'));
         await tester.pumpAndSettle();
         expect(find.byType(CardioProfileScreen), findsNothing);
@@ -328,7 +317,7 @@ void main() {
         expect(find.text('Offline 5 km'), findsOneWidget);
         expect(plans.active?.name, 'Offline 5 km');
         expect((await cardio.repository.profile()).referenceSeconds, 2700);
-        expect((await cardio.repository.profile()).setupVersion, 2);
+        expect((await cardio.repository.profile()).setupVersion, 3);
         expect((await cardio.repository.profile()).canRunFiveKm, true);
         expect((await cardio.repository.occurrences()).length, greaterThan(15));
         expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);

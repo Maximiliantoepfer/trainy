@@ -1,0 +1,168 @@
+Trainy – Laufaufzeichnung, Lieblingsstrecken und Neuplanung (Regelversion 6)
+=======================================================================
+
+Verhalten
+---------
+Das letzte Zeit- oder Distanzziel schließt nur den geplanten Teil ab. Es folgt
+der offene Abschnitt „Locker weiterlaufen“, mit einer einmaligen Ansage.
+Zeit, Distanz, Route und Pause bleiben aktiv. Erst bewusstes Beenden speichert
+den Abschluss; dann ist auch das nachgelagerte Dehnen verfügbar. Überschreitungen
+bleiben erhalten. Der Zusatz erscheint getrennt, zählt zur Gesamtbelastung und
+macht ein abgeschlossenes Programm nicht unvollständig. Für Easy-Pace-Evidenz
+wird ausschließlich der geeignete geplante Laufteil verwendet.
+
+Android/iOS verwenden Messvertrag 2: Mess- und Empfangszeitpunkt, Positions- und
+Geschwindigkeitsgenauigkeit, Herkunft, akzeptierte Distanz und Pace-Qualität.
+Verspätete, doppelte, ungeordnete und unplausible Fixes werden ausgesondert.
+Geeignete native Geschwindigkeit wird über 15 Sekunden zeitgewichtet robust
+geglättet; ausreichend aufgelöste Positionsmessungen über 30 Sekunden liefern
+einen Ersatz. Unsichere oder widersprüchliche Messungen erzeugen keine Pace-
+Hinweise. Kleine Bewegungen werden gegen einen Positionsanker gesammelt, damit
+langsames Laufen erfassbar bleibt und Positionsrauschen nicht fortlaufend addiert
+wird. Messlücken und Pausen sind in der lokalen Route getrennt sichtbar.
+
+Pace-Coaching: 60 Sekunden/km Toleranz, 20 Sekunden anhaltende Abweichung,
+30 Sekunden Anlaufzeit pro Abschnitt, mindestens 90 Sekunden zwischen Hinweisen.
+Die Anzeige und das Coaching verwenden denselben Wert. Keine Beschleunigungs-
+aufforderung bei lockerem Training oder Erholung; keine Pace-Korrektur im offenen
+Zusatz. Diese Werte stehen als begründete Produktheuristiken in
+assets/config/running_rules.json; tool/generate_running_rules.dart erzeugt den
+lokalen Dart-Snapshot. Es gibt weiterhin keine Live-Puls-/Uhrenverbindung.
+
+Live-Ansicht: aktuelle Pace groß, Ziel separat, Durchschnittspace klar benannt.
+Eine Pause-Aktion und eine kontrastreiche rote Beenden-Fläche. Die drei Sekunden
+beginnen bei Berührung, nicht erst nach der Long-Press-Erkennung. Loslassen,
+Verlassen und Hintergrundwechsel brechen ab. Screenreader/Tastatur erhalten auf
+derselben Fläche einen Bestätigungsdialog. Die Halteanzeige verändert das Layout
+nicht. Ton lässt sich dort und im Profilbereich der Einstellungen umstellen.
+Zone 2 wird nur genannt, wenn die angezeigten Grenzen den hinterlegten Grenzen
+entsprechen. Der Info-Dialog erklärt Orientierung und fehlende Live-Messung.
+
+Die Straßenkarte verwendet veränderliche Header. Laden, Fehler und erneuter
+Versuch sind sichtbar; die lokale Route bleibt ohne Onlinekarte verfügbar.
+
+Ein Training, mehrere Messquellen
+--------------------------------
+CardioRecording hält Handy und Health-Quelle mit eigenen Zeiten, Werten und Routen
+unter derselben Trainings-ID. Vordergrund-Synchronisierung läuft beim Start,
+Wiederöffnen, nach Abschluss und über „Aktualisieren“; parallele Aufrufe teilen
+einen Lauf. Eindeutige Treffer werden zugeordnet (gleiche Sportart, kompatibler
+Start und ausreichende Überlappung). Mehrdeutige Treffer bleiben zur Auswahl.
+Es werden keine fremden Health-Datensätze verändert oder gelöscht.
+
+Uhrdaten werden bevorzugt angezeigt. „Uhr | Handy“ und Wischen wechseln Werte
+und Karte gemeinsam. Nachgeladene Routen/Pulsdaten werden ergänzt; fehlende
+optionale Daten überschreiben zuvor gelieferte Werte nicht mit null. Puls aus
+einer anderen Quelle ist beschriftet. Bei fehlender verwendbarer Uhr-Zeit oder
+Distanz kann die Fitnessauswertung die geeignete Handyquelle verwenden. Ein Lauf
+zählt einmal, und Herkunft/Umgebung bleiben getrennte Vergleichsgruppen.
+
+„Aufzeichnungen verwalten“ entfernt nach Bestätigung nur die ausgewählte lokale
+Kopie, solange eine weitere bleibt. Löschmarkierungen verhindern sofortigen
+Neuimport. Der Export verwendet ausschließlich eine vorhandene Handyaufnahme.
+Routenübernahme ist eine gespeicherte Einstellung; automatische Synchronisierung
+öffnet keine fremden Routenfreigaben. Die Verbindungsansicht bietet die nötige
+Nutzeraktion. iOS „eingerichtet“ behauptet keinen bestätigten HealthKit-Lesezugriff.
+
+Lieblingsstrecken und Profil
+---------------------------
+Mehrere Längen, Namen, Rangfolge und optionale Wochentage ersetzen die alte
+Zeit-/Strecken-Auswahl. Sie beziehen sich auf den gesamten aufgezeichneten Lauf,
+einschließlich Einlaufen, Erholungen und Auslaufen. Mobilität und Dehnen zählen
+zum Zeitbudget, nicht zur Laufstrecke. Eine passende Tagesstrecke hat Vorrang,
+danach die geordnete Liste, dann geeignete 4 km; sonst bleibt das Workout
+zeitbasiert. Benannte Strecken werden nicht auf eine andere Länge gestutzt.
+Eine Zeitreserve berücksichtigt die Unsicherheit der Pace-Schätzung. Schnelle
+Wiederholungen bleiben unverändert; der letzte lockere Abschnitt füllt die
+gewählte Gesamtstrecke anhand der tatsächlich erreichten Distanz auf.
+
+Das Profil fragt Wochenumfang und längsten Lauf jeweils einmal ab. Minuten und
+Kilometer sind Alternativen; Datum/Anstrengung des längsten Laufs bleiben eigene
+Folgeschritte. Neue sichtbare Vorgaben für Ziel, Beschwerden und gleiche
+Tagesbudgets werden erst beim Weitergehen bestätigt. Unbekannt bleibt unbekannt.
+Einsteiger, Wiedereinstieg und bisherige Erfahrung werden getrennt erfasst.
+Wiedereinstieg erfragt die Pausenlänge; stärkere Reize benötigen drei jüngste gut
+verträgliche Einheiten. Ein sehr anstrengender längster Lauf begründet keine
+Steigerung. Gehpausen sind möglich, Ansagen bei neuen Profilen standardmäßig an;
+bestehende Einstellungen bleiben erhalten. Vorschläge für anstrengende Beintage
+kommen aus dem aktuellen Kraftplan beziehungsweise Einrichtungsentwurf.
+
+„Laufplan anpassen“ im Kalender zeigt die aktuellen Angaben. Einzelne Angaben
+lassen sich mit ihren nötigen Folgefragen ändern. „Neu berechnen“ erzeugt eine
+Wochenvorschau mit Vorher/Vorschlag; erst „Übernehmen“ ändert Termine. Begonnene,
+abgeschlossene, gesperrte und manuell geschützte Einheiten bleiben erhalten.
+Profil-, Historien- oder Planänderungen während der Vorschau machen sie ungültig.
+Die Übernahme ist transaktional, erhält geeignete Termin-IDs und den Kraftteil
+und verhindert doppeltes Anwenden. Zukünftige Pace-Ziele bleiben vorläufig.
+Gestartete Termine werden sofort verknüpft; ältere aktive Aufnahmen werden aus
+ihrem Snapshot erkannt. Normale Uhr-Ticks veralten eine geschützte Vorschau nicht.
+Der Empfehlungsdialog bleibt während Speicherung und Aktualisierung gesperrt.
+Automatische Vorschläge nutzen die aktuelle Fitness statt eines alten Snapshots
+aus der ursprünglichen Planerstellung. Umfang und Tempo steigen nicht gemeinsam.
+
+Speicherung und Kompatibilität
+-----------------------------
+Additive JSON-Felder in bestehenden Profilen, Entwürfen, Sitzungsdetails und
+Workouts; keine neue Trainings-ID und keine automatische Neugenerierung aktiver
+Pläne. Eine alte Wunschdistanz wird einmalig zur ersten Lieblingsstrecke. Eine
+danach ausdrücklich leere Liste lässt sie nicht wieder auftauchen. Backup und
+Restore übernehmen Quellen, Auswahl, Löschmarkierungen, Strecken, Rückmeldungen
+und Regelversionen. Die vorhandene lokale Datenlöschung entfernt diese Daten mit
+den bisherigen Tabellen. Alte GPS-Daten ohne Messvertrag 2 erhalten keinen
+nachträglichen Qualitätsnachweis für neue Pace-Empfehlungen.
+
+Automatisierte Abnahme am 27.10.2026
+----------------------------------
+259 Flutter-Tests, 25 native Android-Tests und sieben isolierte Android-
+Integrationstests bestanden. Flutter Analyzer ohne Befund. Die Integration lief
+ausschließlich über tool/test_android_integration.ps1 auf der separaten
+com.example.trainy.integration-Installation (Trainy_API_36_Clean, emulator-5556).
+Die Produktionsinstallation wurde nicht geändert. Es wurden keine fremden
+Health-Trainings geschrieben oder gelöscht.
+
+Geprüft: Zielüberschreitung, Fortsetzen, expliziter Abschluss, pausierte Recovery,
+einmalige Ereignisse; gemeinsames Android/iOS-Testdatenformat für langsames Laufen,
+Rauschen, Kurven, fehlendes Signal, schlechte Geschwindigkeit und verspätete Fixes;
+Coaching-Schwellen; echte FlutterMap-Komponenten mit kontrolliertem HTTP-Fehler
+und Retry; Quellenzuordnung/Ergänzung/Entfernung ohne Duplikate; Backup-Roundtrip;
+Streckenranking, Gesamtstrecke bei Intervallen, Tagesbudgets, Wiedereinstieg,
+geschützte Historie und veraltete Vorschau; vollständiges Offline-Onboarding.
+Live-/Profil-/Kalender-Vergleichsbilder wurden visuell geprüft. Kleine Displays,
+große Schrift, DE/EN, km/Meilen, Light/Dark und wechselnde Akzente sind abgedeckt.
+
+Kurze reale Android-Checkliste
+-----------------------------
+1. Nur die separate Trainy-Abnahme-App installieren. Eine bekannte kurze Strecke
+   gleichzeitig mit Uhr und Handy aufzeichnen; aktuelle Pace mit aktueller Pace
+   vergleichen, Durchschnitt mit Durchschnitt. GPS-Fix abwarten.
+2. Ein kurzes Zeit- und ein Distanzziel bewusst überschreiten: einmalige Ansage,
+   „Locker weiterlaufen“, Route/Distanz/Zeit wachsen weiter. Bildschirm sperren,
+   langsam gehen, pausieren und fortsetzen. Erst drei Sekunden Halten beendet.
+3. Bluetooth-Kopfhörer mit Musik testen; Anruf sowie Trennen/Wiederverbinden der
+   Kopfhörer. Abschnitts-/Zielansagen wirklich hören. Stumm ist kein Audiopass.
+   Bei schlechtem GPS keine Pace-Korrektur; Zusatzabschnitt bleibt ohne Coaching.
+4. Uhr nach Health synchronisieren, Trainy öffnen/aktualisieren: ein Training,
+   zwei Quellen, verschiedene Werte/Routen umschaltbar. Puls und später gelieferte
+   Route prüfen. Zusätzliche Systemfreigabe bei Bedarf bewusst erteilen.
+5. Wiederholt aktualisieren: keine doppelten Trainings. Optional eine Testkopie
+   lokal entfernen: andere Quelle bleibt, entfernte Kopie kommt nicht sofort
+   wieder. Keine fremden Health-Daten löschen. Eigenen ausdrücklich benannten
+   Testlauf optional zweimal exportieren: genau ein Health-Training.
+6. Lieblingsstrecken und Tagesbudget ändern, „Laufplan anpassen“ öffnen:
+   Vorher/Vorschlag prüfen, übernehmen; Historie und geschützte Termine bleiben.
+
+Bitte je Punkt bestanden/fehlgeschlagen/nicht geprüft, Gerät/OS-Version und bei
+Abweichungen Uhrzeit, Screenshot oder fehlende Ansage festhalten. Ein kurzer
+Funktionstest genügt; keine Leistungsprüfung nötig.
+
+Offen / Grenzen
+---------------
+Realer Außenlauf, Uhrvergleich, hörbare Kopfhöreransagen und echte Health-
+Berechtigungen/Transfers sind noch nicht abgenommen. Die Messabweichung des
+ursprünglich gemeldeten Laufs lässt sich ohne dessen Messsequenz nicht beweisen.
+Auch die Uhr ist eine zusätzliche Messquelle, keine fehlerfreie Referenz.
+Kein Mac/Xcode/iPhone vorhanden: iOS-Build, XCTest und Geräteabnahme bleiben offen.
+Swift-Vertrag und Tests wurden mitgeführt, nicht als ausgeführt ausgewiesen.
+Ein erzwungener Prozessstopp erlaubt pausierte Wiederaufnahme, garantiert aber
+keine lückenlose Aufzeichnung während des Stopps. Tempo-/Zonenschätzungen sind
+Orientierungen und keine medizinische Leistungsdiagnostik.

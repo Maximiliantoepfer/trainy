@@ -176,6 +176,15 @@ void main() {
           'zoneBounds': [100, 120, 140, 160, 180, 200],
           'dayMinutes': {'1': 30},
           'runWalkStage': 2,
+          'favoriteRoutes': [
+            FavoriteRunningRoute(
+              id: 'park',
+              meters: 4000,
+              name: 'Park',
+              weekdays: [1, 3],
+            ).toJson(),
+          ],
+          'breakWeeks': 4,
           'dismissedAdaptations': ['evidence-key'],
           'adaptationHistory': [
             {
@@ -206,6 +215,33 @@ void main() {
             bestSeconds: 1500,
             bestDate: DateTime(2026, 10, 1),
           ),
+        );
+        final detail =
+            (await originalDb.query(
+              'cardio_session_details',
+              where: 'session_id=?',
+              whereArgs: [id],
+            )).single;
+        final recordingSnapshot =
+            jsonDecode(detail['snapshot_json'] as String)
+                as Map<String, dynamic>;
+        recordingSnapshot['recordings'] = [
+          {
+            'id': 'health_connect:watch:one',
+            'source': 'watch',
+            'externalId': 'one',
+            'runtime': {'activeSeconds': 1600, 'distanceMeters': 4000},
+          },
+        ];
+        recordingSnapshot['preferredRecordingId'] = 'health_connect:watch:one';
+        recordingSnapshot['removedRecordings'] = [
+          'health_connect:watch:removed',
+        ];
+        await originalDb.update(
+          'cardio_session_details',
+          {'snapshot_json': jsonEncode(recordingSnapshot)},
+          where: 'session_id=?',
+          whereArgs: [id],
         );
         final optedIn = await backup.exportZipFile(includeImages: false);
         var db = await AppDatabase.instance.database;
@@ -246,6 +282,9 @@ void main() {
         expect(snapshot['workout']['targetEvidenceIds'], [
           'confirmed-health-run',
         ]);
+        expect(snapshot['recordings'], recordingSnapshot['recordings']);
+        expect(snapshot['removedRecordings'], ['health_connect:watch:removed']);
+        expect(snapshot['preferredRecordingId'], 'health_connect:watch:one');
         expect(
           snapshot['workout']['targetsUpdatedAt'],
           DateTime(2026, 10, 27).toIso8601String(),

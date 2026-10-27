@@ -43,14 +43,12 @@ abstract final class ProfileReadiness {
         if (p.referenceKind != 'none') 'referenceKind',
         'goal',
         'complaints',
-        'weeklyMinutes',
+        if (p.setupVersion < 3) 'weeklyMinutes',
         'desiredDays',
         'availableDays',
         'minutesPerSession',
         'hardTrainingDays',
-        'routePreference',
-        'walkBreaks',
-        'audio',
+        if (p.setupVersion < 3) ...['routePreference', 'walkBreaks', 'audio'],
       ])
         if (!p.confirmedAnswers.contains(answer)) answer,
       if (p.level == null) 'level',
@@ -97,13 +95,25 @@ abstract final class ProfileReadiness {
       if (p.planning.desiredDays != null &&
           p.weekdays.toSet().length < p.planning.desiredDays!)
         'availableDays',
-      if (!['time', 'distance'].contains(p.planning.routePreference))
+      if (p.setupVersion < 3 &&
+          !['time', 'distance'].contains(p.planning.routePreference))
         'routePreference',
-      if (p.planning.routePreference == 'distance' &&
+      if (p.setupVersion < 3 &&
+          p.planning.routePreference == 'distance' &&
           p.planning.routeMeters == null)
         'routeMeters',
-      if (p.planning.walkBreaks == null) 'walkBreaks',
-      if (p.planning.audio == null) 'audio',
+      if (p.setupVersion < 3 && p.planning.walkBreaks == null) 'walkBreaks',
+      if (p.setupVersion < 3 && p.planning.audio == null) 'audio',
+      if (p.setupVersion >= 3 &&
+          p.returningAfterBreak &&
+          (p.planning.breakWeeks == null ||
+              !p.confirmedAnswers.contains('breakWeeks')))
+        'breakWeeks',
+      if (p.setupVersion >= 3 &&
+          (p.longestMeters > 0 || p.planning.longestMinutes != null)) ...[
+        if (p.planning.longestDate == null) 'longestDate',
+        if (p.planning.longestEffort == null) 'longestEffort',
+      ],
       if (p.continuousMinutes < 30 && p.planning.walkPreparation == null)
         'walkPreparation',
       if (p.continuousMinutes < 30 && p.planning.walkMinutes == null)

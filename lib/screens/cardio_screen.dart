@@ -87,106 +87,147 @@ class CardioScreen extends StatelessWidget {
     try {
       final proposal = await p.repository.adaptation(context.cardio);
       if (!context.mounted) return;
-      final yes = await showDialog<bool>(
+      var saving = false;
+      final yes = await showDialog<Object>(
         context: context,
+        barrierDismissible: false,
         builder:
-            (ctx) => AlertDialog(
-              title: Text(ctx.forecast('review')),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      ctx.running('reason'),
-                      style: Theme.of(ctx).textTheme.titleMedium,
-                    ),
-                    Text(
-                      proposal.reason == 'structure'
-                          ? ctx.forecast('structure')
-                          : ctx.running(proposal.reason),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      ctx.running('changes'),
-                      style: Theme.of(ctx).textTheme.titleMedium,
-                    ),
-                    if (proposal.changes.isEmpty)
-                      Text(ctx.forecast('noRecommendation')),
-                    for (final o in p.occurrences.where(
-                      (o) => proposal.changes.containsKey(o.id),
-                    )) ...[
-                      const SizedBox(height: 8),
-                      ExpansionTile(
-                        tilePadding: EdgeInsets.zero,
-                        title: Text(
-                          DateFormat.yMMMd(
-                            Localizations.localeOf(ctx).toString(),
-                          ).format(o.date),
-                        ),
-                        subtitle: Text(proposal.changes[o.id]!.name),
-                        children: [
-                          for (final pair in [
-                            ('before', o.workout),
-                            ('after', proposal.changes[o.id]!),
-                          ])
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+            (ctx) => StatefulBuilder(
+              builder:
+                  (ctx, update) => PopScope(
+                    canPop: !saving,
+                    child: AlertDialog(
+                      title: Text(ctx.forecast('review')),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              ctx.running('reason'),
+                              style: Theme.of(ctx).textTheme.titleMedium,
+                            ),
+                            Text(
+                              proposal.reason == 'structure'
+                                  ? ctx.forecast('structure')
+                                  : ctx.running(proposal.reason),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              ctx.running('changes'),
+                              style: Theme.of(ctx).textTheme.titleMedium,
+                            ),
+                            if (proposal.changes.isEmpty)
+                              Text(ctx.forecast('noRecommendation')),
+                            for (final o in p.occurrences.where(
+                              (o) => proposal.changes.containsKey(o.id),
+                            )) ...[
+                              const SizedBox(height: 8),
+                              ExpansionTile(
+                                tilePadding: EdgeInsets.zero,
+                                title: Text(
+                                  DateFormat.yMMMd(
+                                    Localizations.localeOf(ctx).toString(),
+                                  ).format(o.date),
+                                ),
+                                subtitle: Text(proposal.changes[o.id]!.name),
                                 children: [
-                                  Text(
-                                    '${ctx.forecast(pair.$1)} · ${pair.$2.name}',
-                                    style: Theme.of(ctx).textTheme.titleSmall,
-                                  ),
-                                  for (final step in pair.$2.steps)
-                                    Text(
-                                      '${step.repeat > 1 ? '${step.repeat} × ' : ''}${step.goal == StepGoal.time ? CardioUnits.clock(step.amount) : CardioUnits.distance(step.amount, p.profile.units)} · ${CardioTraining.targetDescription(step, p.profile.units, ctx.cardio)}',
+                                  for (final pair in [
+                                    ('before', o.workout),
+                                    ('after', proposal.changes[o.id]!),
+                                  ])
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 12,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${ctx.forecast(pair.$1)} · ${pair.$2.name}',
+                                            style:
+                                                Theme.of(
+                                                  ctx,
+                                                ).textTheme.titleSmall,
+                                          ),
+                                          for (final step in pair.$2.steps)
+                                            Text(
+                                              '${step.repeat > 1 ? '${step.repeat} × ' : ''}${step.goal == StepGoal.time ? CardioUnits.clock(step.amount) : CardioUnits.distance(step.amount, p.profile.units)} · ${CardioTraining.targetDescription(step, p.profile.units, ctx.cardio)}',
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                 ],
                               ),
+                            ],
+                            const SizedBox(height: 16),
+                            Text(
+                              ctx.running('consideredRuns'),
+                              style: Theme.of(ctx).textTheme.titleMedium,
                             ),
-                        ],
+                            for (final row in p.history.where(
+                              (r) => (proposal.reason == 'easyPaceEvidence'
+                                      ? proposal.fitness.easySourceIds
+                                      : proposal.reason == 'reduceLoad'
+                                      ? proposal.fitness.concernSourceIds
+                                      : proposal.fitness.sourceIds)
+                                  .contains(r['id']),
+                            ))
+                              Text(
+                                '${DateFormat.yMMMd().format(DateTime.fromMillisecondsSinceEpoch(row['started_at_utc'] as int))} · ${row['name_snapshot']}',
+                              ),
+                            Text(
+                              '${ctx.running('ruleVersion')}: ${proposal.ruleVersion}',
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                    const SizedBox(height: 16),
-                    Text(
-                      ctx.running('consideredRuns'),
-                      style: Theme.of(ctx).textTheme.titleMedium,
+                      actions: [
+                        TextButton(
+                          onPressed:
+                              saving ? null : () => Navigator.pop(ctx, false),
+                          child: Text(ctx.cardio('cancel')),
+                        ),
+                        if (proposal.changes.isNotEmpty)
+                          FilledButton(
+                            onPressed:
+                                saving
+                                    ? null
+                                    : () async {
+                                      update(() => saving = true);
+                                      try {
+                                        await p.repository.acceptAdaptation(
+                                          proposal,
+                                        );
+                                        await p.load();
+                                        if (ctx.mounted) {
+                                          Navigator.pop(ctx, true);
+                                        }
+                                      } catch (error) {
+                                        if (ctx.mounted) {
+                                          Navigator.pop(ctx, error);
+                                        }
+                                      }
+                                    },
+                            child:
+                                saving
+                                    ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                    : Text(ctx.cardio('accept')),
+                          ),
+                      ],
                     ),
-                    for (final row in p.history.where(
-                      (r) => (proposal.reason == 'easyPaceEvidence'
-                              ? proposal.fitness.easySourceIds
-                              : proposal.reason == 'reduceLoad'
-                              ? proposal.fitness.concernSourceIds
-                              : proposal.fitness.sourceIds)
-                          .contains(r['id']),
-                    ))
-                      Text(
-                        '${DateFormat.yMMMd().format(DateTime.fromMillisecondsSinceEpoch(row['started_at_utc'] as int))} · ${row['name_snapshot']}',
-                      ),
-                    Text(
-                      '${ctx.running('ruleVersion')}: ${proposal.ruleVersion}',
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(ctx.cardio('cancel')),
-                ),
-                if (proposal.changes.isNotEmpty)
-                  FilledButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: Text(ctx.cardio('accept')),
                   ),
-              ],
             ),
       );
+      if (yes != null && yes is! bool) throw yes;
       if (yes == true) {
-        await p.repository.acceptAdaptation(proposal);
-        await p.load();
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,

@@ -34,7 +34,12 @@ class RunningForecast {
         'weekdays': days,
         'planning': {...profile.planning.toJson(), 'desiredDays': days.length},
       });
-      final proposed = RunningPlanGenerator().generate(p, entry.value, t);
+      final currentRequest = RunningPlanRequest.fromJson({
+        ...entry.value.toJson(),
+        'startDate': today.toIso8601String(),
+        'fitness': fitness.toJson(),
+      });
+      final proposed = RunningPlanGenerator().generate(p, currentRequest, t);
       final weeks = <String, List<ScheduledCardioWorkout>>{};
       for (final o in existing) {
         final monday = DateTime(
@@ -57,6 +62,12 @@ class RunningForecast {
                 'easySession',
                 'easy5k',
                 'longRun',
+                if (profile.returningAfterBreak &&
+                    fitness.toleratedRuns >=
+                        RunningRules.bundled.integer(
+                          'returningSuccessfulSessions',
+                        ))
+                  'progression',
               ].contains(o.workout.templateCode),
         )) {
           continue;
@@ -88,12 +99,16 @@ class RunningForecast {
                     (s) => s.copyWith(
                       amount: s.amount * factor,
                       recoverySeconds: s.recoverySeconds * factor,
+                      clearRoute: factor < 1,
                     ),
                   )
                   .toList();
           changes[old.id] = CardioWorkout.fromJson({
             ...candidate.toJson(),
             'id': old.workout.id,
+            if (factor < 1) 'routeName': null,
+            if (factor < 1) 'routeMeters': null,
+            if (factor < 1) 'estimatedSeconds': null,
             'steps': steps.map((s) => s.toJson()).toList(),
             'warmup': old.workout.warmup.map((s) => s.toJson()).toList(),
             'cooldown': old.workout.cooldown.map((s) => s.toJson()).toList(),
