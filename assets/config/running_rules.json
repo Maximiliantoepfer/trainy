@@ -1,6 +1,7 @@
 {
-  "version": 4,
+  "version": 5,
   "rules": {
+    "adaptationDays": {"value": 7, "kind": "product", "reason": "Load changes affect only the near term; pace guidance is refreshed throughout the existing forecast."},
     "historyDays": {"value": 28, "kind": "product", "reason": "Recent load, not lifetime performance."},
     "longRunDays": {"value": 30, "kind": "product", "reason": "Recent tolerated long run."},
     "benchmarkDays": {"value": 90, "kind": "product", "reason": "Old maximal results are not current fitness."},

@@ -99,6 +99,8 @@ class _CardioEditorState extends State<CardioEditorScreen> {
       ruleVersion: widget.workout.ruleVersion,
       runWalkStage: widget.workout.runWalkStage,
       trainingPhase: widget.workout.trainingPhase,
+      targetsUpdatedAt: widget.workout.targetsUpdatedAt,
+      targetEvidenceIds: widget.workout.targetEvidenceIds,
       steps: [..._steps],
       warmup: _warmup,
       cooldown: _cooldown,

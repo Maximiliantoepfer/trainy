@@ -457,6 +457,8 @@ class CardioWorkout {
     this.ruleVersion,
     this.runWalkStage,
     this.trainingPhase,
+    this.targetsUpdatedAt,
+    this.targetEvidenceIds = const [],
   }) : id = id ?? UuidV4.generate();
   final String id;
   final String name;
@@ -468,6 +470,8 @@ class CardioWorkout {
   final bool autoPause;
   final int? ruleVersion, runWalkStage;
   final String? trainingPhase;
+  final DateTime? targetsUpdatedAt;
+  final List<String> targetEvidenceIds;
   void validate() {
     if (name.trim().isEmpty ||
         steps.isEmpty ||
@@ -525,6 +529,8 @@ class CardioWorkout {
     ruleVersion: ruleVersion,
     runWalkStage: runWalkStage,
     trainingPhase: trainingPhase,
+    targetsUpdatedAt: targetsUpdatedAt,
+    targetEvidenceIds: targetEvidenceIds,
     steps:
         steps.map((s) {
           if (s.goal == StepGoal.time) return s;
@@ -555,11 +561,15 @@ class CardioWorkout {
     'ruleVersion': ruleVersion,
     'runWalkStage': runWalkStage,
     'trainingPhase': trainingPhase,
+    'targetsUpdatedAt': targetsUpdatedAt?.toIso8601String(),
+    'targetEvidenceIds': targetEvidenceIds,
   };
   factory CardioWorkout.fromJson(Map<String, dynamic> j) => CardioWorkout(
     ruleVersion: j['ruleVersion'] as int?,
     runWalkStage: j['runWalkStage'] as int?,
     trainingPhase: j['trainingPhase'] as String?,
+    targetsUpdatedAt: DateTime.tryParse(j['targetsUpdatedAt'] as String? ?? ''),
+    targetEvidenceIds: List<String>.from(j['targetEvidenceIds'] as List? ?? []),
     id: j['id'] as String,
     name: j['name'] as String,
     sport: CardioSport.values.byName(j['sport'] as String),

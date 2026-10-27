@@ -5,6 +5,7 @@ import 'cardio_training.dart';
 import 'profile_readiness.dart';
 import 'running_assessment.dart';
 import 'running_rules.dart';
+import 'running_week_schedule.dart';
 
 /// Original, deterministic time-based templates. Calendar dates never graduate
 /// a run/walk stage; only a confirmed adaptation can do that.
@@ -132,6 +133,10 @@ class AdaptiveRunningPlanEngine {
                 60.0 -
             360)
         .clamp(240, 17640);
+    final schedule = RunningWeekSchedule.assign(days, hard, budget: budget);
+    if (!novice && !restricted && schedule.qualityIndex < 0) {
+      warnings.add('qualityScheduleConflict');
+    }
     for (var week = 0; week < weeks; week++) {
       final recovery = (week + 1) % 4 == 0;
       final taper =
@@ -159,24 +164,9 @@ class AdaptiveRunningPlanEngine {
           growth *
           loadFactor *
           (restricted ? rules.number('recoveryFactor') : 1);
-      final longIndex =
-          List.generate(
-            days.length,
-            (i) => i,
-          ).where((i) => hard.every((d) => separated(days[i], d))).lastOrNull ??
-          days.length - 1;
+      final longIndex = schedule.longIndex;
       final longDay = days[longIndex];
-      final qualityCandidates =
-          List.generate(days.length, (i) => i)
-              .where(
-                (i) =>
-                    i != longIndex &&
-                    separated(days[i], longDay) &&
-                    hard.every((d) => separated(days[i], d)),
-              )
-              .toList();
-      final qualityIndex =
-          days.length <= 2 ? longIndex : qualityCandidates.lastOrNull ?? -1;
+      final qualityIndex = schedule.qualityIndex;
       for (var index = 0; index < days.length; index++) {
         final date = DateTime(
           monday.year,
@@ -259,6 +249,7 @@ class AdaptiveRunningPlanEngine {
             templateCode: walking ? 'walkPreparation' : 'runWalk',
             ruleVersion: rules.version,
             runWalkStage: stage,
+            targetsUpdatedAt: start,
             trainingPhase: 'base',
             steps:
                 walking
@@ -399,6 +390,7 @@ class AdaptiveRunningPlanEngine {
             templateCode: code,
             ruleVersion: rules.version,
             steps: steps,
+            targetsUpdatedAt: start,
             trainingPhase:
                 taper
                     ? 'taper'
