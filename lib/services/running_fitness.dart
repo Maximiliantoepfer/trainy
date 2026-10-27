@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'package:crypto/crypto.dart';
 import '../models/cardio.dart';
 import 'cardio_training.dart';
 import 'running_rules.dart';
@@ -12,10 +13,12 @@ class RunFeedback {
     this.recovery,
     this.environment = 'unknown',
     this.runType,
+    this.continuous,
   });
   final int effort;
   final bool discomfort;
   final bool? talkComfort;
+  final bool? continuous;
   final String? recovery, runType;
   final String environment;
   Map<String, dynamic> toJson() => {
@@ -26,6 +29,7 @@ class RunFeedback {
     'recovery': recovery,
     'environment': environment,
     'runType': runType,
+    'continuous': continuous,
   };
   factory RunFeedback.fromJson(Map<String, dynamic> j) => RunFeedback(
     effort: (j['rpe'] as num?)?.toInt() ?? 0,
@@ -34,6 +38,7 @@ class RunFeedback {
     recovery: j['recovery'] as String?,
     environment: j['environment'] as String? ?? 'unknown',
     runType: j['runType'] as String?,
+    continuous: j['continuous'] as bool?,
   );
 }
 
@@ -42,6 +47,7 @@ class RunningFitnessSnapshot {
     required this.asOf,
     this.sourceIds = const [],
     this.easySourceIds = const [],
+    this.concernSourceIds = const [],
     this.excluded = const {},
     this.weeklySeconds = 0,
     this.longestSeconds = 0,
@@ -52,7 +58,7 @@ class RunningFitnessSnapshot {
     this.comparableEnvironment,
   });
   final DateTime asOf;
-  final List<String> sourceIds, easySourceIds;
+  final List<String> sourceIds, easySourceIds, concernSourceIds;
   final Map<String, String> excluded;
   final double weeklySeconds, longestSeconds;
   final double? easySpeed;
@@ -64,6 +70,9 @@ class RunningFitnessSnapshot {
         asOf: DateTime.parse(j['asOf'] as String),
         sourceIds: List<String>.from(j['sourceIds'] as List? ?? []),
         easySourceIds: List<String>.from(j['easySourceIds'] as List? ?? []),
+        concernSourceIds: List<String>.from(
+          j['concernSourceIds'] as List? ?? [],
+        ),
         excluded: Map<String, String>.from(j['excluded'] as Map? ?? {}),
         weeklySeconds: (j['weeklySeconds'] as num?)?.toDouble() ?? 0,
         longestSeconds: (j['longestSeconds'] as num?)?.toDouble() ?? 0,
@@ -77,6 +86,7 @@ class RunningFitnessSnapshot {
     'asOf': asOf.toIso8601String(),
     'sourceIds': sourceIds,
     'easySourceIds': easySourceIds,
+    'concernSourceIds': concernSourceIds,
     'excluded': excluded,
     'weeklySeconds': weeklySeconds,
     'longestSeconds': longestSeconds,
@@ -98,6 +108,9 @@ class RunningAdaptationProposal {
     this.easySpeed,
     this.runWalkStage,
     this.walkPreparation,
+    this.originals = const {},
+    this.expectedDates = const {},
+    this.inputFingerprint,
   });
   final DateTime createdAt;
   final int ruleVersion;
@@ -107,6 +120,28 @@ class RunningAdaptationProposal {
   final double? easySpeed;
   final int? runWalkStage;
   final bool? walkPreparation;
+  final Map<String, String> originals, expectedDates;
+  final String? inputFingerprint;
+  String get evidenceKey =>
+      sha256
+          .convert(
+            utf8.encode(
+              jsonEncode([
+                ruleVersion,
+                reason,
+                (reason == 'easyPaceEvidence'
+                        ? fitness.easySourceIds
+                        : reason == 'reduceLoad'
+                        ? fitness.concernSourceIds
+                        : fitness.sourceIds)
+                    .toList()
+                  ..sort(),
+                if (reason == 'structure') changes.keys.toList()..sort(),
+                if (reason == 'runWalkProgress') runWalkStage,
+              ]),
+            ),
+          )
+          .toString();
   Map<String, dynamic> toJson() => {
     'createdAt': createdAt.toIso8601String(),
     'ruleVersion': ruleVersion,
@@ -116,6 +151,7 @@ class RunningAdaptationProposal {
     'runWalkStage': runWalkStage,
     'walkPreparation': walkPreparation,
     'changes': {for (final e in changes.entries) e.key: e.value.toJson()},
+    'evidenceKey': evidenceKey,
   };
 }
 
@@ -133,8 +169,10 @@ class RunningFitness {
         excluded = <String, String>{},
         seen = <String>{};
     final groups = <String, List<({String id, double speed, DateTime date})>>{};
+    final intervals = <({String id, int start, int end})>[];
     double total = 0, longest = 0;
     var difficult = false, successes = 0, tolerated = 0;
+    final concerns = <String>[];
     final sorted = [...history]..sort(
       (a, b) => ((b['started_at_utc'] as num?) ?? 0).compareTo(
         (a['started_at_utc'] as num?) ?? 0,
@@ -190,7 +228,32 @@ class RunningFitness {
             (feedback.discomfort ||
                 feedback.effort >= 8 ||
                 feedback.recovery == 'poor');
-        if (age <= 14 && bad) difficult = true;
+        if (age <= 14 && bad) {
+          difficult = true;
+          concerns.add(id);
+        }
+        // Providers can export the same run under different IDs. Do not add
+        // overlapping recordings to load or let them count as three easy runs.
+        final begin = date.millisecondsSinceEpoch;
+        final end =
+            (runtime['endedAt'] as num?)?.toInt() ??
+            begin + (seconds * 1000).round();
+        final overlaps = intervals.any(
+          (i) =>
+              math.min(end, i.end) - math.max(begin, i.start) >
+              math.min(end - begin, i.end - i.start) * .8,
+        );
+        if (overlaps) {
+          excluded[id] = 'overlappingRecording';
+          continue;
+        }
+        intervals.add((id: id, start: begin, end: end));
+        final healthContinuous =
+            health != null &&
+            feedback?.continuous == true &&
+            runtime['hadPause'] != true;
+        final knownDuration =
+            runtime['durationBasis'] != 'elapsed' || healthContinuous;
         // A stopped/partially recorded session may still report symptoms, but
         // cannot prove a tolerated long run or justify a load/pace increase.
         if (runtime['finishedEarly'] == true ||
@@ -208,17 +271,17 @@ class RunningFitness {
             feedback.effort <= 5 &&
             feedback.recovery == 'ready' &&
             runtime['finishedEarly'] != true &&
-            (runtime['results'] as List? ?? []).isNotEmpty &&
-            (runtime['results'] as List).every(
+            ((runtime['results'] as List? ?? []).isNotEmpty ||
+                healthContinuous) &&
+            (runtime['results'] as List? ?? []).every(
               (r) => (r as Map)['partial'] != true,
             )) {
           tolerated++;
         }
-        if (!bad && runtime['durationBasis'] != 'elapsed') {
+        if (!bad && knownDuration) {
           longest = math.max(longest, seconds);
         }
-        if (age <= rules.number('historyDays') &&
-            runtime['durationBasis'] != 'elapsed') {
+        if (age <= rules.number('historyDays') && knownDuration) {
           total += seconds;
           included.add(id);
         }
@@ -254,7 +317,11 @@ class RunningFitness {
             (health != null && feedback?.runType == 'easy');
         final coverage = (runtime['gpsCoveredSeconds'] as num?)?.toDouble();
         final quality =
-            runtime['indoor'] == true
+            healthContinuous &&
+                    runtime['distanceMeasured'] == true &&
+                    (health['sourceId'] as String? ?? '').isNotEmpty
+                ? true
+                : runtime['indoor'] == true
                 ? runtime['distanceMeasured'] == true
                 : coverage != null &&
                     coverage / seconds >= rules.number('minimumGpsCoverage');
@@ -270,7 +337,7 @@ class RunningFitness {
             (runtime['results'] as List? ?? []).any(
               (r) => (r as Map)['partial'] == true,
             ) ||
-            runtime['durationBasis'] == 'elapsed' ||
+            !knownDuration ||
             runtime['recovered'] == true ||
             feedback?.talkComfort != true ||
             feedback == null ||
@@ -282,7 +349,8 @@ class RunningFitness {
           continue;
         }
         final environment =
-            '${runtime['indoor'] == true ? 'indoor' : 'outdoor'}:${feedback.environment}';
+            '${runtime['indoor'] == true ? 'indoor' : 'outdoor'}:${feedback.environment}'
+            '${source != 'manual' && health != null ? ':health:${health['sourceId']}' : ''}';
         groups.putIfAbsent(environment, () => []).add((
           id: id,
           speed: meters / seconds,
@@ -336,6 +404,7 @@ class RunningFitness {
       asOf: now,
       sourceIds: included,
       easySourceIds: easyIds,
+      concernSourceIds: concerns,
       excluded: excluded,
       weeklySeconds: total / 4,
       longestSeconds: longest,
@@ -415,14 +484,16 @@ class RunningFitness {
           o.sessionId != null ||
           o.locked ||
           date.isBefore(today) ||
-          date.difference(today).inDays > 7 ||
+          (reason != 'easyPaceEvidence' &&
+              date.difference(today).inDays >
+                  rules.integer('adaptationDays')) ||
           o.workout.sport != CardioSport.running) {
         continue;
       }
       final w = o.workout;
       // A planned recovery/taper must not be undone by a positive adaptation.
       // Legacy plans have no reliable phase metadata; never guess their load.
-      if (reason != 'reduceLoad' &&
+      if (!['reduceLoad', 'easyPaceEvidence'].contains(reason) &&
           !['base', 'build'].contains(w.trainingPhase)) {
         continue;
       }
@@ -493,20 +564,11 @@ class RunningFitness {
           )) {
         changes[o.id] = CardioWorkout.fromJson({
           ...w.toJson(),
+          'targetsUpdatedAt': now.toIso8601String(),
+          'targetEvidenceIds': fitness.easySourceIds,
           'steps': [
             for (final s in w.steps)
-              (s.targetSource != 'manual' &&
-                          [
-                            CardioIntensity.easy,
-                            CardioIntensity.recovery,
-                          ].contains(s.intensity)
-                      ? s.copyWith(
-                        maxSpeed: speed,
-                        primaryTarget: 'pace',
-                        targetSource: 'estimated',
-                      )
-                      : s)
-                  .toJson(),
+              _paceTarget(s, profile, speed, now).toJson(),
           ],
         });
       } else if (stage != null &&
@@ -546,7 +608,7 @@ class RunningFitness {
         });
       }
     }
-    return RunningAdaptationProposal(
+    final proposal = RunningAdaptationProposal(
       createdAt: now,
       ruleVersion: rules.version,
       fitness: fitness,
@@ -556,5 +618,63 @@ class RunningFitness {
       runWalkStage: stage,
       walkPreparation: walking,
     );
+    if (planning.adaptationHistory.any(
+      (h) => h['evidenceKey'] == proposal.evidenceKey,
+    )) {
+      return RunningAdaptationProposal(
+        createdAt: now,
+        ruleVersion: rules.version,
+        fitness: fitness,
+        changes: const {},
+        reason: 'insufficientEvidence',
+      );
+    }
+    return proposal;
+  }
+
+  /// Easy evidence changes easy guidance and the ramp into an existing normal
+  /// pace. It cannot manufacture a faster threshold/interval performance.
+  static CardioStep _paceTarget(
+    CardioStep s,
+    AthleteRunningProfile p,
+    double speed,
+    DateTime now,
+  ) {
+    if (s.targetSource == 'manual' ||
+        s.movement == 'walk' ||
+        s.movement == 'rest') {
+      return s;
+    }
+    if ([
+      CardioIntensity.easy,
+      CardioIntensity.recovery,
+    ].contains(s.intensity)) {
+      return s.copyWith(
+        clearTargets: true,
+        maxSpeed: speed,
+        minHeartRate: s.minHeartRate,
+        maxHeartRate: s.maxHeartRate,
+        primaryTarget: 'pace',
+        targetSource: 'estimated',
+      );
+    }
+    if (s.intensity == CardioIntensity.steady &&
+        s.targetVariant != 'lightInterval' &&
+        s.maxSpeed != null) {
+      final normal =
+          CardioTraining.prescribe(
+            p,
+            CardioIntensity.steady,
+            now: now,
+          ).maxSpeed;
+      if (normal == null) return s;
+      final start = math.min(speed, normal);
+      return s.copyWith(
+        minSpeed: start,
+        maxSpeed:
+            s.targetVariant == 'progressionMid' ? (start + normal) / 2 : normal,
+      );
+    }
+    return s;
   }
 }

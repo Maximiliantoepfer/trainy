@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import '../services/running_fitness.dart';
+import '../services/running_forecast.dart';
+import '../services/running_rules.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/cardio.dart';
 import '../services/cardio_training.dart';
@@ -323,14 +326,115 @@ class CardioRepository {
     CardioTranslate t, {
     DateTime? now,
   }) async {
+    final fingerprint = await db.transaction(_adaptationFingerprint);
     final p = await profile();
     ProfileReadiness.requireRunning(p, now: now);
-    return RunningFitness().propose(
-      p,
-      await fitness(now: now),
-      await occurrences(),
-      t,
+    final planRows = await db.rawQuery(
+      '''SELECT c.id, c.request_json FROM cardio_plans c
+      JOIN training_plans t ON t.id=c.id WHERE t.status='active' ''',
     );
+    final requests = {
+      for (final r in planRows)
+        r['id'] as String: RunningPlanRequest.fromJson(
+          jsonDecode(r['request_json'] as String) as Map<String, dynamic>,
+        ),
+    };
+    final planned =
+        (await occurrences())
+            .where((o) => requests.containsKey(o.planId))
+            .toList();
+    final fit = await fitness(now: now);
+    var proposal = RunningFitness().propose(p, fit, planned, t);
+    if (proposal.changes.isEmpty && !fit.difficult) {
+      final structure = RunningForecast().suggestStructure(
+        p,
+        fit,
+        planned,
+        requests,
+        t,
+      );
+      if (structure.isNotEmpty) {
+        proposal = RunningAdaptationProposal(
+          createdAt: fit.asOf,
+          ruleVersion: RunningRules.bundled.version,
+          fitness: fit,
+          changes: structure,
+          reason: 'structure',
+        );
+      }
+    }
+    if (fingerprint != await db.transaction(_adaptationFingerprint)) {
+      throw StateError('stale_proposal');
+    }
+    return RunningAdaptationProposal(
+      createdAt: proposal.createdAt,
+      ruleVersion: proposal.ruleVersion,
+      fitness: fit,
+      changes: proposal.changes,
+      reason: proposal.reason,
+      easySpeed: proposal.easySpeed,
+      runWalkStage: proposal.runWalkStage,
+      walkPreparation: proposal.walkPreparation,
+      inputFingerprint: fingerprint,
+      originals: {
+        for (final o in planned.where(
+          (o) => proposal.changes.containsKey(o.id),
+        ))
+          o.id: jsonEncode(o.workout.toJson()),
+      },
+      expectedDates: {
+        for (final o in planned.where(
+          (o) => proposal.changes.containsKey(o.id),
+        ))
+          o.id: dateKey(o.date),
+      },
+    );
+  }
+
+  static Future<String> _adaptationFingerprint(DatabaseExecutor txn) async {
+    final profile = await txn.query('cardio_preferences');
+    final sessions = await txn.rawQuery(
+      '''SELECT s.id, d.snapshot_json, d.runtime_json
+      FROM activity_sessions s JOIN cardio_session_details d ON s.id=d.session_id
+      WHERE s.status='completed' ORDER BY s.id''',
+    );
+    final plans = await txn.rawQuery(
+      '''SELECT t.id, t.status, c.request_json FROM training_plans t
+      JOIN cardio_plans c ON c.id=t.id ORDER BY t.id''',
+    );
+    final calendar = await txn.query('cardio_occurrences', orderBy: 'id');
+    final programs = await txn.query('training_programs', orderBy: 'id');
+    return sha256
+        .convert(
+          utf8.encode(
+            jsonEncode([profile, sessions, plans, calendar, programs]),
+          ),
+        )
+        .toString();
+  }
+
+  Future<void> dismissAdaptation(RunningAdaptationProposal proposal) async {
+    await db.transaction((txn) async {
+      final rows = await txn.query('cardio_preferences');
+      if (rows.isEmpty) return;
+      final json =
+          jsonDecode(rows.single['profile_json'] as String)
+              as Map<String, dynamic>;
+      final planning = Map<String, dynamic>.from(
+        json['planning'] as Map? ?? {},
+      );
+      planning['dismissedAdaptations'] =
+          {
+            ...List<String>.from(
+              planning['dismissedAdaptations'] as List? ?? [],
+            ),
+            proposal.evidenceKey,
+          }.toList();
+      json['planning'] = planning;
+      await txn.update('cardio_preferences', {
+        'profile_json': jsonEncode(json),
+      }, where: 'id=0');
+    });
   }
 
   /// One transaction: protected rows are rechecked at acceptance time, and the
@@ -348,6 +452,10 @@ class CardioRepository {
       final history = [...p.planning.adaptationHistory];
       final key = proposal.createdAt.toIso8601String();
       if (history.any((e) => e['createdAt'] == key)) return;
+      if (proposal.inputFingerprint != null &&
+          proposal.inputFingerprint != await _adaptationFingerprint(txn)) {
+        throw StateError('stale_proposal');
+      }
       if (proposal.easySpeed != null &&
           p.planning.paceUpdatedAt != null &&
           proposal.createdAt.difference(p.planning.paceUpdatedAt!).inDays < 7) {
@@ -361,11 +469,22 @@ class CardioRepository {
               "id=? AND status='planned' AND locked=0 AND session_id IS NULL AND local_date>=?",
           whereArgs: [e.key, dateKey(DateTime.now())],
         );
-        if (current.isEmpty) continue;
+        if (current.isEmpty) {
+          if (proposal.inputFingerprint != null) {
+            throw StateError('stale_proposal');
+          }
+          continue;
+        }
         final old = CardioWorkout.fromJson(
           jsonDecode(current.single['workout_json'] as String)
               as Map<String, dynamic>,
         );
+        if (proposal.originals[e.key] != null &&
+            (proposal.originals[e.key] != jsonEncode(old.toJson()) ||
+                proposal.expectedDates[e.key] !=
+                    current.single['local_date'])) {
+          throw StateError('stale_proposal');
+        }
         final updated = e.value;
         if (old.sport != updated.sport) throw StateError('sport_changed');
         for (final manual in old.steps.where(
@@ -673,6 +792,7 @@ class CardioRepository {
     String? recovery,
     String environment = 'unknown',
     String? runType,
+    bool? continuous,
   }) async {
     if (effort < 1 ||
         effort > 10 ||
@@ -696,6 +816,7 @@ class CardioRepository {
           recovery: recovery,
           environment: environment,
           runType: runType,
+          continuous: continuous,
         ).toJson();
     await db.update(
       'cardio_session_details',

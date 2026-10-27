@@ -8,6 +8,8 @@ import '../services/cardio_training.dart';
 import '../services/generated/cardio_api.g.dart';
 import '../services/cardio_health_service.dart';
 import '../services/data_operation.dart';
+import '../services/running_fitness.dart';
+import '../services/profile_readiness.dart';
 
 class CardioProvider extends ChangeNotifier {
   CardioProvider({CardioRepository? repository, CardioHostApi? api})
@@ -25,27 +27,98 @@ class CardioProvider extends ChangeNotifier {
   Map<String, dynamic> capabilities = {};
   Object? error;
   bool loaded = false;
+  int revision = 0;
+  RunningAdaptationProposal? recommendation;
+  Object? recommendationError;
+  int _recommendationEpoch = 0;
+  int _loadEpoch = 0;
   bool _disposed = false, _polling = false;
   bool _starting = false;
   bool _suspended = false;
   Completer<void>? _pollDone;
+  final _reads = <Completer<void>>{};
   Timer? _timer;
   int _lastSequence = -1;
   String? _lastSessionId;
   bool get active => runtime != null && runtime!['status'] != 'completed';
 
-  Future<void> load() async {
+  Future<void> load() => _read(_load);
+
+  Future<void> _read(Future<void> Function() action) async {
+    if (_disposed ||
+        DataOperation.instance.databaseUnavailable ||
+        (_suspended && !DataOperation.instance.ownsOperation)) {
+      return;
+    }
+    final done = Completer<void>();
+    _reads.add(done);
     try {
-      profile = await repository.profile();
-      workouts = await repository.workouts();
-      occurrences = await repository.occurrences();
-      history = await repository.history();
+      await action();
+    } finally {
+      _reads.remove(done);
+      done.complete();
+    }
+  }
+
+  Future<void> _load() async {
+    final epoch = ++_loadEpoch;
+    ++_recommendationEpoch;
+    try {
+      final nextProfile = await repository.profile();
+      final nextWorkouts = await repository.workouts();
+      final nextOccurrences = await repository.occurrences();
+      final nextHistory = await repository.history();
+      if (epoch != _loadEpoch || _disposed) return;
+      profile = nextProfile;
+      workouts = nextWorkouts;
+      occurrences = nextOccurrences;
+      history = nextHistory;
       error = null;
       loaded = true;
+      revision++;
+      await _refreshRecommendations(notify: false);
     } catch (e) {
+      if (epoch != _loadEpoch || _disposed) return;
       error = e;
     }
+    if (epoch != _loadEpoch || _disposed) return;
     _notify();
+  }
+
+  /// Completion, feedback, accepted imports and profile edits all call load().
+  /// Calculations are local; no modal or plan mutation happens during refresh.
+  Future<void> refreshRecommendations({bool notify = true}) =>
+      _read(() => _refreshRecommendations(notify: notify));
+
+  Future<void> _refreshRecommendations({bool notify = true}) async {
+    final epoch = ++_recommendationEpoch;
+    if (occurrences.isEmpty) {
+      recommendation = null;
+      recommendationError = null;
+      if (notify) _notify();
+      return;
+    }
+    try {
+      final next = await repository.adaptation((key) => key);
+      if (epoch != _recommendationEpoch || _disposed) return;
+      recommendation =
+          next.changes.isNotEmpty &&
+                  !profile.planning.dismissedAdaptations.contains(
+                    next.evidenceKey,
+                  )
+              ? next
+              : null;
+      recommendationError = null;
+    } on ProfileIncomplete {
+      if (epoch != _recommendationEpoch || _disposed) return;
+      recommendation = null;
+      recommendationError = null;
+    } catch (e) {
+      if (epoch != _recommendationEpoch || _disposed) return;
+      recommendation = null;
+      recommendationError = e;
+    }
+    if (notify) _notify();
   }
 
   Future<void> initialize() async {
@@ -137,6 +210,7 @@ class CardioProvider extends ChangeNotifier {
     _timer?.cancel();
     _timer = null;
     await _pollDone?.future;
+    await Future.wait(_reads.map((r) => r.future).toList());
   }
 
   void _resumePolling() {
@@ -160,7 +234,7 @@ class CardioProvider extends ChangeNotifier {
       runtime = null;
       _lastSessionId = null;
       _lastSequence = -1;
-      await load();
+      await _load();
     } finally {
       _resumePolling();
     }

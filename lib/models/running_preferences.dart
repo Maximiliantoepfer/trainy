@@ -26,6 +26,7 @@ class RunningPreferences {
     this.paceUpdatedAt,
     this.runWalkStage = 0,
     this.adaptationHistory = const [],
+    this.dismissedAdaptations = const [],
   });
   final String? goal, complaints, routePreference, pulseSource;
   final bool? walkPreparation, highLoadTolerated, walkBreaks, audio;
@@ -37,6 +38,7 @@ class RunningPreferences {
   final String zoneMethod, zoneSource;
   final int runWalkStage;
   final List<Map<String, dynamic>> adaptationHistory;
+  final List<String> dismissedAdaptations;
   bool get restricted => complaints != null && complaints != 'none';
   void validate() {
     if ((minutesPerSession != null &&
@@ -107,6 +109,7 @@ class RunningPreferences {
     'paceUpdatedAt': paceUpdatedAt?.toIso8601String(),
     'runWalkStage': runWalkStage,
     'adaptationHistory': adaptationHistory,
+    'dismissedAdaptations': dismissedAdaptations,
   };
   factory RunningPreferences.fromJson(Map<String, dynamic> j) =>
       RunningPreferences(
@@ -140,5 +143,8 @@ class RunningPreferences {
             (j['adaptationHistory'] as List? ?? [])
                 .map((e) => Map<String, dynamic>.from(e as Map))
                 .toList(),
+        dismissedAdaptations: List<String>.from(
+          j['dismissedAdaptations'] as List? ?? [],
+        ),
       );
 }

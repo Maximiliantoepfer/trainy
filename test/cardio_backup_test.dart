@@ -125,7 +125,12 @@ void main() {
           ),
         );
         final id = await repo.begin(
-          CardioWorkout(name: 'Offline run', steps: [CardioStep()]),
+          CardioWorkout(
+            name: 'Offline run',
+            steps: [CardioStep()],
+            targetsUpdatedAt: DateTime(2026, 10, 27),
+            targetEvidenceIds: ['confirmed-health-run'],
+          ),
         );
         await repo.saveRuntime({
           'sessionId': id,
@@ -162,6 +167,7 @@ void main() {
           talkComfort: true,
           recovery: 'ready',
           environment: 'flat',
+          continuous: true,
         );
         final adaptivePlanning = RunningPreferences.fromJson({
           ...confirmedPlanning.toJson(),
@@ -170,6 +176,7 @@ void main() {
           'zoneBounds': [100, 120, 140, 160, 180, 200],
           'dayMinutes': {'1': 30},
           'runWalkStage': 2,
+          'dismissedAdaptations': ['evidence-key'],
           'adaptationHistory': [
             {
               'createdAt': '2026-10-20T12:00:00',
@@ -232,6 +239,17 @@ void main() {
             )['feedback'];
         expect(restoredFeedback['talkComfort'], true);
         expect(restoredFeedback['recovery'], 'ready');
+        expect(restoredFeedback['continuous'], true);
+        final snapshot =
+            jsonDecode((await repo.history()).single['snapshot_json'] as String)
+                as Map;
+        expect(snapshot['workout']['targetEvidenceIds'], [
+          'confirmed-health-run',
+        ]);
+        expect(
+          snapshot['workout']['targetsUpdatedAt'],
+          DateTime(2026, 10, 27).toIso8601String(),
+        );
         expect((await programs.userProfile()).strengthSetupVersion, 1);
         expect(
           (await programs.userProfile()).strengthProfileId,

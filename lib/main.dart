@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -189,6 +190,7 @@ class _AppLifecycleReactorState extends State<_AppLifecycleReactor>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       context.read<CloudSyncProvider>().onAppResumed();
+      unawaited(context.read<CardioProvider>().load());
     }
   }
 

@@ -179,24 +179,34 @@ void main() {
     },
   );
   test(
-    'positive adaptations preserve recovery, taper and unknown legacy phases',
+    'load adaptations preserve recovery/taper while refreshed easy guidance keeps their volume and structure',
     () {
       final p = confirmedRunner();
       final sessions = [
         for (final phase in ['recovery', 'taper', null])
           occurrence(phase ?? 'legacy', phase: phase),
       ];
-      for (final data in [
+      final pace = engine.propose(
+        p,
         engine.evaluate([run(1), run(3), run(6)], now),
-        RunningFitnessSnapshot(
-          asOf: now,
-          toleratedRuns: 3,
-          weeklySeconds: 9000,
-          longestSeconds: 3600,
-        ),
-      ]) {
-        expect(engine.propose(p, data, sessions, (s) => s).changes, isEmpty);
+        sessions,
+        (s) => s,
+      );
+      for (final o in sessions) {
+        final next = pace.changes[o.id]!;
+        expect(next.trainingPhase, o.workout.trainingPhase);
+        expect(
+          next.steps.map((s) => (s.id, s.amount, s.repeat, s.intensity)),
+          o.workout.steps.map((s) => (s.id, s.amount, s.repeat, s.intensity)),
+        );
       }
+      final data = RunningFitnessSnapshot(
+        asOf: now,
+        toleratedRuns: 3,
+        weeklySeconds: 9000,
+        longestSeconds: 3600,
+      );
+      expect(engine.propose(p, data, sessions, (s) => s).changes, isEmpty);
       final difficult = RunningFitnessSnapshot(asOf: now, difficult: true);
       expect(
         engine.propose(p, difficult, sessions, (s) => s).changes,

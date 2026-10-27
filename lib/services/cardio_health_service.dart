@@ -185,6 +185,9 @@ class CardioHealthService {
           'cooldown': <Object>[],
           'source': record['provider'],
           'durationBasis': knownActive ? 'active' : 'elapsed',
+          // Missing duration is not zero. A later explicit continuous-running
+          // confirmation can make elapsed duration usable, never silently here.
+          if (knownActive) 'hadPause': elapsed - active > 5,
         };
         await txn.insert('activity_sessions', {
           'id': id,
