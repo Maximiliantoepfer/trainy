@@ -244,6 +244,15 @@ class PlanWorkoutTile extends StatelessWidget {
             (a, b) => priority(b.intensity).compareTo(priority(a.intensity)),
           );
     final target = targets.firstOrNull;
+    final provisional =
+        e.cardio != null &&
+        !e.completed &&
+        e.sessionId == null &&
+        !e.cardio!.locked &&
+        !e.date.isBefore(DateUtils.dateOnly(DateTime.now())) &&
+        e.cardio!.workout.steps.any(
+          (s) => s.targetSource != 'manual' && s.maxSpeed != null,
+        );
     final info = [
       if (detail != null) detail!,
       if (e.needsWorkout && !e.completed) context.plan('assignWorkout'),
@@ -260,6 +269,7 @@ class PlanWorkoutTile extends StatelessWidget {
             : '${CardioUnits.pace(target.maxSpeed, units)} – ${CardioUnits.pace(target.minSpeed, units)}',
       if (steps.isNotEmpty && target == null)
         context.cardio(steps.first.intensity.name),
+      if (provisional) context.forecast('provisional'),
     ].join(' · ');
     return Material(
       color: scheme.surfaceContainerHigh,

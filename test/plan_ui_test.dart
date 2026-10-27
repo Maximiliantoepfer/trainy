@@ -42,6 +42,9 @@ import 'support/confirmed_profiles.dart';
 import 'package:trainy/screens/strength_profile_screen.dart';
 import 'package:trainy/screens/cardio_editor_screen.dart';
 import 'package:trainy/screens/running_workout_picker.dart';
+import 'package:trainy/widgets/running_forecast_view.dart';
+import 'package:trainy/widgets/running_recommendation_card.dart';
+import 'package:trainy/services/running_fitness.dart';
 
 class EmptyEquipment extends TrainingProfileRepository {
   @override
@@ -294,6 +297,64 @@ void main() {
       ]);
     });
     await tester.pumpAndSettle();
+  }
+
+  for (final dark in [false, true]) {
+    testWidgets('adaptive forecast overview visual $dark', (tester) async {
+      final profile = confirmedRunner({
+        'weekdays': [2, 4, 6],
+      });
+      final labels = {
+        'easySession': 'Dauerlauf',
+        'longRun': 'Long Run',
+        'progression': 'Progressionslauf',
+        'fartlek': 'Fahrtspiel',
+        'intervalSession': 'Kontrollierte Intervalle',
+      };
+      final result = RunningPlanGenerator().generate(
+        profile,
+        RunningPlanRequest(
+          targetMeters: 5000,
+          startDate: DateTime(2030, 1, 7),
+          hardTrainingDays: [5],
+        ),
+        (key) => labels[key] ?? key,
+      );
+      cardio.profile = profile;
+      cardio.occurrences = result.occurrences;
+      cardio.recommendation = RunningAdaptationProposal(
+        createdAt: DateTime(2030, 1, 7),
+        ruleVersion: 5,
+        fitness: RunningFitnessSnapshot(asOf: DateTime(2030, 1, 7)),
+        reason: 'easyPaceEvidence',
+        changes: {
+          result.occurrences.first.id: result.occurrences.first.workout,
+        },
+      );
+      await mount(
+        tester,
+        Scaffold(
+          appBar: AppBar(title: const Text('Trainingsplan')),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const RunningRecommendationCard(),
+              RunningForecastView(occurrences: result.occurrences),
+            ],
+          ),
+        ),
+        dark: dark,
+      );
+      await tester.tap(find.text('Deine nächsten Wochen'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await expectLater(
+        find.byKey(const ValueKey('plan-golden')),
+        matchesGoldenFile(
+          'goldens/running_forecast_${dark ? 'dark' : 'light'}.png',
+        ),
+      );
+    });
   }
 
   for (final large in [false, true]) {

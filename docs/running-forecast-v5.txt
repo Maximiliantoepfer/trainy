@@ -1,0 +1,102 @@
+Trainy – Laufvorschau und automatische Empfehlungen (Regelversion 5)
+===================================================================
+
+Verteilung
+----------
+Qualitätstag und Long Run werden gemeinsam auf den gewählten Tagen verteilt.
+Beispiel: Di/Do/Sa laufen + Fr anstrengendes Beintraining ergibt Di Qualität,
+Do Dauerlauf, Sa Long Run. Der einzige passende Qualitätstag wird nicht mehr
+vorab vom Long Run belegt. Zyklischer Abstand berücksichtigt Sonntag/Montag.
+Für Qualität bleibt mindestens ein Tag zwischen anstrengenden Belastungen.
+Der lockere Long Run ist kein zweiter Qualitätsschwerpunkt: möglichst großer
+Abstand zum Beintraining ist eine Präferenz, keine zusätzliche harte Sperre.
+Seine Dauer bleibt an jüngste Belastbarkeit und Tagesbudget gebunden.
+Unmögliche Verfügbarkeiten werden im Vorschlag benannt, niemals still verschoben.
+
+Vorschau und Bestätigung
+-----------------------
+Der gesamte Laufblock wird weiterhin bei der Erstellung lokal gespeichert.
+"Deine nächsten Wochen" zeigt die bereits geplanten Workout-Arten und springt
+im Kalender sowie in der Einrichtung zur gewünschten Woche. Automatische,
+noch nicht begonnene Pace-Ziele sind als vorläufig gekennzeichnet.
+Rückmeldungen, akzeptierte Health-Importe, Profiländerungen, abgeschlossene
+Aufzeichnungen und erneutes Öffnen der App lösen die Berechnung automatisch aus.
+Home, Kalender und Trainingszusammenfassung bieten relevante Änderungen an.
+"Vorschlag ansehen" zeigt Datum, vorher/nachher, Begründung und Datenbasis.
+Erst "Übernehmen" schreibt die Änderung. "Später" merkt sich die Datenbasis;
+derselbe Vorschlag wird nach einem Neustart nicht erneut aufgedrängt. Die
+manuelle Anpassungsfunktion im Laufbereich erlaubt weiterhin eine erneute Prüfung.
+
+Pace und Struktur
+-----------------
+Geeignete jüngste Läufe und Rückmeldungen liefern die vorhandene robuste
+Easy-Schätzung (mindestens drei vergleichbare Läufe, maximal sechs, mindestens
+20 Minuten, bestätigter Sprechkomfort und Erholung, keine Beschwerden).
+Ein Pace-Vorschlag aktualisiert den gesamten vorhandenen Zukunftsplan.
+Umfang, Abschnitte, Wiederholungen, Termine und IDs bleiben gleich. Auch in
+Entlastung und Taper wird die aktuelle Easy-Orientierung verwendet, ohne deren
+reduzierten Umfang oder Struktur zu verändern. Mengensteigerungen bleiben dort
+gesperrt. Positive Mengen-/Run-Walk-Anpassungen betreffen nur die nächsten sieben
+Tage; dieser Horizont liegt in assets/config/running_rules.json.
+Progressionsrampen beginnen an der aktualisierten Easy-Orientierung. Eine bessere
+Easy-Schätzung allein erzeugt keine schnellere normale Referenz-, Schwellen- oder
+Intervallpace. Die Beschleunigung bleibt auf 2 % Geschwindigkeit je sieben Tage
+begrenzt und dieselben Läufe begründen nicht wiederholt neue Steigerungen.
+Fehlende Qualitätsschwerpunkte in automatisch erzeugten Easy-only-Wochen können
+gesondert vorgeschlagen werden. Dauer und Termine werden dabei nicht erhöht;
+geänderte, gesperrte, begonnene oder abgeschlossene Wochen bleiben geschützt.
+
+Health-Daten
+------------
+Nur ausdrücklich akzeptierte Health-Connect-/HealthKit-Importe gehen ein.
+Unklare Distanz bleibt unbekannt. Verstrichene Zeit wird nicht beim Import als
+aktive Laufzeit ausgegeben. Für eine Pace-Auswertung fremder Aufzeichnungen
+bestätigt der Nutzer zusätzlich "ohne Geh- oder Stehpausen durchgelaufen" und
+"lockerer Dauerlauf". Dann kann die verstrichene Dauer als bestätigte
+kontinuierliche Laufdauer dienen. Gemeldete Pausen haben Vorrang vor dieser
+Bestätigung. Ohne Bestätigung bleibt die Pace-Schätzung unverändert.
+Fremde Messwerte bleiben von der GPS-Messqualität des Telefons getrennt:
+Vergleichsgruppen berücksichtigen Indoor/Outdoor, Bedingungen und Herkunft.
+Überlappende Aufzeichnungen verschiedener Anbieter zählen nicht mehrfach für
+Umfang oder die Mindestzahl von drei Läufen. Herzfrequenz allein erhöht kein Tempo.
+Die Rückmeldung ist aus der Empfehlungskarte und nach dem Import erreichbar.
+Routenfreigabe ist keine Voraussetzung für eine bestätigte Anbieter-Distanz.
+
+Persistenz und Nebenläufigkeit
+-----------------------------
+Antwort continuous, verworfene Empfehlungsschlüssel, Zeitpunkt/Datenbasis der
+Pace-Ziele und Regelversion sind additive JSON-Felder in bestehenden Strukturen.
+Backup/Restore nimmt sie mit; keine Schema-Neuanlage und keine Änderung an IDs.
+Aktivierung prüft in einer Transaktion Profil-/History-/Plan-Fingerabdruck,
+Original-Workout, Datum und Schutzstatus. Eine während der Vorschau veraltete
+Empfehlung wird zurückgewiesen, ohne teilweise Änderungen zu speichern.
+Provider-Revisionen aktualisieren die zuvor zwischengespeicherten Kalenderwochen.
+Asynchrone Berechnungen verwerfen überholte Resultate. Lokale Datenoperationen
+warten auch auf laufende Empfehlungslesevorgänge, bevor SQLite ersetzt wird.
+
+Abnahme
+-------
+Prüfstand 27.10.2026: 245 Flutter-Tests bestanden; Flutter Analyzer ohne Befund.
+20 native Android-Tests und sieben isolierte Android-Integrationstests bestanden
+(vier Einrichtungs-/Vorschautests, drei Tracking-/Health-Vertragstests).
+Neue Light-/Dark-Vergleichsbilder der Vorschau sowie geänderte Kalender- und
+Workout-Ansichten wurden gerendert und visuell geprüft.
+Automatisiert: Terminmatrix, alle Stufen/Ziele/Frequenzen, Health-Import mit
+Rückmeldung, Duplikate und Pausen, Zukunftspace/Progression, manuelle Ziele,
+Bestätigung/Zustandswechsel, Stale-Rollback, Wiederaufnahme/Zurückstellen,
+Backup-Roundtrip sowie DE/EN, km/Meilen, Light/Dark und große Schrift.
+Android nur über tool/test_android_integration.ps1 mit .integration-App-ID.
+Der neue Gerätetest verwendet ausdrücklich synthetische Importdatensätze in
+isolierter SQLite, keine fremden Health-Daten.
+
+Kurze manuelle Abnahme mit der separaten Trainy-Abnahmeinstallation:
+1. Di/Do/Sa laufen, Freitag Beine: in den Folgewochen Progression/Fahrtspiel/
+   kontrollierte Wiederholungen sehen; eine künftige Woche direkt öffnen.
+2. Einen echten Health-Lauf importieren, Herkunft und Distanz prüfen, Rückmeldung
+   speichern. Nach drei geeigneten Läufen erscheint ggf. eine Pace-Empfehlung.
+3. Vorher/nachher prüfen und übernehmen; Kalender sofort aktualisiert. Einen
+   anderen Vorschlag zurückstellen, App neu öffnen: keine Wiederholungsaufforderung.
+4. Die GPS-/Bluetooth-/Musik-/Bildschirm-aus-Checkliste in
+   docs/adaptive-running-v4.txt bleibt für den realen Außenlauf bestehen.
+Echte Health-Store- und Kopfhörerabnahme ist durch synthetische Tests nicht belegt.
+Ohne Mac/iPhone bleibt die iOS-Geräteabnahme ausdrücklich offen.

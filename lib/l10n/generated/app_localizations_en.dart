@@ -9,6 +9,41 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String forecastText(String key) {
+    String _temp0 = intl.Intl.selectLogic(
+      key,
+      {
+        'k_title': 'Your upcoming weeks',
+        'k_hint': 'The workout structure is already planned. Pace targets are provisional and recalculated from suitable workouts. Confirm once to apply changes.',
+        'k_provisional': 'Provisional pace',
+        'k_recommendation': 'Your plan can adapt',
+        'k_review': 'Review suggestion',
+        'k_later': 'Later',
+        'k_week': 'Week',
+        'k_applied': 'Plan updated',
+        'k_before': 'Current',
+        'k_after': 'Suggested',
+        'k_stale': 'Your plan or training data changed. Please review the refreshed suggestion.',
+        'k_structure': 'A better distribution makes room for an appropriate quality workout alongside easy runs. Training time does not increase and dates stay unchanged.',
+        'k_qualityScheduleConflict': 'These days leave no suitable slot for a quality workout. Choose different running days if you would like more variety.',
+        'k_continuous': 'Did you run continuously without walking or standing breaks?',
+        'k_healthEvidence': 'Accepted Health workouts contribute. Pace suggestions also need your feedback and reliable distance and running duration.',
+        'k_noRecommendation': 'Your current plan still fits. New workouts are checked automatically.',
+        'k_feedback': 'Rate your run',
+        'k_feedbackHint': 'Your feedback helps suggest suitable pace targets for upcoming runs.',
+        'k_recovery': 'Recovery',
+        'k_taper': 'Taper',
+        'k_base': 'Foundation',
+        'k_build': 'Training',
+        'k_retry': 'Check again',
+        'k_unavailable': 'Suggestions could not be refreshed. Your saved plan is still available.',
+        'other': '$key',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
   String runningText(String key) {
     String _temp0 = intl.Intl.selectLogic(
       key,

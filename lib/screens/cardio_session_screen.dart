@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../widgets/running_recommendation_card.dart';
 import '../widgets/cardio_route_view.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -621,7 +622,7 @@ class CardioSummaryScreen extends StatefulWidget {
 class _SummaryState extends State<CardioSummaryScreen> {
   double _effort = 5;
   bool _discomfort = false, _saved = false;
-  bool? _talkComfort;
+  bool? _talkComfort, _continuous;
   String? _recovery, _runType;
   String _environment = 'unknown';
   late final Future<List<Map<String, dynamic>>> _route;
@@ -638,6 +639,7 @@ class _SummaryState extends State<CardioSummaryScreen> {
     _recovery = feedback?['recovery'] as String?;
     _environment = feedback?['environment'] as String? ?? 'unknown';
     _runType = feedback?['runType'] as String?;
+    _continuous = feedback?['continuous'] as bool?;
   }
 
   @override
@@ -802,6 +804,25 @@ class _SummaryState extends State<CardioSummaryScreen> {
           ),
           if (widget.snapshot?['health'] != null) ...[
             const SizedBox(height: 16),
+            Text(context.forecast('healthEvidence')),
+            const SizedBox(height: 16),
+            Text(context.forecast('continuous')),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final value in [true, false])
+                  ChoiceChip(
+                    label: Text(context.running(value ? 'yes' : 'no')),
+                    selected: _continuous == value,
+                    onSelected:
+                        (_) => setState(() {
+                          _continuous = value;
+                          _saved = false;
+                        }),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
             Text(context.running('runType')),
             Wrap(
               spacing: 8,
@@ -834,6 +855,7 @@ class _SummaryState extends State<CardioSummaryScreen> {
                           recovery: _recovery,
                           environment: _environment,
                           runType: _runType,
+                          continuous: _continuous,
                         );
                         await p.load();
                         if (mounted) setState(() => _saved = true);
@@ -847,6 +869,7 @@ class _SummaryState extends State<CardioSummaryScreen> {
                     },
             child: Text(context.cardio(_saved ? 'saved' : 'save')),
           ),
+          if (_saved) const RunningRecommendationCard(),
           if (r['indoor'] != true && r['source'] == null) ...[
             const SizedBox(height: 16),
             Text(

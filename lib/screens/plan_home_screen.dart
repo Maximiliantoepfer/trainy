@@ -9,6 +9,7 @@ import '../widgets/active_workout_banner.dart';
 import 'training_plan_screen.dart';
 import 'training_library_screen.dart';
 import 'cardio_session_screen.dart';
+import '../widgets/running_recommendation_card.dart';
 
 class PlanHomeScreen extends StatefulWidget {
   const PlanHomeScreen({super.key, this.todayOverride});
@@ -45,13 +46,16 @@ class _PlanHomeScreenState extends State<PlanHomeScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: state.load,
+        onRefresh: () async {
+          await state.load();
+          await cardio.load();
+        },
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
             PlanWeekView(
               key: ValueKey(
-                '${state.active?.id}:${cardio.history.length}:${progress.entries.length}:${active.isActive}:${cardio.active}',
+                '${state.active?.id}:${cardio.revision}:${progress.entries.length}:${active.isActive}:${cardio.active}',
               ),
               program: state.active,
               date: _date,
@@ -88,6 +92,7 @@ class _PlanHomeScreenState extends State<PlanHomeScreen> {
             ),
             const SizedBox(height: 16),
             const TrainingPlanCard(),
+            const RunningRecommendationCard(showFeedback: true),
             const SizedBox(height: 16),
             TextButton(
               onPressed:

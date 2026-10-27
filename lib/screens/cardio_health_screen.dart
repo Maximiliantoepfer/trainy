@@ -7,6 +7,7 @@ import '../l10n/l10n.dart';
 import '../models/cardio.dart';
 import '../providers/cardio_provider.dart';
 import '../services/cardio_health_service.dart';
+import '../widgets/running_recommendation_card.dart';
 
 class CardioHealthScreen extends StatefulWidget {
   const CardioHealthScreen({super.key});
@@ -129,6 +130,7 @@ class _HealthState extends State<CardioHealthScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           Text(context.cardio('healthInfo')),
+          const RunningRecommendationCard(showFeedback: true),
           const SizedBox(height: 16),
           Text(context.cardio('privacyBody')),
           SwitchListTile.adaptive(

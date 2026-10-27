@@ -29,7 +29,8 @@ import 'workout_detail_screen.dart';
 import 'cardio_session_screen.dart';
 import 'cardio_editor_screen.dart';
 import 'running_workout_picker.dart';
-import 'cardio_screen.dart';
+import '../widgets/running_recommendation_card.dart';
+import '../widgets/running_forecast_view.dart';
 
 Future<void> openPlanSetup(
   BuildContext context, {
@@ -306,20 +307,29 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                         ),
                       ),
                 ),
-                if (p.hasRunning)
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.auto_graph_outlined),
-                    label: Text(context.cardio('adapt')),
-                    onPressed: () async {
-                      await CardioScreen.showAdaptation(
-                        context,
-                        context.read<CardioProvider>(),
-                      );
-                      if (mounted) setState(() {});
-                    },
-                  ),
               ],
             ),
+            if (p.hasRunning) ...[
+              const RunningRecommendationCard(showFeedback: true),
+              RunningForecastView(
+                key: ValueKey(dateKey(_date)),
+                occurrences:
+                    context
+                        .watch<CardioProvider>()
+                        .occurrences
+                        .where((o) => o.planId == p.id)
+                        .toList(),
+                onWeek: (date) {
+                  setState(() {
+                    _date = date;
+                    _backWeeks = 0;
+                    _weeks = 4;
+                    _anchor = null;
+                    _loadingEarlier.clear();
+                  });
+                },
+              ),
+            ],
             const SizedBox(height: 16),
             Row(
               children: [
@@ -366,7 +376,7 @@ class _TrainingPlanScreenState extends State<TrainingPlanScreen> {
                   padding: const EdgeInsets.only(bottom: 16),
                   child: PlanWeekView(
                     key: ValueKey(
-                      '${p.id}:${dateKey(_date)}:$week:${context.watch<ProgressProvider?>()?.entries.length}',
+                      '${p.id}:${dateKey(_date)}:$week:${context.watch<ProgressProvider?>()?.entries.length}:${context.watch<CardioProvider>().revision}',
                     ),
                     program: p,
                     date: _weekStart(week),
@@ -1133,6 +1143,16 @@ class _PlannedCardioScreenState extends State<PlannedCardioScreen> {
             const SizedBox(height: 16),
           ],
           if (editable) ...[
+            if (!widget.entry.cardio!.locked &&
+                _workout.steps.any(
+                  (s) => s.targetSource != 'manual' && s.maxSpeed != null,
+                )) ...[
+              Text(
+                context.forecast('hint'),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+            ],
             Wrap(
               spacing: 8,
               runSpacing: 8,

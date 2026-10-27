@@ -24,6 +24,12 @@ import 'package:trainy/providers/training_profile_provider.dart';
 import 'package:trainy/repositories/training_profile_repository.dart';
 import 'package:trainy/services/data_lifecycle_coordinator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trainy/models/cardio.dart';
+import 'package:trainy/models/running_preferences.dart';
+import 'package:trainy/services/cardio_training.dart';
+import 'package:trainy/services/cardio_health_service.dart';
+import 'package:trainy/widgets/running_recommendation_card.dart';
+import 'package:trainy/widgets/running_forecast_view.dart';
 
 /// Real Android SQLite + complete local running setup. Android integration targets
 /// build as com.example.trainy.integration, separately from the installed app.
@@ -32,6 +38,136 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// package before Flutter captures its identity for uninstall during teardown.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'future forecast and accepted Health evidence lead to a single confirmed update',
+    (tester) async {
+      final db = await AppDatabase.instance.openIsolated(inMemoryDatabasePath);
+      final repo = CardioRepository(database: DatabaseService(database: db));
+      final provider = CardioProvider(repository: repo);
+      final now = DateTime.now();
+      final profile = AthleteRunningProfile(
+        referenceSeconds: 2700,
+        continuousMinutes: 45,
+        recentRunsPerWeek: 3,
+        level: RunningLevel.beginner,
+        experienceMonths: 2,
+        referenceKind: 'normal',
+        setupVersion: 1,
+        weekdays: const [2, 4, 6],
+        confirmedAnswers: const {
+          'goal',
+          'complaints',
+          'weeklyMinutes',
+          'desiredDays',
+          'availableDays',
+          'minutesPerSession',
+          'hardTrainingDays',
+          'routePreference',
+          'walkBreaks',
+          'audio',
+          'level',
+          'experience',
+          'continuous',
+          'frequency',
+          'volume',
+          'reference',
+          'referenceKind',
+        },
+        planning: const RunningPreferences(
+          goal: 'runFaster',
+          complaints: 'none',
+          desiredDays: 3,
+          minutesPerSession: 60,
+          hardTrainingDays: [5],
+          routePreference: 'time',
+          walkBreaks: true,
+          audio: true,
+        ),
+      );
+      try {
+        await repo.saveProfile(profile);
+        final plan = RunningPlanGenerator().generate(
+          profile,
+          RunningPlanRequest(targetMeters: 5000, startDate: now),
+          (key) => key,
+        );
+        await repo.savePlan(plan, 'Forecast integration');
+        final health = CardioHealthService(repo);
+        for (final day in [1, 3, 5]) {
+          final start =
+              now.subtract(Duration(days: day)).millisecondsSinceEpoch;
+          await health.accept({
+            'provider': 'health_connect',
+            'externalId': 'fixture-$day',
+            'sourceId': 'integration.fixture',
+            'sport': 'running',
+            'start': start,
+            'end': start + 1800000,
+            'distance': 3420,
+            'indoor': false,
+          }, name: 'Test run');
+        }
+        for (final row in await repo.history()) {
+          await repo.feedback(
+            row['id'] as String,
+            4,
+            false,
+            talkComfort: true,
+            recovery: 'ready',
+            environment: 'flat',
+            runType: 'easy',
+            continuous: true,
+          );
+        }
+        await provider.load();
+        expect(provider.recommendation?.reason, 'easyPaceEvidence');
+        expect(provider.recommendation!.fitness.easySourceIds, hasLength(3));
+        await tester.pumpWidget(
+          ChangeNotifierProvider<CardioProvider>.value(
+            value: provider,
+            child: MaterialApp(
+              locale: const Locale('de'),
+              supportedLocales: AppLocalizations.supportedLocales,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              home: Scaffold(
+                body: ListView(
+                  children: [
+                    const RunningRecommendationCard(),
+                    RunningForecastView(occurrences: provider.occurrences),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Deine nächsten Wochen'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('intervalSession'), findsWidgets);
+        await tester.ensureVisible(find.text('Vorschlag ansehen'));
+        await tester.tap(find.text('Vorschlag ansehen'));
+        await tester.pumpAndSettle();
+        expect((await repo.profile()).planning.adaptationHistory, isEmpty);
+        final accept = find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(FilledButton),
+        );
+        await tester.tap(accept);
+        await tester.pumpAndSettle();
+        expect((await repo.profile()).planning.adaptationHistory, hasLength(1));
+        expect(
+          (await repo.occurrences()).map((o) => o.id),
+          plan.occurrences.map((o) => o.id),
+        );
+        expect(provider.recommendation, isNull);
+        expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        provider.dispose();
+        await db.close();
+      }
+    },
+  );
   testWidgets(
     'isolated Android local reset drains polling and retains visual settings',
     (tester) async {

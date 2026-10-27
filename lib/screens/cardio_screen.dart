@@ -91,7 +91,7 @@ class CardioScreen extends StatelessWidget {
         context: context,
         builder:
             (ctx) => AlertDialog(
-              title: Text(ctx.cardio('adapt')),
+              title: Text(ctx.forecast('review')),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -101,25 +101,53 @@ class CardioScreen extends StatelessWidget {
                       ctx.running('reason'),
                       style: Theme.of(ctx).textTheme.titleMedium,
                     ),
-                    Text(ctx.running(proposal.reason)),
+                    Text(
+                      proposal.reason == 'structure'
+                          ? ctx.forecast('structure')
+                          : ctx.running(proposal.reason),
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       ctx.running('changes'),
                       style: Theme.of(ctx).textTheme.titleMedium,
                     ),
                     if (proposal.changes.isEmpty)
-                      Text(ctx.cardio('noAdjustment')),
+                      Text(ctx.forecast('noRecommendation')),
                     for (final o in p.occurrences.where(
                       (o) => proposal.changes.containsKey(o.id),
                     )) ...[
                       const SizedBox(height: 8),
-                      Text(
-                        '${DateFormat.yMMMd(Localizations.localeOf(ctx).toString()).format(o.date)} · ${o.workout.name}',
-                      ),
-                      for (final step in proposal.changes[o.id]!.steps)
-                        Text(
-                          '${step.goal == StepGoal.time ? CardioUnits.clock(step.amount) : CardioUnits.distance(step.amount, p.profile.units)} · ${CardioTraining.targetDescription(step, p.profile.units, ctx.cardio)}',
+                      ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: Text(
+                          DateFormat.yMMMd(
+                            Localizations.localeOf(ctx).toString(),
+                          ).format(o.date),
                         ),
+                        subtitle: Text(proposal.changes[o.id]!.name),
+                        children: [
+                          for (final pair in [
+                            ('before', o.workout),
+                            ('after', proposal.changes[o.id]!),
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${ctx.forecast(pair.$1)} · ${pair.$2.name}',
+                                    style: Theme.of(ctx).textTheme.titleSmall,
+                                  ),
+                                  for (final step in pair.$2.steps)
+                                    Text(
+                                      '${step.repeat > 1 ? '${step.repeat} × ' : ''}${step.goal == StepGoal.time ? CardioUnits.clock(step.amount) : CardioUnits.distance(step.amount, p.profile.units)} · ${CardioTraining.targetDescription(step, p.profile.units, ctx.cardio)}',
+                                    ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                     const SizedBox(height: 16),
                     Text(
@@ -129,6 +157,8 @@ class CardioScreen extends StatelessWidget {
                     for (final row in p.history.where(
                       (r) => (proposal.reason == 'easyPaceEvidence'
                               ? proposal.fitness.easySourceIds
+                              : proposal.reason == 'reduceLoad'
+                              ? proposal.fitness.concernSourceIds
                               : proposal.fitness.sourceIds)
                           .contains(r['id']),
                     ))
@@ -157,6 +187,11 @@ class CardioScreen extends StatelessWidget {
       if (yes == true) {
         await p.repository.acceptAdaptation(proposal);
         await p.load();
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(context.forecast('applied'))));
+        }
       }
     } on ProfileIncomplete {
       if (!context.mounted) return;
@@ -167,8 +202,19 @@ class CardioScreen extends StatelessWidget {
         context,
         MaterialPageRoute(builder: (_) => CardioProfileScreen(provider: p)),
       );
-    } catch (_) {
-      if (context.mounted) const CardioScreen()._error(context);
+    } catch (error) {
+      await p.load();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error.toString().contains('stale_proposal')
+                  ? context.forecast('stale')
+                  : context.cardio('error'),
+            ),
+          ),
+        );
+      }
     }
   }
 

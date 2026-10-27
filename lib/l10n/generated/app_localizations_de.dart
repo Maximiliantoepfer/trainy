@@ -9,6 +9,41 @@ class AppLocalizationsDe extends AppLocalizations {
   AppLocalizationsDe([String locale = 'de']) : super(locale);
 
   @override
+  String forecastText(String key) {
+    String _temp0 = intl.Intl.selectLogic(
+      key,
+      {
+        'k_title': 'Deine nächsten Wochen',
+        'k_hint': 'Der Aufbau steht bereits fest. Pace-Ziele sind vorläufig und werden anhand geeigneter Trainings neu berechnet. Änderungen übernimmst du mit einer Bestätigung.',
+        'k_provisional': 'Pace vorläufig',
+        'k_recommendation': 'Dein Plan kann sich anpassen',
+        'k_review': 'Vorschlag ansehen',
+        'k_later': 'Später',
+        'k_week': 'Woche',
+        'k_applied': 'Plan aktualisiert',
+        'k_before': 'Bisher',
+        'k_after': 'Vorschlag',
+        'k_stale': 'Der Plan oder deine Trainingsdaten haben sich geändert. Bitte prüfe den aktualisierten Vorschlag.',
+        'k_structure': 'Die Belastungen lassen sich besser verteilen. Ein passender Qualitätsschwerpunkt ergänzt deine lockeren Läufe; Die Trainingszeit steigt nicht; Termine bleiben erhalten.',
+        'k_qualityScheduleConflict': 'An diesen Tagen bleibt kein passender Platz für einen Qualitätsschwerpunkt. Wähle andere Lauftage, wenn du mehr Abwechslung möchtest.',
+        'k_continuous': 'Bist du ohne Geh- oder Stehpausen durchgelaufen?',
+        'k_healthEvidence': 'Bestätigte Health-Trainings fließen ein. Für Pace-Vorschläge brauchen wir zusätzlich deine Rückmeldung und eine verlässliche Distanz und Laufdauer.',
+        'k_noRecommendation': 'Dein Plan bleibt aktuell passend. Neue Trainings werden automatisch geprüft.',
+        'k_feedback': 'Lauf kurz bewerten',
+        'k_feedbackHint': 'Deine Rückmeldung hilft, die nächsten Pace-Ziele passend vorzuschlagen.',
+        'k_recovery': 'Entlastung',
+        'k_taper': 'Wettkampfvorbereitung',
+        'k_base': 'Aufbau',
+        'k_build': 'Training',
+        'k_retry': 'Erneut prüfen',
+        'k_unavailable': 'Empfehlungen konnten nicht aktualisiert werden. Dein gespeicherter Plan bleibt verfügbar.',
+        'other': '$key',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
   String runningText(String key) {
     String _temp0 = intl.Intl.selectLogic(
       key,

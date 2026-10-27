@@ -10,6 +10,7 @@ import '../providers/training_program_provider.dart';
 import '../providers/workout_provider.dart';
 import '../services/cardio_training.dart';
 import '../widgets/plan_controls.dart';
+import '../widgets/running_forecast_view.dart';
 import 'cardio_profile_screen.dart';
 import 'cardio_editor_screen.dart';
 import 'training_library_screen.dart';
@@ -49,7 +50,7 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
   Set<String> _sports = {};
   Set<int> _available = {1, 2, 3, 4, 5, 6, 7};
   int _strengthCount = 3, _runningCount = 3;
-  int _step = 0, _previewWeeks = 4;
+  int _step = 0, _previewWeeks = 4, _previewStartWeek = 0;
   bool _busy = false, _ready = false, _runningChanged = false;
   bool _runningProfileApplied = false;
   String? _error;
@@ -1693,7 +1694,26 @@ class _TrainingPlanSetupScreenState extends State<TrainingPlanSetupScreen> {
                             context.plan('missingWorkouts'),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
-                        for (var week = 0; week < _previewWeeks; week++)
+                        if (_running != null)
+                          RunningForecastView(
+                            key: ValueKey(_previewStartWeek),
+                            occurrences: _running!.occurrences,
+                            onWeek:
+                                (date) => setState(() {
+                                  _previewStartWeek = (date
+                                              .difference(_previewMonday(0))
+                                              .inDays /
+                                          7)
+                                      .round()
+                                      .clamp(0, 104);
+                                  _previewWeeks = _previewStartWeek + 4;
+                                }),
+                          ),
+                        for (
+                          var week = _previewStartWeek;
+                          week < _previewWeeks;
+                          week++
+                        )
                           if (_previewEnd == null ||
                               !_previewMonday(week).isAfter(_previewEnd!))
                             Padding(
