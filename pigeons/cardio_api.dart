@@ -15,6 +15,7 @@ abstract class CardioHostApi {
   void pause();
   void resume();
   void finish();
+  void setAudioEnabled(bool enabled);
   void acknowledge(String sessionId);
   void openSettings();
 }

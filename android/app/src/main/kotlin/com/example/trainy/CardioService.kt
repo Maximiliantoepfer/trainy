@@ -129,7 +129,9 @@ class CardioService : Service(), LocationListener {
         if ((SystemClock.elapsedRealtimeNanos() - location.elapsedRealtimeNanos) / 1e9 > 5) return
         val sample = engine?.location(location.latitude, location.longitude, location.accuracy.toDouble(),
             if (location.hasSpeed()) location.speed.toDouble() else null,
-            SystemClock.elapsedRealtime() / 1000.0, location.time) ?: return
+            location.elapsedRealtimeNanos / 1e9, location.time,
+            if (Build.VERSION.SDK_INT >= 26 && location.hasSpeedAccuracy()) location.speedAccuracyMetersPerSecond.toDouble() else null,
+            SystemClock.elapsedRealtimeNanos() / 1e9) ?: return
         try { samplesFile(this).appendText(sample.toString() + "\n") }
         catch (_: Exception) { engine?.pause(); engine?.state?.put("storageError", true) }
     }
@@ -140,6 +142,11 @@ class CardioService : Service(), LocationListener {
     @Deprecated("Legacy callback")
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
     fun pause() { engine?.pause(); persist() }
+    fun setAudioEnabled(enabled: Boolean) {
+        engine?.state?.put("audioEnabled", enabled)
+        if (!enabled) { pendingSpeech.clear(); tts?.stop(); releaseSpeechFocus() }
+        persist()
+    }
     fun resume() { engine?.resume(); persist() }
     fun finish() { engine?.finish(); persist(); handler.postDelayed({ stopSelf() }, 10000) }
     fun releaseCompleted() {

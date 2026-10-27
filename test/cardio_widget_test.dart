@@ -167,7 +167,7 @@ void main() {
       'speed': 2.0,
     };
     await mount(tester, const CardioSessionScreen(), locale: 'en', provider: p);
-    expect(find.text('4:00'), findsOneWidget);
+    expect(find.textContaining('4:00'), findsOneWidget);
     expect(find.text('8:20 /km'), findsWidgets);
     await expectLater(
       find.byKey(const ValueKey('cardio-golden')),

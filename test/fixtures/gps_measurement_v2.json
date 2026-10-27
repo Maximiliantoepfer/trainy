@@ -1,0 +1,3176 @@
+{
+  "version": 2,
+  "cases": [
+    {
+      "name": "slow-without-native-speed",
+      "samples": [
+        {
+          "time": 0,
+          "received": 0,
+          "lat": 52,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 1,
+          "received": 1,
+          "lat": 52.00000899321012,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 2,
+          "received": 2,
+          "lat": 52.000017986420254,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 3,
+          "received": 3,
+          "lat": 52.00002697963038,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 4,
+          "received": 4,
+          "lat": 52.00003597284051,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 5,
+          "received": 5,
+          "lat": 52.00004496605063,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 6,
+          "received": 6,
+          "lat": 52.00005395926076,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 7,
+          "received": 7,
+          "lat": 52.000062952470884,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 8,
+          "received": 8,
+          "lat": 52.00007194568101,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 9,
+          "received": 9,
+          "lat": 52.00008093889114,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 10,
+          "received": 10,
+          "lat": 52.00008993210126,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 11,
+          "received": 11,
+          "lat": 52.00009892531139,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 12,
+          "received": 12,
+          "lat": 52.000107918521515,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 13,
+          "received": 13,
+          "lat": 52.000116911731645,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 14,
+          "received": 14,
+          "lat": 52.00012590494177,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 15,
+          "received": 15,
+          "lat": 52.0001348981519,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 16,
+          "received": 16,
+          "lat": 52.00014389136202,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 17,
+          "received": 17,
+          "lat": 52.000152884572145,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 18,
+          "received": 18,
+          "lat": 52.000161877782276,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 19,
+          "received": 19,
+          "lat": 52.0001708709924,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 20,
+          "received": 20,
+          "lat": 52.00017986420253,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 21,
+          "received": 21,
+          "lat": 52.00018885741265,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 22,
+          "received": 22,
+          "lat": 52.00019785062278,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 23,
+          "received": 23,
+          "lat": 52.000206843832906,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 24,
+          "received": 24,
+          "lat": 52.00021583704303,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 25,
+          "received": 25,
+          "lat": 52.00022483025316,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 26,
+          "received": 26,
+          "lat": 52.00023382346328,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 27,
+          "received": 27,
+          "lat": 52.00024281667341,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 28,
+          "received": 28,
+          "lat": 52.00025180988354,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 29,
+          "received": 29,
+          "lat": 52.00026080309367,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 30,
+          "received": 30,
+          "lat": 52.00026979630379,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 31,
+          "received": 31,
+          "lat": 52.000278789513914,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 32,
+          "received": 32,
+          "lat": 52.000287782724044,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 33,
+          "received": 33,
+          "lat": 52.00029677593417,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 34,
+          "received": 34,
+          "lat": 52.0003057691443,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 35,
+          "received": 35,
+          "lat": 52.00031476235442,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 36,
+          "received": 36,
+          "lat": 52.00032375556455,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 37,
+          "received": 37,
+          "lat": 52.000332748774674,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 38,
+          "received": 38,
+          "lat": 52.000341741984805,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 39,
+          "received": 39,
+          "lat": 52.00035073519493,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 40,
+          "received": 40,
+          "lat": 52.00035972840505,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 41,
+          "received": 41,
+          "lat": 52.00036872161518,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 42,
+          "received": 42,
+          "lat": 52.000377714825305,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 43,
+          "received": 43,
+          "lat": 52.000386708035435,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 44,
+          "received": 44,
+          "lat": 52.00039570124556,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 45,
+          "received": 45,
+          "lat": 52.00040469445569,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 46,
+          "received": 46,
+          "lat": 52.00041368766581,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 47,
+          "received": 47,
+          "lat": 52.000422680875936,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 48,
+          "received": 48,
+          "lat": 52.000431674086066,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 49,
+          "received": 49,
+          "lat": 52.00044066729619,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 50,
+          "received": 50,
+          "lat": 52.00044966050632,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 51,
+          "received": 51,
+          "lat": 52.00045865371644,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 52,
+          "received": 52,
+          "lat": 52.00046764692657,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 53,
+          "received": 53,
+          "lat": 52.0004766401367,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 54,
+          "received": 54,
+          "lat": 52.00048563334682,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 55,
+          "received": 55,
+          "lat": 52.00049462655695,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 56,
+          "received": 56,
+          "lat": 52.00050361976707,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 57,
+          "received": 57,
+          "lat": 52.000512612977204,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 58,
+          "received": 58,
+          "lat": 52.00052160618733,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 59,
+          "received": 59,
+          "lat": 52.00053059939746,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 60,
+          "received": 60,
+          "lat": 52.00053959260758,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        }
+      ],
+      "minMeters": 55,
+      "maxMeters": 65,
+      "paceQuality": "reliable"
+    },
+    {
+      "name": "stationary-noise",
+      "samples": [
+        {
+          "time": 0,
+          "received": 0,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 1,
+          "received": 1,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 2,
+          "received": 2,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 3,
+          "received": 3,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 4,
+          "received": 4,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 5,
+          "received": 5,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 6,
+          "received": 6,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 7,
+          "received": 7,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 8,
+          "received": 8,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 9,
+          "received": 9,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 10,
+          "received": 10,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 11,
+          "received": 11,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 12,
+          "received": 12,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 13,
+          "received": 13,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 14,
+          "received": 14,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 15,
+          "received": 15,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 16,
+          "received": 16,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 17,
+          "received": 17,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 18,
+          "received": 18,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 19,
+          "received": 19,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 20,
+          "received": 20,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 21,
+          "received": 21,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 22,
+          "received": 22,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 23,
+          "received": 23,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 24,
+          "received": 24,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 25,
+          "received": 25,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 26,
+          "received": 26,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 27,
+          "received": 27,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 28,
+          "received": 28,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 29,
+          "received": 29,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 30,
+          "received": 30,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 31,
+          "received": 31,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 32,
+          "received": 32,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 33,
+          "received": 33,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 34,
+          "received": 34,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 35,
+          "received": 35,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 36,
+          "received": 36,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 37,
+          "received": 37,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 38,
+          "received": 38,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 39,
+          "received": 39,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 40,
+          "received": 40,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 41,
+          "received": 41,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 42,
+          "received": 42,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 43,
+          "received": 43,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 44,
+          "received": 44,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 45,
+          "received": 45,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 46,
+          "received": 46,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 47,
+          "received": 47,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 48,
+          "received": 48,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 49,
+          "received": 49,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 50,
+          "received": 50,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 51,
+          "received": 51,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 52,
+          "received": 52,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 53,
+          "received": 53,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 54,
+          "received": 54,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 55,
+          "received": 55,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 56,
+          "received": 56,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 57,
+          "received": 57,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 58,
+          "received": 58,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 59,
+          "received": 59,
+          "lat": 52.000005,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        },
+        {
+          "time": 60,
+          "received": 60,
+          "lat": 51.999995,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": null,
+          "speedAccuracy": null
+        }
+      ],
+      "minMeters": 0,
+      "maxMeters": 1,
+      "paceQuality": "uncertain"
+    },
+    {
+      "name": "curve",
+      "samples": [
+        {
+          "time": 0,
+          "received": 0,
+          "lat": 52,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 1,
+          "received": 1,
+          "lat": 52.00000470829593,
+          "lon": 13.000000100111786,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 2,
+          "received": 2,
+          "lat": 52.000009413365035,
+          "lon": 13.000000400378534,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 3,
+          "received": 3,
+          "lat": 52.000014111982686,
+          "lon": 13.000000900594452,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 4,
+          "received": 4,
+          "lat": 52.000018800928686,
+          "lon": 13.000001600416724,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 5,
+          "received": 5,
+          "lat": 52.000023476989476,
+          "lon": 13.00000249936572,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 6,
+          "received": 6,
+          "lat": 52.0000281369603,
+          "lon": 13.000003596825348,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 7,
+          "received": 7,
+          "lat": 52.00003277764746,
+          "lon": 13.000004892043465,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 8,
+          "received": 8,
+          "lat": 52.000037395870464,
+          "lon": 13.000006384132393,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 9,
+          "received": 9,
+          "lat": 52.000041988464204,
+          "lon": 13.000008072069527,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 10,
+          "received": 10,
+          "lat": 52.00004655228115,
+          "lon": 13.00000995469804,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 11,
+          "received": 11,
+          "lat": 52.00005108419348,
+          "lon": 13.000012030727673,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 12,
+          "received": 12,
+          "lat": 52.00005558109526,
+          "lon": 13.000014298735618,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 13,
+          "received": 13,
+          "lat": 52.00006003990453,
+          "lon": 13.000016757167495,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 14,
+          "received": 14,
+          "lat": 52.00006445756546,
+          "lon": 13.000019404338422,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 15,
+          "received": 15,
+          "lat": 52.000068831050385,
+          "lon": 13.000022238434155,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 16,
+          "received": 16,
+          "lat": 52.000073157361946,
+          "lon": 13.00002525751235,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 17,
+          "received": 17,
+          "lat": 52.000077433535104,
+          "lon": 13.000028459503879,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 18,
+          "received": 18,
+          "lat": 52.00008165663919,
+          "lon": 13.000031842214257,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 19,
+          "received": 19,
+          "lat": 52.00008582377989,
+          "lon": 13.000035403325146,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 20,
+          "received": 20,
+          "lat": 52.00008993210126,
+          "lon": 13.000039140395936,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 21,
+          "received": 21,
+          "lat": 52.00009397878767,
+          "lon": 13.000043050865427,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 22,
+          "received": 22,
+          "lat": 52.0000979610657,
+          "lon": 13.000047132053577,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 23,
+          "received": 23,
+          "lat": 52.00010187620611,
+          "lon": 13.000051381163345,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 24,
+          "received": 24,
+          "lat": 52.000105721525664,
+          "lon": 13.000055795282602,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 25,
+          "received": 25,
+          "lat": 52.00010949438896,
+          "lon": 13.000060371386132,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 26,
+          "received": 26,
+          "lat": 52.00011319221027,
+          "lon": 13.000065106337702,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 27,
+          "received": 27,
+          "lat": 52.000116812455296,
+          "lon": 13.000069996892213,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 28,
+          "received": 28,
+          "lat": 52.0001203526429,
+          "lon": 13.000075039697922,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 29,
+          "received": 29,
+          "lat": 52.000123810346814,
+          "lon": 13.000080231298742,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 30,
+          "received": 30,
+          "lat": 52.0001271831973,
+          "lon": 13.000085568136612,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 31,
+          "received": 31,
+          "lat": 52.00013046888277,
+          "lon": 13.000091046553926,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 32,
+          "received": 32,
+          "lat": 52.000133665151395,
+          "lon": 13.000096662796054,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 33,
+          "received": 33,
+          "lat": 52.0001367698126,
+          "lon": 13.000102413013902,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 34,
+          "received": 34,
+          "lat": 52.00013978073861,
+          "lon": 13.000108293266559,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 35,
+          "received": 35,
+          "lat": 52.000142695865875,
+          "lon": 13.000114299523991,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 36,
+          "received": 36,
+          "lat": 52.00014551319652,
+          "lon": 13.000120427669811,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 37,
+          "received": 37,
+          "lat": 52.000148230799695,
+          "lon": 13.000126673504095,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 38,
+          "received": 38,
+          "lat": 52.000150846812886,
+          "lon": 13.00013303274626,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 39,
+          "received": 39,
+          "lat": 52.0001533594432,
+          "lon": 13.000139501037998,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 40,
+          "received": 40,
+          "lat": 52.00015576696862,
+          "lon": 13.000146073946263,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 41,
+          "received": 41,
+          "lat": 52.000158067739136,
+          "lon": 13.000152746966316,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 42,
+          "received": 42,
+          "lat": 52.00016026017792,
+          "lon": 13.000159515524802,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 43,
+          "received": 43,
+          "lat": 52.00016234278238,
+          "lon": 13.000166374982886,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 44,
+          "received": 44,
+          "lat": 52.000164314125215,
+          "lon": 13.000173320639439,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 45,
+          "received": 45,
+          "lat": 52.000166172855344,
+          "lon": 13.000180347734258,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 46,
+          "received": 46,
+          "lat": 52.00016791769891,
+          "lon": 13.00018745145132,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 47,
+          "received": 47,
+          "lat": 52.00016954746006,
+          "lon": 13.000194626922092,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 48,
+          "received": 48,
+          "lat": 52.00017106102186,
+          "lon": 13.000201869228865,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 49,
+          "received": 49,
+          "lat": 52.00017245734698,
+          "lon": 13.000209173408127,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 50,
+          "received": 50,
+          "lat": 52.00017373547845,
+          "lon": 13.000216534453955,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 51,
+          "received": 51,
+          "lat": 52.000174894540294,
+          "lon": 13.000223947321457,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 52,
+          "received": 52,
+          "lat": 52.00017593373816,
+          "lon": 13.000231406930224,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 53,
+          "received": 53,
+          "lat": 52.00017685235983,
+          "lon": 13.000238908167812,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 54,
+          "received": 54,
+          "lat": 52.00017764977573,
+          "lon": 13.000246445893248,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 55,
+          "received": 55,
+          "lat": 52.00017832543934,
+          "lon": 13.000254014940552,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 56,
+          "received": 56,
+          "lat": 52.0001788788876,
+          "lon": 13.000261610122275,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 57,
+          "received": 57,
+          "lat": 52.00017930974122,
+          "lon": 13.000269226233062,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 58,
+          "received": 58,
+          "lat": 52.00017961770489,
+          "lon": 13.000276858053208,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 59,
+          "received": 59,
+          "lat": 52.00017980256756,
+          "lon": 13.000284500352247,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 60,
+          "received": 60,
+          "lat": 52.00017986420253,
+          "lon": 13.000292147892528,
+          "accuracy": 5,
+          "speed": 0.5235987755982988,
+          "speedAccuracy": 0.1
+        }
+      ],
+      "minMeters": 26,
+      "maxMeters": 33,
+      "paceQuality": "reliable"
+    },
+    {
+      "name": "native-position-conflict",
+      "samples": [
+        {
+          "time": 0,
+          "received": 0,
+          "lat": 52,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 1,
+          "received": 1,
+          "lat": 52.00000899321012,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 2,
+          "received": 2,
+          "lat": 52.000017986420254,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 3,
+          "received": 3,
+          "lat": 52.00002697963038,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 4,
+          "received": 4,
+          "lat": 52.00003597284051,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 5,
+          "received": 5,
+          "lat": 52.00004496605063,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 6,
+          "received": 6,
+          "lat": 52.00005395926076,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 7,
+          "received": 7,
+          "lat": 52.000062952470884,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 8,
+          "received": 8,
+          "lat": 52.00007194568101,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 9,
+          "received": 9,
+          "lat": 52.00008093889114,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 10,
+          "received": 10,
+          "lat": 52.00008993210126,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 11,
+          "received": 11,
+          "lat": 52.00009892531139,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 12,
+          "received": 12,
+          "lat": 52.000107918521515,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 13,
+          "received": 13,
+          "lat": 52.000116911731645,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 14,
+          "received": 14,
+          "lat": 52.00012590494177,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 15,
+          "received": 15,
+          "lat": 52.0001348981519,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 16,
+          "received": 16,
+          "lat": 52.00014389136202,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 17,
+          "received": 17,
+          "lat": 52.000152884572145,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 18,
+          "received": 18,
+          "lat": 52.000161877782276,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 19,
+          "received": 19,
+          "lat": 52.0001708709924,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 20,
+          "received": 20,
+          "lat": 52.00017986420253,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 21,
+          "received": 21,
+          "lat": 52.00018885741265,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 22,
+          "received": 22,
+          "lat": 52.00019785062278,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 23,
+          "received": 23,
+          "lat": 52.000206843832906,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 24,
+          "received": 24,
+          "lat": 52.00021583704303,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 25,
+          "received": 25,
+          "lat": 52.00022483025316,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 26,
+          "received": 26,
+          "lat": 52.00023382346328,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 27,
+          "received": 27,
+          "lat": 52.00024281667341,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 28,
+          "received": 28,
+          "lat": 52.00025180988354,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 29,
+          "received": 29,
+          "lat": 52.00026080309367,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 30,
+          "received": 30,
+          "lat": 52.00026979630379,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 31,
+          "received": 31,
+          "lat": 52.000278789513914,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 32,
+          "received": 32,
+          "lat": 52.000287782724044,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 33,
+          "received": 33,
+          "lat": 52.00029677593417,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 34,
+          "received": 34,
+          "lat": 52.0003057691443,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 35,
+          "received": 35,
+          "lat": 52.00031476235442,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 36,
+          "received": 36,
+          "lat": 52.00032375556455,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 37,
+          "received": 37,
+          "lat": 52.000332748774674,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 38,
+          "received": 38,
+          "lat": 52.000341741984805,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 39,
+          "received": 39,
+          "lat": 52.00035073519493,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 40,
+          "received": 40,
+          "lat": 52.00035972840505,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 41,
+          "received": 41,
+          "lat": 52.00036872161518,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 42,
+          "received": 42,
+          "lat": 52.000377714825305,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 43,
+          "received": 43,
+          "lat": 52.000386708035435,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 44,
+          "received": 44,
+          "lat": 52.00039570124556,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 45,
+          "received": 45,
+          "lat": 52.00040469445569,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 46,
+          "received": 46,
+          "lat": 52.00041368766581,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 47,
+          "received": 47,
+          "lat": 52.000422680875936,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 48,
+          "received": 48,
+          "lat": 52.000431674086066,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 49,
+          "received": 49,
+          "lat": 52.00044066729619,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 50,
+          "received": 50,
+          "lat": 52.00044966050632,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 51,
+          "received": 51,
+          "lat": 52.00045865371644,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 52,
+          "received": 52,
+          "lat": 52.00046764692657,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 53,
+          "received": 53,
+          "lat": 52.0004766401367,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 54,
+          "received": 54,
+          "lat": 52.00048563334682,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 55,
+          "received": 55,
+          "lat": 52.00049462655695,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 56,
+          "received": 56,
+          "lat": 52.00050361976707,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 57,
+          "received": 57,
+          "lat": 52.000512612977204,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 58,
+          "received": 58,
+          "lat": 52.00052160618733,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 59,
+          "received": 59,
+          "lat": 52.00053059939746,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 60,
+          "received": 60,
+          "lat": 52.00053959260758,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 4,
+          "speedAccuracy": 0.1
+        }
+      ],
+      "minMeters": 55,
+      "maxMeters": 65,
+      "paceQuality": "uncertain"
+    },
+    {
+      "name": "lost-middle",
+      "samples": [
+        {
+          "time": 0,
+          "received": 0,
+          "lat": 52,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 1,
+          "received": 1,
+          "lat": 52.00000899321012,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 2,
+          "received": 2,
+          "lat": 52.000017986420254,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 3,
+          "received": 3,
+          "lat": 52.00002697963038,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 4,
+          "received": 4,
+          "lat": 52.00003597284051,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 5,
+          "received": 5,
+          "lat": 52.00004496605063,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 6,
+          "received": 6,
+          "lat": 52.00005395926076,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 7,
+          "received": 7,
+          "lat": 52.000062952470884,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 8,
+          "received": 8,
+          "lat": 52.00007194568101,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 9,
+          "received": 9,
+          "lat": 52.00008093889114,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 10,
+          "received": 10,
+          "lat": 52.00008993210126,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 11,
+          "received": 11,
+          "lat": 52.00009892531139,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 12,
+          "received": 12,
+          "lat": 52.000107918521515,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 13,
+          "received": 13,
+          "lat": 52.000116911731645,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 14,
+          "received": 14,
+          "lat": 52.00012590494177,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 15,
+          "received": 15,
+          "lat": 52.0001348981519,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 16,
+          "received": 16,
+          "lat": 52.00014389136202,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 17,
+          "received": 17,
+          "lat": 52.000152884572145,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 18,
+          "received": 18,
+          "lat": 52.000161877782276,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 19,
+          "received": 19,
+          "lat": 52.0001708709924,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 20,
+          "received": 20,
+          "lat": 52.00017986420253,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 40,
+          "received": 40,
+          "lat": 52.00035972840505,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 41,
+          "received": 41,
+          "lat": 52.00036872161518,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 42,
+          "received": 42,
+          "lat": 52.000377714825305,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 43,
+          "received": 43,
+          "lat": 52.000386708035435,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 44,
+          "received": 44,
+          "lat": 52.00039570124556,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 45,
+          "received": 45,
+          "lat": 52.00040469445569,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 46,
+          "received": 46,
+          "lat": 52.00041368766581,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 47,
+          "received": 47,
+          "lat": 52.000422680875936,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 48,
+          "received": 48,
+          "lat": 52.000431674086066,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 49,
+          "received": 49,
+          "lat": 52.00044066729619,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 50,
+          "received": 50,
+          "lat": 52.00044966050632,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 51,
+          "received": 51,
+          "lat": 52.00045865371644,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 52,
+          "received": 52,
+          "lat": 52.00046764692657,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 53,
+          "received": 53,
+          "lat": 52.0004766401367,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 54,
+          "received": 54,
+          "lat": 52.00048563334682,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 55,
+          "received": 55,
+          "lat": 52.00049462655695,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 56,
+          "received": 56,
+          "lat": 52.00050361976707,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 57,
+          "received": 57,
+          "lat": 52.000512612977204,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 58,
+          "received": 58,
+          "lat": 52.00052160618733,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 59,
+          "received": 59,
+          "lat": 52.00053059939746,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 60,
+          "received": 60,
+          "lat": 52.00053959260758,
+          "lon": 13,
+          "accuracy": 5,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        }
+      ],
+      "minMeters": 32,
+      "maxMeters": 42,
+      "paceQuality": "reliable"
+    },
+    {
+      "name": "poor-position",
+      "samples": [
+        {
+          "time": 0,
+          "received": 0,
+          "lat": 52,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 1,
+          "received": 1,
+          "lat": 52.00000899321012,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 2,
+          "received": 2,
+          "lat": 52.000017986420254,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 3,
+          "received": 3,
+          "lat": 52.00002697963038,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 4,
+          "received": 4,
+          "lat": 52.00003597284051,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 5,
+          "received": 5,
+          "lat": 52.00004496605063,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 6,
+          "received": 6,
+          "lat": 52.00005395926076,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 7,
+          "received": 7,
+          "lat": 52.000062952470884,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 8,
+          "received": 8,
+          "lat": 52.00007194568101,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 9,
+          "received": 9,
+          "lat": 52.00008093889114,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 10,
+          "received": 10,
+          "lat": 52.00008993210126,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 11,
+          "received": 11,
+          "lat": 52.00009892531139,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 12,
+          "received": 12,
+          "lat": 52.000107918521515,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 13,
+          "received": 13,
+          "lat": 52.000116911731645,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 14,
+          "received": 14,
+          "lat": 52.00012590494177,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 15,
+          "received": 15,
+          "lat": 52.0001348981519,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 16,
+          "received": 16,
+          "lat": 52.00014389136202,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 17,
+          "received": 17,
+          "lat": 52.000152884572145,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 18,
+          "received": 18,
+          "lat": 52.000161877782276,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 19,
+          "received": 19,
+          "lat": 52.0001708709924,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 20,
+          "received": 20,
+          "lat": 52.00017986420253,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 21,
+          "received": 21,
+          "lat": 52.00018885741265,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 22,
+          "received": 22,
+          "lat": 52.00019785062278,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 23,
+          "received": 23,
+          "lat": 52.000206843832906,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 24,
+          "received": 24,
+          "lat": 52.00021583704303,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 25,
+          "received": 25,
+          "lat": 52.00022483025316,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 26,
+          "received": 26,
+          "lat": 52.00023382346328,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 27,
+          "received": 27,
+          "lat": 52.00024281667341,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 28,
+          "received": 28,
+          "lat": 52.00025180988354,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 29,
+          "received": 29,
+          "lat": 52.00026080309367,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 30,
+          "received": 30,
+          "lat": 52.00026979630379,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 31,
+          "received": 31,
+          "lat": 52.000278789513914,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 32,
+          "received": 32,
+          "lat": 52.000287782724044,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 33,
+          "received": 33,
+          "lat": 52.00029677593417,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 34,
+          "received": 34,
+          "lat": 52.0003057691443,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 35,
+          "received": 35,
+          "lat": 52.00031476235442,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 36,
+          "received": 36,
+          "lat": 52.00032375556455,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 37,
+          "received": 37,
+          "lat": 52.000332748774674,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 38,
+          "received": 38,
+          "lat": 52.000341741984805,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 39,
+          "received": 39,
+          "lat": 52.00035073519493,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 40,
+          "received": 40,
+          "lat": 52.00035972840505,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 41,
+          "received": 41,
+          "lat": 52.00036872161518,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 42,
+          "received": 42,
+          "lat": 52.000377714825305,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 43,
+          "received": 43,
+          "lat": 52.000386708035435,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 44,
+          "received": 44,
+          "lat": 52.00039570124556,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 45,
+          "received": 45,
+          "lat": 52.00040469445569,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 46,
+          "received": 46,
+          "lat": 52.00041368766581,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 47,
+          "received": 47,
+          "lat": 52.000422680875936,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 48,
+          "received": 48,
+          "lat": 52.000431674086066,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 49,
+          "received": 49,
+          "lat": 52.00044066729619,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 50,
+          "received": 50,
+          "lat": 52.00044966050632,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 51,
+          "received": 51,
+          "lat": 52.00045865371644,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 52,
+          "received": 52,
+          "lat": 52.00046764692657,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 53,
+          "received": 53,
+          "lat": 52.0004766401367,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 54,
+          "received": 54,
+          "lat": 52.00048563334682,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 55,
+          "received": 55,
+          "lat": 52.00049462655695,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 56,
+          "received": 56,
+          "lat": 52.00050361976707,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 57,
+          "received": 57,
+          "lat": 52.000512612977204,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 58,
+          "received": 58,
+          "lat": 52.00052160618733,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 59,
+          "received": 59,
+          "lat": 52.00053059939746,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        },
+        {
+          "time": 60,
+          "received": 60,
+          "lat": 52.00053959260758,
+          "lon": 13,
+          "accuracy": 80,
+          "speed": 1,
+          "speedAccuracy": 0.1
+        }
+      ],
+      "minMeters": 0,
+      "maxMeters": 0,
+      "paceQuality": "uncertain"
+    }
+  ]
+}

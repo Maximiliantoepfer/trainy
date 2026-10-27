@@ -6,21 +6,50 @@ import 'package:url_launcher/url_launcher.dart';
 import '../l10n/refinement_l10n.dart';
 import '../l10n/plan_l10n.dart';
 import '../models/cardio_route.dart';
+import '../l10n/cardio_l10n.dart';
 
 class CardioRouteView extends StatefulWidget {
   const CardioRouteView({
     super.key,
     required this.samples,
     this.thumbnail = false,
+    this.tileProviderFactory,
   });
   final List<Map<String, dynamic>> samples;
   final bool thumbnail;
+  final TileProvider Function()? tileProviderFactory;
   @override
   State<CardioRouteView> createState() => _CardioRouteState();
 }
 
 class _CardioRouteState extends State<CardioRouteView> {
   bool _map = false;
+  bool _loading = true, _failed = false;
+  int _attempt = 0;
+  TileProvider? _provider;
+  TileProvider _tiles() =>
+      _provider ??=
+          widget.tileProviderFactory?.call() ??
+          NetworkTileProvider(
+            headers: {
+              'User-Agent':
+                  'Trainy/1.0 (+https://github.com/Maximiliantoepfer/trainy)',
+            },
+            cachingProvider: BuiltInMapCachingProvider.getOrCreateInstance(
+              maxCacheSize: 64 * 1024 * 1024,
+            ),
+          );
+  void _loaded({bool failed = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && (_loading || (failed && !_failed))) {
+        setState(() {
+          _loading = false;
+          _failed |= failed;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final segments = routeSegments(widget.samples),
@@ -84,6 +113,7 @@ class _CardioRouteState extends State<CardioRouteView> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: FlutterMap(
+                  key: ValueKey(_attempt),
                   options: MapOptions(
                     initialCameraFit: CameraFit.bounds(
                       bounds: LatLngBounds.fromPoints(
@@ -101,16 +131,14 @@ class _CardioRouteState extends State<CardioRouteView> {
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.trainy',
                       panBuffer: 0,
-                      tileProvider: NetworkTileProvider(
-                        headers: const {
-                          'User-Agent':
-                              'Trainy/1.0 (+https://github.com/Maximiliantoepfer/trainy)',
-                        },
-                        cachingProvider:
-                            BuiltInMapCachingProvider.getOrCreateInstance(
-                              maxCacheSize: 64 * 1024 * 1024,
-                            ),
-                      ),
+                      tileProvider: _tiles(),
+                      errorTileCallback: (_, _, _) => _loaded(failed: true),
+                      tileBuilder: (_, tile, image) {
+                        if (image.loadFinishedAt != null) {
+                          _loaded(failed: image.loadError);
+                        }
+                        return tile;
+                      },
                     ),
                     PolylineLayer(
                       polylines: [
@@ -161,6 +189,24 @@ class _CardioRouteState extends State<CardioRouteView> {
                   ],
                 ),
               ),
+            ),
+          if (_map && _loading) const LinearProgressIndicator(),
+          if (_map && _failed)
+            Row(
+              children: [
+                Expanded(child: Text(context.recording('mapFailed'))),
+                TextButton.icon(
+                  onPressed:
+                      () => setState(() {
+                        _attempt++;
+                        _provider = null;
+                        _loading = true;
+                        _failed = false;
+                      }),
+                  icon: const Icon(Icons.refresh),
+                  label: Text(context.recording('retry')),
+                ),
+              ],
             ),
         ],
       ],

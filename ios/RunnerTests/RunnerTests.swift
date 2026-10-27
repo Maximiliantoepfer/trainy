@@ -5,6 +5,28 @@ import CoreLocation
 @testable import Runner
 
 class RunnerTests: XCTestCase {
+  func testSharedMeasurementContractV2() throws {
+    guard #available(iOS 13.4, *) else { throw XCTSkip("Speed accuracy initializer requires iOS 13.4") }
+    let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    let bytes = try Data(contentsOf: root.appendingPathComponent("test/fixtures/gps_measurement_v2.json"))
+    let document = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+    for fixture in try XCTUnwrap(document["cases"] as? [[String: Any]]) {
+      let engine = CardioEngine(CardioEngine.fresh(["sessionId": "replay", "indoor": false, "autoPause": false,
+        "steps": [["id": "run", "goal": "distance", "amount": 1000.0, "movement": "run"]]]), speak: { _ in })
+      engine.state["countdown"] = 0.0
+      for p in fixture["samples"] as! [[String: Any]] {
+        let received = (p["received"] as! NSNumber).doubleValue, measured = (p["time"] as! NSNumber).doubleValue
+        let fix = CLLocation(coordinate: CLLocationCoordinate2D(latitude: (p["lat"] as! NSNumber).doubleValue, longitude: (p["lon"] as! NSNumber).doubleValue),
+          altitude: 0, horizontalAccuracy: (p["accuracy"] as! NSNumber).doubleValue, verticalAccuracy: 5,
+          course: 0, courseAccuracy: 1, speed: (p["speed"] as? NSNumber)?.doubleValue ?? -1,
+          speedAccuracy: (p["speedAccuracy"] as? NSNumber)?.doubleValue ?? -1, timestamp: Date())
+        engine.tick(received); _ = engine.location(fix, now: measured, receivedAt: received)
+      }
+      XCTAssertGreaterThanOrEqual(engine.number("distanceMeters"), (fixture["minMeters"] as! NSNumber).doubleValue, fixture["name"] as! String)
+      XCTAssertLessThanOrEqual(engine.number("distanceMeters"), (fixture["maxMeters"] as! NSNumber).doubleValue, fixture["name"] as! String)
+      XCTAssertEqual(engine.state["paceQuality"] as? String, fixture["paceQuality"] as? String)
+    }
+  }
   func testDelayedTickAndLateGpsCrossing() {
     let snapshot: [String: Any] = ["sessionId": "mixed", "indoor": false, "autoPause": false,
       "steps": [["id": "time", "goal": "time", "amount": 5.0, "movement": "run"],
@@ -47,13 +69,13 @@ class RunnerTests: XCTestCase {
       let engine = CardioEngine(CardioEngine.fresh(snapshot), speak: { cues.append($0) })
       engine.state["countdown"] = 0.0
       for second in 0...90 {
-        let fix = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 52 + Double(second) * 0.000009, longitude: 13),
+        let fix = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 52 + Double(second) * speed / 111195, longitude: 13),
           altitude: 0, horizontalAccuracy: 5, verticalAccuracy: 5, course: 0, speed: speed, timestamp: Date())
         _ = engine.location(fix, now: Double(second))
         engine.tick(Double(second))
       }
       XCTAssertEqual(cues.filter { $0 == "faster" }.count, 0)
-      XCTAssertEqual(cues.filter { $0 == "slower" }.count, speed > 2.5 ? 2 : 0)
+      XCTAssertEqual(cues.filter { $0 == "slower" }.count, speed > 2.5 ? 1 : 0)
     }
   }
 
@@ -79,8 +101,9 @@ class RunnerTests: XCTestCase {
     let engine = CardioEngine(CardioEngine.fresh(snapshot), speak: { _ in })
     engine.state["countdown"] = 0.0
     for second in 0...6 { engine.tick(Double(second)) }
-    XCTAssertEqual(engine.state["status"] as? String, "completed")
-    XCTAssertEqual(engine.number("activeSeconds"), 5, accuracy: 0.001)
+    XCTAssertEqual(engine.state["status"] as? String, "active")
+    XCTAssertEqual(engine.state["goalReached"] as? Bool, true)
+    XCTAssertEqual(engine.number("activeSeconds"), 6, accuracy: 0.001)
     XCTAssertEqual((engine.state["results"] as? [[String: Any]])?.count, 2)
   }
 

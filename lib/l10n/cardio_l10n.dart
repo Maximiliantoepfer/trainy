@@ -2,10 +2,13 @@ import 'package:flutter/widgets.dart';
 import 'l10n.dart';
 
 extension CardioL10n on BuildContext {
+  String recording(String key) => l10n.recordingText('k_$key');
   String forecast(String key) => l10n.forecastText('k_$key');
   String running(String key) => l10n.runningText('k_$key');
   String cardio(String key) =>
-      key == 'qualityScheduleConflict'
+      ['goalReached', 'continueEasy', 'holdFinish'].contains(key)
+          ? recording(key)
+          : key == 'qualityScheduleConflict'
           ? forecast(key)
           : [
             'restrictedTraining',

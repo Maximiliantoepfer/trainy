@@ -1,4 +1,6 @@
 import 'dart:async';
+import '../widgets/hold_to_finish_button.dart';
+import '../services/cardio_training.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -10,7 +12,6 @@ import 'package:video_player/video_player.dart';
 import '../l10n/cardio_l10n.dart';
 import '../models/cardio.dart';
 import '../providers/cardio_provider.dart';
-import 'cardio_editor_screen.dart';
 
 Future<void> startCardioWorkout(
   BuildContext context,
@@ -343,13 +344,11 @@ class CardioSessionScreen extends StatefulWidget {
 }
 
 class _SessionState extends State<CardioSessionScreen> {
-  Timer? _hold;
-  bool _holding = false, _busy = false;
+  bool _busy = false;
   Future<void> _finish() async {
     if (_busy) return;
     setState(() {
       _busy = true;
-      _holding = false;
     });
     try {
       await context.read<CardioProvider>().finish();
@@ -386,12 +385,6 @@ class _SessionState extends State<CardioSessionScreen> {
   }
 
   @override
-  void dispose() {
-    _hold?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final provider = context.watch<CardioProvider>();
     final r = provider.runtime;
@@ -407,22 +400,53 @@ class _SessionState extends State<CardioSessionScreen> {
             .map((v) => Map<String, dynamic>.from(v as Map))
             .toList();
     final i = (r['index'] as num?)?.toInt() ?? 0;
-    final step = CardioStep.fromJson(steps[i]);
+    final continuing = r['goalReached'] == true;
+    final step =
+        continuing
+            ? CardioStep(amount: 1, primaryTarget: 'effort')
+            : CardioStep.fromJson(steps[i]);
     final progress =
         (r[step.goal == StepGoal.distance ? 'stepMeters' : 'stepSeconds']
                 as num?)
             ?.toDouble() ??
         0;
-    final remaining = math.max(0.0, step.amount - progress);
+    final amount = (r['stepTargetAmount'] as num?)?.toDouble() ?? step.amount;
+    final remaining = math.max(0.0, amount - progress);
     final paused = r['status'] == 'paused';
     final units = provider.profile.units;
+    final zones = provider.profile.zones;
+    final zoneTwo =
+        zones.length > 1 &&
+        step.minHeartRate == zones[1].$1 &&
+        step.maxHeartRate == zones[1].$2;
     return Scaffold(
       appBar: AppBar(
         title: Text(r['name'] as String? ?? context.cardio('cardio')),
+        actions: [
+          IconButton(
+            tooltip: context.recording('audio'),
+            icon: Icon(
+              r['audioEnabled'] == false
+                  ? Icons.volume_off_outlined
+                  : Icons.volume_up_outlined,
+            ),
+            onPressed: () async {
+              try {
+                await provider.setAudioEnabled(r['audioEnabled'] == false);
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.cardio('error'))),
+                  );
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(16),
           children: [
             Wrap(
               spacing: 8,
@@ -450,39 +474,96 @@ class _SessionState extends State<CardioSessionScreen> {
                 context.cardio('storageError'),
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Text(
-              '${i + 1} / ${steps.length}',
+              continuing
+                  ? context.cardio('goalReached')
+                  : '${i + 1} / ${steps.length}',
               style: Theme.of(context).textTheme.labelLarge,
             ),
             Text(
-              steps[i]['displayName'] as String? ??
-                  context.cardio(step.intensity.name),
+              continuing
+                  ? context.cardio('continueEasy')
+                  : steps[i]['displayName'] as String? ??
+                      context.cardio(step.intensity.name),
               style: Theme.of(context).textTheme.headlineMedium,
             ),
-            const SizedBox(height: 24),
-            Text(context.cardio('remaining')),
-            Text(
-              step.goal == StepGoal.time
-                  ? CardioUnits.clock(remaining)
-                  : CardioUnits.distance(remaining, units),
-              style: Theme.of(context).textTheme.displayLarge,
-            ),
             const SizedBox(height: 16),
-            LinearProgressIndicator(
-              value: (progress / step.amount).clamp(0, 1),
+            Text(
+              r['sport'] == 'cycling'
+                  ? context.cardio('speed')
+                  : context.recording('currentPace'),
             ),
-            const SizedBox(height: 24),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                r['sport'] == 'cycling'
+                    ? CardioUnits.speed((r['speed'] as num?)?.toDouble(), units)
+                    : CardioUnits.pace((r['speed'] as num?)?.toDouble(), units),
+                style: Theme.of(context).textTheme.displayLarge,
+              ),
+            ),
+            if (r['indoor'] != true)
+              Visibility(
+                visible: r['paceQuality'] == 'uncertain',
+                maintainSize: true,
+                maintainAnimation: true,
+                maintainState: true,
+                child: Text(context.recording('paceUncertain')),
+              ),
+            if (!continuing) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${step.primaryTarget == 'pace' && r['sport'] != 'cycling' ? context.recording('targetPace') : context.cardio('target')}: ${CardioTraining.targetDescription(step, units, context.cardio)}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              if (step.minHeartRate != null && step.maxHeartRate != null)
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${context.recording('orientation')}: ${zoneTwo ? 'Zone 2 · ' : ''}${step.minHeartRate}–${step.maxHeartRate} bpm',
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.info_outline),
+                      tooltip: context.recording('orientation'),
+                      onPressed:
+                          () => showDialog<void>(
+                            context: context,
+                            builder:
+                                (c) => AlertDialog(
+                                  content: Text(c.recording('zoneHint')),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(c),
+                                      child: const Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                          ),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 16),
+              Text(
+                '${context.cardio('remaining')}: ${step.goal == StepGoal.time ? CardioUnits.clock(remaining) : CardioUnits.distance(remaining, units)}',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ],
+            const SizedBox(height: 16),
+            if (!continuing)
+              LinearProgressIndicator(
+                value: amount > 0 ? (progress / amount).clamp(0, 1) : 1,
+              ),
+            const SizedBox(height: 16),
             if ((r['countdown'] as num? ?? 0) > 0)
               Text(
                 '${(r['countdown'] as num).ceil()}',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.displayLarge,
               ),
-            Text(
-              '${context.cardio('target')}: ${cardioStepDescription(step, units, context)}',
-            ),
-            const SizedBox(height: 16),
             Wrap(
               spacing: 24,
               runSpacing: 16,
@@ -500,19 +581,28 @@ class _SessionState extends State<CardioSessionScreen> {
                     ),
                   ),
                 _Metric(
-                  context.cardio(r['sport'] == 'cycling' ? 'speed' : 'pace'),
+                  r['sport'] == 'cycling'
+                      ? context.cardio('average')
+                      : context.recording('averagePace'),
                   r['sport'] == 'cycling'
                       ? CardioUnits.speed(
-                        (r['speed'] as num?)?.toDouble(),
+                        (r['activeSeconds'] as num? ?? 0) > 0
+                            ? (r['distanceMeters'] as num? ?? 0) /
+                                (r['activeSeconds'] as num)
+                            : null,
                         units,
                       )
                       : CardioUnits.pace(
-                        (r['speed'] as num?)?.toDouble(),
+                        (r['activeSeconds'] as num? ?? 0) > 0
+                            ? (r['distanceMeters'] as num? ?? 0) /
+                                (r['activeSeconds'] as num)
+                            : null,
                         units,
                       ),
                 ),
               ],
             ),
+            const SizedBox(height: 16),
             if (i + 1 < steps.length)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -542,54 +632,11 @@ class _SessionState extends State<CardioSessionScreen> {
               icon: Icon(paused ? Icons.play_arrow : Icons.pause),
               label: Text(context.cardio(paused ? 'resume' : 'pause')),
             ),
-            const SizedBox(height: 12),
-            Semantics(
-              button: true,
-              label: context.cardio('finishAccessible'),
-              onTap: _accessibleFinish,
-              child: ExcludeSemantics(
-                child: GestureDetector(
-                  onLongPressStart: (_) {
-                    setState(() => _holding = true);
-                    _hold = Timer(const Duration(seconds: 2), _finish);
-                  },
-                  onLongPressEnd: (_) {
-                    _hold?.cancel();
-                    if (mounted) setState(() => _holding = false);
-                  },
-                  onLongPressCancel: () {
-                    _hold?.cancel();
-                    if (mounted) setState(() => _holding = false);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: Theme.of(context).colorScheme.errorContainer,
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          context.cardio('holdFinish'),
-                          style: TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onErrorContainer,
-                          ),
-                        ),
-                        if (_holding)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: LinearProgressIndicator(),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: _accessibleFinish,
-              child: Text(context.cardio('finishAccessible')),
+            const SizedBox(height: 16),
+            HoldToFinishButton(
+              busy: _busy,
+              onFinish: _finish,
+              onAccessibleFinish: _accessibleFinish,
             ),
           ],
         ),

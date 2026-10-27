@@ -105,6 +105,7 @@ class MainActivity : FlutterFragmentActivity(), CardioHostApi {
     }
     override fun samples(afterSequence: Long) = sampleCursor.read(CardioService.samplesFile(this), afterSequence, CardioService.read(this)?.optString("sessionId"))
     override fun pause() { CardioService.instance?.pause() }
+    override fun setAudioEnabled(enabled: Boolean) { CardioService.instance?.setAudioEnabled(enabled) }
     override fun resume() {
         if (CardioService.instance == null && CardioService.read(this)?.optString("status") != "completed") {
             val intent = Intent(this, CardioService::class.java)

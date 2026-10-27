@@ -287,6 +287,7 @@ class CardioStep {
     this.recoveryMovement = 'walk',
     this.targetSource = 'manual',
     this.targetVariant = '',
+    this.routeTotalMeters,
   }) : id = id ?? UuidV4.generate();
   final String id;
   final String name;
@@ -308,8 +309,16 @@ class CardioStep {
   /// Retains the role of gentle intervals/progression when automatic targets refresh.
   final String targetVariant;
 
+  /// Final easy segment ends at this total recorded distance, including prior steps.
+  final double? routeTotalMeters;
+
   void validate() {
     if (!amount.isFinite ||
+        (routeTotalMeters != null &&
+            (!routeTotalMeters!.isFinite ||
+                routeTotalMeters! <= 0 ||
+                goal != StepGoal.distance ||
+                repeat != 1)) ||
         amount <= 0 ||
         repeat < 1 ||
         repeat > 100 ||
@@ -353,6 +362,8 @@ class CardioStep {
     String? recoveryMovement,
     String? targetSource,
     String? targetVariant,
+    double? routeTotalMeters,
+    bool clearRoute = false,
     bool clearTargets = false,
   }) => CardioStep(
     id: id ?? this.id,
@@ -374,6 +385,8 @@ class CardioStep {
     recoveryMovement: recoveryMovement ?? this.recoveryMovement,
     targetSource: targetSource ?? this.targetSource,
     targetVariant: targetVariant ?? this.targetVariant,
+    routeTotalMeters:
+        clearRoute ? null : routeTotalMeters ?? this.routeTotalMeters,
   );
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -393,6 +406,7 @@ class CardioStep {
     'recoveryMovement': recoveryMovement,
     'targetSource': targetSource,
     'targetVariant': targetVariant,
+    'routeTotalMeters': routeTotalMeters,
   };
   factory CardioStep.fromJson(Map<String, dynamic> j) => CardioStep(
     id: j['id'] as String,
@@ -416,6 +430,7 @@ class CardioStep {
         (j['standingRecovery'] == true ? 'rest' : 'walk'),
     targetSource: j['targetSource'] as String? ?? 'manual',
     targetVariant: j['targetVariant'] as String? ?? '',
+    routeTotalMeters: (j['routeTotalMeters'] as num?)?.toDouble(),
   );
 }
 
@@ -459,6 +474,9 @@ class CardioWorkout {
     this.trainingPhase,
     this.targetsUpdatedAt,
     this.targetEvidenceIds = const [],
+    this.routeName,
+    this.routeMeters,
+    this.estimatedSeconds,
   }) : id = id ?? UuidV4.generate();
   final String id;
   final String name;
@@ -472,6 +490,8 @@ class CardioWorkout {
   final String? trainingPhase;
   final DateTime? targetsUpdatedAt;
   final List<String> targetEvidenceIds;
+  final String? routeName;
+  final double? routeMeters, estimatedSeconds;
   void validate() {
     if (name.trim().isEmpty ||
         steps.isEmpty ||
@@ -540,6 +560,7 @@ class CardioWorkout {
             );
           }
           return s.copyWith(
+            clearRoute: true,
             goal: StepGoal.time,
             amount:
                 s.amount /
@@ -563,8 +584,14 @@ class CardioWorkout {
     'trainingPhase': trainingPhase,
     'targetsUpdatedAt': targetsUpdatedAt?.toIso8601String(),
     'targetEvidenceIds': targetEvidenceIds,
+    'routeName': routeName,
+    'routeMeters': routeMeters,
+    'estimatedSeconds': estimatedSeconds,
   };
   factory CardioWorkout.fromJson(Map<String, dynamic> j) => CardioWorkout(
+    routeName: j['routeName'] as String?,
+    routeMeters: (j['routeMeters'] as num?)?.toDouble(),
+    estimatedSeconds: (j['estimatedSeconds'] as num?)?.toDouble(),
     ruleVersion: j['ruleVersion'] as int?,
     runWalkStage: j['runWalkStage'] as int?,
     trainingPhase: j['trainingPhase'] as String?,

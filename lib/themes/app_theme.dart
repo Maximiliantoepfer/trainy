@@ -9,6 +9,11 @@ import 'package:flutter/material.dart';
 /// - Flache Oberflächen, keine Elevation-Overlays
 /// - Sanfte Übergänge, reduzierte visuelle Noise
 class AppTheme {
+  static const destructiveSurface = Color(0xFFC62828);
+  static Color success(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF4AC76D)
+          : const Color(0xFF1B7F3C);
   // Einheitliche Design-Konstanten
   static const double kRadius = 16;
   static const double kRadiusLg = 20;
@@ -491,6 +496,10 @@ class AppTheme {
     final onAccent = _onColor(accent);
     final base = const ColorScheme.light();
     return base.copyWith(
+      error: destructiveSurface,
+      onError: Colors.white,
+      errorContainer: destructiveSurface,
+      onErrorContainer: Colors.white,
       primary: accent,
       onPrimary: onAccent,
       secondary: accent,
@@ -518,6 +527,10 @@ class AppTheme {
     final onAccent = _onColor(accent);
     final base = const ColorScheme.dark();
     return base.copyWith(
+      error: const Color(0xFFEF5350),
+      onError: Colors.black,
+      errorContainer: destructiveSurface,
+      onErrorContainer: Colors.white,
       primary: accent,
       onPrimary: onAccent,
       secondary: accent,

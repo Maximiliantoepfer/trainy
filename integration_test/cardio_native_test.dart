@@ -111,13 +111,23 @@ void main() {
         for (var attempt = 0; attempt < 90; attempt++) {
           await Future<void>.delayed(const Duration(seconds: 1));
           state = jsonDecode((await api.state())!) as Map;
-          if (state['status'] == 'completed') break;
+          if (state['goalReached'] == true) break;
         }
-        expect(state['status'], 'completed');
+        expect(state['status'], 'active');
+        expect(state['goalReached'], true);
         final results = state['results'] as List;
         expect(results.length, 2);
         expect(results.first['meters'] as num, closeTo(100, .1));
         expect(results.last['seconds'] as num, closeTo(2, .01));
+        final goalDistance = state['distanceMeters'] as num;
+        await Future<void>.delayed(const Duration(seconds: 4));
+        state = jsonDecode((await api.state())!) as Map;
+        expect(state['distanceMeters'] as num, greaterThan(goalDistance));
+        await api.finish();
+        state = jsonDecode((await api.state())!) as Map;
+        expect(state['status'], 'completed');
+        expect((state['results'] as List).last['continuation'], true);
+        expect(state['finishedEarly'], isNot(true));
       } finally {
         final raw = await api.state();
         if (raw != null && (jsonDecode(raw) as Map)['sessionId'] == id) {
@@ -179,12 +189,23 @@ void main() {
         for (var attempt = 0; attempt < 24; attempt++) {
           await Future<void>.delayed(const Duration(milliseconds: 500));
           final state = jsonDecode((await api.state())!) as Map;
-          if (state['status'] == 'completed') break;
+          if (state['goalReached'] == true) break;
         }
+        final continuing = jsonDecode((await api.state())!) as Map;
+        expect(continuing['status'], 'active');
+        expect(continuing['goalReached'], true);
+        await api.setAudioEnabled(false);
+        expect(
+          (jsonDecode((await api.state())!) as Map)['audioEnabled'],
+          false,
+        );
+        await Future<void>.delayed(const Duration(seconds: 2));
+        await api.finish();
         final completed = jsonDecode((await api.state())!) as Map;
         expect(completed['status'], 'completed');
-        expect((completed['results'] as List).length, 2);
-        expect(completed['activeSeconds'] as num, closeTo(4, .01));
+        expect((completed['results'] as List).length, 3);
+        expect((completed['results'] as List).last['continuation'], true);
+        expect(completed['activeSeconds'] as num, greaterThan(5));
         await api.acknowledge(id);
         owned = false;
         expect(await api.state(), isNull);

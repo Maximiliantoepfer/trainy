@@ -10,6 +10,7 @@ import '../services/cardio_health_service.dart';
 import '../services/data_operation.dart';
 import '../services/running_fitness.dart';
 import '../services/profile_readiness.dart';
+import '../services/running_rules.dart';
 
 class CardioProvider extends ChangeNotifier {
   CardioProvider({CardioRepository? repository, CardioHostApi? api})
@@ -304,6 +305,18 @@ class CardioProvider extends ChangeNotifier {
       await api.start(
         jsonEncode({
           'version': 1,
+          'measurementVersion': 2,
+          'trackingRules': {
+            for (final key in [
+              'paceWindowSeconds',
+              'positionWindowSeconds',
+              'paceToleranceSecondsPerKm',
+              'paceSustainedSeconds',
+              'paceGraceSeconds',
+              'paceCooldownSeconds',
+            ])
+              key: RunningRules.bundled.number(key),
+          },
           'sessionId': id,
           'workoutId': workout.id,
           'name': workout.name,
@@ -325,6 +338,8 @@ class CardioProvider extends ChangeNotifier {
               'resume',
               'completed',
               'average',
+              'goalReached',
+              'continueEasy',
             ])
               key: t(key),
           },
@@ -360,6 +375,20 @@ class CardioProvider extends ChangeNotifier {
   Future<void> finish() async {
     await api.finish();
     await poll();
+  }
+
+  Future<void> setAudioEnabled(bool enabled) async {
+    if (active) {
+      await api.setAudioEnabled(enabled);
+      await poll();
+    }
+    await repository.saveProfile(
+      AthleteRunningProfile.fromJson({
+        ...profile.toJson(),
+        'planning': {...profile.planning.toJson(), 'audio': enabled},
+      }),
+    );
+    await load();
   }
 
   void clearCompleted() {

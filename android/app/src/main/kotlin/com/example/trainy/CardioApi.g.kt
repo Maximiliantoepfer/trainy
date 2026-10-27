@@ -69,6 +69,7 @@ interface CardioHostApi {
   fun pause()
   fun resume()
   fun finish()
+  fun setAudioEnabled(enabled: Boolean)
   fun acknowledge(sessionId: String)
   fun openSettings()
 
@@ -239,6 +240,24 @@ interface CardioHostApi {
           channel.setMessageHandler { _, reply ->
             val wrapped: List<Any?> = try {
               api.finish()
+              listOf(null)
+            } catch (exception: Throwable) {
+              CardioApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.trainy.CardioHostApi.setAudioEnabled$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val enabledArg = args[0] as Boolean
+            val wrapped: List<Any?> = try {
+              api.setAudioEnabled(enabledArg)
               listOf(null)
             } catch (exception: Throwable) {
               CardioApiPigeonUtils.wrapError(exception)

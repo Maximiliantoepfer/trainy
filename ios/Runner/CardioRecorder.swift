@@ -98,8 +98,10 @@ final class CardioRecorder: NSObject, CardioHostApi, CLLocationManagerDelegate, 
         if engine?.state["status"] as? String == "completed" { stopSources() }
     }
     func locationManager(_ manager: CLLocationManager, didUpdateLocations updates: [CLLocation]) {
-        for location in updates {
-            guard let sample = engine?.location(location, now: ProcessInfo.processInfo.systemUptime) else { continue }
+        let received = ProcessInfo.processInfo.systemUptime, wall = Date()
+        for location in updates.sorted(by: { $0.timestamp < $1.timestamp }) {
+            let measured = received + location.timestamp.timeIntervalSince(wall)
+            guard let sample = engine?.location(location, now: measured, receivedAt: received) else { continue }
             do {
                 var data = try JSONSerialization.data(withJSONObject: sample); data.append(0x0A)
                 if !FileManager.default.fileExists(atPath: samplesURL.path) { try Data().write(to: samplesURL, options: .completeFileProtectionUntilFirstUserAuthentication); try excludeBackup(samplesURL) }
@@ -174,6 +176,11 @@ final class CardioRecorder: NSObject, CardioHostApi, CLLocationManagerDelegate, 
         }
     }
     func pause() throws { engine?.pause(); try persist() }
+    func setAudioEnabled(enabled: Bool) throws {
+        engine?.state["audioEnabled"] = enabled
+        if !enabled { speech.stopSpeaking(at: .immediate) }
+        try persist()
+    }
     func resume() throws { try beginSources(); engine?.resume(); try persist() }
     func finish() throws { engine?.finish(); try persist(); stopSources() }
     func acknowledge(sessionId: String) throws {

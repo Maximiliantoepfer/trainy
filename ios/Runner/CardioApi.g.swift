@@ -98,6 +98,7 @@ protocol CardioHostApi {
   func pause() throws
   func resume() throws
   func finish() throws
+  func setAudioEnabled(enabled: Bool) throws
   func acknowledge(sessionId: String) throws
   func openSettings() throws
 }
@@ -248,6 +249,21 @@ class CardioHostApiSetup {
       }
     } else {
       finishChannel.setMessageHandler(nil)
+    }
+    let setAudioEnabledChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.trainy.CardioHostApi.setAudioEnabled\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      setAudioEnabledChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let enabledArg = args[0] as! Bool
+        do {
+          try api.setAudioEnabled(enabled: enabledArg)
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      setAudioEnabledChannel.setMessageHandler(nil)
     }
     let acknowledgeChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.trainy.CardioHostApi.acknowledge\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

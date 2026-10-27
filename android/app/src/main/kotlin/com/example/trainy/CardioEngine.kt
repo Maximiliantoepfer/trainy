@@ -12,12 +12,28 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
     private var lastCorrection = -1000.0
     private var lastFix = -1000.0
     private var previous: Fix? = null
-    private val speeds = mutableListOf<Pair<Double, Double>>()
+    private data class Speed(val time: Double, val value: Double, val weight: Double)
+    private val speeds = mutableListOf<Speed>()
+    private val positions = mutableListOf<Pair<Double, Double>>()
+    private var measuredDistance = 0.0
+    private var lastSample: Double? = null
     data class Fix(val lat: Double, val lon: Double, val accuracy: Double, val time: Double)
     private val steps get() = state.getJSONArray("steps")
     private val index get() = state.optInt("index")
-    private val current get() = steps.getJSONObject(index)
+    private val continuing get() = state.optBoolean("goalReached")
+    private val current get() = if (continuing) JSONObject().put("id", "continuation")
+        .put("displayName", text("continueEasy")).put("movement", "run").put("intensity", "easy")
+        .put("primaryTarget", "effort") else steps.getJSONObject(index)
+    private fun rule(key: String, fallback: Double) = state.optJSONObject("trackingRules")?.optDouble(key, fallback) ?: fallback
     private fun value(key: String) = state.optDouble(key, 0.0)
+    private fun amount(): Double {
+        val s = current
+        val amount = if (!s.isNull("routeTotalMeters"))
+            max(0.0, s.getDouble("routeTotalMeters") - (value("distanceMeters") - value("stepMeters")))
+            else s.getDouble("amount")
+        state.put("stepTargetAmount", amount)
+        return amount
+    }
     private fun text(key: String) = state.optJSONObject("messages")?.optString(key, key) ?: key
     private fun cue(message: String, kind: String, priority: Int = 30, unique: Boolean = true) {
         if (message.isBlank() || !state.optBoolean("audioEnabled", true)) return
@@ -41,7 +57,7 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
             val old = state.optString("gps")
             state.put("gps", if (stale) "gpsLost" else "gpsReady")
             if (stale) {
-                state.remove("speed"); stillSince = null; outsideSince = null
+                state.remove("speed"); state.put("paceQuality", "uncertain"); stillSince = null; outsideSince = null
                 if (old == "gpsReady") emit("gpsLost")
             }
         }
@@ -67,10 +83,10 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
             } else stillSince = null
         }
         advance(dt, 0.0)
-        if (state.optString("status") != "active") return
+        if (state.optString("status") != "active" || continuing) return
         val step = current
         val progress = if (step.optString("goal") == "distance") value("stepMeters") else value("stepSeconds")
-        val amount = step.getDouble("amount")
+        val amount = amount()
         if (progress >= amount / 2 && !state.optBoolean("half") && amount >= if (step.optString("goal") == "distance") 300 else 60) {
             state.put("half", true); cue(step.optString("halfCue", text("half")), "half")
         }
@@ -81,9 +97,12 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
         coach(now)
     }
 
-    fun location(lat: Double, lon: Double, accuracy: Double, speed: Double?, now: Double, wallMillis: Long): JSONObject? {
+    fun location(lat: Double, lon: Double, accuracy: Double, speed: Double?, now: Double, wallMillis: Long,
+                 speedAccuracy: Double? = null, receivedAt: Double = now): JSONObject? {
         if (state.optString("status") == "completed" || state.optBoolean("indoor") ||
             !lat.isFinite() || !lon.isFinite() || abs(lat) > 90 || abs(lon) > 180 || !accuracy.isFinite() || accuracy < 0 || accuracy > 35) return null
+        if (receivedAt - now > 5 || now > receivedAt + 1 || (lastSample != null && now <= lastSample!!)) return null
+        val sampleGap = lastSample?.let { now - it } ?: 0.0
         val old = previous
         val fix = Fix(lat, lon, accuracy, now)
         val gap = if (old == null) 0.0 else now - old.time
@@ -94,18 +113,21 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
         val reported = speed?.takeIf { it.isFinite() && it >= 0 && it <= maxSpeed }
         // Accumulate small fixes against an anchor. This measures slow running while
         // keeping sub-accuracy stationary jitter from becoming distance.
-        val resolved = old == null || gap > 15 || reported != null || distance >= max(3.0, max(accuracy, old.accuracy) / 2)
+        val resolved = old == null || gap > 15 || distance >= max(3.0, max(accuracy, old.accuracy) / 2)
         if (resolved) previous = fix
         lastFix = now
+        lastSample = now
         val measured = reported ?: if (old != null && gap in .01..15.0) distance / gap else 0.0
-        speeds.add(now to measured); speeds.removeAll { now - it.first > 15 }
-        state.put("speed", speeds.map { it.second }.average())
+        if (sampleGap > 15) { speeds.clear(); positions.clear() }
+        val acceptedDistance = if (resolved && gap in .01..15.0 && measured >= .35) distance else 0.0
+        measuredDistance += acceptedDistance
+        updatePace(now, sampleGap, reported, speedAccuracy, accuracy)
         state.put("motionSpeed", measured)
         state.put("gps", "gpsReady")
         val wasActive = state.optString("status") == "active"
         if (state.optString("status") == "paused" && state.optBoolean("autoPaused") && measured > .7) resume()
         val active = wasActive && state.optString("status") == "active" && value("countdown") == 0.0
-        if (active && resolved && gap in .01..15.0 && measured >= .35) {
+        if (active && acceptedDistance > 0) {
             // A timer may already have completed time sections since the last
             // accepted fix. Attribute their share retrospectively, never all
             // of the measurement to the newly opened distance section.
@@ -129,21 +151,51 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
         return JSONObject().put("sequence", seq).put("timestamp", wallMillis)
             .put("latitude", lat).put("longitude", lon).put("accuracy", accuracy)
             .put("speed", measured).put("source", "phone_gps").put("active", active)
+            .put("measurementVersion", 2).put("measuredAt", now).put("receivedAt", receivedAt)
+            .put("speedAccuracy", speedAccuracy ?: JSONObject.NULL).put("acceptedMeters", acceptedDistance)
+            .put("paceQuality", state.optString("paceQuality"))
             .put("gap", gap > 15)
+    }
+
+    private fun updatePace(now: Double, dt: Double, reported: Double?, uncertainty: Double?, accuracy: Double) {
+        val window = rule("paceWindowSeconds", 15.0)
+        val good = reported != null && uncertainty != null && uncertainty.isFinite() &&
+            uncertainty >= 0 && uncertainty <= max(.2, reported * .15)
+        if (good) speeds.add(Speed(now, reported!!, dt.coerceIn(.01, 5.0)))
+        speeds.removeAll { now - it.time > window }
+        positions.add(now to measuredDistance)
+        positions.removeAll { now - it.first > rule("positionWindowSeconds", 30.0) }
+        val span = now - positions.first().first
+        val meters = measuredDistance - positions.first().second
+        val positional = if (span >= 20 && accuracy <= 15 && meters >= max(10.0, accuracy * 4)) meters / span else null
+        val weight = speeds.sumOf { it.weight }
+        var estimate: Double? = null
+        if (good && weight >= min(5.0, window)) {
+            var accumulated = 0.0
+            estimate = speeds.sortedBy { it.value }.firstOrNull {
+                accumulated += it.weight; accumulated >= weight / 2
+            }?.value
+        } else if (positional != null) estimate = positional
+        val inconsistent = estimate != null && good && positional != null &&
+            abs(estimate - positional) > max(.5, estimate * .3)
+        state.put("paceQuality", if (estimate != null && !inconsistent) "reliable" else "uncertain")
+        if (estimate != null && !inconsistent) state.put("speed", estimate) else state.remove("speed")
     }
 
     private fun coach(now: Double) {
         val s = current
-        if (value("stepSeconds") < 20 || state.optString("gps") != "gpsReady" ||
-            s.optString("primaryTarget") != "pace" || (s.isNull("minSpeed") && s.isNull("maxSpeed"))) return
+        if (continuing || value("stepSeconds") < rule("paceGraceSeconds", 30.0) || state.optString("gps") != "gpsReady" ||
+            state.optString("paceQuality") != "reliable" || s.optString("primaryTarget") != "pace" ||
+            (s.isNull("minSpeed") && s.isNull("maxSpeed"))) { outsideSince = null; return }
         val speed = state.optDouble("speed", 0.0)
         if (speed <= .35) { outsideSince = null; return }
         val pace = 1000 / speed
-        val tooFast = !s.isNull("maxSpeed") && s.optDouble("maxSpeed") > 0 && pace < 1000 / s.getDouble("maxSpeed") - 20
-        val tooSlow = s.optString("intensity") !in listOf("easy", "recovery") && !s.isNull("minSpeed") && s.optDouble("minSpeed") > 0 && pace > 1000 / s.getDouble("minSpeed") + 20
+        val tolerance = rule("paceToleranceSecondsPerKm", 60.0)
+        val tooFast = !s.isNull("maxSpeed") && s.optDouble("maxSpeed") > 0 && pace < 1000 / s.getDouble("maxSpeed") - tolerance
+        val tooSlow = s.optString("intensity") !in listOf("easy", "recovery") && !s.isNull("minSpeed") && s.optDouble("minSpeed") > 0 && pace > 1000 / s.getDouble("minSpeed") + tolerance
         if (!tooFast && !tooSlow) { outsideSince = null; return }
         if (outsideSince == null) outsideSince = now
-        if (now - outsideSince!! >= 10 && now - lastCorrection >= 45) {
+        if (now - outsideSince!! >= rule("paceSustainedSeconds", 20.0) && now - lastCorrection >= rule("paceCooldownSeconds", 90.0)) {
             emit(if (tooFast) "slower" else "faster"); lastCorrection = now; outsideSince = null
         }
     }
@@ -153,18 +205,19 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
         state.getJSONArray("results").put(JSONObject().put("id", s.getString("id"))
             .put("name", s.optString("displayName")).put("index", index)
             .put("seconds", value("stepSeconds")).put("meters", value("stepMeters"))
-            .put("partial", partial))
+            .put("partial", partial && !continuing).put("continuation", continuing))
     }
     private fun advance(deltaSeconds: Double, deltaMeters: Double) {
         var intervalSeconds = deltaSeconds
         var intervalMeters = deltaMeters
-        while (state.optString("status") == "active") {
+        while (state.optString("status") == "active" && !continuing) {
             val s = current
             val isDistance = s.getString("goal") == "distance"
             val progress = if (isDistance) value("stepMeters") else value("stepSeconds")
-            if (progress < s.getDouble("amount")) return
+            val target = amount()
+            if (progress < target) return
             val delta = if (isDistance) intervalMeters else intervalSeconds
-            val remaining = if (delta > 0) ((progress - s.getDouble("amount")) / delta).coerceIn(0.0, 1.0) else 0.0
+            val remaining = if (delta > 0) ((progress - target) / delta).coerceIn(0.0, 1.0) else 0.0
             val carrySeconds = intervalSeconds * remaining
             val carryMeters = intervalMeters * remaining
             state.put("stepSeconds", value("stepSeconds") - carrySeconds)
@@ -183,9 +236,11 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
                 }
             }
             if (index + 1 >= steps.length()) {
-                state.put("activeSeconds", max(0.0, value("activeSeconds") - carrySeconds))
-                    .put("distanceMeters", max(0.0, value("distanceMeters") - carryMeters))
-                complete(); return
+                state.put("goalReached", true).put("plannedHadPause", state.optBoolean("hadPause"))
+                    .put("index", steps.length()).put("stepSeconds", carrySeconds).put("stepMeters", carryMeters)
+                outsideSince = null
+                cue(text("goalReached"), "goalReached", 100)
+                return
             }
             state.put("index", index + 1).put("stepSeconds", carrySeconds).put("stepMeters", carryMeters)
                 .put("half", false).put("near", false)
@@ -202,7 +257,8 @@ class CardioEngine(val state: JSONObject, private val speak: (String) -> Unit) {
     fun resume() {
         if (state.optString("status") != "paused") return
         state.put("status", "active").put("autoPaused", false)
-        stillSince = null; previous = null; speeds.clear(); outsideSince = null; lastTick = null; emit("resume")
+        stillSince = null; previous = null; speeds.clear(); positions.clear(); lastSample = null
+        state.remove("speed"); state.put("paceQuality", "uncertain"); outsideSince = null; lastTick = null; emit("resume")
     }
     fun finish() {
         if (state.optString("status") == "completed") return
