@@ -119,13 +119,23 @@ class HealthAdapter(private val activity: MainActivity) : HealthHostApi {
         HealthRoutePoint(it.time.toEpochMilli(), it.latitude, it.longitude,
             it.horizontalAccuracy?.inMeters, it.altitude?.inMeters)
     })
-    override fun route(workoutId: String, callback: (Result<HealthRoute>) -> Unit) {
+    override fun openSettings(callback: (Result<Unit>) -> Unit) {
+        callback(runCatching {
+            val intent = android.content.Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS)
+            activity.startActivity(intent)
+        })
+    }
+    override fun route(workoutId: String, allowPrompt: Boolean, callback: (Result<HealthRoute>) -> Unit) {
         activity.lifecycleScope.launch {
             try {
                 val record = client.readRecord(ExerciseSessionRecord::class, workoutId).record
                 when (val result = record.exerciseRouteResult) {
                     is ExerciseRouteResult.Data -> callback(Result.success(convertRoute(result.exerciseRoute)))
                     is ExerciseRouteResult.ConsentRequired -> {
+                        if (!allowPrompt) {
+                            callback(Result.success(HealthRoute("consentRequired", emptyList())))
+                            return@launch
+                        }
                         check(routeReply == null) { "route_request_pending" }
                         routeReply = callback; routes.launch(workoutId)
                     }

@@ -20,6 +20,25 @@ class CardioProvider extends ChangeNotifier {
   }
   final CardioRepository repository;
   final CardioHostApi api;
+  late final CardioHealthService health = CardioHealthService(repository);
+  Future<void>? _healthSync;
+  Future<void> syncHealth({bool allowRoutePrompt = false}) =>
+      _healthSync ??= _read(() async {
+        if (!(await repository.profile()).healthEnabled) return;
+        try {
+          final sync = health.refresh(allowRoutePrompt: allowRoutePrompt);
+          _notify();
+          await sync;
+        } catch (_) {
+          // The shared service retains the actionable error/status for both views.
+        }
+        await _load();
+      }).whenComplete(() => _healthSync = null);
+  Future<void> onAppResumed() async {
+    await load();
+    await syncHealth();
+  }
+
   AthleteRunningProfile profile = const AthleteRunningProfile();
   List<CardioWorkout> workouts = [];
   List<ScheduledCardioWorkout> occurrences = [];
@@ -144,9 +163,7 @@ class CardioProvider extends ChangeNotifier {
     }
     if (profile.healthEnabled) {
       // Optional post-workout discovery must not block local readiness.
-      unawaited(
-        CardioHealthService(repository).refresh().catchError((Object _) {}),
-      );
+      unawaited(syncHealth());
     }
   }
 
@@ -194,6 +211,7 @@ class CardioProvider extends ChangeNotifier {
         await load();
         _lastSessionId = null;
         _lastSequence = -1;
+        unawaited(syncHealth());
       }
       error = null;
       _notify();

@@ -360,7 +360,8 @@ class HealthApiPigeonCodec: FlutterStandardMessageCodec, @unchecked Sendable {
 protocol HealthHostApi {
   func access(request: Bool, write: Bool, heartRate: Bool, route: Bool, completion: @escaping (Result<HealthAccess, Error>) -> Void)
   func workouts(start: Int64, end: Int64, completion: @escaping (Result<[HealthWorkout], Error>) -> Void)
-  func route(workoutId: String, completion: @escaping (Result<HealthRoute, Error>) -> Void)
+  func route(workoutId: String, allowPrompt: Bool, completion: @escaping (Result<HealthRoute, Error>) -> Void)
+  func openSettings(completion: @escaping (Result<Void, Error>) -> Void)
   func saveWorkout(workout: HealthWorkout, completion: @escaping (Result<String, Error>) -> Void)
   func saveRoute(workoutId: String, points: [HealthRoutePoint], completion: @escaping (Result<Void, Error>) -> Void)
 }
@@ -414,7 +415,8 @@ class HealthHostApiSetup {
       routeChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
         let workoutIdArg = args[0] as! String
-        api.route(workoutId: workoutIdArg) { result in
+        let allowPromptArg = args[1] as! Bool
+        api.route(workoutId: workoutIdArg, allowPrompt: allowPromptArg) { result in
           switch result {
           case .success(let res):
             reply(wrapResult(res))
@@ -425,6 +427,21 @@ class HealthHostApiSetup {
       }
     } else {
       routeChannel.setMessageHandler(nil)
+    }
+    let openSettingsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.trainy.HealthHostApi.openSettings\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      openSettingsChannel.setMessageHandler { _, reply in
+        api.openSettings { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      openSettingsChannel.setMessageHandler(nil)
     }
     let saveWorkoutChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.trainy.HealthHostApi.saveWorkout\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

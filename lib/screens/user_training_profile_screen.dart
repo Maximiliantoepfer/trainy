@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/training_program.dart';
 import '../l10n/plan_l10n.dart';
+import '../l10n/cardio_l10n.dart';
 import '../providers/cardio_provider.dart';
 import '../providers/training_profile_provider.dart';
 import '../providers/training_program_provider.dart';
@@ -9,6 +10,7 @@ import '../widgets/training_profile_settings_card.dart';
 import '../widgets/plan_controls.dart';
 import 'cardio_profile_screen.dart';
 import 'cardio_health_screen.dart';
+import '../widgets/health_connection_status.dart';
 import 'strength_profile_screen.dart';
 
 class UserTrainingProfileScreen extends StatefulWidget {
@@ -252,17 +254,37 @@ class _TrainingConnectionsCardState extends State<TrainingConnectionsCard> {
           ListTile(
             leading: const Icon(Icons.favorite_outline),
             title: Text(context.plan('health')),
-            subtitle: Text(
-              context.plan(
-                p.profile.healthEnabled ? 'connected' : 'healthHint',
-              ),
-            ),
+            subtitle: const HealthConnectionStatus(),
             trailing: const Icon(Icons.chevron_right),
             onTap:
                 () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const CardioHealthScreen()),
                 ),
+          ),
+          SwitchListTile(
+            title: Text(context.recording('audio')),
+            secondary: const Icon(Icons.volume_up_outlined),
+            value: p.profile.planning.audio ?? true,
+            onChanged:
+                _busy
+                    ? null
+                    : (value) async {
+                      setState(() => _busy = true);
+                      try {
+                        await p.setAudioEnabled(value);
+                      } catch (_) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(context.plan('savingError')),
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _busy = false);
+                      }
+                    },
           ),
           SwitchListTile(
             title: Text(context.plan('sensorBackup')),

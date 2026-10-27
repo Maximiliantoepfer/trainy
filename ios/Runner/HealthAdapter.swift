@@ -1,6 +1,7 @@
 import Foundation
 import HealthKit
 import CoreLocation
+import UIKit
 
 /// HealthKit deliberately does not reveal whether a read permission was denied.
 final class HealthAdapter: HealthHostApi {
@@ -78,8 +79,15 @@ final class HealthAdapter: HealthHostApi {
       })
     }
   }
-  func route(workoutId: String, completion: @escaping (Result<HealthRoute, Error>) -> Void) {
-    access(request: true, write: false, heartRate: false, route: true) { access in
+  func openSettings(completion: @escaping (Result<Void, Error>) -> Void) {
+    DispatchQueue.main.async {
+      UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!) { success in
+        completion(success ? .success(()) : .failure(self.failure("settings_unavailable")))
+      }
+    }
+  }
+  func route(workoutId: String, allowPrompt: Bool, completion: @escaping (Result<HealthRoute, Error>) -> Void) {
+    access(request: allowPrompt, write: false, heartRate: false, route: true) { access in
       if case .failure(let error) = access { completion(.failure(error)); return }
       self.workout(workoutId) { result in
         switch result {

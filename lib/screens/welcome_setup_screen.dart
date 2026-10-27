@@ -10,7 +10,7 @@ import '../providers/workout_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/training_profile_provider.dart';
 import '../providers/training_program_provider.dart';
-import '../services/cardio_health_service.dart';
+import '../widgets/health_connection_status.dart';
 import '../services/settings_database.dart';
 import '../widgets/appearance_picker.dart';
 import '../widgets/language_preference_picker.dart';
@@ -164,8 +164,9 @@ class _WelcomeSetupScreenState extends State<WelcomeSetupScreen> {
     setState(() => _busy = true);
     try {
       final p = context.read<CardioProvider>();
-      await CardioHealthService(p.repository).connect();
+      await p.health.connect();
       await p.load();
+      await p.syncHealth(allowRoutePrompt: true);
     } catch (_) {
       if (mounted) setState(() => _error = 'error');
     } finally {
@@ -293,6 +294,8 @@ class _WelcomeSetupScreenState extends State<WelcomeSetupScreen> {
                     ],
                     if (_step == 4) ...[
                       Text(context.plan('healthHint')),
+                      const SizedBox(height: 8),
+                      const HealthConnectionStatus(),
                       const SizedBox(height: 24),
                       OutlinedButton.icon(
                         onPressed: _busy ? null : _health,

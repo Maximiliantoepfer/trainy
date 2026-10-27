@@ -300,7 +300,8 @@ private open class HealthApiPigeonCodec : StandardMessageCodec() {
 interface HealthHostApi {
   fun access(request: Boolean, write: Boolean, heartRate: Boolean, route: Boolean, callback: (Result<HealthAccess>) -> Unit)
   fun workouts(start: Long, end: Long, callback: (Result<List<HealthWorkout>>) -> Unit)
-  fun route(workoutId: String, callback: (Result<HealthRoute>) -> Unit)
+  fun route(workoutId: String, allowPrompt: Boolean, callback: (Result<HealthRoute>) -> Unit)
+  fun openSettings(callback: (Result<Unit>) -> Unit)
   fun saveWorkout(workout: HealthWorkout, callback: (Result<String>) -> Unit)
   fun saveRoute(workoutId: String, points: List<HealthRoutePoint>, callback: (Result<Unit>) -> Unit)
 
@@ -363,13 +364,31 @@ interface HealthHostApi {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val workoutIdArg = args[0] as String
-            api.route(workoutIdArg) { result: Result<HealthRoute> ->
+            val allowPromptArg = args[1] as Boolean
+            api.route(workoutIdArg, allowPromptArg) { result: Result<HealthRoute> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(HealthApiPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
                 reply.reply(HealthApiPigeonUtils.wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.trainy.HealthHostApi.openSettings$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            api.openSettings{ result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(HealthApiPigeonUtils.wrapError(error))
+              } else {
+                reply.reply(HealthApiPigeonUtils.wrapResult(null))
               }
             }
           }

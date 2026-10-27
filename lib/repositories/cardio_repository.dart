@@ -5,6 +5,7 @@ import '../services/running_forecast.dart';
 import '../services/running_rules.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/cardio.dart';
+import '../models/cardio_recording.dart';
 import '../services/cardio_training.dart';
 import '../services/database_service.dart';
 import '../services/profile_readiness.dart';
@@ -152,22 +153,41 @@ class CardioRepository {
       });
   static String dateKey(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  Future<List<ScheduledCardioWorkout>> occurrences() async =>
-      (await db.query('cardio_occurrences', orderBy: 'local_date, id'))
-          .map(
-            (r) => ScheduledCardioWorkout(
-              id: r['id'] as String,
-              planId: r['plan_id'] as String,
-              date: DateTime.parse(r['local_date'] as String),
-              workout: CardioWorkout.fromJson(
-                jsonDecode(r['workout_json'] as String) as Map<String, dynamic>,
-              ),
-              status: r['status'] as String,
-              locked: r['locked'] == 1,
-              sessionId: r['session_id'] as String?,
+  static Future<Map<String, String>> _startedOccurrences(
+    DatabaseExecutor txn,
+  ) async {
+    final started = <String, String>{};
+    for (final row in await txn.rawQuery('''SELECT d.session_id, d.snapshot_json
+      FROM cardio_session_details d JOIN activity_sessions s ON s.id=d.session_id
+      WHERE s.status='active' ''')) {
+      final id =
+          (jsonDecode(row['snapshot_json'] as String) as Map)['occurrenceId'];
+      if (id is String) started[id] = row['session_id'] as String;
+    }
+    return started;
+  }
+
+  Future<List<ScheduledCardioWorkout>> occurrences() => db.transaction((
+    txn,
+  ) async {
+    // Older active sessions did not set the occurrence link until completion.
+    final started = await _startedOccurrences(txn);
+    return (await txn.query('cardio_occurrences', orderBy: 'local_date, id'))
+        .map(
+          (r) => ScheduledCardioWorkout(
+            id: r['id'] as String,
+            planId: r['plan_id'] as String,
+            date: DateTime.parse(r['local_date'] as String),
+            workout: CardioWorkout.fromJson(
+              jsonDecode(r['workout_json'] as String) as Map<String, dynamic>,
             ),
-          )
-          .toList();
+            status: r['status'] as String,
+            locked: r['locked'] == 1,
+            sessionId: r['session_id'] as String? ?? started[r['id']],
+          ),
+        )
+        .toList();
+  });
   Future<void> move(
     ScheduledCardioWorkout occurrence,
     DateTime date, {
@@ -404,10 +424,11 @@ class CardioRepository {
     );
     final calendar = await txn.query('cardio_occurrences', orderBy: 'id');
     final programs = await txn.query('training_programs', orderBy: 'id');
+    final started = await _startedOccurrences(txn);
     return sha256
         .convert(
           utf8.encode(
-            jsonEncode([profile, sessions, plans, calendar, programs]),
+            jsonEncode([profile, sessions, plans, calendar, programs, started]),
           ),
         )
         .toString();
@@ -462,7 +483,14 @@ class CardioRepository {
         throw StateError('stale_proposal');
       }
       var changed = 0;
+      final started = await _startedOccurrences(txn);
       for (final e in proposal.changes.entries) {
+        if (started.containsKey(e.key)) {
+          if (proposal.inputFingerprint != null) {
+            throw StateError('stale_proposal');
+          }
+          continue;
+        }
         final current = await txn.query(
           'cardio_occurrences',
           where:
@@ -587,6 +615,15 @@ class CardioRepository {
           'occurrenceId': occurrenceId,
         }),
       });
+      if (occurrenceId != null) {
+        final linked = await txn.update(
+          'cardio_occurrences',
+          {'session_id': sessionId},
+          where: "id=? AND status='planned' AND session_id IS NULL",
+          whereArgs: [occurrenceId],
+        );
+        if (linked != 1) throw StateError('occurrence_already_started');
+      }
     });
     return sessionId;
   }
@@ -598,12 +635,22 @@ class CardioRepository {
     _ => 'cardio',
   };
   Future<void> cancelStart(String id) async {
-    await db.update(
-      'activity_sessions',
-      {'status': 'discarded'},
-      where: "id = ? AND status = 'active'",
-      whereArgs: [id],
-    );
+    await db.transaction((txn) async {
+      final changed = await txn.update(
+        'activity_sessions',
+        {'status': 'discarded'},
+        where: "id = ? AND status = 'active'",
+        whereArgs: [id],
+      );
+      if (changed > 0) {
+        await txn.update(
+          'cardio_occurrences',
+          {'session_id': null},
+          where: "session_id=? AND status='planned'",
+          whereArgs: [id],
+        );
+      }
+    });
   }
 
   Future<void> saveRuntime(Map<String, dynamic> runtime) async {
@@ -722,7 +769,34 @@ class CardioRepository {
     '''SELECT s.id, d.runtime_json
     FROM activity_sessions s JOIN cardio_session_details d ON s.id = d.session_id WHERE s.status = 'active' ''',
   );
-  Future<List<Map<String, dynamic>>> route(String id) async {
+  Future<List<Map<String, dynamic>>> route(
+    String id, {
+    String? recordingId,
+  }) async {
+    String? legacyHealthId;
+    if (recordingId != 'phone') {
+      final details = await db.query(
+        'cardio_session_details',
+        where: 'session_id = ?',
+        whereArgs: [id],
+      );
+      if (details.isNotEmpty) {
+        final snapshot =
+            jsonDecode(details.single['snapshot_json'] as String)
+                as Map<String, dynamic>;
+        recordingId ??=
+            CardioRecording.preferred(
+              snapshot,
+              jsonDecode(details.single['runtime_json'] as String)
+                  as Map<String, dynamic>,
+            )?.id;
+        final health = snapshot['health'] as Map?;
+        if (health != null) {
+          legacyHealthId =
+              '${health['provider']}:${health['sourceId']}:${health['externalId']}';
+        }
+      }
+    }
     final count =
         Sqflite.firstIntValue(
           await db.rawQuery(
@@ -751,6 +825,14 @@ class CardioRepository {
         cursor = row['sequence'] as int;
         final point =
             jsonDecode(row['sample_json'] as String) as Map<String, dynamic>;
+        if (recordingId != null &&
+            (point['recordingId'] ??
+                    (point['source'] == null || point['source'] == 'phone_gps'
+                        ? 'phone'
+                        : legacyHealthId)) !=
+                recordingId) {
+          continue;
+        }
         final lat = point['latitude'] as num?, lon = point['longitude'] as num?;
         final time = point['timestamp'] as num?;
         if (point['active'] == false ||

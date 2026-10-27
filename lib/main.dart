@@ -190,7 +190,7 @@ class _AppLifecycleReactorState extends State<_AppLifecycleReactor>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       context.read<CloudSyncProvider>().onAppResumed();
-      unawaited(context.read<CardioProvider>().load());
+      unawaited(context.read<CardioProvider>().onAppResumed());
     }
   }
 

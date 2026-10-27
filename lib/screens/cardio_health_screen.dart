@@ -5,9 +5,11 @@ import 'package:provider/provider.dart';
 import '../l10n/cardio_l10n.dart';
 import '../l10n/l10n.dart';
 import '../models/cardio.dart';
+import '../models/cardio_recording.dart';
 import '../providers/cardio_provider.dart';
 import '../services/cardio_health_service.dart';
 import '../widgets/running_recommendation_card.dart';
+import '../widgets/health_connection_status.dart';
 
 class CardioHealthScreen extends StatefulWidget {
   const CardioHealthScreen({super.key});
@@ -18,13 +20,15 @@ class CardioHealthScreen extends StatefulWidget {
 class _HealthState extends State<CardioHealthScreen> {
   List<Map<String, dynamic>> _pending = [];
   bool _busy = false;
-  bool _includeRoute = false;
+  bool _includeRoute = true;
   String? _error;
   late final CardioHealthService _service;
   @override
   void initState() {
     super.initState();
-    _service = CardioHealthService(context.read<CardioProvider>().repository);
+    _service = context.read<CardioProvider>().health;
+    _includeRoute =
+        context.read<CardioProvider>().profile.planning.healthRoutes;
     _load();
   }
 
@@ -127,40 +131,73 @@ class _HealthState extends State<CardioHealthScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(context.cardio('health'))),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         children: [
           Text(context.cardio('healthInfo')),
           const RunningRecommendationCard(showFeedback: true),
           const SizedBox(height: 16),
-          Text(context.cardio('privacyBody')),
+          const HealthConnectionStatus(),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
-            title: Text(context.l10n.healthStatus('route')),
+            title: Text(context.recording('healthRoutes')),
+            subtitle: Text(context.recording('healthRoutesHint')),
             value: _includeRoute,
             onChanged:
-                _busy ? null : (value) => setState(() => _includeRoute = value),
-          ),
-          if (_service.accessState != null)
-            Text(context.l10n.healthStatus(_service.accessState!.readState)),
-          if (_service.syncState != 'idle')
-            Text(context.l10n.healthStatus(_service.syncState)),
-          if (_service.routeState != null && _service.routeState != 'available')
-            Text(context.l10n.healthStatus('routeFailed')),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed:
                 _busy
                     ? null
-                    : () => _run(() async {
-                      await _service.connect();
-                      await _service.refresh();
+                    : (value) => _run(() async {
+                      final current = await p.repository.profile();
+                      await p.repository.saveProfile(
+                        AthleteRunningProfile.fromJson({
+                          ...current.toJson(),
+                          'planning': {
+                            ...current.planning.toJson(),
+                            'healthRoutes': value,
+                          },
+                        }),
+                      );
+                      _includeRoute = value;
                     }),
-            child: Text(context.cardio('healthPermission')),
           ),
+          if (_service.routeState == 'failed')
+            Text(context.l10n.healthStatus('routeFailed')),
+          const SizedBox(height: 16),
+          if (!p.profile.healthEnabled)
+            FilledButton(
+              onPressed:
+                  _busy
+                      ? null
+                      : () => _run(() async {
+                        await _service.connect();
+                        await _service.refresh(allowRoutePrompt: true);
+                      }),
+              child: Text(context.cardio('healthPermission')),
+            ),
           if (p.profile.healthEnabled) ...[
-            TextButton(
+            if (_service.accessState?.readState == 'denied' ||
+                _service.accessState?.readState == 'limited')
+              OutlinedButton.icon(
+                onPressed:
+                    _busy ? null : () => _run(_service.health.openSettings),
+                icon: const Icon(Icons.settings_outlined),
+                label: Text(context.recording('healthAction')),
+              ),
+            if (_service.routeState == 'consentRequired' ||
+                _service.routeState == 'denied')
+              OutlinedButton.icon(
+                onPressed:
+                    _busy
+                        ? null
+                        : () => _run(
+                          () => _service.refresh(allowRoutePrompt: true),
+                        ),
+                icon: const Icon(Icons.route),
+                label: Text(context.recording('healthRoutes')),
+              ),
+            FilledButton.icon(
               onPressed: _busy ? null : () => _run(_service.refresh),
-              child: Text(context.cardio('refresh')),
+              icon: const Icon(Icons.refresh),
+              label: Text(context.cardio('refresh')),
             ),
             TextButton(
               onPressed:
@@ -210,7 +247,12 @@ class _HealthState extends State<CardioHealthScreen> {
             context.cardio('export'),
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          for (final s in p.history.where((s) => s['source'] == 'manual'))
+          for (final s in p.history.where(
+            (s) => CardioRecording.all(
+              jsonDecode(s['snapshot_json'] as String) as Map<String, dynamic>,
+              jsonDecode(s['runtime_json'] as String) as Map<String, dynamic>,
+            ).any((r) => r.phone),
+          ))
             ListTile(
               title: Text(s['name_snapshot'] as String),
               subtitle: Text(

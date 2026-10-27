@@ -84,7 +84,9 @@ abstract class HealthHostApi {
   @async
   List<HealthWorkout> workouts(int start, int end);
   @async
-  HealthRoute route(String workoutId);
+  HealthRoute route(String workoutId, bool allowPrompt);
+  @async
+  void openSettings();
   @async
   String saveWorkout(HealthWorkout workout);
   @async

@@ -1,5 +1,7 @@
 import 'dart:async';
 import '../widgets/hold_to_finish_button.dart';
+import '../models/cardio_recording.dart';
+import '../repositories/cardio_recordings.dart';
 import '../services/cardio_training.dart';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -672,14 +674,119 @@ class _SummaryState extends State<CardioSummaryScreen> {
   bool? _talkComfort, _continuous;
   String? _recovery, _runType;
   String _environment = 'unknown';
-  late final Future<List<Map<String, dynamic>>> _route;
+  Future<List<Map<String, dynamic>>>? _route;
+  String? _selected;
+  bool _sourceChosen = false;
+  Map<String, dynamic> _snapshot = {};
+  List<CardioRecording> _sources = [];
+  int _sourceRevision = -1;
+  void _refreshSources() {
+    final p = context.read<CardioProvider>();
+    _sourceRevision = p.revision;
+    final row =
+        p.history
+            .where((r) => r['id'] == widget.runtime['sessionId'])
+            .firstOrNull;
+    _snapshot =
+        row == null
+            ? widget.snapshot ?? {}
+            : jsonDecode(row['snapshot_json'] as String)
+                as Map<String, dynamic>;
+    final original =
+        row == null
+            ? widget.runtime
+            : jsonDecode(row['runtime_json'] as String) as Map<String, dynamic>;
+    _sources = CardioRecording.all(_snapshot, original);
+    if (!_sourceChosen || !_sources.any((r) => r.id == _selected)) {
+      _sourceChosen = false;
+      _selected = CardioRecording.preferred(_snapshot, original)?.id;
+    }
+    _route = p.repository.route(
+      widget.runtime['sessionId'] as String,
+      recordingId: _selected,
+    );
+  }
+
+  void _select(String id) => setState(() {
+    _sourceChosen = true;
+    _selected = id;
+    _route = context.read<CardioProvider>().repository.route(
+      widget.runtime['sessionId'] as String,
+      recordingId: id,
+    );
+  });
+  Future<void> _manage() async {
+    final id = await showModalBottomSheet<String>(
+      context: context,
+      builder:
+          (c) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    c.recording('recordings'),
+                    style: Theme.of(c).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(c.recording('keepBoth')),
+                  for (final source in _sources)
+                    ListTile(
+                      title: Text(
+                        c.recording(source.phone ? 'phone' : 'watch'),
+                      ),
+                      subtitle: Text(source.source),
+                      trailing: const Icon(Icons.delete_outline),
+                      onTap: () => Navigator.pop(c, source.id),
+                    ),
+                ],
+              ),
+            ),
+          ),
+    );
+    if (id == null || !mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (c) => AlertDialog(
+            title: Text(c.recording('removeRecording')),
+            content: Text(c.recording('removeHint')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: Text(c.cardio('cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: Text(c.recording('remove')),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true || !mounted) return;
+    final p = context.read<CardioProvider>();
+    try {
+      await p.repository.removeRecording(
+        widget.runtime['sessionId'] as String,
+        id,
+      );
+      await p.load();
+      if (mounted) setState(_refreshSources);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(context.cardio('error'))));
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _route = context.read<CardioProvider>().repository.route(
-      widget.runtime['sessionId'] as String,
-    );
-    final feedback = widget.snapshot?['feedback'] as Map?;
+    _refreshSources();
+    final feedback = _snapshot['feedback'] as Map?;
     _effort = (feedback?['rpe'] as num?)?.toDouble() ?? 5;
     _discomfort = feedback?['discomfort'] == true;
     _talkComfort = feedback?['talkComfort'] as bool?;
@@ -691,12 +798,26 @@ class _SummaryState extends State<CardioSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final r = widget.runtime;
+    final observed = context.watch<CardioProvider>();
+    if (_sourceRevision != observed.revision) _refreshSources();
+    final selected = _sources.where((r) => r.id == _selected).firstOrNull;
+    final r = selected?.runtime ?? widget.runtime;
+    final pulseSource =
+        r['averageHeartRate'] != null
+            ? selected
+            : _sources
+                .where((s) => s.runtime['averageHeartRate'] != null)
+                .firstOrNull;
+    final pulse =
+        r['averageHeartRate'] ?? pulseSource?.runtime['averageHeartRate'];
     final p = context.read<CardioProvider>();
     final seconds = (r['activeSeconds'] as num? ?? 0).toDouble(),
         meters = (r['distanceMeters'] as num? ?? 0).toDouble();
     final cooldown =
-        (r['cooldown'] as List? ?? [])
+        ((_snapshot['workout'] as Map?)?['cooldown'] as List? ??
+                widget.runtime['cooldown'] as List? ??
+                r['cooldown'] as List? ??
+                [])
             .map(
               (v) => RoutineStep.fromJson(Map<String, dynamic>.from(v as Map)),
             )
@@ -704,39 +825,85 @@ class _SummaryState extends State<CardioSummaryScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(context.cardio('summary'))),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         children: [
           Text(
             r['name'] as String? ?? context.cardio('completed'),
             style: Theme.of(context).textTheme.headlineMedium,
           ),
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 24,
-            runSpacing: 16,
-            children: [
-              _Metric(
-                context.cardio(
-                  r['durationBasis'] == 'elapsed' ? 'elapsed' : 'activeTime',
-                ),
-                CardioUnits.clock(seconds),
+          const SizedBox(height: 16),
+          if (_sources.length > 1) ...[
+            SegmentedButton<String>(
+              segments: [
+                for (final source in _sources)
+                  ButtonSegment(
+                    value: source.id,
+                    label: Text(
+                      context.recording(source.phone ? 'phone' : 'watch'),
+                    ),
+                    icon: Icon(
+                      source.phone ? Icons.smartphone : Icons.watch_outlined,
+                    ),
+                  ),
+              ],
+              selected: {_selected!},
+              onSelectionChanged: (s) => _select(s.single),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _manage,
+                child: Text(context.recording('recordings')),
               ),
-              if (r['indoor'] != true || r['distanceMeasured'] == true)
+            ),
+          ],
+          if (selected != null && !selected.phone) ...[
+            Text(
+              selected.source,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: 8),
+          ],
+          GestureDetector(
+            onHorizontalDragEnd: (details) {
+              if (_sources.length > 1) {
+                final index = _sources.indexWhere((s) => s.id == _selected);
+                _select(
+                  _sources[(index + (details.primaryVelocity! < 0 ? 1 : -1)) %
+                          _sources.length]
+                      .id,
+                );
+              }
+            },
+            child: Wrap(
+              spacing: 24,
+              runSpacing: 16,
+              children: [
                 _Metric(
-                  context.cardio('distance'),
-                  CardioUnits.distance(meters, p.profile.units),
+                  context.cardio(
+                    r['durationBasis'] == 'elapsed' ? 'elapsed' : 'activeTime',
+                  ),
+                  CardioUnits.clock(seconds),
                 ),
-              if (seconds > 0 && meters > 0)
-                _Metric(
-                  context.cardio('average'),
-                  CardioUnits.pace(meters / seconds, p.profile.units),
-                ),
-              if (r['averageHeartRate'] != null)
-                _Metric(
-                  context.cardio('heartRate'),
-                  '${(r['averageHeartRate'] as num).round()} bpm',
-                ),
-            ],
+                if (r['distanceMeasured'] != false &&
+                    r['distanceMeters'] != null &&
+                    (r['indoor'] != true || r['distanceMeasured'] == true))
+                  _Metric(
+                    context.cardio('distance'),
+                    CardioUnits.distance(meters, p.profile.units),
+                  ),
+                if (seconds > 0 && meters > 0)
+                  _Metric(
+                    context.cardio('average'),
+                    CardioUnits.pace(meters / seconds, p.profile.units),
+                  ),
+                if (pulse != null)
+                  _Metric(
+                    '${context.cardio('heartRate')}${pulseSource?.id != selected?.id ? ' · ${context.recording(pulseSource!.phone ? 'phone' : 'watch')}' : ''}',
+                    '${(pulse as num).round()} bpm',
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           FutureBuilder<List<Map<String, dynamic>>>(
@@ -745,7 +912,10 @@ class _SummaryState extends State<CardioSummaryScreen> {
                 (c, s) =>
                     !s.hasData
                         ? const SizedBox.shrink()
-                        : CardioRouteView(samples: s.data!),
+                        : CardioRouteView(
+                          key: ValueKey(_selected),
+                          samples: s.data!,
+                        ),
           ),
           if (cooldown.isNotEmpty)
             Padding(
@@ -849,7 +1019,7 @@ class _SummaryState extends State<CardioSummaryScreen> {
                 ),
             ],
           ),
-          if (widget.snapshot?['health'] != null) ...[
+          if (_snapshot['health'] != null) ...[
             const SizedBox(height: 16),
             Text(context.forecast('healthEvidence')),
             const SizedBox(height: 16),
@@ -930,4 +1100,4 @@ class _SummaryState extends State<CardioSummaryScreen> {
 }
 
 Map<String, dynamic> cardioHistoryRuntime(Map<String, Object?> row) =>
-    jsonDecode(row['runtime_json'] as String? ?? '{}') as Map<String, dynamic>;
+    CardioRecording.display(row);

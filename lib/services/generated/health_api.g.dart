@@ -14,20 +14,24 @@ PlatformException _createConnectionError(String channelName) {
     message: 'Unable to establish connection on channel: "$channelName".',
   );
 }
+
 bool _deepEquals(Object? a, Object? b) {
   if (a is List && b is List) {
     return a.length == b.length &&
-        a.indexed
-        .every(((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]));
+        a.indexed.every(
+          ((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]),
+        );
   }
   if (a is Map && b is Map) {
-    return a.length == b.length && a.entries.every((MapEntry<Object?, Object?> entry) =>
-        (b as Map<Object?, Object?>).containsKey(entry.key) &&
-        _deepEquals(entry.value, b[entry.key]));
+    return a.length == b.length &&
+        a.entries.every(
+          (MapEntry<Object?, Object?> entry) =>
+              (b as Map<Object?, Object?>).containsKey(entry.key) &&
+              _deepEquals(entry.value, b[entry.key]),
+        );
   }
   return a == b;
 }
-
 
 class HealthAccess {
   HealthAccess({
@@ -46,16 +50,12 @@ class HealthAccess {
   String ownSource;
 
   List<Object?> _toList() {
-    return <Object?>[
-      available,
-      readState,
-      canWrite,
-      ownSource,
-    ];
+    return <Object?>[available, readState, canWrite, ownSource];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static HealthAccess decode(Object result) {
     result as List<Object?>;
@@ -81,8 +81,7 @@ class HealthAccess {
 
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
-  int get hashCode => Object.hashAll(_toList())
-;
+  int get hashCode => Object.hashAll(_toList());
 }
 
 class HealthRoutePoint {
@@ -105,17 +104,12 @@ class HealthRoutePoint {
   double? altitude;
 
   List<Object?> _toList() {
-    return <Object?>[
-      timestamp,
-      latitude,
-      longitude,
-      accuracy,
-      altitude,
-    ];
+    return <Object?>[timestamp, latitude, longitude, accuracy, altitude];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static HealthRoutePoint decode(Object result) {
     result as List<Object?>;
@@ -142,8 +136,7 @@ class HealthRoutePoint {
 
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
-  int get hashCode => Object.hashAll(_toList())
-;
+  int get hashCode => Object.hashAll(_toList());
 }
 
 class HealthWorkout {
@@ -204,7 +197,8 @@ class HealthWorkout {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static HealthWorkout decode(Object result) {
     result as List<Object?>;
@@ -238,29 +232,23 @@ class HealthWorkout {
 
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
-  int get hashCode => Object.hashAll(_toList())
-;
+  int get hashCode => Object.hashAll(_toList());
 }
 
 class HealthRoute {
-  HealthRoute({
-    required this.state,
-    required this.points,
-  });
+  HealthRoute({required this.state, required this.points});
 
   String state;
 
   List<HealthRoutePoint> points;
 
   List<Object?> _toList() {
-    return <Object?>[
-      state,
-      points,
-    ];
+    return <Object?>[state, points];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static HealthRoute decode(Object result) {
     result as List<Object?>;
@@ -284,10 +272,8 @@ class HealthRoute {
 
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
-  int get hashCode => Object.hashAll(_toList())
-;
+  int get hashCode => Object.hashAll(_toList());
 }
-
 
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
@@ -296,16 +282,16 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is HealthAccess) {
+    } else if (value is HealthAccess) {
       buffer.putUint8(129);
       writeValue(buffer, value.encode());
-    }    else if (value is HealthRoutePoint) {
+    } else if (value is HealthRoutePoint) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
-    }    else if (value is HealthWorkout) {
+    } else if (value is HealthWorkout) {
       buffer.putUint8(131);
       writeValue(buffer, value.encode());
-    }    else if (value is HealthRoute) {
+    } else if (value is HealthRoute) {
       buffer.putUint8(132);
       writeValue(buffer, value.encode());
     } else {
@@ -316,13 +302,13 @@ class _PigeonCodec extends StandardMessageCodec {
   @override
   Object? readValueOfType(int type, ReadBuffer buffer) {
     switch (type) {
-      case 129: 
+      case 129:
         return HealthAccess.decode(readValue(buffer)!);
-      case 130: 
+      case 130:
         return HealthRoutePoint.decode(readValue(buffer)!);
-      case 131: 
+      case 131:
         return HealthWorkout.decode(readValue(buffer)!);
-      case 132: 
+      case 132:
         return HealthRoute.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -334,23 +320,35 @@ class HealthHostApi {
   /// Constructor for [HealthHostApi].  The [binaryMessenger] named argument is
   /// available for dependency injection.  If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
-  HealthHostApi({BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
-      : pigeonVar_binaryMessenger = binaryMessenger,
-        pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+  HealthHostApi({
+    BinaryMessenger? binaryMessenger,
+    String messageChannelSuffix = '',
+  }) : pigeonVar_binaryMessenger = binaryMessenger,
+       pigeonVar_messageChannelSuffix =
+           messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
   final BinaryMessenger? pigeonVar_binaryMessenger;
 
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
 
   final String pigeonVar_messageChannelSuffix;
 
-  Future<HealthAccess> access(bool request, bool write, bool heartRate, bool route) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.trainy.HealthHostApi.access$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
-      pigeonVar_channelName,
-      pigeonChannelCodec,
-      binaryMessenger: pigeonVar_binaryMessenger,
+  Future<HealthAccess> access(
+    bool request,
+    bool write,
+    bool heartRate,
+    bool route,
+  ) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.trainy.HealthHostApi.access$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+          pigeonVar_channelName,
+          pigeonChannelCodec,
+          binaryMessenger: pigeonVar_binaryMessenger,
+        );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[request, write, heartRate, route],
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[request, write, heartRate, route]);
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_sendFuture as List<Object?>?;
     if (pigeonVar_replyList == null) {
@@ -372,13 +370,17 @@ class HealthHostApi {
   }
 
   Future<List<HealthWorkout>> workouts(int start, int end) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.trainy.HealthHostApi.workouts$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
-      pigeonVar_channelName,
-      pigeonChannelCodec,
-      binaryMessenger: pigeonVar_binaryMessenger,
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.trainy.HealthHostApi.workouts$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+          pigeonVar_channelName,
+          pigeonChannelCodec,
+          binaryMessenger: pigeonVar_binaryMessenger,
+        );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[start, end],
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[start, end]);
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_sendFuture as List<Object?>?;
     if (pigeonVar_replyList == null) {
@@ -399,14 +401,18 @@ class HealthHostApi {
     }
   }
 
-  Future<HealthRoute> route(String workoutId) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.trainy.HealthHostApi.route$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
-      pigeonVar_channelName,
-      pigeonChannelCodec,
-      binaryMessenger: pigeonVar_binaryMessenger,
+  Future<HealthRoute> route(String workoutId, bool allowPrompt) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.trainy.HealthHostApi.route$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+          pigeonVar_channelName,
+          pigeonChannelCodec,
+          binaryMessenger: pigeonVar_binaryMessenger,
+        );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[workoutId, allowPrompt],
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[workoutId]);
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_sendFuture as List<Object?>?;
     if (pigeonVar_replyList == null) {
@@ -427,14 +433,43 @@ class HealthHostApi {
     }
   }
 
+  Future<void> openSettings() async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.trainy.HealthHostApi.openSettings$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+          pigeonVar_channelName,
+          pigeonChannelCodec,
+          binaryMessenger: pigeonVar_binaryMessenger,
+        );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else {
+      return;
+    }
+  }
+
   Future<String> saveWorkout(HealthWorkout workout) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.trainy.HealthHostApi.saveWorkout$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
-      pigeonVar_channelName,
-      pigeonChannelCodec,
-      binaryMessenger: pigeonVar_binaryMessenger,
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.trainy.HealthHostApi.saveWorkout$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+          pigeonVar_channelName,
+          pigeonChannelCodec,
+          binaryMessenger: pigeonVar_binaryMessenger,
+        );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[workout],
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[workout]);
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_sendFuture as List<Object?>?;
     if (pigeonVar_replyList == null) {
@@ -455,14 +490,21 @@ class HealthHostApi {
     }
   }
 
-  Future<void> saveRoute(String workoutId, List<HealthRoutePoint> points) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.trainy.HealthHostApi.saveRoute$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
-      pigeonVar_channelName,
-      pigeonChannelCodec,
-      binaryMessenger: pigeonVar_binaryMessenger,
+  Future<void> saveRoute(
+    String workoutId,
+    List<HealthRoutePoint> points,
+  ) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.trainy.HealthHostApi.saveRoute$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+          pigeonVar_channelName,
+          pigeonChannelCodec,
+          binaryMessenger: pigeonVar_binaryMessenger,
+        );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[workoutId, points],
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[workoutId, points]);
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_sendFuture as List<Object?>?;
     if (pigeonVar_replyList == null) {
